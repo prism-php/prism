@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"article_count\": 358,\n  \"legal_jurisdiction\": \"European Union\",\n  \"legislation_type\": \"Treaty\"\n}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.012719466498023585
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 88830,
+    "candidatesTokenCount": 38,
+    "totalTokenCount": 88868,
+    "cachedContentTokenCount": 88759,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 71
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 38
+      }
+    ]
+  },
+  "modelVersion": "gemini-1.5-flash-002"
+}
