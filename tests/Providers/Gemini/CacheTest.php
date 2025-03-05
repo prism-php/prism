@@ -13,8 +13,6 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 it('can store a document in the cache', function (): void {
-    $file = file_get_contents('https://eur-lex.europa.eu/LexUriServ/LexUriServ.do?uri=CELEX:12012E/TXT:en:PDF');
-
     FixtureResponse::fakeResponseSequence('*', 'gemini/create-cache');
 
     /** @var Gemini */
@@ -24,7 +22,7 @@ it('can store a document in the cache', function (): void {
         model: 'gemini-1.5-flash-002',
         messages: [
             new UserMessage('', [
-                Document::fromBase64(base64_encode($file), 'application/pdf'),
+                Document::fromPath('tests/Fixtures/long-document.pdf'),
             ]),
         ],
         systemPrompts: [
