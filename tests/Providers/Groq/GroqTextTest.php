@@ -136,7 +136,7 @@ describe('Text generation for Groq', function (): void {
         $this->expectExceptionMessage('Invalid tool choice');
 
         Prism::text()
-            ->using('groq', 'gpt-4')
+            ->using('groq', 'llama3-groq-70b-8192-tool-use-preview')
             ->withPrompt('Who are you?')
             ->withToolChoice(ToolChoice::Any)
             ->generate();

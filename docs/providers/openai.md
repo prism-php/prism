@@ -34,8 +34,3 @@ $response = Prism::structured()
         ] // [!code focus]
     ]) // [!code focus]
 ```
-
-## Limitations
-### Tool Choice
-
-OpenAI does not support `ToolChoice::Any` when using `withToolChoice()`.

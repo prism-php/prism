@@ -8,7 +8,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\ToolChoice;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
@@ -205,15 +204,24 @@ it('handles specific tool choice', function (): void {
     expect($response->toolCalls[0]->name)->toBe('weather');
 });
 
-it('throws an exception for ToolChoice::Any', function (): void {
-    $this->expectException(PrismException::class);
-    $this->expectExceptionMessage('Invalid tool choice');
+it('handles required tool', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-required-tool-call');
 
-    Prism::text()
-        ->using('openai', 'gpt-4')
-        ->withPrompt('Who are you?')
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('What is the weather like in Paris?')
+        ->withTools($tools)
         ->withToolChoice(ToolChoice::Any)
         ->generate();
+
+    expect($response->toolCalls[0]->name)->toBe('weather');
 });
 
 it('sets the rate limits on meta', function (): void {
