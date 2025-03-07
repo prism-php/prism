@@ -71,7 +71,7 @@ class Structured extends AnthropicHandlerAbstract
      * @return array<string, mixed>
      */
     #[\Override]
-    public static function buildHttpRequestPayload(PrismRequest $request): array
+    public static function buildHttpRequestPayload(PrismRequest $request, int $currentStep = 0): array
     {
         if (! $request->is(StructuredRequest::class)) {
             throw new \InvalidArgumentException('Request must be an instance of '.StructuredRequest::class);

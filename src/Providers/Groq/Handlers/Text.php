@@ -76,7 +76,7 @@ class Text
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    'tool_choice' => ToolChoiceMap::map($request->toolChoice(), $this->responseBuilder->steps->count(), $request->toolChoiceAutoAfterSteps()),
                 ])
             );
         } catch (Throwable $e) {
