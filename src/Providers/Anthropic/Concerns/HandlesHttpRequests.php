@@ -15,13 +15,13 @@ trait HandlesHttpRequests
     /**
      * @return array<string, mixed>
      */
-    abstract public static function buildHttpRequestPayload(PrismRequest $request): array;
+    abstract public static function buildHttpRequestPayload(PrismRequest $request, int $currentStep = 0): array;
 
-    protected function sendRequest(): void
+    protected function sendRequest(int $currentStep = 0): void
     {
         $this->httpResponse = $this->client->post(
             'messages',
-            static::buildHttpRequestPayload($this->request)
+            static::buildHttpRequestPayload($this->request, $currentStep)
         );
 
         $this->handleResponseErrors();

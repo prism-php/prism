@@ -47,7 +47,7 @@ class Text
 
     public function handle(): Response
     {
-        $this->sendRequest();
+        $this->sendRequest($this->responseBuilder->steps->count());
 
         $this->prepareTempResponse();
 
@@ -73,7 +73,7 @@ class Text
      * @return array<string, mixed>
      */
     #[\Override]
-    public static function buildHttpRequestPayload(PrismRequest $request): array
+    public static function buildHttpRequestPayload(PrismRequest $request, int $currentStep = 0): array
     {
         if (! $request->is(TextRequest::class)) {
             throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
@@ -95,7 +95,7 @@ class Text
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'tools' => static::buildTools($request) ?: null,
-            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            'tool_choice' => ToolChoiceMap::map($request->toolChoice(), $currentStep, $request->toolChoiceAutoAfterSteps()),
         ]);
     }
 

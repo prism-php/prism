@@ -116,7 +116,7 @@ class Text
                 'top_p' => $request->topP(),
                 'metadata' => $request->providerOptions('metadata'),
                 'tools' => $this->buildTools($request),
-                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'tool_choice' => ToolChoiceMap::map($request->toolChoice(), $this->responseBuilder->steps->count(), $request->toolChoiceAutoAfterSteps()),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
             ]))
