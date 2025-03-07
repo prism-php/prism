@@ -12,9 +12,13 @@ class ToolChoiceMap
     /**
      * @return array<string, mixed>|string|null
      */
-    public static function map(string|ToolChoice|null $toolChoice): string|array|null
+    public static function map(string|ToolChoice|null $toolChoice, int $currentStep = 0, ?int $autoAfterSteps = null): string|array|null
     {
         if (is_string($toolChoice)) {
+            if (! is_null($autoAfterSteps) && $currentStep >= $autoAfterSteps) {
+                return 'auto';
+            }
+
             return [
                 'type' => 'function',
                 'function' => [
@@ -25,6 +29,7 @@ class ToolChoiceMap
 
         return match ($toolChoice) {
             ToolChoice::Auto => 'auto',
+            ToolChoice::Any => ! is_null($autoAfterSteps) && $currentStep >= $autoAfterSteps ? 'auto' : 'required',
             null => $toolChoice,
             default => throw new InvalidArgumentException('Invalid tool choice')
         };
