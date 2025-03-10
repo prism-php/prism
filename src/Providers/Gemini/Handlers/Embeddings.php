@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Gemini\Handlers;
+namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Embeddings\Request;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\ValueObjects\Embedding;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
+use Prism\Prism\Embeddings\Request;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
 use Throwable;
 
 class Embeddings

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Exceptions;
+namespace Prism\Prism\Exceptions;
 
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 
 class PrismRequestTooLargeException extends PrismException
 {

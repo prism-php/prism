@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Ollama;
+namespace Prism\Prism\Providers\Ollama;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Contracts\Provider;
-use PrismPHP\Prism\Embeddings\Request as EmbeddingsRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\Ollama\Handlers\Embeddings;
-use PrismPHP\Prism\Providers\Ollama\Handlers\Structured;
-use PrismPHP\Prism\Providers\Ollama\Handlers\Text;
-use PrismPHP\Prism\Stream\Request as StreamRequest;
-use PrismPHP\Prism\Structured\Request as StructuredRequest;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Text\Request as TextRequest;
-use PrismPHP\Prism\Text\Response as TextResponse;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
+use Prism\Prism\Providers\Ollama\Handlers\Structured;
+use Prism\Prism\Providers\Ollama\Handlers\Text;
+use Prism\Prism\Stream\Request as StreamRequest;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
 
 readonly class Ollama implements Provider
 {

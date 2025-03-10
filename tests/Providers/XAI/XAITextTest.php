@@ -6,15 +6,15 @@ namespace Tests\Providers\XAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Enums\ToolChoice;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Text\Response as TextResponse;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
+use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

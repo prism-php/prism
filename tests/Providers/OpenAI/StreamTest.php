@@ -6,9 +6,9 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

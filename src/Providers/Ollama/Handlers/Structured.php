@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Ollama\Handlers;
+namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use PrismPHP\Prism\Providers\Ollama\Concerns\ValidatesResponse;
-use PrismPHP\Prism\Providers\Ollama\Maps\MessageMap;
-use PrismPHP\Prism\Structured\Request;
-use PrismPHP\Prism\Structured\Response;
-use PrismPHP\Prism\Structured\ResponseBuilder;
-use PrismPHP\Prism\Structured\Step;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Ollama\Maps\MessageMap;
+use Prism\Prism\Structured\Request;
+use Prism\Prism\Structured\Response;
+use Prism\Prism\Structured\ResponseBuilder;
+use Prism\Prism\Structured\Step;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
 class Structured

@@ -5,7 +5,7 @@
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "PrismPHP\\Prism\\": "src/"
+      "Prism\\Prism\\": "src/"
     }
   },
   "authors": [
@@ -86,10 +86,10 @@
   "extra": {
     "laravel": {
       "providers": [
-        "PrismPHP\\Prism\\PrismServiceProvider"
+        "Prism\\Prism\\PrismServiceProvider"
       ],
       "aliases": {
-        "PrismServer": "PrismPHP\\Prism\\Facades\\PrismServer"
+        "PrismServer": "Prism\\Prism\\Facades\\PrismServer"
       }
     }
   }

@@ -7,7 +7,7 @@ Want to show AI responses to your users in real-time? Streaming lets you display
 At its simplest, streaming works like this:
 
 ```php
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Prism;
 
 $response = Prism::stream()
     ->using('openai', 'gpt-4')
@@ -44,8 +44,8 @@ foreach ($response as $chunk) {
 Streaming works seamlessly with tools, allowing real-time interaction:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
 
 $weatherTool = Tool::as('weather')
     ->for('Get current weather information')
@@ -95,7 +95,7 @@ Here's how to integrate streaming in a Laravel controller:
 Alternatively, you might consider using Laravel's [Broadcasting feature](https://laravel.com/docs/12.x/broadcasting) to send the chunks to your frontend.
 
 ```php
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Prism;
 use Illuminate\Http\Response;
 
 public function streamResponse()

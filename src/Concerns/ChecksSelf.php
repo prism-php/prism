@@ -1,6 +1,6 @@
 <?php
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
 trait ChecksSelf
 {

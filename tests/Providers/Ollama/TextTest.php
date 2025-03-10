@@ -6,13 +6,13 @@ namespace Tests\Providers\Ollama;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 describe('Text generation', function (): void {

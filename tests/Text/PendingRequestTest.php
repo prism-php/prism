@@ -3,15 +3,15 @@
 declare(strict_types=1);
 
 use Illuminate\Contracts\View\View;
-use PrismPHP\Prism\Contracts\Provider as ProviderContract;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Enums\ToolChoice;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Text\PendingRequest;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Contracts\Provider as ProviderContract;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\TestDoubles\TestProvider;
 
 beforeEach(function (): void {

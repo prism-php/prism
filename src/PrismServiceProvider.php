@@ -1,6 +1,6 @@
 <?php
 
-namespace PrismPHP\Prism;
+namespace Prism\Prism;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\ValueObjects\Messages;
+namespace Prism\Prism\ValueObjects\Messages;
 
-use PrismPHP\Prism\Concerns\HasProviderMeta;
-use PrismPHP\Prism\Contracts\Message;
+use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Contracts\Message;
 
 class SystemMessage implements Message
 {

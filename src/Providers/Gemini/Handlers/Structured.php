@@ -1,22 +1,22 @@
 <?php
 
-namespace PrismPHP\Prism\Providers\Gemini\Handlers;
+namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\Gemini\Concerns\ValidatesResponse;
-use PrismPHP\Prism\Providers\Gemini\Maps\FinishReasonMap;
-use PrismPHP\Prism\Providers\Gemini\Maps\MessageMap;
-use PrismPHP\Prism\Providers\Gemini\Maps\SchemaMap;
-use PrismPHP\Prism\Structured\Request;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Structured\ResponseBuilder;
-use PrismPHP\Prism\Structured\Step;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
+use Prism\Prism\Providers\Gemini\Maps\MessageMap;
+use Prism\Prism\Providers\Gemini\Maps\SchemaMap;
+use Prism\Prism\Structured\Request;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Structured\ResponseBuilder;
+use Prism\Prism\Structured\Step;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
 class Structured

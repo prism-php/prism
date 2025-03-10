@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism;
+namespace Prism\Prism;
 
 use ArgumentCountError;
 use Closure;
 use Error;
 use InvalidArgumentException;
-use PrismPHP\Prism\Concerns\HasProviderMeta;
-use PrismPHP\Prism\Contracts\Schema;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Schema\ArraySchema;
-use PrismPHP\Prism\Schema\BooleanSchema;
-use PrismPHP\Prism\Schema\EnumSchema;
-use PrismPHP\Prism\Schema\NumberSchema;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Schema\ArraySchema;
+use Prism\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\EnumSchema;
+use Prism\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
 use Throwable;
 use TypeError;
 

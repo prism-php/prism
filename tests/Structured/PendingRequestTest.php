@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Enums\StructuredMode;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\Structured\PendingRequest;
-use PrismPHP\Prism\Structured\Request;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StructuredMode;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Structured\PendingRequest;
+use Prism\Prism\Structured\Request;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 beforeEach(function (): void {
     $this->pendingRequest = new PendingRequest;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Embeddings;
+namespace Prism\Prism\Embeddings;
 
-use PrismPHP\Prism\ValueObjects\Embedding;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
 
 readonly class Response
 {

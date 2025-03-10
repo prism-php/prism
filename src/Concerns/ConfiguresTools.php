@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
-use PrismPHP\Prism\Enums\ToolChoice;
-use PrismPHP\Prism\Tool;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Tool;
 
 trait ConfiguresTools
 {

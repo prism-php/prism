@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use InvalidArgumentException;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
-use PrismPHP\Prism\Providers\Anthropic\Maps\MessageMap;
-use PrismPHP\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Messages\ToolResultMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\ToolCall;
-use PrismPHP\Prism\ValueObjects\ToolResult;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
+use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
+use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 
 describe('Anthropic user message mapping', function (): void {
 

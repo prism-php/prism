@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Anthropic\Maps;
+namespace Prism\Prism\Providers\Anthropic\Maps;
 
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Tool as PrismTool;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Tool as PrismTool;
 use UnitEnum;
 
 class ToolMap

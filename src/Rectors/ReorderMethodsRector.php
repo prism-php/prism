@@ -1,6 +1,6 @@
 <?php
 
-namespace PrismPHP\Prism\Rectors;
+namespace Prism\Prism\Rectors;
 
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Class_;

@@ -1,17 +1,17 @@
 <?php
 
-namespace PrismPHP\Prism\Providers\VoyageAI;
+namespace Prism\Prism\Providers\VoyageAI;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Embeddings\Request as EmbeddingsRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\ValueObjects\Embedding;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
+use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {

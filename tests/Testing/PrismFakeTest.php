@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Tests\Testing;
 
 use Exception;
-use PrismPHP\Prism\Embeddings\Request as EmbeddingRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingResponse;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\Structured\Request as StructuredRequest;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Text\Request as TextRequest;
-use PrismPHP\Prism\Text\Response as TextResponse;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Embeddings\Request as EmbeddingRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 
 it('fake responses using the prism fake for text', function (): void {
     $fake = Prism::fake([

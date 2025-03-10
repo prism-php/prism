@@ -24,11 +24,11 @@ We support Anthropic prompt caching on:
 The API for enabling prompt caching is the same for all, enabled via the `withProviderMeta()` method. Where a UserMessage contains both text and an image or document, both will be cached.
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Tool;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -49,10 +49,10 @@ Prism::text()
 If you prefer, you can use the `AnthropicCacheType` Enum like so:
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Enums\Provider;
+use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 (new UserMessage('I am a long re-usable user message.'))->withProviderMeta(Provider::Anthropic, ['cacheType' => AnthropicCacheType::ephemeral])
 ```
@@ -68,8 +68,8 @@ Claude Sonnet 3.7 supports an optional extended thinking mode, where it will rea
 Prism supports thinking mode for text and structured with the same API:
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
 
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
@@ -83,8 +83,8 @@ By default Prism will set the thinking budget to the value set in config, or whe
 You can overide the config (or its default) using `withProviderMeta`:
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
 
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
@@ -110,8 +110,8 @@ You can access it via the additionalContent property on either the Response or t
 On the Response (easiest if not using tools):
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
 
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
@@ -157,10 +157,10 @@ Anthropic also supports "custom content documents", separately documented below,
 Custom content documents are primarily for use with citations (see below), if you need citations to reference your own chunking strategy.
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -186,10 +186,10 @@ Please note however that due to Anthropic not supporting "native" structured out
 Anthropic require citations to be enabled on all documents in a request. To enable them, using the `withProviderMeta()` method when building your request:
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -216,8 +216,8 @@ You can access the chunked output with its citations via the additionalContent p
 As a rough worked example, let's assume you want to implement footnotes. You'll need to loop through those chunks and (1) re-construct the message with links to the footnotes; and (2) build an array of footnotes to loop through in your frontend.
 
 ```php
-use PrismPHP\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use PrismPHP\Prism\Providers\Anthropic\ValueObjects\Citation;
+use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
 
 $messageChunks = $response->additionalContent['messagePartsWithCitations'];
 

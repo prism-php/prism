@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Gemini;
 
-use PrismPHP\Prism\Enums\ToolChoice;
-use PrismPHP\Prism\Providers\Gemini\Maps\ToolChoiceMap;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
 
 it('maps string tool choice to ANY mode with allowed function', function (): void {
     expect(ToolChoiceMap::map('weather'))->toBe([

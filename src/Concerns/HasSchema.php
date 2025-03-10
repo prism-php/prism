@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
-use PrismPHP\Prism\Contracts\Schema;
+use Prism\Prism\Contracts\Schema;
 
 trait HasSchema
 {

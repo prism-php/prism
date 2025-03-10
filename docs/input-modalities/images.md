@@ -11,8 +11,8 @@ Note however that not all models with a supported provider support vision. If yo
 To add an image to your message, add an `Image` value object to the `additionalContent` property:
 
 ```php
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
 
 // From a local file
 $message = new UserMessage(

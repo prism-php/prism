@@ -1,8 +1,8 @@
 <?php
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 
 trait HasProviderMeta
 {

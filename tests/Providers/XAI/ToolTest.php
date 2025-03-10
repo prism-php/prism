@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Providers\XAI;
 
-use PrismPHP\Prism\Providers\XAI\Maps\ToolMap;
-use PrismPHP\Prism\Tool;
+use Prism\Prism\Providers\XAI\Maps\ToolMap;
+use Prism\Prism\Tool;
 
 it('maps tools', function (): void {
     $tool = (new Tool)

@@ -2,11 +2,11 @@
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Exceptions\PrismProviderOverloadedException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Exceptions\PrismRequestTooLargeException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 it('throws a RateLimitException if the Anthropic responds with a 429', function (): void {
     Http::fake([

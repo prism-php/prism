@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\OpenAI\Concerns;
+namespace Prism\Prism\Providers\OpenAI\Concerns;
 
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 
 trait ValidatesResponse
 {

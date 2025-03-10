@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Structured;
+namespace Prism\Prism\Structured;
 
 use Closure;
-use PrismPHP\Prism\Concerns\ChecksSelf;
-use PrismPHP\Prism\Concerns\HasProviderMeta;
-use PrismPHP\Prism\Contracts\Message;
-use PrismPHP\Prism\Contracts\PrismRequest;
-use PrismPHP\Prism\Contracts\Schema;
-use PrismPHP\Prism\Enums\StructuredMode;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\Concerns\ChecksSelf;
+use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Contracts\Message;
+use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Enums\StructuredMode;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 class Request implements PrismRequest
 {

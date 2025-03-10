@@ -1,6 +1,6 @@
 <?php
 
-namespace PrismPHP\Prism\Providers\Anthropic\Enums;
+namespace Prism\Prism\Providers\Anthropic\Enums;
 
 enum AnthropicCacheType: string
 {

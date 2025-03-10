@@ -25,9 +25,9 @@ First, make sure Prism Server is enabled in your `config/prism.php` file:
 To make your Prism models available through the server, you need to register them. This is typically done in a service provider, such as `AppServiceProvider`:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Facades\PrismServer;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\PrismServer;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Tool;
-use PrismPHP\Prism\ValueObjects\ToolCall;
-use PrismPHP\Prism\ValueObjects\ToolResult;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Throwable;
 
 trait CallsTools

@@ -7,8 +7,8 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```php
-use PrismPHP\Prism\Facades\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-sonnet')
@@ -47,8 +47,8 @@ You an also pass a View to the `withPrompt` method.
 For interactive conversations, use message chains to maintain context:
 
 ```php
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-sonnet')
@@ -75,7 +75,7 @@ $response = Prism::text()
 Prism supports including images in your messages for visual analysis:
 
 ```php
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
 
 // From a local file
 $message = new UserMessage(
@@ -188,7 +188,7 @@ case Unknown;
 Remember to handle potential errors in your generations:
 
 ```php
-use PrismPHP\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismException;
 use Throwable;
 
 try {

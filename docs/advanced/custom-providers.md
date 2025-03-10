@@ -4,15 +4,15 @@ Want to add support for a new AI provider in Prism? This guide will walk you thr
 
 ## Provider Interface
 
-All providers must implement the `PrismPHP\Prism\Contracts\Provider` interface:
+All providers must implement the `Prism\Prism\Contracts\Provider` interface:
 
 ```php
-use PrismPHP\Prism\Embeddings\Request as EmbeddingsRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Structured\Request as StructuredRequest;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Text\Request as TextRequest;
-use PrismPHP\Prism\Text\Response as TextResponse;
+use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
 
 interface Provider
 {
@@ -65,7 +65,7 @@ return [
 Now you can use your custom provider:
 
 ```php
-use PrismPHP\Prism\Facades\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::text()
     ->using('my-custom-provider', 'model-name')

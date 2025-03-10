@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Prism;
 
 beforeEach(function (): void {
     config()->set('prism.providers.deepseek.api_key', env('DEEPSEEK_API_KEY'));

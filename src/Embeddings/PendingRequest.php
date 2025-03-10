@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Embeddings;
+namespace Prism\Prism\Embeddings;
 
-use PrismPHP\Prism\Concerns\ConfiguresClient;
-use PrismPHP\Prism\Concerns\ConfiguresProviders;
-use PrismPHP\Prism\Concerns\HasProviderMeta;
-use PrismPHP\Prism\Exceptions\PrismException;
+use Prism\Prism\Concerns\ConfiguresClient;
+use Prism\Prism\Concerns\ConfiguresProviders;
+use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Exceptions\PrismException;
 
 class PendingRequest
 {
@@ -52,7 +52,7 @@ class PendingRequest
         return $this;
     }
 
-    public function generate(): \PrismPHP\Prism\Embeddings\Response
+    public function generate(): \Prism\Prism\Embeddings\Response
     {
         if ($this->inputs === []) {
             throw new PrismException('Embeddings input is required');

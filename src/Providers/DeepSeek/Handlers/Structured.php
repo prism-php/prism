@@ -1,21 +1,21 @@
 <?php
 
-namespace PrismPHP\Prism\Providers\DeepSeek\Handlers;
+namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
-use PrismPHP\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
-use PrismPHP\Prism\Providers\DeepSeek\Maps\FinishReasonMap;
-use PrismPHP\Prism\Providers\DeepSeek\Maps\MessageMap;
-use PrismPHP\Prism\Structured\Request;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Structured\ResponseBuilder;
-use PrismPHP\Prism\Structured\Step;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
+use Prism\Prism\Providers\DeepSeek\Maps\FinishReasonMap;
+use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
+use Prism\Prism\Structured\Request;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Structured\ResponseBuilder;
+use Prism\Prism\Structured\Step;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
 class Structured

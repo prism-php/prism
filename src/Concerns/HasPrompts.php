@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
 use Illuminate\Contracts\View\View;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 trait HasPrompts
 {

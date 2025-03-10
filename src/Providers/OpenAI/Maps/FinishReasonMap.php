@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\OpenAI\Maps;
+namespace Prism\Prism\Providers\OpenAI\Maps;
 
-use PrismPHP\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\FinishReason;
 
 class FinishReasonMap
 {

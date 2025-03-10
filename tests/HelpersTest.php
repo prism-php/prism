@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Prism;
 
 it('can resolve prism from the container with helper function', function (): void {
     expect(prism())->toBeInstanceOf(Prism::class);

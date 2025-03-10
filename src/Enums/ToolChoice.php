@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Enums;
+namespace Prism\Prism\Enums;
 
 enum ToolChoice
 {

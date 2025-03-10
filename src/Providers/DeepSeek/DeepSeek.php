@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\DeepSeek;
+namespace Prism\Prism\Providers\DeepSeek;
 
 use Closure;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Contracts\Provider;
-use PrismPHP\Prism\Embeddings\Request as EmbeddingsRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\DeepSeek\Handlers\Structured;
-use PrismPHP\Prism\Providers\DeepSeek\Handlers\Text;
-use PrismPHP\Prism\Stream\Request as StreamRequest;
-use PrismPHP\Prism\Structured\Request as StructuredRequest;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Text\Request as TextRequest;
-use PrismPHP\Prism\Text\Response as TextResponse;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
+use Prism\Prism\Providers\DeepSeek\Handlers\Text;
+use Prism\Prism\Stream\Request as StreamRequest;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
 
 readonly class DeepSeek implements Provider
 {

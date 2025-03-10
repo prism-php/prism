@@ -7,10 +7,10 @@ Want your AI responses as neat and tidy as a Marie Kondo-approved closet? Struct
 Here's how to get structured data from your AI:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
 
 $schema = new ObjectSchema(
     name: 'movie_review',
@@ -54,8 +54,8 @@ Different AI providers handle structured output in two main ways:
 Providers may offer additional options for structured output. For example, OpenAI supports a "strict mode" for even tighter schema validation:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
     ->withProviderMeta(Provider::OpenAI, [
@@ -74,7 +74,7 @@ $response = Prism::structured()
 When working with structured responses, you have access to both the structured data and metadata about the generation:
 
 ```php
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Prism;
 
 $response = Prism::structured()
     ->withSchema($schema)
@@ -139,9 +139,9 @@ See the [Text Generation](./text-generation.md) documentation for comparison wit
 When working with structured output, it's especially important to handle potential errors:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 
 try {
     $response = Prism::structured()

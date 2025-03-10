@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism;
+namespace Prism\Prism;
 
 use Closure;
 use Illuminate\Contracts\Foundation\Application;
 use InvalidArgumentException;
-use PrismPHP\Prism\Contracts\Provider;
-use PrismPHP\Prism\Enums\Provider as ProviderEnum;
-use PrismPHP\Prism\Providers\Anthropic\Anthropic;
-use PrismPHP\Prism\Providers\DeepSeek\DeepSeek;
-use PrismPHP\Prism\Providers\Gemini\Gemini;
-use PrismPHP\Prism\Providers\Groq\Groq;
-use PrismPHP\Prism\Providers\Mistral\Mistral;
-use PrismPHP\Prism\Providers\Ollama\Ollama;
-use PrismPHP\Prism\Providers\OpenAI\OpenAI;
-use PrismPHP\Prism\Providers\VoyageAI\VoyageAI;
-use PrismPHP\Prism\Providers\XAI\XAI;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Enums\Provider as ProviderEnum;
+use Prism\Prism\Providers\Anthropic\Anthropic;
+use Prism\Prism\Providers\DeepSeek\DeepSeek;
+use Prism\Prism\Providers\Gemini\Gemini;
+use Prism\Prism\Providers\Groq\Groq;
+use Prism\Prism\Providers\Mistral\Mistral;
+use Prism\Prism\Providers\Ollama\Ollama;
+use Prism\Prism\Providers\OpenAI\OpenAI;
+use Prism\Prism\Providers\VoyageAI\VoyageAI;
+use Prism\Prism\Providers\XAI\XAI;
 use RuntimeException;
 
 class PrismManager

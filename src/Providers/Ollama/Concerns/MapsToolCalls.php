@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Ollama\Concerns;
+namespace Prism\Prism\Providers\Ollama\Concerns;
 
-use PrismPHP\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolCall;
 
 trait MapsToolCalls
 {

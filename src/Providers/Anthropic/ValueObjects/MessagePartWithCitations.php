@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Anthropic\ValueObjects;
+namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
 class MessagePartWithCitations
 {
@@ -21,7 +21,7 @@ class MessagePartWithCitations
     {
         return new self(
             $data['text'],
-            array_map(function (array $citation): \PrismPHP\Prism\Providers\Anthropic\ValueObjects\Citation {
+            array_map(function (array $citation): \Prism\Prism\Providers\Anthropic\ValueObjects\Citation {
                 $indexPropertyCommonPart = match ($citation['type']) {
                     'page_location' => 'page_number',
                     'char_location' => 'char_index',

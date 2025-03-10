@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Schema\ObjectSchema;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Prism;
+use Prism\Prism\Schema\ObjectSchema;
 
 it('throws an exception for text', function (): void {
     Http::fake()->preventStrayRequests();
@@ -15,7 +15,7 @@ it('throws an exception for text', function (): void {
         ->using(Provider::VoyageAI, 'test-model')
         ->withPrompt('Hello world.')
         ->generate();
-})->throws(PrismException::class, 'PrismPHP\Prism\Providers\VoyageAI\VoyageAI::text is not supported by VoyageAI');
+})->throws(PrismException::class, 'Prism\Prism\Providers\VoyageAI\VoyageAI::text is not supported by VoyageAI');
 
 it('throws an exception for structured', function (): void {
     Http::fake()->preventStrayRequests();
@@ -25,4 +25,4 @@ it('throws an exception for structured', function (): void {
         ->withSchema(new ObjectSchema('', '', []))
         ->withPrompt('Hello world.')
         ->generate();
-})->throws(PrismException::class, 'PrismPHP\Prism\Providers\VoyageAI\VoyageAI::structured is not supported by VoyageAI');
+})->throws(PrismException::class, 'Prism\Prism\Providers\VoyageAI\VoyageAI::structured is not supported by VoyageAI');

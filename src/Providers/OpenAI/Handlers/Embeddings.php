@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\OpenAI\Handlers;
+namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Embeddings\Request;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
-use PrismPHP\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
-use PrismPHP\Prism\ValueObjects\Embedding;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
+use Prism\Prism\Embeddings\Request;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
 use Throwable;
 
 class Embeddings
@@ -35,7 +35,7 @@ class Embeddings
         $data = $response->json();
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): \PrismPHP\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
+            embeddings: array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
             usage: new EmbeddingsUsage(data_get($data, 'usage.total_tokens', null)),
             meta: new Meta(
                 id: '',

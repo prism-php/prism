@@ -6,14 +6,14 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Mockery;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Facades\PrismServer;
-use PrismPHP\Prism\Text\PendingRequest;
-use PrismPHP\Prism\Text\Response;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Facades\PrismServer;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\Text\Response;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 
 beforeEach(function (): void {
     config()->set('prism.prism_server.enabled', true);

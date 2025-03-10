@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Illuminate\Support\Carbon;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\ValueObjects\Embedding;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -41,7 +41,7 @@ it('returns embeddings from file', function (): void {
         ->generate();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/mistral/embeddings-file-1.json'), true);
-    $embeddings = array_map(fn (array $item): \PrismPHP\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
+    $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
 
     expect($response->embeddings)->toBeArray();
     expect($response->embeddings[0]->embedding)->toBe($embeddings[0]->embedding);
@@ -60,7 +60,7 @@ it('works with multiple embeddings', function (): void {
         ->generate();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/mistral/embeddings-multiple-inputs-1.json'), true);
-    $embeddings = array_map(fn (array $item): \PrismPHP\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
+    $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
 
     expect($response->embeddings)->toBeArray();
     expect($response->embeddings[0]->embedding)->toBe($embeddings[0]->embedding);

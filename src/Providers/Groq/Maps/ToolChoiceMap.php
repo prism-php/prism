@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Groq\Maps;
+namespace Prism\Prism\Providers\Groq\Maps;
 
 use InvalidArgumentException;
-use PrismPHP\Prism\Enums\ToolChoice;
+use Prism\Prism\Enums\ToolChoice;
 
 class ToolChoiceMap
 {

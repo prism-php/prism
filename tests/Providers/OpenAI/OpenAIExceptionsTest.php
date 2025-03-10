@@ -6,11 +6,11 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Prism;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 arch()->expect([
     'Providers\OpenAI\Handlers\Text',

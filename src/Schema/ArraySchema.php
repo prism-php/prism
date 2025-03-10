@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Schema;
+namespace Prism\Prism\Schema;
 
-use PrismPHP\Prism\Concerns\NullableSchema;
-use PrismPHP\Prism\Contracts\Schema;
+use Prism\Prism\Concerns\NullableSchema;
+use Prism\Prism\Contracts\Schema;
 
 class ArraySchema implements Schema
 {

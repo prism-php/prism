@@ -6,13 +6,13 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Tool;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

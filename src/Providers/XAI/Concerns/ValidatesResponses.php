@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\XAI\Concerns;
+namespace Prism\Prism\Providers\XAI\Concerns;
 
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 
 trait ValidatesResponses
 {

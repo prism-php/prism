@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Text;
+namespace Prism\Prism\Text;
 
 use Illuminate\Support\Collection;
-use PrismPHP\Prism\Contracts\Message;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Usage;
 
 readonly class ResponseBuilder
 {

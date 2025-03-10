@@ -2,28 +2,28 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\OpenAI\Handlers;
+namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
-use PrismPHP\Prism\Concerns\CallsTools;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Exceptions\PrismChunkDecodeException;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
-use PrismPHP\Prism\Providers\OpenAI\Maps\FinishReasonMap;
-use PrismPHP\Prism\Providers\OpenAI\Maps\MessageMap;
-use PrismPHP\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use PrismPHP\Prism\Providers\OpenAI\Maps\ToolMap;
-use PrismPHP\Prism\Stream\Chunk;
-use PrismPHP\Prism\Text\Request;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\ToolResultMessage;
-use PrismPHP\Prism\ValueObjects\ToolCall;
+use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismChunkDecodeException;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
+use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
+use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
+use Prism\Prism\Stream\Chunk;
+use Prism\Prism\Text\Request;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 

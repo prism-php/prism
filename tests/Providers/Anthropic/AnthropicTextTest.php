@@ -7,15 +7,15 @@ namespace Tests\Providers\Anthropic;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Providers\Anthropic\Handlers\Text;
-use PrismPHP\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
+use Prism\Prism\Providers\Anthropic\Handlers\Text;
+use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

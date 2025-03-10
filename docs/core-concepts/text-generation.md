@@ -7,8 +7,8 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -23,8 +23,8 @@ echo $response->text;
 System prompts help set the behavior and context for the AI. They're particularly useful for maintaining consistent responses or giving the LLM a persona:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -36,8 +36,8 @@ $response = Prism::text()
 You can also use Laravel views for complex system prompts:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -53,10 +53,10 @@ You an also pass a View to the `withPrompt` method.
 For interactive conversations, use message chains to maintain context:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -121,8 +121,8 @@ This allows for complete or partial override of the providers configuration. Thi
 The response object provides rich access to the generation results:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -170,9 +170,9 @@ FinishReason::Unknown;
 Remember to handle potential errors in your generations:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Throwable;
 
 try {

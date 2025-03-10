@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Concerns;
+namespace Prism\Prism\Concerns;
 
-use PrismPHP\Prism\Contracts\Provider;
-use PrismPHP\Prism\Enums\Provider as ProviderEnum;
-use PrismPHP\Prism\PrismManager;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Enums\Provider as ProviderEnum;
+use Prism\Prism\PrismManager;
 
 trait ConfiguresProviders
 {

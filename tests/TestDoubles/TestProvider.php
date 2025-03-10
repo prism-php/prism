@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Tests\TestDoubles;
 
 use Generator;
-use PrismPHP\Prism\Contracts\Provider;
-use PrismPHP\Prism\Embeddings\Request as EmbeddingRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingResponse;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Stream\Request as StreamRequest;
-use PrismPHP\Prism\Structured\Request as StructuredRequest;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Text\Request as TextRequest;
-use PrismPHP\Prism\Text\Response as TextResponse;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\ProviderResponse;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Embeddings\Request as EmbeddingRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Stream\Request as StreamRequest;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderResponse;
+use Prism\Prism\ValueObjects\Usage;
 
 class TestProvider implements Provider
 {

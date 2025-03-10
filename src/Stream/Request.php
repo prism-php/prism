@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Stream;
+namespace Prism\Prism\Stream;
 
-use PrismPHP\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Request as TextRequest;
 
 class Request extends TextRequest
 {

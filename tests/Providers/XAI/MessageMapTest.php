@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Providers\XAI;
 
-use PrismPHP\Prism\Providers\XAI\Maps\MessageMap;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Messages\ToolResultMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\ToolCall;
-use PrismPHP\Prism\ValueObjects\ToolResult;
+use Prism\Prism\Providers\XAI\Maps\MessageMap;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 
 it('maps user messages', function (): void {
     $messageMap = new MessageMap(

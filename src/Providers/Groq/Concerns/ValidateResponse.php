@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Groq\Concerns;
+namespace Prism\Prism\Providers\Groq\Concerns;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ValidateResponse
 {

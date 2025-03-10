@@ -30,10 +30,10 @@ All of these formats should work with Prism.
 To add an image to your message, add a `Document` value object to the `additionalContent` property:
 
 ```php
-use PrismPHP\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')

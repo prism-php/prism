@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Exceptions;
+namespace Prism\Prism\Exceptions;
 
 use Exception;
-use PrismPHP\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolCall;
 use Throwable;
 
 class PrismException extends Exception

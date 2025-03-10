@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Ollama\Handlers;
+namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use PrismPHP\Prism\Concerns\CallsTools;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use PrismPHP\Prism\Providers\Ollama\Concerns\MapsToolCalls;
-use PrismPHP\Prism\Providers\Ollama\Concerns\ValidatesResponse;
-use PrismPHP\Prism\Providers\Ollama\Maps\MessageMap;
-use PrismPHP\Prism\Providers\Ollama\Maps\ToolMap;
-use PrismPHP\Prism\Text\Request;
-use PrismPHP\Prism\Text\Response;
-use PrismPHP\Prism\Text\ResponseBuilder;
-use PrismPHP\Prism\Text\Step;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\ToolResultMessage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\ToolResult;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\MapsToolCalls;
+use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Ollama\Maps\MessageMap;
+use Prism\Prism\Providers\Ollama\Maps\ToolMap;
+use Prism\Prism\Text\Request;
+use Prism\Prism\Text\Response;
+use Prism\Prism\Text\ResponseBuilder;
+use Prism\Prism\Text\Step;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
 class Text

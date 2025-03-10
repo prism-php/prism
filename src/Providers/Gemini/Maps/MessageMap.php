@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Gemini\Maps;
+namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Exception;
-use PrismPHP\Prism\Contracts\Message;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Image;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
-use PrismPHP\Prism\ValueObjects\Messages\ToolResultMessage;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Contracts\Message;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class MessageMap
 {

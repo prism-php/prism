@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Providers\Ollama;
 
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Schema\ArraySchema;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Prism;
+use Prism\Prism\Schema\ArraySchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {

@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Anthropic\Handlers;
+namespace Prism\Prism\Providers\Anthropic\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use PrismPHP\Prism\Contracts\PrismRequest;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismProviderOverloadedException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Exceptions\PrismRequestTooLargeException;
-use PrismPHP\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Throwable;
 
 abstract class AnthropicHandlerAbstract
@@ -68,7 +68,7 @@ abstract class AnthropicHandlerAbstract
             return null;
         }
 
-        return Arr::map(data_get($data, 'content', []), fn ($contentBlock): \PrismPHP\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations => MessagePartWithCitations::fromContentBlock($contentBlock));
+        return Arr::map(data_get($data, 'content', []), fn ($contentBlock): \Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations => MessagePartWithCitations::fromContentBlock($contentBlock));
     }
 
     protected function handleResponseErrors(): void

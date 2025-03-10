@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Facades;
+namespace Prism\Prism\Facades;
 
 use Closure;
-use PrismPHP\Prism\Contracts\Schema;
-use PrismPHP\Prism\Tool as BaseTool;
+use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Tool as BaseTool;
 
 /**
  * @method static BaseTool as(string $name)

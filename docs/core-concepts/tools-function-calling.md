@@ -7,9 +7,9 @@ Need your AI assistant to check the weather, search a database, or call your API
 Think of tools as special functions that your AI assistant can use when it needs to perform specific tasks. Just like how Laravel's facades provide a clean interface to complex functionality, Prism tools give your AI a clean way to interact with external services and data sources.
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('weather')
     ->for('Get current weather conditions')
@@ -32,8 +32,8 @@ $response = Prism::text()
 Prism defaults to allowing a single step. To use Tools, you'll need to increase this using `withMaxSteps`:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
@@ -51,7 +51,7 @@ You should use a higher number of max steps if you expect your initial prompt to
 Creating tools in Prism is straightforward and fluent. Here's how you can create a simple tool:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Facades\Tool;
 
 $searchTool = Tool::as('search')
     ->for('Search for current information')
@@ -73,7 +73,7 @@ Prism offers multiple ways to define tool parameters, from simple primitives to 
 Perfect for text inputs:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Facades\Tool;
 
 $tool = Tool::as('search')
     ->for('Search for information')
@@ -88,7 +88,7 @@ $tool = Tool::as('search')
 For integer or floating-point values:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Facades\Tool;
 
 $tool = Tool::as('calculate')
     ->for('Perform calculations')
@@ -103,7 +103,7 @@ $tool = Tool::as('calculate')
 For true/false flags:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Facades\Tool;
 
 $tool = Tool::as('feature_toggle')
     ->for('Toggle a feature')
@@ -118,7 +118,7 @@ $tool = Tool::as('feature_toggle')
 For handling lists of items:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Facades\Tool;
 
 $tool = Tool::as('process_tags')
     ->for('Process a list of tags')
@@ -137,7 +137,7 @@ $tool = Tool::as('process_tags')
 When you need to restrict values to a specific set:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
+use Prism\Prism\Facades\Tool;
 
 $tool = Tool::as('set_status')
     ->for('Set the status')
@@ -156,9 +156,9 @@ $tool = Tool::as('set_status')
 For complex objects without needing to create separate schema instances:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\Schema\NumberSchema;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
 
 $tool = Tool::as('update_user')
     ->for('Update a user profile')
@@ -182,10 +182,10 @@ $tool = Tool::as('update_user')
 For complex, nested data structures, you can use Prism's schema system:
 
 ```php
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\Schema\NumberSchema;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
 
 $tool = Tool::as('create_user')
     ->for('Create a new user profile')
@@ -214,7 +214,7 @@ For more sophisticated tools, you can create dedicated classes:
 ```php
 namespace App\Tools;
 
-use PrismPHP\Prism\Tool;
+use Prism\Prism\Tool;
 use Illuminate\Support\Facades\Http;
 
 class SearchTool extends Tool
@@ -260,9 +260,9 @@ class SearchTool extends Tool
 
 You can control how the AI uses tools with the `withToolChoice` method:
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Enums\ToolChoice;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\ToolChoice;
 
 $prism = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
@@ -285,8 +285,8 @@ $prism = Prism::text()
 When your AI uses tools, you can inspect the results and see how it arrived at its answer:
 
 ```php
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')

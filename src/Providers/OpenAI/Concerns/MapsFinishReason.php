@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\OpenAI\Concerns;
+namespace Prism\Prism\Providers\OpenAI\Concerns;
 
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Providers\OpenAI\Maps\FinishReasonMap;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 
 trait MapsFinishReason
 {

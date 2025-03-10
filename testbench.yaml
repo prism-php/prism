@@ -1,5 +1,5 @@
 providers:
-  - PrismPHP\Prism\PrismServiceProvider
+  - Prism\Prism\PrismServiceProvider
   - Workbench\App\Providers\WorkbenchServiceProvider
 
 migrations:

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Providers\Gemini;
 
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Prism;
+use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 
 arch()->expect([
     'Providers\Gemini\Handlers\Text',

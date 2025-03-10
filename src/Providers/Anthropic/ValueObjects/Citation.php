@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Anthropic\ValueObjects;
+namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
 class Citation
 {

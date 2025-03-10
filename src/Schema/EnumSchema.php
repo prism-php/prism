@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Schema;
+namespace Prism\Prism\Schema;
 
-use PrismPHP\Prism\Contracts\Schema;
+use Prism\Prism\Contracts\Schema;
 
 readonly class EnumSchema implements Schema
 {

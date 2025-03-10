@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Ollama\Handlers;
+namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Embeddings\Request;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingsResponse;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\ValueObjects\Embedding;
-use PrismPHP\Prism\ValueObjects\EmbeddingsUsage;
-use PrismPHP\Prism\ValueObjects\Meta;
+use Prism\Prism\Embeddings\Request;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Meta;
 use Throwable;
 
 class Embeddings
@@ -35,7 +35,7 @@ class Embeddings
         }
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): \PrismPHP\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($data, 'embeddings', [])),
+            embeddings: array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($data, 'embeddings', [])),
             usage: new EmbeddingsUsage(data_get($data, 'prompt_eval_count', null)),
             meta: new Meta(
                 id: '',

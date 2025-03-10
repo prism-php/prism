@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use PrismPHP\Prism\Rectors\ReorderMethodsRector;
+use Prism\Prism\Rectors\ReorderMethodsRector;
 use Rector\CodeQuality\Rector\Class_\InlineConstructorDefaultToPropertyRector;
 use Rector\Config\RectorConfig;
 use Rector\Set\ValueObject\LevelSetList;

@@ -2,28 +2,28 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Mistral\Handlers;
+namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
-use PrismPHP\Prism\Concerns\CallsTools;
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\Mistral\Concerns\MapsFinishReason;
-use PrismPHP\Prism\Providers\Mistral\Concerns\ValidatesResponse;
-use PrismPHP\Prism\Providers\Mistral\Maps\MessageMap;
-use PrismPHP\Prism\Providers\Mistral\Maps\ToolChoiceMap;
-use PrismPHP\Prism\Providers\Mistral\Maps\ToolMap;
-use PrismPHP\Prism\Text\Request;
-use PrismPHP\Prism\Text\Response;
-use PrismPHP\Prism\Text\ResponseBuilder;
-use PrismPHP\Prism\Text\Step;
-use PrismPHP\Prism\ValueObjects\Messages\AssistantMessage;
-use PrismPHP\Prism\ValueObjects\Messages\ToolResultMessage;
-use PrismPHP\Prism\ValueObjects\Meta;
-use PrismPHP\Prism\ValueObjects\ToolCall;
-use PrismPHP\Prism\ValueObjects\ToolResult;
-use PrismPHP\Prism\ValueObjects\Usage;
+use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Mistral\Maps\MessageMap;
+use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Mistral\Maps\ToolMap;
+use Prism\Prism\Text\Request;
+use Prism\Prism\Text\Response;
+use Prism\Prism\Text\ResponseBuilder;
+use Prism\Prism\Text\Step;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
 class Text
@@ -156,7 +156,7 @@ class Text
             return [];
         }
 
-        return array_map(fn ($toolCall): \PrismPHP\Prism\ValueObjects\ToolCall => new ToolCall(
+        return array_map(fn ($toolCall): \Prism\Prism\ValueObjects\ToolCall => new ToolCall(
             id: data_get($toolCall, 'id'),
             name: data_get($toolCall, 'function.name'),
             arguments: data_get($toolCall, 'function.arguments'),

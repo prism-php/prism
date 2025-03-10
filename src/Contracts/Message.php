@@ -2,6 +2,6 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Contracts;
+namespace Prism\Prism\Contracts;
 
 interface Message {}

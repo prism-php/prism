@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Exceptions;
+namespace Prism\Prism\Exceptions;
 
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 class PrismRateLimitedException extends PrismException
 {

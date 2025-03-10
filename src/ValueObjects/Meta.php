@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\ValueObjects;
+namespace Prism\Prism\ValueObjects;
 
 readonly class Meta
 {

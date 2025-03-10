@@ -6,11 +6,11 @@ namespace Tests\Providers\Mistral;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Providers\Mistral\Concerns\ValidatesResponse;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Prism;
+use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 arch()->expect([
     'Providers\Mistral\Handlers\Text',

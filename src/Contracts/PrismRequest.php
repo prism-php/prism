@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Contracts;
+namespace Prism\Prism\Contracts;
 
-use PrismPHP\Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 
 interface PrismRequest
 {

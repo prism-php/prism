@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Ollama\Maps;
+namespace Prism\Prism\Providers\Ollama\Maps;
 
-use PrismPHP\Prism\Tool;
+use Prism\Prism\Tool;
 
 class ToolMap
 {

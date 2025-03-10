@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\ValueObjects\Messages;
+namespace Prism\Prism\ValueObjects\Messages;
 
-use PrismPHP\Prism\Contracts\Message;
-use PrismPHP\Prism\ValueObjects\ToolResult;
+use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\ToolResult;
 
 readonly class ToolResultMessage implements Message
 {

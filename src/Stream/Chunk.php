@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Stream;
+namespace Prism\Prism\Stream;
 
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\ValueObjects\ToolCall;
-use PrismPHP\Prism\ValueObjects\ToolResult;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 
 readonly class Chunk
 {

@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use Illuminate\Support\Carbon;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Providers\Anthropic\Handlers\Structured;
-use PrismPHP\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use PrismPHP\Prism\Schema\BooleanSchema;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\ValueObjects\Messages\Support\Document;
-use PrismPHP\Prism\ValueObjects\Messages\UserMessage;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Providers\Anthropic\Handlers\Structured;
+use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {

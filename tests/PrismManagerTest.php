@@ -6,16 +6,16 @@ namespace Tests;
 
 use Illuminate\Contracts\Foundation\Application;
 use Mockery;
-use PrismPHP\Prism\Contracts\Provider as ContractsProvider;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\PrismManager;
-use PrismPHP\Prism\Providers\Anthropic\Anthropic;
-use PrismPHP\Prism\Providers\DeepSeek\DeepSeek;
-use PrismPHP\Prism\Providers\Gemini\Gemini;
-use PrismPHP\Prism\Providers\Mistral\Mistral;
-use PrismPHP\Prism\Providers\Ollama\Ollama;
-use PrismPHP\Prism\Providers\OpenAI\OpenAI;
-use PrismPHP\Prism\Providers\XAI\XAI;
+use Prism\Prism\Contracts\Provider as ContractsProvider;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\PrismManager;
+use Prism\Prism\Providers\Anthropic\Anthropic;
+use Prism\Prism\Providers\DeepSeek\DeepSeek;
+use Prism\Prism\Providers\Gemini\Gemini;
+use Prism\Prism\Providers\Mistral\Mistral;
+use Prism\Prism\Providers\Ollama\Ollama;
+use Prism\Prism\Providers\OpenAI\OpenAI;
+use Prism\Prism\Providers\XAI\XAI;
 
 it('can resolve Anthropic', function (): void {
     $manager = new PrismManager($this->app);

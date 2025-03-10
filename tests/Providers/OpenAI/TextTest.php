@@ -7,10 +7,10 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\ToolChoice;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

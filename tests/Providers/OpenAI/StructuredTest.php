@@ -7,12 +7,12 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Schema\BooleanSchema;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Prism;
+use Prism\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {

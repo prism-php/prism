@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\DeepSeek\Concerns;
+namespace Prism\Prism\Providers\DeepSeek\Concerns;
 
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Providers\DeepSeek\Maps\FinishReasonMap;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\DeepSeek\Maps\FinishReasonMap;
 
 trait MapsFinishReason
 {

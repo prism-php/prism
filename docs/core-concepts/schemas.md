@@ -7,9 +7,9 @@ Schemas are the blueprints that help you define the shape of your data in Prism.
 Let's dive right in with a practical example:
 
 ```php
-use PrismPHP\Prism\Schema\ArraySchema;
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\ArraySchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
 
 $userSchema = new ObjectSchema(
     name: 'user',
@@ -41,7 +41,7 @@ $userSchema = new ObjectSchema(
 For text values of any length. Perfect for names, descriptions, or any textual data.
 
 ```php
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\StringSchema;
 
 $nameSchema = new StringSchema(
     name: 'full_name',
@@ -54,7 +54,7 @@ $nameSchema = new StringSchema(
 Handles both integers and floating-point numbers. Great for ages, quantities, or measurements.
 
 ```php
-use PrismPHP\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\NumberSchema;
 
 $ageSchema = new NumberSchema(
     name: 'age',
@@ -67,7 +67,7 @@ $ageSchema = new NumberSchema(
 For simple true/false values. Perfect for flags and toggles.
 
 ```php
-use PrismPHP\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\BooleanSchema;
 
 $activeSchema = new BooleanSchema(
     name: 'is_active',
@@ -80,8 +80,8 @@ $activeSchema = new BooleanSchema(
 For lists of items, where each item follows a specific schema.
 
 ```php
-use PrismPHP\Prism\Schema\ArraySchema;
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\ArraySchema;
+use Prism\Prism\Schema\StringSchema;
 
 $tagsSchema = new ArraySchema(
     name: 'tags',
@@ -95,7 +95,7 @@ $tagsSchema = new ArraySchema(
 When you need to restrict values to a specific set of options.
 
 ```php
-use PrismPHP\Prism\Schema\EnumSchema;
+use Prism\Prism\Schema\EnumSchema;
 
 $statusSchema = new EnumSchema(
     name: 'status',
@@ -109,9 +109,9 @@ $statusSchema = new EnumSchema(
 For complex, nested data structures. The Swiss Army knife of schemas!
 
 ```php
-use PrismPHP\Prism\Schema\ObjectSchema;
-use PrismPHP\Prism\Schema\StringSchema;
-use PrismPHP\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
 
 $profileSchema = new ObjectSchema(
     name: 'profile',
@@ -130,7 +130,7 @@ $profileSchema = new ObjectSchema(
 Sometimes, not every field is required. You can make any schema nullable by setting the `nullable` parameter to `true`:
 
 ```php
-use PrismPHP\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\StringSchema;
 
 $bioSchema = new StringSchema(
     name: 'bio',

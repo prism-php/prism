@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use PrismPHP\Prism\Enums\FinishReason;
-use PrismPHP\Prism\Enums\Provider;
-use PrismPHP\Prism\Facades\Tool;
-use PrismPHP\Prism\Prism;
-use PrismPHP\Prism\Text\Response as TextResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Prism;
+use Prism\Prism\Text\Response as TextResponse;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

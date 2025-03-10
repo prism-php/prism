@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Stream;
+namespace Prism\Prism\Stream;
 
-use PrismPHP\Prism\Text\Step as TextStep;
+use Prism\Prism\Text\Step as TextStep;
 
 readonly class Step extends TextStep
 {

@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\Providers\Anthropic;
+namespace Prism\Prism\Providers\Anthropic;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
-use PrismPHP\Prism\Contracts\Provider;
-use PrismPHP\Prism\Embeddings\Request as EmbeddingRequest;
-use PrismPHP\Prism\Embeddings\Response as EmbeddingResponse;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Providers\Anthropic\Handlers\Structured;
-use PrismPHP\Prism\Providers\Anthropic\Handlers\Text;
-use PrismPHP\Prism\Stream\Request as StreamRequest;
-use PrismPHP\Prism\Structured\Request as StructuredRequest;
-use PrismPHP\Prism\Structured\Response as StructuredResponse;
-use PrismPHP\Prism\Text\Request as TextRequest;
-use PrismPHP\Prism\Text\Response;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Embeddings\Request as EmbeddingRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Handlers\Structured;
+use Prism\Prism\Providers\Anthropic\Handlers\Text;
+use Prism\Prism\Stream\Request as StreamRequest;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response;
 
 readonly class Anthropic implements Provider
 {

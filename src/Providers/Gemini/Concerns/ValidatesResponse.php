@@ -1,10 +1,10 @@
 <?php
 
-namespace PrismPHP\Prism\Providers\Gemini\Concerns;
+namespace Prism\Prism\Providers\Gemini\Concerns;
 
 use Illuminate\Http\Client\Response;
-use PrismPHP\Prism\Exceptions\PrismException;
-use PrismPHP\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 
 trait ValidatesResponse
 {

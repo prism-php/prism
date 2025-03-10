@@ -1,6 +1,6 @@
 <?php
 
-namespace PrismPHP\Prism\ValueObjects;
+namespace Prism\Prism\ValueObjects;
 
 use Carbon\Carbon;
 

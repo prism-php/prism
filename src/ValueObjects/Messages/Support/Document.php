@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PrismPHP\Prism\ValueObjects\Messages\Support;
+namespace Prism\Prism\ValueObjects\Messages\Support;
 
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use PrismPHP\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderMeta;
 
 /**
  * Note: Prism currently only supports Documents with Anthropic.

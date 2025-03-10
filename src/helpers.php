@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\App;
-use PrismPHP\Prism\Prism;
+use Prism\Prism\Prism;
 
 if (! function_exists('prism')) {
 

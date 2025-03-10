@@ -1,12 +1,12 @@
 <?php
 
-namespace PrismPHP\Prism\Providers\OpenAI\Concerns;
+namespace Prism\Prism\Providers\OpenAI\Concerns;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use PrismPHP\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ProcessesRateLimits
 {
