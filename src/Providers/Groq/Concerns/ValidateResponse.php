@@ -53,7 +53,7 @@ trait ValidateResponse
         }
 
         return array_values(Arr::map($rateLimits, function ($fields, $limitName): ProviderRateLimit {
-            $resetsAt = data_get($fields, 'reset');
+            $resetsAt = data_get($fields, 'reset', '');
 
             if (str_contains($resetsAt, 'ms')) {
                 $resetMilliseconds = Str::of($resetsAt)->before('ms')->toString();
