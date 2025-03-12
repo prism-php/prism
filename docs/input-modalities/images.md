@@ -26,6 +26,17 @@ $message = new UserMessage(
     [Image::fromUrl('https://example.com/diagram.png')]
 );
 
+// From a URL which does not end in the image format,
+// you can pass the mime type as the second argument
+// e.g. if you are generating a temporary URL
+$message = new UserMessage(
+    'Analyze this diagram:',
+    [Image::fromUrl(
+        'https://storage.example.com/diagram.png?AccessID=test&Expires=1742330260&Signature=dVQaFcIk9FJWIVnvV1%2FWu',
+        'image/png'
+    )]
+);
+
 // From a Base64
 $image = base64_encode(file_get_contents('/path/to/image.jpg'));
 
