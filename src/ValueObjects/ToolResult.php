@@ -11,9 +11,10 @@ readonly class ToolResult
      * @param  array<string, mixed>  $result
      */
     public function __construct(
-        public string $toolCallId,
+        public string $toolId,
         public string $toolName,
         public array $args,
         public int|float|string|array|null $result,
+        public ?string $toolCallId = null,
     ) {}
 }

@@ -68,9 +68,9 @@ class MessageMap
     {
         foreach ($message->toolResults as $toolResult) {
             $this->mappedMessages[] = [
-                'role' => 'tool',
-                'tool_call_id' => $toolResult->toolCallId,
-                'content' => $toolResult->result,
+                'type' => 'function_call_output',
+                'call_id' => $toolResult->toolCallId,
+                'output' => $toolResult->result,
             ];
         }
     }
@@ -89,7 +89,7 @@ class MessageMap
         $this->mappedMessages[] = [
             'role' => 'user',
             'content' => [
-                ['type' => 'text', 'text' => $message->text()],
+                ['type' => 'input_text', 'text' => $message->text()],
                 ...$imageParts,
             ],
         ];
@@ -97,19 +97,24 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $toolCalls = array_map(fn (ToolCall $toolCall): array => [
-            'id' => $toolCall->id,
-            'type' => 'function',
-            'function' => [
-                'name' => $toolCall->name,
-                'arguments' => json_encode($toolCall->arguments()),
-            ],
-        ], $message->toolCalls);
+        if ($message->content !== '' && $message->content !== '0') {
+            $this->mappedMessages[] = [
+                'role' => 'assistant',
+                'content' => $message->content,
+            ];
+        }
 
-        $this->mappedMessages[] = array_filter([
-            'role' => 'assistant',
-            'content' => $message->content,
-            'tool_calls' => $toolCalls,
-        ]);
+        if ($message->toolCalls !== []) {
+            array_push(
+                $this->mappedMessages,
+                ...array_map(fn (ToolCall $toolCall): array => [
+                    'id' => $toolCall->id,
+                    'call_id' => $toolCall->callId,
+                    'type' => 'function_call',
+                    'name' => $toolCall->name,
+                    'arguments' => json_encode($toolCall->arguments()),
+                ], $message->toolCalls)
+            );
+        }
     }
 }

@@ -27,6 +27,6 @@ trait HasProviderMeta
             []
         );
 
-        return data_get($providerMeta, $valuePath, $providerMeta);
+        return data_get($providerMeta, $valuePath);
     }
 }

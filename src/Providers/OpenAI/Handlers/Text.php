@@ -8,6 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
@@ -50,8 +51,8 @@ class Text
         $data = $response->json();
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'message.content') ?? '',
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            data_get($data, 'output.{last}.content.0.text') ?? '',
+            ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -72,7 +73,7 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -105,16 +106,18 @@ class Text
     {
         try {
             return $this->client->post(
-                'chat/completions',
+                'responses',
                 array_merge([
                     'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
+                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_output_tokens' => $request->maxTokens(),
                 ], array_filter([
+                    'previous_response_id' => $request->providerMeta(Provider::OpenAI, 'previous_response_id'),
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    'truncation' => $request->providerMeta(Provider::OpenAI, 'truncation'),
                 ]))
             );
         } catch (Throwable $e) {
@@ -129,13 +132,13 @@ class Text
     protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
     {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'choices.0.message.content') ?? '',
+            text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                data_get($data, 'usage.input_tokens'),
+                data_get($data, 'usage.output_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

@@ -13,6 +13,7 @@ class ToolCall
         public readonly string $id,
         public readonly string $name,
         protected string|array $arguments,
+        public readonly ?string $callId = null,
     ) {}
 
     /**

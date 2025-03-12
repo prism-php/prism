@@ -17,9 +17,7 @@ class ToolChoiceMap
         if (is_string($toolChoice)) {
             return [
                 'type' => 'function',
-                'function' => [
-                    'name' => $toolChoice,
-                ],
+                'name' => $toolChoice,
             ];
         }
 

@@ -1,34 +1,33 @@
 {
-  "id": "chatcmpl-AqRHfBBOYjaPZgtsr33cU5ovFOcwy",
-  "object": "chat.completion",
+  "id": "resp_AqRHfBBOYjaPZgtsr33cU5ovFOcwy",
+  "object": "response",
   "created": 1737061299,
   "model": "gpt-4-turbo-2024-04-09",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "{\n    \"weather\": \"Partly cloudy with temperatures around 60°F\",\n    \"game_time\": \"7:00 PM\",\n    \"coat_required\": true\n}",
-        "refusal": null
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "type": "message",
+      "id": "msg_f3e8d2c9b5a1e6f0c3d4b7a2e8f0d1c2a3b4c5d6e7f89012",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\n    \"weather\": \"Partly cloudy with temperatures around 60°F\",\n    \"game_time\": \"7:00 PM\",\n    \"coat_required\": true\n}",
+          "annotations": []
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 164,
-    "completion_tokens": 36,
-    "total_tokens": 200,
-    "prompt_tokens_details": {
-      "cached_tokens": 0,
-      "audio_tokens": 0
+    "input_tokens": 164,
+    "input_tokens_details": {
+      "cached_tokens": 0
     },
-    "completion_tokens_details": {
-      "reasoning_tokens": 0,
-      "audio_tokens": 0,
-      "accepted_prediction_tokens": 0,
-      "rejected_prediction_tokens": 0
-    }
+    "output_tokens": 36,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 200
   },
   "service_tier": "default",
   "system_fingerprint": "fp_f17929ee92"

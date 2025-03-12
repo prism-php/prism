@@ -16,8 +16,9 @@ class ToolCallMap
     {
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
             id: data_get($toolCall, 'id'),
-            name: data_get($toolCall, 'function.name'),
-            arguments: data_get($toolCall, 'function.arguments'),
+            callId: data_get($toolCall, 'call_id'),
+            name: data_get($toolCall, 'name'),
+            arguments: data_get($toolCall, 'arguments'),
         ), $toolCalls);
     }
 }

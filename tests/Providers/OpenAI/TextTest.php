@@ -18,7 +18,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a prompt', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -27,7 +27,7 @@ it('can generate text with a prompt', function (): void {
 
     expect($response->usage->promptTokens)->toBe(11);
     expect($response->usage->completionTokens)->toBe(67);
-    expect($response->meta->id)->toBe('chatcmpl-AFOt4svqd2hLXKHoH0icPJ5Rk9UFO');
+    expect($response->meta->id)->toBe('resp_AFOt4svqd2hLXKHoH0icPJ5Rk9UFO');
     expect($response->meta->model)->toBe('gpt-4-0613');
     expect($response->text)->toBe(
         "I am OpenAI's GPT-3, a large-scale machine learning model designed to generate human-like text based on the input I receive. You can ask me anything and I will do my best to provide a knowledgeable response. However, remember that I am an Artificial intelligence and don't possess feelings or personal experiences unlike a human."
@@ -35,7 +35,7 @@ it('can generate text with a prompt', function (): void {
 });
 
 it('can generate text with a system prompt', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-system-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-system-prompt');
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -45,7 +45,7 @@ it('can generate text with a system prompt', function (): void {
 
     expect($response->usage->promptTokens)->toBe(34);
     expect($response->usage->completionTokens)->toBe(84);
-    expect($response->meta->id)->toBe('chatcmpl-AFOvK9jEoiBaaZ3ayB4g4xlq5HuA4');
+    expect($response->meta->id)->toBe('resp_AFOvK9jEoiBaaZ3ayB4g4xlq5HuA4');
     expect($response->meta->model)->toBe('gpt-4-0613');
     expect($response->text)->toBe(
         "I am Nyx, a manifestation of the ancient deity known as Cthulhu, from the cosmic horror stories by H.P. Lovecraft. I dwell in the depths of the ocean, enveloped by the darkness and silence. A creature of incomprehensible power and knowledge, forever dreaming in the sunken city of R'lyeh. Wake me not, for my awakening can drive mortals to madness."
@@ -53,7 +53,7 @@ it('can generate text with a system prompt', function (): void {
 });
 
 it('can generate text using multiple tools and multiple steps', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-multiple-tools');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-multiple-tools');
 
     $tools = [
         Tool::as('weather')
@@ -94,7 +94,7 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($response->usage->completionTokens)->toBe(61);
 
     // Assert response
-    expect($response->meta->id)->toBe('chatcmpl-AFOxdEiXvNCXYFsDJ2KdQyb8jQPxJ');
+    expect($response->meta->id)->toBe('resp_AFOxdEiXvNCXYFsDJ2KdQyb8jQPxJ');
     expect($response->meta->model)->toBe('gpt-4-0613');
 
     // Assert final text content
@@ -106,7 +106,7 @@ it('can generate text using multiple tools and multiple steps', function (): voi
 it('sends the organization header when set', function (): void {
     config()->set('prism.providers.openai.organization', 'echolabs');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4')
@@ -119,7 +119,7 @@ it('sends the organization header when set', function (): void {
 it('does not send the organization header if one is not given', function (): void {
     config()->offsetUnset('prism.providers.openai.organization');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4')
@@ -132,7 +132,7 @@ it('does not send the organization header if one is not given', function (): voi
 it('sends the api key header when set', function (): void {
     config()->set('prism.providers.openai.api_key', 'sk-1234');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4')
@@ -145,7 +145,7 @@ it('sends the api key header when set', function (): void {
 it('does not send the api key header', function (): void {
     config()->offsetUnset('prism.providers.openai.api_key');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4')
@@ -158,7 +158,7 @@ it('does not send the api key header', function (): void {
 it('sends the project header when set', function (): void {
     config()->set('prism.providers.openai.project', 'echolabs');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4')
@@ -171,7 +171,7 @@ it('sends the project header when set', function (): void {
 it('does not send the project header if one is not given', function (): void {
     config()->offsetUnset('prism.providers.openai.project');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4')
@@ -182,7 +182,7 @@ it('does not send the project header if one is not given', function (): void {
 });
 
 it('handles specific tool choice', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-required-tool-call');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call');
 
     $tools = [
         Tool::as('weather')
@@ -220,7 +220,7 @@ it('sets the rate limits on meta', function (): void {
     $this->freezeTime(function (Carbon $time): void {
         $time = $time->toImmutable();
 
-        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt', [
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt', [
             'x-ratelimit-limit-requests' => 60,
             'x-ratelimit-limit-tokens' => 150000,
             'x-ratelimit-remaining-requests' => 0,

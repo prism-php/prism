@@ -87,7 +87,7 @@ class MessageMap
             'role' => 'user',
             'content' => array_map(fn (ToolResult $toolResult): array => [
                 'type' => 'tool_result',
-                'tool_use_id' => $toolResult->toolCallId,
+                'tool_use_id' => $toolResult->toolId,
                 'content' => $toolResult->result,
             ], $message->toolResults),
         ];

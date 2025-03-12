@@ -32,7 +32,8 @@ trait CallsTools
                     );
 
                     return new ToolResult(
-                        toolCallId: $toolCall->id,
+                        toolId: $toolCall->id,
+                        toolCallId: $toolCall->callId,
                         toolName: $toolCall->name,
                         args: $toolCall->arguments(),
                         result: $result,
