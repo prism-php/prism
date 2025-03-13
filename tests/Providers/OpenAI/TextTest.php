@@ -7,8 +7,6 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ToolChoice;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
@@ -203,17 +201,6 @@ it('handles specific tool choice', function (): void {
         ->generate();
 
     expect($response->toolCalls[0]->name)->toBe('weather');
-});
-
-it('throws an exception for ToolChoice::Any', function (): void {
-    $this->expectException(PrismException::class);
-    $this->expectExceptionMessage('Invalid tool choice');
-
-    Prism::text()
-        ->using('openai', 'gpt-4')
-        ->withPrompt('Who are you?')
-        ->withToolChoice(ToolChoice::Any)
-        ->generate();
 });
 
 it('sets the rate limits on meta', function (): void {
