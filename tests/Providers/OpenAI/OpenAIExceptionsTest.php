@@ -11,6 +11,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
+use Tests\Fixtures\FixtureResponse;
 
 arch()->expect([
     'Providers\OpenAI\Handlers\Text',
@@ -100,4 +101,18 @@ it('works with milleseconds', function (): void {
             expect($e->rateLimits[0]->resetsAt->equalTo($time->addMilliseconds(70)))->toBeTrue();
         }
     });
+});
+
+it('works without rate limit headers', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/insufficient-quota-response', [], 429);
+
+    try {
+        Prism::text()
+            ->using('openai', 'gpt-4')
+            ->withPrompt('Who are you?')
+            ->generate();
+    } catch (PrismRateLimitedException $e) {
+        expect($e->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
+        expect($e->rateLimits[0]->name)->toEqual('insufficient_quota');
+    }
 });

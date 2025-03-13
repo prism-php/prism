@@ -157,7 +157,7 @@ class FixtureResponse
         ])->preventStrayRequests();
     }
 
-    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = []): void
+    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = [], int $status = 200): void
     {
         $responses = collect(scandir(dirname(static::filePath($name))))
             ->filter(function (string $file) use ($name): int|false {
@@ -169,7 +169,7 @@ class FixtureResponse
             ->map(fn ($filename): string => dirname(static::filePath($name)).'/'.$filename)
             ->map(fn ($filePath) => Http::response(
                 file_get_contents($filePath),
-                200,
+                $status,
                 $headers
             ));
 
