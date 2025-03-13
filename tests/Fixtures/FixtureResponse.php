@@ -12,8 +12,13 @@ class FixtureResponse
     /**
      * @param  array<string, string>  $headers
      */
-    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = [], $forceRecording = false): void
-    {
+    public static function fakeResponseSequence(
+        string $requestPath,
+        string $name,
+        array $headers = [],
+        int $status = 200,
+        bool $forceRecording = false,
+    ): void {
         $basePath = dirname(static::filePath($name));
         $pathInfo = pathinfo($name);
         $filename = $pathInfo['filename'];
@@ -74,7 +79,7 @@ class FixtureResponse
             ->map(fn ($filename): string => $basePath.'/'.$filename)
             ->map(fn ($filePath) => Http::response(
                 file_get_contents($filePath),
-                200,
+                $status,
                 $headers
             ));
 

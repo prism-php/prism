@@ -26,6 +26,19 @@ trait ProcessesRateLimits
             $rateLimits[$limitName][$fieldName] = $headerValues[0];
         }
 
+        if ($rateLimits === []) {
+            $error = data_get($response->json(), 'error');
+            if (is_null($error)) {
+                return [];
+            }
+
+            return [
+                new ProviderRateLimit(
+                    name: data_get($error, 'type'),
+                ),
+            ];
+        }
+
         return array_values(Arr::map($rateLimits, function ($fields, $limitName): ProviderRateLimit {
             $resetsAt = data_get($fields, 'reset', '');
 
