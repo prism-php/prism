@@ -41,6 +41,7 @@ it('sets the correct data on the PrismRateLimitedException', function (): void {
             '*' => Http::response(
                 status: 429,
                 headers: [
+                    'retry-after' => 29,
                     'x-ratelimit-limit-requests' => 60,
                     'x-ratelimit-limit-tokens' => 150000,
                     'x-ratelimit-remaining-requests' => 0,
@@ -57,7 +58,7 @@ it('sets the correct data on the PrismRateLimitedException', function (): void {
                 ->withPrompt('Hello world!')
                 ->generate();
         } catch (PrismRateLimitedException $e) {
-            expect($e->retryAfter)->toEqual(null);
+            expect($e->retryAfter)->toEqual(29);
             expect($e->rateLimits)->toHaveCount(2);
             expect($e->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
             expect($e->rateLimits[0]->name)->toEqual('requests');
