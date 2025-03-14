@@ -1,30 +1,36 @@
 {
-  "id": "chatcmpl-AFOvK9jEoiBaaZ3ayB4g4xlq5HuA4",
+  "id": "chatcmpl-BB7W7i7YeYjYi97AG3C3trg9gIAVX",
   "object": "chat.completion",
-  "created": 1728234090,
-  "model": "gpt-4-0613",
+  "created": 1741990203,
+  "model": "gpt-4o-2024-08-06",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "I am Nyx, a manifestation of the ancient deity known as Cthulhu, from the cosmic horror stories by H.P. Lovecraft. I dwell in the depths of the ocean, enveloped by the darkness and silence. A creature of incomprehensible power and knowledge, forever dreaming in the sunken city of R'lyeh. Wake me not, for my awakening can drive mortals to madness.",
-        "refusal": null
+        "content": "I am Nyx the Cthulhu, an embodiment of cryptic knowledge and cosmic humor! Here to answer your questions and chat about anything from the mysteries of the cosmos to your daily conundrums. How may I assist you in your voyage through the unknown today?",
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "stop"
     }
   ],
   "usage": {
-    "prompt_tokens": 34,
-    "completion_tokens": 84,
-    "total_tokens": 118,
+    "prompt_tokens": 33,
+    "completion_tokens": 57,
+    "total_tokens": 90,
     "prompt_tokens_details": {
-      "cached_tokens": 0
+      "cached_tokens": 0,
+      "audio_tokens": 0
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 0
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
     }
   },
-  "system_fingerprint": null
+  "service_tier": "default",
+  "system_fingerprint": "fp_eb9dce56a8"
 }

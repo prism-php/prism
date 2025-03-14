@@ -1,7 +1,7 @@
 {
-  "id": "chatcmpl-AN6CAYx0lUq3Jz02rglKzB3lBrESP",
+  "id": "chatcmpl-BB7W9oAuHdViPFBso4YNqG5n48hg6",
   "object": "chat.completion",
-  "created": 1730068722,
+  "created": 1741990205,
   "model": "gpt-4o-2024-08-06",
   "choices": [
     {
@@ -11,15 +11,16 @@
         "content": null,
         "tool_calls": [
           {
-            "id": "call_lRa4YQyXZmlTQceKB7wGIktn",
+            "id": "call_N18ASdB7htRsbPBeJNax6eTm",
             "type": "function",
             "function": {
               "name": "weather",
-              "arguments": "{\"city\":\"New York\"}"
+              "arguments": "{\"city\":\"do something\"}"
             }
           }
         ],
-        "refusal": null
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "stop"
@@ -27,14 +28,19 @@
   ],
   "usage": {
     "prompt_tokens": 95,
-    "completion_tokens": 6,
-    "total_tokens": 101,
+    "completion_tokens": 7,
+    "total_tokens": 102,
     "prompt_tokens_details": {
-      "cached_tokens": 0
+      "cached_tokens": 0,
+      "audio_tokens": 0
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 0
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
     }
   },
-  "system_fingerprint": "fp_72bbfa6014"
+  "service_tier": "default",
+  "system_fingerprint": "fp_f9f4fb6dbf"
 }
