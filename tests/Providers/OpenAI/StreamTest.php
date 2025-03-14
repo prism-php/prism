@@ -16,7 +16,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openai/stream-basic-text');
+    FixtureResponse::fakeStreamResponses('v1/responses', 'openai/stream-basic-text');
 
     $response = Prism::stream()
         ->using('openai', 'gpt-4')
@@ -38,13 +38,13 @@ it('can generate text with a basic stream', function (): void {
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
 
-        return $request->url() === 'https://api.openai.com/v1/chat/completions'
+        return $request->url() === 'https://api.openai.com/v1/responses'
             && $body['stream'] === true;
     });
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openai/stream-with-tools');
+    FixtureResponse::fakeStreamResponses('v1/responses', 'openai/stream-with-tools');
 
     $tools = [
         Tool::as('weather')
@@ -93,14 +93,14 @@ it('can generate text using tools with streaming', function (): void {
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
 
-        return $request->url() === 'https://api.openai.com/v1/chat/completions'
+        return $request->url() === 'https://api.openai.com/v1/responses'
             && isset($body['tools'])
             && $body['stream'] === true;
     });
 });
 
 it('can process a complete conversation with multiple tool calls', function (): void {
-    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openai/stream-multi-tool-conversation');
+    FixtureResponse::fakeStreamResponses('v1/responses', 'openai/stream-multi-tool-conversation');
 
     $tools = [
         Tool::as('weather')

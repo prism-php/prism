@@ -69,7 +69,7 @@ class MessageMap
         foreach ($message->toolResults as $toolResult) {
             $this->mappedMessages[] = [
                 'role' => 'tool',
-                'tool_call_id' => $toolResult->toolCallId,
+                'tool_call_id' => $toolResult->toolId,
                 'content' => $toolResult->result,
             ];
         }

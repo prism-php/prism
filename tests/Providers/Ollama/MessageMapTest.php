@@ -70,7 +70,7 @@ it('maps assistant messages correctly', function (): void {
 
 it('maps tool result messages correctly', function (): void {
     $toolResult = new ToolResult(
-        toolCallId: 'tool-1',
+        toolId: 'tool-1',
         toolName: 'test-tool',
         args: ['query' => 'test'],
         result: 'Tool execution result'
@@ -90,7 +90,7 @@ it('maps tool result messages correctly', function (): void {
 
 it('maps tool result messages with non-string results correctly', function (): void {
     $toolResult = new ToolResult(
-        toolCallId: 'tool-1',
+        toolId: 'tool-1',
         toolName: 'test-tool',
         args: ['query' => 'test'],
         result: ['key' => 'value']

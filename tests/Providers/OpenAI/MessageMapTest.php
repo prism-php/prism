@@ -24,7 +24,7 @@ it('maps user messages', function (): void {
     expect($messageMap())->toBe([[
         'role' => 'user',
         'content' => [
-            ['type' => 'text', 'text' => 'Who are you?'],
+            ['type' => 'input_text', 'text' => 'Who are you?'],
         ],
     ]]);
 });
@@ -110,27 +110,29 @@ it('maps assistant message with tool calls', function (): void {
                     'search',
                     [
                         'query' => 'Laravel collection methods',
-                    ]
+                    ],
+                    'tool_call_1234'
                 ),
             ]),
         ],
         systemPrompts: []
     );
 
-    expect($messageMap())->toBe([[
-        'role' => 'assistant',
-        'content' => 'I am Nyx',
-        'tool_calls' => [[
+    expect($messageMap())->toBe([
+        [
+            'role' => 'assistant',
+            'content' => 'I am Nyx',
+        ],
+        [
             'id' => 'tool_1234',
-            'type' => 'function',
-            'function' => [
-                'name' => 'search',
-                'arguments' => json_encode([
-                    'query' => 'Laravel collection methods',
-                ]),
-            ],
-        ]],
-    ]]);
+            'call_id' => 'tool_call_1234',
+            'type' => 'function_call',
+            'name' => 'search',
+            'arguments' => json_encode([
+                'query' => 'Laravel collection methods',
+            ]),
+        ],
+    ]);
 });
 
 it('maps tool result messages', function (): void {
@@ -143,7 +145,8 @@ it('maps tool result messages', function (): void {
                     [
                         'query' => 'Laravel collection methods',
                     ],
-                    '[search results]'
+                    '[search results]',
+                    'tool_1234',
                 ),
             ]),
         ],
@@ -151,9 +154,9 @@ it('maps tool result messages', function (): void {
     );
 
     expect($messageMap())->toBe([[
-        'role' => 'tool',
-        'tool_call_id' => 'tool_1234',
-        'content' => '[search results]',
+        'type' => 'function_call_output',
+        'call_id' => 'tool_1234',
+        'output' => '[search results]',
     ]]);
 });
 
@@ -178,7 +181,7 @@ it('maps system prompt', function (): void {
         [
             'role' => 'user',
             'content' => [
-                ['type' => 'text', 'text' => 'Who are you?'],
+                ['type' => 'input_text', 'text' => 'Who are you?'],
             ],
         ],
     ]);

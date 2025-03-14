@@ -14,8 +14,8 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
-use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
@@ -29,7 +29,9 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessesRateLimits;
+    use CallsTools,
+        MapsFinishReason,
+        ProcessesRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -67,21 +69,16 @@ class Stream
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
-                continue;
-            }
-
-            // Handle tool call completion
-            if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
                 return;
             }
 
             // Process regular content
-            $content = data_get($data, 'choices.0.delta.content', '') ?? '';
+            $content = data_get($data, 'delta', '') ?? '';
             $text .= $content;
 
-            $finishReason = $this->mapFinishReason($data);
+            $finishReason = $this->mapFinishReason(data_get($data, 'response') ?? []);
 
             yield new Chunk(
                 text: $content,
@@ -121,17 +118,12 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'choices.0.delta.tool_calls', []) as $index => $toolCall) {
-            if ($name = data_get($toolCall, 'function.name')) {
-                $toolCalls[$index]['name'] = $name;
-                $toolCalls[$index]['arguments'] = '';
-                $toolCalls[$index]['id'] = data_get($toolCall, 'id');
-            }
-
-            if ($arguments = data_get($toolCall, 'function.arguments')) {
-                $toolCalls[$index]['arguments'] .= $arguments;
-            }
-        }
+        $toolCalls[] = [
+            'name' => data_get($data, 'item.name'),
+            'id' => data_get($data, 'item.id') ?? '',
+            'call_id' => data_get($data, 'item.call_id') ?? '',
+            'arguments' => data_get($data, 'item.arguments') ?? '',
+        ];
 
         return $toolCalls;
     }
@@ -180,6 +172,7 @@ class Stream
                 data_get($toolCall, 'id'),
                 data_get($toolCall, 'name'),
                 data_get($toolCall, 'arguments'),
+                data_get($toolCall, 'call_id'),
             ))
             ->toArray();
     }
@@ -189,15 +182,7 @@ class Stream
      */
     protected function hasToolCalls(array $data): bool
     {
-        return (bool) data_get($data, 'choices.0.delta.tool_calls');
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function mapFinishReason(array $data): FinishReason
-    {
-        return FinishReasonMap::map(data_get($data, 'choices.0.finish_reason') ?? '');
+        return data_get($data, 'item.type') === 'function_call' && data_get($data, 'type') === 'response.output_item.done';
     }
 
     protected function sendRequest(Request $request): Response
@@ -208,12 +193,12 @@ class Stream
                 ->withOptions(['stream' => true])
                 ->throw()
                 ->post(
-                    'chat/completions',
+                    'responses',
                     array_merge([
                         'stream' => true,
                         'model' => $request->model(),
-                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_completion_tokens' => $request->maxTokens(),
+                        'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_output_tokens' => $request->maxTokens(),
                     ], array_filter([
                         'temperature' => $request->temperature(),
                         'top_p' => $request->topP(),

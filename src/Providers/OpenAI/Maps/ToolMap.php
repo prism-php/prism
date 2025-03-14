@@ -17,17 +17,15 @@ class ToolMap
     {
         return array_map(fn (Tool $tool): array => array_filter([
             'type' => 'function',
-            'function' => [
-                'name' => $tool->name(),
-                'description' => $tool->description(),
-                ...count($tool->parameters()) ? [
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => $tool->parameters(),
-                        'required' => $tool->requiredParameters(),
-                    ],
-                ] : [],
-            ],
+            'name' => $tool->name(),
+            'description' => $tool->description(),
+            ...count($tool->parameters()) ? [
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => $tool->parameters(),
+                    'required' => $tool->requiredParameters(),
+                ],
+            ] : [],
             'strict' => data_get($tool->providerMeta(Provider::OpenAI), 'strict', null),
         ]), $tools);
     }

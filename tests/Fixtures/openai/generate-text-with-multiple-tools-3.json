@@ -1,30 +1,33 @@
 {
-  "id": "chatcmpl-AFOxdEiXvNCXYFsDJ2KdQyb8jQPxJ",
-  "object": "chat.completion",
+  "id": "resp_AFOxdEiXvNCXYFsDJ2KdQyb8jQPxJ",
+  "object": "response",
   "created": 1728234233,
+  "status": "completed",
   "model": "gpt-4-0613",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "The game is at 3pm in Detroit. The weather there will be 75° and sunny. You probably won't need a coat.",
-        "refusal": null
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "type": "message",
+      "id": "msg_f3e8d2c9b5a1e6f0c3d4b7a2e8f0d1c2a3b4c5d6e7f89012",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "The game is at 3pm in Detroit. The weather there will be 75° and sunny. You probably won't need a coat.",
+          "annotations": []
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 163,
-    "completion_tokens": 30,
-    "total_tokens": 193,
-    "prompt_tokens_details": {
+    "input_tokens": 163,
+    "input_tokens_details": {
       "cached_tokens": 0
     },
-    "completion_tokens_details": {
+    "output_tokens": 30,
+    "output_tokens_details": {
       "reasoning_tokens": 0
-    }
-  },
-  "system_fingerprint": null
+    },
+    "total_tokens": 193
+  }
 }

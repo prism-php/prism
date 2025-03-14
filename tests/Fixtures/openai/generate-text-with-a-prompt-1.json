@@ -1,30 +1,33 @@
 {
-  "id": "chatcmpl-AFOt4svqd2hLXKHoH0icPJ5Rk9UFO",
-  "object": "chat.completion",
+  "id": "resp_AFOt4svqd2hLXKHoH0icPJ5Rk9UFO",
+  "object": "response",
   "created": 1728233950,
   "model": "gpt-4-0613",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "I am OpenAI's GPT-3, a large-scale machine learning model designed to generate human-like text based on the input I receive. You can ask me anything and I will do my best to provide a knowledgeable response. However, remember that I am an Artificial intelligence and don't possess feelings or personal experiences unlike a human.",
-        "refusal": null
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "type": "message",
+      "id": "msg_f3e8d2c9b5a1e6f0c3d4b7a2e8f0d1c2a3b4c5d6e7f89012",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "I am OpenAI's GPT-3, a large-scale machine learning model designed to generate human-like text based on the input I receive. You can ask me anything and I will do my best to provide a knowledgeable response. However, remember that I am an Artificial intelligence and don't possess feelings or personal experiences unlike a human.",
+          "annotations": []
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 11,
-    "completion_tokens": 67,
-    "total_tokens": 78,
-    "prompt_tokens_details": {
+    "input_tokens": 11,
+    "input_tokens_details": {
       "cached_tokens": 0
     },
-    "completion_tokens_details": {
+    "output_tokens": 67,
+    "output_tokens_details": {
       "reasoning_tokens": 0
-    }
+    },
+    "total_tokens": 78
   },
   "system_fingerprint": null
 }

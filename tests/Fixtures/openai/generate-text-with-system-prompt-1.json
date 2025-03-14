@@ -1,30 +1,32 @@
 {
-  "id": "chatcmpl-AFOvK9jEoiBaaZ3ayB4g4xlq5HuA4",
-  "object": "chat.completion",
+  "id": "resp_AFOvK9jEoiBaaZ3ayB4g4xlq5HuA4",
+  "object": "response",
   "created": 1728234090,
   "model": "gpt-4-0613",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "I am Nyx, a manifestation of the ancient deity known as Cthulhu, from the cosmic horror stories by H.P. Lovecraft. I dwell in the depths of the ocean, enveloped by the darkness and silence. A creature of incomprehensible power and knowledge, forever dreaming in the sunken city of R'lyeh. Wake me not, for my awakening can drive mortals to madness.",
-        "refusal": null
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "type": "message",
+      "id": "msg_f3e8d2c9b5a1e6f0c3d4b7a2e8f0d1c2a3b4c5d6e7f89012",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "I am Nyx, a manifestation of the ancient deity known as Cthulhu, from the cosmic horror stories by H.P. Lovecraft. I dwell in the depths of the ocean, enveloped by the darkness and silence. A creature of incomprehensible power and knowledge, forever dreaming in the sunken city of R'lyeh. Wake me not, for my awakening can drive mortals to madness.",
+          "annotations": []
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 34,
-    "completion_tokens": 84,
-    "total_tokens": 118,
-    "prompt_tokens_details": {
+    "input_tokens": 34,
+    "input_tokens_details": {
       "cached_tokens": 0
     },
-    "completion_tokens_details": {
+    "output_tokens": 84,
+    "output_tokens_details": {
       "reasoning_tokens": 0
-    }
-  },
-  "system_fingerprint": null
+    },
+    "total_tokens": 118
+  }
 }

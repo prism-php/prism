@@ -48,10 +48,10 @@ class Structured
 
         $data = $response->json();
 
-        $this->handleRefusal(data_get($data, 'choices.0.message', []));
+        $this->handleRefusal(data_get($data, 'output.{last}.content', []));
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
+            data_get($data, 'output.{last}.content.0.text') ?? '',
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -69,11 +69,11 @@ class Structured
     protected function addStep(array $data, Request $request, ClientResponse $clientResponse): void
     {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'choices.0.message.content') ?? '',
+            text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                data_get($data, 'usage.input_tokens'),
+                data_get($data, 'usage.output_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
@@ -93,15 +93,19 @@ class Structured
     {
         try {
             return $this->client->post(
-                'chat/completions',
+                'responses',
                 array_merge([
                     'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
+                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_output_tokens' => $request->maxTokens(),
                 ], array_filter([
+                    'previous_response_id' => $request->providerMeta(Provider::OpenAI, 'previous_response_id'),
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
-                    'response_format' => $responseFormat,
+                    'truncation' => $request->providerMeta(Provider::OpenAI, 'truncation'),
+                    'text' => [
+                        'format' => $responseFormat,
+                    ],
                 ]))
             );
         } catch (Throwable $e) {
@@ -128,14 +132,12 @@ class Structured
             throw new PrismException(sprintf('%s model does not support structured mode', $request->model()));
         }
 
-        return $this->sendRequest($request, [
+        return $this->sendRequest($request, array_filter([
             'type' => 'json_schema',
-            'json_schema' => array_filter([
-                'name' => $request->schema()->name(),
-                'schema' => $request->schema()->toArray(),
-                'strict' => (bool) $request->providerMeta(Provider::OpenAI, 'schema.strict'),
-            ]),
-        ]);
+            'name' => $request->schema()->name(),
+            'schema' => $request->schema()->toArray(),
+            'strict' => (bool) $request->providerMeta(Provider::OpenAI, 'schema.strict'),
+        ]));
     }
 
     protected function handleJsonMode(Request $request): ClientResponse
