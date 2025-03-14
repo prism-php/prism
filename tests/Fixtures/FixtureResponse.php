@@ -21,7 +21,7 @@ class FixtureResponse
         // Check if fixture files exist
         $fixtureFiles = is_dir($basePath)
             ? collect(scandir($basePath))
-                ->filter(fn(string $file): int|false => preg_match('/^'.preg_quote($filename, '/').'-\d+/', $file))
+                ->filter(fn (string $file): int|false => preg_match('/^'.preg_quote($filename, '/').'-\d+/', $file))
                 ->toArray()
             : [];
 
@@ -82,6 +82,7 @@ class FixtureResponse
             $requestPath => Http::sequence($responses->toArray()),
         ])->preventStrayRequests();
     }
+
     protected static function filePath(string $filePath): string
     {
         return sprintf('%s/%s', __DIR__, $filePath);
