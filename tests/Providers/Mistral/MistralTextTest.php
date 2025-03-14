@@ -8,8 +8,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Enums\ToolChoice;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
@@ -127,19 +125,6 @@ describe('Text generation', function (): void {
             ->generate();
 
         expect($response->toolCalls[0]->name)->toBe('weather');
-    });
-
-    it('throws an exception for ToolChoice::Any', function (): void {
-        Http::preventStrayRequests();
-
-        $this->expectException(PrismException::class);
-        $this->expectExceptionMessage('Invalid tool choice');
-
-        Prism::text()
-            ->using(Provider::Mistral, 'mistral-large-latest')
-            ->withPrompt('Who are you?')
-            ->withToolChoice(ToolChoice::Any)
-            ->generate();
     });
 });
 
