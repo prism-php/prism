@@ -8,7 +8,6 @@ use Generator;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Stream\Chunk;
-use Prism\Prism\Stream\Request as StreamRequest;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -25,5 +24,5 @@ interface Provider
     /**
      * @return Generator<Chunk>
      */
-    public function stream(StreamRequest $request): Generator;
+    public function stream(TextRequest $request): Generator;
 }

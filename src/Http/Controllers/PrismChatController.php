@@ -43,22 +43,27 @@ class PrismChatController
     protected function stream(PendingRequest $generator): Response
     {
         return response()->stream(function () use ($generator): void {
-            $response = $generator->generate();
+            $response = $generator->asStream();
 
-            $chunk = [
-                'id' => $response->meta->id,
-                'object' => 'chat.completion.chunk',
-                'created' => now()->timestamp,
-                'model' => $response->meta->model,
-                'choices' => [[
-                    'delta' => [
-                        'role' => 'assistant',
-                        'content' => $this->textFromResponse($response),
-                    ],
-                ]],
-            ];
+            foreach ($response as $chunk) {
+                $data = [
+                    'id' => $chunk->meta?->id ?? 'unknown',
+                    'object' => 'chat.completion.chunk',
+                    'created' => now()->timestamp,
+                    'model' => $chunk->meta?->model ?? 'unknown',
+                    'choices' => [[
+                        'delta' => [
+                            'role' => 'assistant',
+                            'content' => $chunk->content ?? $chunk->text,
+                        ],
+                    ]],
+                ];
 
-            echo 'data: '.json_encode($chunk)."\n\n";
+                echo 'data: '.json_encode($data)."\n\n";
+                ob_flush();
+                flush();
+            }
+
             echo "data: [DONE]\n";
             ob_flush();
             flush();
@@ -81,7 +86,7 @@ class PrismChatController
 
     protected function chat(PendingRequest $generator): Response
     {
-        $response = $generator->generate();
+        $response = $generator->asText();
 
         $data = [
             'id' => $response->meta->id,

@@ -28,9 +28,25 @@ class PendingRequest
     use HasProviderMeta;
     use HasTools;
 
+    /**
+     * @deprecated Use asText() or asStream() instead
+     */
     public function generate(): Response
     {
+        return $this->asText();
+    }
+
+    public function asText(): Response
+    {
         return $this->provider->text($this->toRequest());
+    }
+
+    /**
+     * @return \Generator<\Prism\Prism\Stream\Chunk>
+     */
+    public function asStream(): \Generator
+    {
+        return $this->provider->stream($this->toRequest());
     }
 
     public function toRequest(): Request

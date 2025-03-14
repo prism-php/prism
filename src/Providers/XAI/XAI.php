@@ -12,7 +12,6 @@ use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\XAI\Handlers\Text;
-use Prism\Prism\Stream\Request as StreamRequest;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -46,7 +45,7 @@ readonly class XAI implements Provider
     }
 
     #[\Override]
-    public function stream(StreamRequest $request): Generator
+    public function stream(TextRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }

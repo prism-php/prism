@@ -12,10 +12,9 @@ use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Handlers\Text;
-use Prism\Prism\Stream\Request as StreamRequest;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Request;
+use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 
 readonly class Groq implements Provider
@@ -26,7 +25,7 @@ readonly class Groq implements Provider
     ) {}
 
     #[\Override]
-    public function text(Request $request): TextResponse
+    public function text(TextRequest $request): TextResponse
     {
         $handler = new Text($this->client($request->clientOptions(), $request->clientRetry()));
 
@@ -46,7 +45,7 @@ readonly class Groq implements Provider
     }
 
     #[\Override]
-    public function stream(StreamRequest $request): Generator
+    public function stream(TextRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }

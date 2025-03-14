@@ -46,6 +46,9 @@ class Prism
         return new PendingTextRequest;
     }
 
+    /**
+     * @deprecated Use text()->asStream() instead
+     */
     public static function stream(): PendingStreamRequest
     {
         return new PendingStreamRequest;

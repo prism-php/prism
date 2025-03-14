@@ -8,6 +8,7 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\PrismServer;
+use Prism\Prism\Stream\Chunk;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -41,8 +42,8 @@ it('handles chat requests successfully', function (): void {
         messages: collect(),
     );
 
-    $generator->expects('generate')
-        ->andReturns($textResponse);
+    $generator->expects('asText')
+        ->andReturn($textResponse);
 
     PrismServer::register(
         'nyx',
@@ -95,22 +96,17 @@ it('handles streaming requests', function (): void {
             && $messages[0]->text() === 'Who are you?')
         ->andReturnSelf();
 
-    $textResponse = new Response(
-        steps: collect(),
+    $meta = new Meta('cmp_asdf123', 'gpt-4');
+    $chunk = new Chunk(
         text: "I'm Nyx!",
-        finishReason: FinishReason::Stop,
-        toolCalls: [],
-        toolResults: [],
-        usage: new Usage(10, 10),
-        meta: new Meta('cmp_asdf123', 'gpt-4'),
-        responseMessages: collect([
-            new AssistantMessage("I'm Nyx!"),
-        ]),
-        messages: collect(),
+        meta: $meta,
+        content: "I'm Nyx!",
     );
 
-    $generator->expects('generate')
-        ->andReturns($textResponse);
+    $generator->expects('asStream')
+        ->andReturn((function () use ($chunk) {
+            yield $chunk;
+        })());
 
     PrismServer::register(
         'nyx',
@@ -135,7 +131,7 @@ it('handles streaming requests', function (): void {
     Carbon::setTestNow($now);
 
     expect(json_decode($data, true))->toBe([
-        'id' => $textResponse->meta->id,
+        'id' => 'cmp_asdf123',
         'object' => 'chat.completion.chunk',
         'created' => $now->timestamp,
         'model' => 'gpt-4',
@@ -149,7 +145,9 @@ it('handles streaming requests', function (): void {
         ],
     ]);
 
-    expect((string) Str::of($streamParts[2])->substr(6))->toBe('[DONE]');
+    expect(count($streamParts) > 1)->toBeTrue();
+    $lastPart = array_pop($streamParts);
+    expect((string) Str::of($lastPart)->substr(6))->toBe('[DONE]');
 });
 
 it('handles invalid model requests', function (): void {

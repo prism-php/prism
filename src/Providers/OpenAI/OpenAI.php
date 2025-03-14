@@ -15,7 +15,6 @@ use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
 use Prism\Prism\Providers\OpenAI\Handlers\Structured;
 use Prism\Prism\Providers\OpenAI\Handlers\Text;
-use Prism\Prism\Stream\Request as StreamRequest;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -64,7 +63,7 @@ readonly class OpenAI implements Provider
     }
 
     #[\Override]
-    public function stream(StreamRequest $request): Generator
+    public function stream(TextRequest $request): Generator
     {
         $handler = new Stream($this->client(
             $request->clientOptions(),
