@@ -4,30 +4,90 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
-use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class FixtureResponse
 {
-    public static function fromFile(
-        string $filePath,
-        int $statusCode = 200,
-        $headers = []
-    ): PromiseInterface {
-        return Http::response(
-            file_get_contents(static::filePath($filePath)),
-            $statusCode,
-            $headers,
-        );
-    }
+    /**
+     * @param  array<string, string>  $headers
+     */
+    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = []): void
+    {
+        $basePath = dirname(static::filePath($name));
+        $pathInfo = pathinfo($name);
+        $filename = $pathInfo['filename'];
 
-    public static function filePath(string $filePath): string
+        // Check if fixture files exist
+        $fixtureFiles = is_dir($basePath)
+            ? collect(scandir($basePath))
+                ->filter(fn(string $file): int|false => preg_match('/^'.preg_quote($filename, '/').'-\d+/', $file))
+                ->toArray()
+            : [];
+
+        // If no fixture files exist, automatically record the response
+        if (empty($fixtureFiles)) {
+            $iterator = 0;
+
+            Http::fake(function ($request) use ($requestPath, $name, &$iterator, $headers) {
+                if (Str::contains($request->url(), $requestPath)) {
+                    $iterator++;
+
+                    // Prepare path for recording
+                    $path = static::filePath("{$name}-{$iterator}.json");
+
+                    if (! is_dir(dirname($path))) {
+                        mkdir(dirname($path), recursive: true);
+                    }
+
+                    // Forward the request to the real API
+                    $client = new \GuzzleHttp\Client;
+                    $options = [
+                        'headers' => $request->headers(),
+                        'body' => $request->body(),
+                    ];
+
+                    $response = $client->request($request->method(), $request->url(), $options);
+                    $responseBody = (string) $response->getBody();
+
+                    // Save the response
+                    file_put_contents($path, $responseBody);
+
+                    // Return the response with user-specified headers if any
+                    $responseHeaders = $headers ?: [];
+
+                    return Http::response(
+                        $responseBody,
+                        $response->getStatusCode(),
+                        $responseHeaders
+                    );
+                }
+
+                return Http::response('{"error":"Not mocked"}', 404);
+            });
+
+            return;
+        }
+
+        // Use existing fixture files
+        $responses = collect($fixtureFiles)
+            ->map(fn ($filename): string => $basePath.'/'.$filename)
+            ->map(fn ($filePath) => Http::response(
+                file_get_contents($filePath),
+                200,
+                $headers
+            ));
+
+        Http::fake([
+            $requestPath => Http::sequence($responses->toArray()),
+        ])->preventStrayRequests();
+    }
+    protected static function filePath(string $filePath): string
     {
         return sprintf('%s/%s', __DIR__, $filePath);
     }
 
-    public static function recordResponses(string $requestPath, string $name): void
+    protected static function recordResponses(string $requestPath, string $name): void
     {
         $iterator = 0;
 
@@ -49,10 +109,7 @@ class FixtureResponse
         });
     }
 
-    /**
-     * Record streaming responses (like OpenAI's Server-Sent Events)
-     */
-    public static function recordStreamResponses(string $requestPath, string $name): void
+    protected static function recordStreamResponses(string $requestPath, string $name): void
     {
         Http::fake(function ($request) use ($requestPath, $name) {
             if (Str::contains($request->url(), $requestPath)) {
@@ -61,6 +118,7 @@ class FixtureResponse
 
                 // Create directory for the response file if needed
                 $path = static::filePath("{$name}-{$iterator}.sse");
+
                 if (! is_dir(dirname($path))) {
                     mkdir(dirname($path), recursive: true);
                 }
@@ -109,10 +167,7 @@ class FixtureResponse
         });
     }
 
-    /**
-     * Fake streaming responses from recorded files
-     */
-    public static function fakeStreamResponses(string $requestPath, string $name): void
+    protected static function fakeStreamResponses(string $requestPath, string $name): void
     {
         $basePath = dirname(static::filePath("{$name}-1.sse"));
 
@@ -122,6 +177,13 @@ class FixtureResponse
             ->map(fn ($file): string => $basePath.'/'.$file)
             ->values()
             ->toArray();
+
+        // If no files exist, automatically record the streaming responses
+        if (empty($files)) {
+            static::recordStreamResponses($requestPath, $name);
+
+            return;
+        }
 
         // Sort files numerically
         usort($files, function ($a, $b): int {
@@ -154,27 +216,6 @@ class FixtureResponse
         // Register the fake responses
         Http::fake([
             $requestPath => Http::sequence($responses),
-        ])->preventStrayRequests();
-    }
-
-    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = []): void
-    {
-        $responses = collect(scandir(dirname(static::filePath($name))))
-            ->filter(function (string $file) use ($name): int|false {
-                $pathInfo = pathinfo($name);
-                $filename = $pathInfo['filename'];
-
-                return preg_match('/^'.preg_quote($filename, '/').'-\d+/', $file);
-            })
-            ->map(fn ($filename): string => dirname(static::filePath($name)).'/'.$filename)
-            ->map(fn ($filePath) => Http::response(
-                file_get_contents($filePath),
-                200,
-                $headers
-            ));
-
-        Http::fake([
-            $requestPath => Http::sequence($responses->toArray()),
         ])->preventStrayRequests();
     }
 }
