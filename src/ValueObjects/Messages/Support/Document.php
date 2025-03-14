@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\ValueObjects\Messages\Support;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\HasProviderMeta;
@@ -111,5 +112,33 @@ class Document
             documentTitle: $title,
             documentContext: $context
         );
+    }
+
+    public static function fromUrl(string $url, ?string $title = null, ?string $context = null): self
+    {
+        $mimeType = get_headers($url, true)['Content-Type'] ?? null;
+
+        if (is_null($mimeType)) {
+            throw new InvalidArgumentException("Could not determine mime type for {$url}");
+        }
+
+        try {
+            $content = Http::get($url);
+        } catch (\Exception) {
+            throw new InvalidArgumentException("Could not get content for {$url}");
+        }
+
+        return new self(
+            document: $content->body(),
+            mimeType: $mimeType,
+            dataFormat: 'url',
+            documentTitle: $title,
+            documentContext: $context
+        );
+    }
+
+    public function isUrl(): bool
+    {
+        return $this->dataFormat === 'url';
     }
 }
