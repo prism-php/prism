@@ -8,7 +8,6 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
-use Prism\Prism\Stream\PendingRequest as PendingStreamRequest;
 use Prism\Prism\Structured\PendingRequest as PendingStructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\PrismFake;
@@ -49,9 +48,9 @@ class Prism
     /**
      * @deprecated Use text()->asStream() instead
      */
-    public static function stream(): PendingStreamRequest
+    public static function stream(): PendingTextRequest
     {
-        return new PendingStreamRequest;
+        return self::text();
     }
 
     public static function structured(): PendingStructuredRequest

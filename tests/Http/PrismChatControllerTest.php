@@ -8,7 +8,7 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\PrismServer;
-use Prism\Prism\Stream\Chunk;
+use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;

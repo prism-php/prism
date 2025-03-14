@@ -42,7 +42,7 @@ class PendingRequest
     }
 
     /**
-     * @return \Generator<\Prism\Prism\Stream\Chunk>
+     * @return \Generator<\Prism\Prism\Text\Chunk>
      */
     public function asStream(): \Generator
     {
