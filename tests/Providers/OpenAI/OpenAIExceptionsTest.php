@@ -17,8 +17,7 @@ arch()->expect([
     'Providers\OpenAI\Handlers\Structured',
     'Providers\OpenAI\Handlers\Embeddings',
     'Providers\OpenAI\Handlers\Stream',
-])
-    ->toUseTrait(ProcessesRateLimits::class);
+])->toUseTrait(ProcessesRateLimits::class);
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
     Http::fake([
