@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -311,5 +312,58 @@ describe('Document support for Gemini', function (): void {
 
             return true;
         });
+    });
+});
+
+describe('search grounding', function (): void {
+    it('adds the google_search empty tool if searchGrounding is set to true', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withPrompt('What is the stock price of Google right now?')
+            ->withProviderMeta(Provider::Gemini, ['searchGrounding' => true])
+            ->generate();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['tools'][0])->toHaveKey('google_search');
+            expect($data['tools'][0]['google_search'])->toBeObject();
+
+            return true;
+        });
+    });
+
+    it('throws an exception of searchGrounding is enabled with other tools', function (): void {
+        Http::fake()->preventStrayRequests();
+
+        $tools = [
+            (new Tool)
+                ->as('search_games')
+                ->for('useful for searching current games times in the city')
+                ->withStringParameter('city', 'The city that you want the game times for')
+                ->using(fn (string $city): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withMaxSteps(3)
+            ->withTools($tools)
+            ->withPrompt('What sport fixtures are on today, and will I need a coat based on today\'s weather forecast?')
+            ->withProviderMeta(Provider::Gemini, ['searchGrounding' => true])
+            ->generate();
+    })->throws(PrismException::class, 'Use of search grounding with custom tools is not currently supported by Prism.');
+
+    it('uses search grounding where searchGrounding is true on provider meta', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withPrompt('What is the stock price of Google right now?')
+            ->withProviderMeta(Provider::Gemini, ['searchGrounding' => true])
+            ->generate();
+
+        expect($response->text)->toContain('Alphabet Inc.');
     });
 });
