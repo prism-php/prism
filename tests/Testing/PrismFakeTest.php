@@ -38,7 +38,7 @@ it('fake responses using the prism fake for text', function (): void {
     Prism::text()
         ->using('anthropic', 'claude-3-sonnet')
         ->withPrompt('What is the meaning of life?')
-        ->generate();
+        ->asText();
 
     $fake->assertCallCount(1);
     $fake->assertPrompt('What is the meaning of life?');
@@ -72,7 +72,7 @@ it('fake responses using the prism fake for structured', function (): void {
                 new StringSchema('foo', 'foo value'),
             ]
         ))
-        ->generate();
+        ->asStructured();
 
     $fake->assertCallCount(1);
     $fake->assertPrompt('What is the meaning of life?');
@@ -102,7 +102,7 @@ it('fake responses using the prism fake for emeddings', function (): void {
     Prism::embeddings()
         ->using(Provider::OpenAI, 'text-embedding-ada-002')
         ->fromInput('What is the meaning of life?')
-        ->generate();
+        ->asEmbeddings();
 
     $fake->assertCallCount(1);
     $fake->assertRequest(function (array $requests): void {
@@ -132,12 +132,12 @@ it("throws an exception when it can't runs out of responses", function (): void 
     Prism::text()
         ->using('anthropic', 'claude-3-sonnet')
         ->withPrompt('What is the meaning of life?')
-        ->generate();
+        ->asText();
 
     Prism::text()
         ->using('anthropic', 'claude-3-sonnet')
         ->withPrompt('What is the meaning of life?')
-        ->generate();
+        ->asText();
 });
 
 it('asserts provider config', function (): void {
@@ -159,7 +159,7 @@ it('asserts provider config', function (): void {
         ->using('anthropic', 'claude-3-sonnet')
         ->withPrompt('What is the meaning of life?')
         ->usingProviderConfig(['api_key' => '1234'])
-        ->generate();
+        ->asText();
 
     $fake->assertProviderConfig(['api_key' => '1234']);
 });

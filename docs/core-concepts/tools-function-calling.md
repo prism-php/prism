@@ -24,7 +24,7 @@ $response = Prism::text()
     ->withMaxSteps(2)
     ->withPrompt('What is the weather like in Paris?')
     ->withTools([$weatherTool])
-    ->generate();
+    ->asText();
 ```
 
 ## Max Steps
@@ -41,7 +41,7 @@ Prism::text()
     ->withMaxSteps(2)
     ->withPrompt('What is the weather like in Paris?')
     ->withTools([$weatherTool])
-    ->generate();
+    ->asText();
 ```
 
 You should use a higher number of max steps if you expect your initial prompt to make multiple tool calls.
@@ -293,7 +293,7 @@ $response = Prism::text()
     ->withMaxSteps(2)
     ->withPrompt('What is the weather like in Paris?')
     ->withTools([$weatherTool])
-    ->generate();
+    ->asText();
 
 // Get the final answer
 echo $response->text;

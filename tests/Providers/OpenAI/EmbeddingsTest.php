@@ -21,7 +21,7 @@ it('returns embeddings from input', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::OpenAI, 'text-embedding-ada-002')
         ->fromInput('The food was delicious and the waiter...')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/openai/embeddings-input-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -39,7 +39,7 @@ it('returns embeddings from file', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::OpenAI, 'text-embedding-ada-002')
         ->fromFile('tests/Fixtures/test-embedding-file.md')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/openai/embeddings-file-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -58,7 +58,7 @@ it('works with multiple embeddings', function (): void {
             'The food was delicious.',
             'The drinks were not so good',
         ])
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/openai/embeddings-multiple-inputs-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -85,7 +85,7 @@ it('sets the rate limits on the response', function (): void {
         $response = Prism::embeddings()
             ->using(Provider::OpenAI, 'text-embedding-ada-002')
             ->fromInput('The food was delicious and the waiter...')
-            ->generate();
+            ->asEmbeddings();
 
         expect($response->meta->rateLimits)->toHaveCount(2);
         expect($response->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);

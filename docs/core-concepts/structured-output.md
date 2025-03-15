@@ -27,7 +27,7 @@ $response = Prism::structured()
     ->using(Provider::OpenAI, 'gpt-4o')
     ->withSchema($schema)
     ->withPrompt('Review the movie Inception')
-    ->generate();
+    ->asStructured();
 
 // Access your structured data
 $review = $response->structured;
@@ -78,7 +78,7 @@ use Prism\Prism\Prism;
 
 $response = Prism::structured()
     ->withSchema($schema)
-    ->generate();
+    ->asStructured();
 
 // Access the structured data as a PHP array
 $data = $response->structured;
@@ -148,7 +148,7 @@ try {
         ->using('anthropic', 'claude-3-sonnet')
         ->withSchema($schema)
         ->withPrompt('Generate product data')
-        ->generate();
+        ->asStructured();
 } catch (PrismException $e) {
     // Handle validation or generation errors
     Log::error('Structured generation failed:', [

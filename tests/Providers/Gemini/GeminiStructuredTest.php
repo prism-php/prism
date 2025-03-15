@@ -50,7 +50,7 @@ it('returns structured output', function (): void {
         ->using(Provider::Gemini, 'gemini-1.5-flash-002')
         ->withSchema($schema)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys([

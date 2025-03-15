@@ -29,7 +29,7 @@ it('returns structured output', function (): void {
         ->using(Provider::DeepSeek, 'deepseek-chat')
         ->withSystemPrompt('The tigers game is at 3pm in Detroit, the temperature is expected to be 75º')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     // Assert response type
     expect($response)->toBeInstanceOf(StructuredResponse::class);

@@ -33,7 +33,7 @@ it('returns structured output', function (): void {
         ->withSchema($schema)
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys([
@@ -64,7 +64,7 @@ it('returns structured output using json mode', function (): void {
         ->withSchema($schema)
         ->using(Provider::OpenAI, 'gpt-4-turbo')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys([
@@ -95,7 +95,7 @@ it('schema strict defaults to null', function (): void {
         ->withSchema($schema)
         ->withSystemPrompt('The game time is 3pm and the weather is 80° and sunny')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
@@ -130,7 +130,7 @@ it('uses meta to define strict mode', function (): void {
         ->withProviderMeta(Provider::OpenAI, [
             'schema' => ['strict' => true],
         ])
-        ->generate();
+        ->asStructured();
 
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
@@ -172,7 +172,7 @@ it('throws an exception when there is a refusal', function (): void {
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withSchema($schema)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
@@ -201,7 +201,7 @@ it('throws an exception for o1 models', function (string $model): void {
         ->using(Provider::OpenAI, $model)
         ->withSchema($schema)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 })->with([
     'o1-mini',
     'o1-mini-2024-09-12',
@@ -237,7 +237,7 @@ it('sets the rate limits on meta', function (): void {
             ->withSchema($schema)
             ->using(Provider::OpenAI, 'gpt-4o')
             ->withPrompt('What time is the tigers game today and should I wear a coat?')
-            ->generate();
+            ->asStructured();
 
         expect($response->meta->rateLimits)->toHaveCount(2);
         expect($response->meta->rateLimits[0]->name)->toEqual('requests');

@@ -19,7 +19,7 @@ $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-sonnet')
     ->withSystemPrompt(view('prompts.system'))
     ->withPrompt('Explain quantum computing to a 5-year-old.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -32,7 +32,7 @@ $response = Prism::text()
     ->using(Provider::Mistral, 'mistral-medium')
     ->withSystemPrompt(view('prompts.system'))
     ->withPrompt('Explain quantum computing to a 5-year-old.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -45,7 +45,7 @@ $response = Prism::text()
     ->using(Provider::Ollama, 'llama2')
     ->withSystemPrompt(view('prompts.system'))
     ->withPrompt('Explain quantum computing to a 5-year-old.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -58,7 +58,7 @@ $response = Prism::text()
     ->using(Provider::OpenAI, 'gpt-4')
     ->withSystemPrompt(view('prompts.system'))
     ->withPrompt('Explain quantum computing to a 5-year-old.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -79,7 +79,7 @@ prism()
     ->text()
     ->using(Provider::OpenAI, 'gpt-4')
     ->withPrompt('Explain quantum computing to a 5-year-old.')
-    ->generate();
+    ->asText();
 ``` 
 
 ## Providers

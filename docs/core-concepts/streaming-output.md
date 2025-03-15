@@ -12,7 +12,7 @@ use Prism\Prism\Prism;
 $response = Prism::stream()
     ->using('openai', 'gpt-4')
     ->withPrompt('Tell me a story about a brave knight.')
-    ->generate();
+    ->asStream();
 
 // Process each chunk as it arrives
 foreach ($response as $chunk) {
@@ -59,7 +59,7 @@ $response = Prism::stream()
     ->withTools([$weatherTool])
     ->withMaxSteps(3) // Control maximum number of back-and-forth steps
     ->withPrompt('What\'s the weather like in San Francisco today?')
-    ->generate();
+    ->asStream();
 
 $fullResponse = '';
 foreach ($response as $chunk) {
@@ -104,7 +104,7 @@ public function streamResponse()
         $stream = Prism::stream()
             ->using('openai', 'gpt-4')
             ->withPrompt('Explain quantum computing step by step.')
-            ->generate();
+            ->asStream();
 
         foreach ($stream as $chunk) {
             echo $chunk->text;
@@ -129,7 +129,7 @@ Route::get('/chat', function () {
         $stream = Prism::stream()
             ->using('openai', 'gpt-4')
             ->withPrompt('Explain quantum computing step by step.')
-            ->generate();
+            ->asStream();
 
         foreach ($stream as $response) {
             yield $response->text;

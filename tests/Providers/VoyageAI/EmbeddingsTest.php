@@ -15,7 +15,7 @@ it('returns embeddings from input', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious and the waiter...')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-from-input-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -33,7 +33,7 @@ it('returns multiple embeddings from input', function (): void {
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious.')
         ->fromInput('The drinks were not so good.')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-from-multiple-inputs-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -51,7 +51,7 @@ it('returns embeddings with inputType set', function (): void {
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious and the waiter...')
         ->withProviderMeta(Provider::VoyageAI, ['inputType' => 'query'])
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-with-input-type-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -68,7 +68,7 @@ it('returns embeddings with truncation set', function (): void {
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious and the waiter...')
         ->withProviderMeta(Provider::VoyageAI, ['truncation' => false])
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-with-truncation-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -88,7 +88,7 @@ it('returns embeddings with inputType and truncation', function (): void {
             'inputType' => 'query',
             'truncation' => false,
         ])
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-with-input-type-and-truncation-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -108,6 +108,6 @@ it('throws a PrismRateLimitedException for a 429 response code', function (): vo
     Prism::embeddings()
         ->using(Provider::VoyageAI, 'fake-model')
         ->fromInput('Hello world!')
-        ->generate();
+        ->asEmbeddings();
 
 })->throws(PrismRateLimitedException::class);

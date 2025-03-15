@@ -15,7 +15,7 @@ it('returns embeddings from input', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::Ollama, 'mxbai-embed-large')
         ->fromInput('The food was delicious and the waiter...')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-input-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));
@@ -32,7 +32,7 @@ it('returns embeddings from file', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::Ollama, 'mxbai-embed-large')
         ->fromFile('tests/Fixtures/test-embedding-file.md')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-file-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));
@@ -51,7 +51,7 @@ it('works with multiple embeddings', function (): void {
             'The food was delicious.',
             'The drinks were not so good',
         ])
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-multiple-inputs-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));

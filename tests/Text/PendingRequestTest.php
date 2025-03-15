@@ -296,7 +296,7 @@ test('it generates response', function (): void {
     $response = $this->pendingRequest
         ->using('test-provider', 'test-model')
         ->withPrompt('test')
-        ->generate();
+        ->asText();
 
     expect($response->text)->toBe("I'm nyx!");
 });

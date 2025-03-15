@@ -52,7 +52,15 @@ class PendingRequest
         return $this;
     }
 
-    public function generate(): \Prism\Prism\Embeddings\Response
+    /**
+     * @deprecated Use `asEmbeddings` instead.
+     */
+    public function generate(): Response
+    {
+        return $this->asEmbeddings();
+    }
+
+    public function asEmbeddings(): \Prism\Prism\Embeddings\Response
     {
         if ($this->inputs === []) {
             throw new PrismException('Embeddings input is required');

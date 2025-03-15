@@ -23,7 +23,7 @@ it('can generate text with a prompt', function (): void {
     $response = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     expect($response->usage->promptTokens)->toBe(11);
     expect($response->usage->completionTokens)->toBe(67);
@@ -41,7 +41,7 @@ it('can generate text with a system prompt', function (): void {
         ->using('openai', 'gpt-4')
         ->withSystemPrompt('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     expect($response->usage->promptTokens)->toBe(34);
     expect($response->usage->completionTokens)->toBe(84);
@@ -71,7 +71,7 @@ it('can generate text using multiple tools and multiple steps', function (): voi
         ->withTools($tools)
         ->withMaxSteps(3)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asText();
 
     // Assert tool calls in the first step
     $firstStep = $response->steps[0];
@@ -111,7 +111,7 @@ it('sends the organization header when set', function (): void {
     Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->header('OpenAI-Organization')[0] === 'echolabs');
 });
@@ -124,7 +124,7 @@ it('does not send the organization header if one is not given', function (): voi
     Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     Http::assertSent(fn (Request $request): bool => empty($request->header('OpenAI-Organization')));
 });
@@ -137,7 +137,7 @@ it('sends the api key header when set', function (): void {
     Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->header('Authorization')[0] === 'Bearer sk-1234');
 });
@@ -150,8 +150,7 @@ it('does not send the api key header', function (): void {
     Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-
-        ->generate();
+        ->asText();
     Http::assertSent(fn (Request $request): bool => empty($request->header('Authorization')));
 });
 
@@ -163,7 +162,7 @@ it('sends the project header when set', function (): void {
     Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->header('OpenAI-Project')[0] === 'echolabs');
 });
@@ -176,7 +175,7 @@ it('does not send the project header if one is not given', function (): void {
     Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     Http::assertSent(fn (Request $request): bool => empty($request->header('OpenAI-Project')));
 });
@@ -200,7 +199,7 @@ it('handles specific tool choice', function (): void {
         ->withPrompt('Do something')
         ->withTools($tools)
         ->withToolChoice('weather')
-        ->generate();
+        ->asText();
 
     expect($response->toolCalls[0]->name)->toBe('weather');
 });
@@ -213,7 +212,7 @@ it('throws an exception for ToolChoice::Any', function (): void {
         ->using('openai', 'gpt-4')
         ->withPrompt('Who are you?')
         ->withToolChoice(ToolChoice::Any)
-        ->generate();
+        ->asText();
 });
 
 it('sets the rate limits on meta', function (): void {
@@ -232,7 +231,7 @@ it('sets the rate limits on meta', function (): void {
         $response = Prism::text()
             ->using('openai', 'gpt-4')
             ->withPrompt('Who are you?')
-            ->generate();
+            ->asText();
 
         expect($response->meta->rateLimits)->toHaveCount(2);
         expect($response->meta->rateLimits[0]->name)->toEqual('requests');

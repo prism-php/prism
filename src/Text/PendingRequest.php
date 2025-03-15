@@ -30,7 +30,7 @@ class PendingRequest
     use HasTools;
 
     /**
-     * @deprecated Use asText() or asStream() instead
+     * @deprecated Use `asText` instead.
      */
     public function generate(): Response
     {

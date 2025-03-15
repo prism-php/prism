@@ -21,7 +21,7 @@ it('returns embeddings from input', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
         ->fromInput('Embed this sentence.')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/gemini/embeddings-input-1.json'), true);
     $embedding = Embedding::fromArray(data_get($embeddings, 'embedding.values'));
@@ -37,7 +37,7 @@ it('returns embeddings from file', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
         ->fromFile('tests/Fixtures/test-embedding-file.md')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/gemini/embeddings-file-1.json'), true);
     $embedding = Embedding::fromArray(data_get($embeddings, 'embedding.values'));
@@ -54,5 +54,5 @@ it('throws an exception with multiple inputs', function (): void {
         ->using(Provider::Gemini, 'text-embedding-004')
         ->fromInput('1')
         ->fromInput('2')
-        ->generate();
+        ->asEmbeddings();
 })->throws(PrismException::class, 'Gemini Error: Prism currently only supports one input at a time with Gemini.');

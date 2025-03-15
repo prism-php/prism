@@ -26,7 +26,7 @@ it('throws a PrismRateLimitedException with a 429 response code for text and str
     Prism::text()
         ->using(Provider::Gemini, 'fake-model')
         ->withPrompt('Hello world!')
-        ->generate();
+        ->asText();
 
 })->throws(PrismRateLimitedException::class);
 
@@ -40,6 +40,6 @@ it('throws a PrismRateLimitedException with a 429 response code for emebddings',
     Prism::embeddings()
         ->using(Provider::Gemini, 'fake-model')
         ->fromInput('Hello world!')
-        ->generate();
+        ->asEmbeddings();
 
 })->throws(PrismRateLimitedException::class);

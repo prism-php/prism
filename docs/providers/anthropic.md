@@ -43,7 +43,7 @@ Prism::text()
         Tool::as('cache me')
             ->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral'])
     ])
-    ->generate();
+    ->asText();
 ```
 
 If you prefer, you can use the `AnthropicCacheType` Enum like so:
@@ -76,7 +76,7 @@ Prism::text()
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     // enable thinking
     ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
-    ->generate();
+    ->asText();
 ```
 By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
 
@@ -117,7 +117,7 @@ Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
-    ->generate();
+    ->asText();
 
 $response->additionalContent['thinking'];
 ```
@@ -133,7 +133,7 @@ $response = Prism::text()
     ->withMaxSteps(3)
     ->withPrompt('What time is the tigers game today and should I wear a coat?')
     ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
-    ->generate();
+    ->asText();
 
 $response->steps->first()->additionalContent->thinking;
 ```
@@ -172,7 +172,7 @@ Prism::text()
             ]
         )
     ])
-    ->generate();
+    ->asText();
 ```
 
 ## Citations
@@ -206,7 +206,7 @@ $response = Prism::text()
         )
     ])
     ->withProviderMeta(Provider::Anthropic, ['citations' => true])
-    ->generate();
+    ->asText();
 ```
 
 ### Accessing citations

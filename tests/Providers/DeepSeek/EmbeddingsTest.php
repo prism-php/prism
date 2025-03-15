@@ -16,5 +16,5 @@ it('Throws exception for embeddings', function (): void {
     Prism::embeddings()
         ->using(Provider::DeepSeek, 'deepseek-chat')
         ->fromInput('Hello, how are you?')
-        ->generate();
+        ->asEmbeddings();
 });

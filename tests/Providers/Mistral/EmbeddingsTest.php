@@ -20,7 +20,7 @@ it('returns embeddings from input', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::Mistral, 'mistral-embed')
         ->fromInput('Embed this sentence.')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/mistral/embeddings-input-1.json'), true);
     $embeddings = array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -38,7 +38,7 @@ it('returns embeddings from file', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::Mistral, 'mistral-embed')
         ->fromFile('tests/Fixtures/test-embedding-file.md')
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/mistral/embeddings-file-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -57,7 +57,7 @@ it('works with multiple embeddings', function (): void {
             'The food was delicious.',
             'The drinks were not so good',
         ])
-        ->generate();
+        ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/mistral/embeddings-multiple-inputs-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($embeddings, 'data'));
@@ -81,7 +81,7 @@ it('sets the rate limits on the response', function (): void {
         $response = Prism::embeddings()
             ->using(Provider::Mistral, 'mistral-embed')
             ->fromInput('Embed this sentence.')
-            ->generate();
+            ->asEmbeddings();
 
         expect($response->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
         expect($response->meta->rateLimits[0]->name)->toEqual('tokens');

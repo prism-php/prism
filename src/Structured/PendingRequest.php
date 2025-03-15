@@ -26,7 +26,15 @@ class PendingRequest
     use HasProviderMeta;
     use HasSchema;
 
+    /**
+     * @deprecated Use `asStructured` instead.
+     */
     public function generate(): Response
+    {
+        return $this->asStructured();
+    }
+
+    public function asStructured(): Response
     {
         return $this->provider->structured($this->toRequest());
     }

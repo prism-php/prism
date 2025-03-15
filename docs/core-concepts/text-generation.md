@@ -13,7 +13,7 @@ use Prism\Prism\Enums\Provider;
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withPrompt('Tell me a short story about a brave knight.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -30,7 +30,7 @@ $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withSystemPrompt('You are an expert mathematician who explains concepts simply.')
     ->withPrompt('Explain the Pythagorean theorem.')
-    ->generate();
+    ->asText();
 ```
 
 You can also use Laravel views for complex system prompts:
@@ -43,7 +43,7 @@ $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withSystemPrompt(view('prompts.math-tutor'))
     ->withPrompt('What is calculus?')
-    ->generate();
+    ->asText();
 ```
 
 You an also pass a View to the `withPrompt` method.
@@ -65,7 +65,7 @@ $response = Prism::text()
         new AssistantMessage('JSON is a lightweight data format...'),
         new UserMessage('Can you show me an example?')
     ])
-    ->generate();
+    ->asText();
 ```
 
 ### Message Types
@@ -127,7 +127,7 @@ use Prism\Prism\Enums\Provider;
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withPrompt('Explain quantum computing.')
-    ->generate();
+    ->asText();
 
 // Access the generated text
 echo $response->text;
@@ -179,7 +179,7 @@ try {
     $response = Prism::text()
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
         ->withPrompt('Generate text...')
-        ->generate();
+        ->asText();
 } catch (PrismException $e) {
     Log::error('Text generation failed:', ['error' => $e->getMessage()]);
 } catch (Throwable $e) {

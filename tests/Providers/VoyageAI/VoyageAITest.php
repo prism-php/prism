@@ -14,7 +14,7 @@ it('throws an exception for text', function (): void {
     Prism::text()
         ->using(Provider::VoyageAI, 'test-model')
         ->withPrompt('Hello world.')
-        ->generate();
+        ->asText();
 })->throws(PrismException::class, 'Prism\Prism\Providers\VoyageAI\VoyageAI::text is not supported by VoyageAI');
 
 it('throws an exception for structured', function (): void {
@@ -24,5 +24,5 @@ it('throws an exception for structured', function (): void {
         ->using(Provider::VoyageAI, 'test-model')
         ->withSchema(new ObjectSchema('', '', []))
         ->withPrompt('Hello world.')
-        ->generate();
+        ->asStructured();
 })->throws(PrismException::class, 'Prism\Prism\Providers\VoyageAI\VoyageAI::structured is not supported by VoyageAI');

@@ -36,7 +36,7 @@ it('returns structured output', function (): void {
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys([
@@ -87,7 +87,7 @@ it('adds rate limit data to the responseMeta', function (): void {
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asStructured();
 
     expect($response->meta->rateLimits)->toHaveCount(4);
     expect($response->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
@@ -161,7 +161,7 @@ it('saves message parts with citations to additionalContent on response steps an
         ])
         ->withSchema(new ObjectSchema('body', '', [new BooleanSchema('answer', '')], ['answer']))
         ->withProviderMeta(Provider::Anthropic, ['citations' => true])
-        ->generate();
+        ->asStructured();
 
     expect($response->structured)->toBe(['answer' => true]);
 
@@ -194,7 +194,7 @@ it('can use extending thinking', function (): void {
         ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('text', 'the output text')], ['text']))
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
         ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
-        ->generate();
+        ->asStructured();
 
     $expected_thinking = "The question asks about \"the meaning of life, the universe and everything in popular fiction.\" This is a reference to Douglas Adams' \"The Hitchhiker's Guide to the Galaxy\" series, where a supercomputer named Deep Thought calculates that the answer to \"the ultimate question of life, the universe, and everything\" is 42.\n\nI'm being asked to respond with only JSON that matches a specific schema. The schema requires an object with a property called \"text\" that contains a string, and no additional properties are allowed.\n\nSo I should create a JSON object with a \"text\" property that explains that in popular fiction, particularly in \"The Hitchhiker's Guide to the Galaxy,\" the meaning of life, the universe, and everything is famously presented as \"42.\"";
     $expected_signature = 'EuYBCkQYAiJAg+qtLhMXqUgaxagF5ryu2/sYLIpErjJsELoN95UARnscajTu5YXcRzTTEbiH87YC8xd5X6SRRxA5FzEiyPbzZBIMO8q4u82TeKNXUtxmGgzNMkFq/WSx5ByDvjsiMHy61qKH+/fr9bFMAjSR4T9dXYIK2G/j2xQSwi5hocmvqW8zXu8Xc5LLqxvZGXGq4ipQyZTLiVn0nQvLXf5qf5RxnbAvCc+NGHezUbUGFGIZsbiScvW8XMvbHPPCkofZqMbYmXssXpHsDkr7LgAz2gMY7tGD6+0Jwxy+YnmVo1J2bj0=';

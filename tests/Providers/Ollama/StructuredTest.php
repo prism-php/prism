@@ -40,7 +40,7 @@ it('returns structured output', function (): void {
         ->withSystemPrompt('Extract the name, hobbies, and open source projects from the users profile')
         ->withPrompt($profile)
         ->withClientOptions(['timeout' => 10000])
-        ->generate();
+        ->asStructured();
 
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys([
@@ -80,6 +80,6 @@ it('throws an exception with multiple system prompts', function (): void {
             new SystemMessage('But my friends call my Nyx.'),
         ])
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asStructured();
 
 })->throws(PrismException::class, 'Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');

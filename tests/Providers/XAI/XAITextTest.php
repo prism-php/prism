@@ -28,7 +28,7 @@ describe('Text generation for XAI', function (): void {
         $response = Prism::text()
             ->using(Provider::XAI, 'grok-beta')
             ->withPrompt('Who are you?')
-            ->generate();
+            ->asText();
 
         // Assert response type
         expect($response)->toBeInstanceOf(TextResponse::class);
@@ -62,7 +62,7 @@ describe('Text generation for XAI', function (): void {
             ->using(Provider::XAI, 'grok-beta')
             ->withSystemPrompt('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!')
             ->withPrompt('Who are you?')
-            ->generate();
+            ->asText();
 
         // Assert response type
         expect($response)->toBeInstanceOf(TextResponse::class);
@@ -108,7 +108,7 @@ describe('Text generation for XAI', function (): void {
             ->withTools($tools)
             ->withMaxSteps(4)
             ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat? please check all the details from tools')
-            ->generate();
+            ->asText();
 
         // Assert response type
         expect($response)->toBeInstanceOf(TextResponse::class);
@@ -156,7 +156,7 @@ describe('Image support with XAI', function (): void {
                     ],
                 ),
             ])
-            ->generate();
+            ->asText();
 
         // Assert response type
         expect($response)->toBeInstanceOf(TextResponse::class);
@@ -194,7 +194,7 @@ describe('Image support with XAI', function (): void {
                     ],
                 ),
             ])
-            ->generate();
+            ->asText();
 
         // Assert response type
         expect($response)->toBeInstanceOf(TextResponse::class);
@@ -231,7 +231,7 @@ describe('Image support with XAI', function (): void {
                     ],
                 ),
             ])
-            ->generate();
+            ->asText();
 
         // Assert response type
         expect($response)->toBeInstanceOf(TextResponse::class);
@@ -270,7 +270,7 @@ it('handles specific tool choice', function (): void {
         ->withPrompt('Do something')
         ->withTools($tools)
         ->withToolChoice('weather')
-        ->generate();
+        ->asText();
 
     // Assert response type
     expect($response)->toBeInstanceOf(TextResponse::class);
@@ -298,7 +298,7 @@ it('handles required tool choice', function (): void {
         ->withPrompt('Do something')
         ->withTools($tools)
         ->withToolChoice(ToolChoice::Any)
-        ->generate();
+        ->asText();
 
     // Assert response type
     expect($response)->toBeInstanceOf(TextResponse::class);
@@ -317,6 +317,6 @@ it('throws a PrismRateLimitedException for a 429 response code', function (): vo
     Prism::text()
         ->using(Provider::XAI, 'fake-model')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
 })->throws(PrismRateLimitedException::class);

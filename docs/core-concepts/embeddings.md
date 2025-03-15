@@ -13,7 +13,7 @@ use Prism\Prism\Enums\Provider;
 $response = Prism::embeddings()
     ->using(Provider::OpenAI, 'text-embedding-3-large')
     ->fromInput('Your text goes here')
-    ->generate();
+    ->asEmbeddings();
 
 // Get your embeddings vector
 $embeddings = $response->embeddings[0]->embedding;
@@ -41,7 +41,7 @@ $response = Prism::embeddings()
         'Third',
         'Fourth'
     ])
-    ->generate();
+    ->asEmbeddings();
 
 /** @var Embedding $embedding */
 foreach ($embeddings as $embedding) {
@@ -66,7 +66,7 @@ use Prism\Prism\Enums\Provider;
 $response = Prism::embeddings()
     ->using(Provider::OpenAI, 'text-embedding-3-large')
     ->fromInput('Analyze this text')
-    ->generate();
+    ->asEmbeddings();
 ```
 
 ### From File
@@ -80,7 +80,7 @@ use Prism\Prism\Enums\Provider;
 $response = Prism::embeddings()
     ->using(Provider::OpenAI, 'text-embedding-3-large')
     ->fromFile('/path/to/your/document.txt')
-    ->generate();
+    ->asEmbeddings();
 ```
 
 > [!NOTE]
@@ -99,7 +99,7 @@ $response = Prism::embeddings()
     ->fromInput('Your text here')
     ->withClientOptions(['timeout' => 30]) // Adjust request timeout
     ->withClientRetry(3, 100) // Add automatic retries
-    ->generate();
+    ->asEmbeddings();
 ```
 
 ## Response Handling
@@ -138,7 +138,7 @@ try {
     $response = Prism::embeddings()
         ->using(Provider::OpenAI, 'text-embedding-3-large')
         ->fromInput('Your text here')
-        ->generate();
+        ->asEmbeddings();
 } catch (PrismException $e) {
     Log::error('Embeddings generation failed:', [
         'error' => $e->getMessage()

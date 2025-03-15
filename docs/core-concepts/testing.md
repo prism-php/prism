@@ -36,7 +36,7 @@ it('can generate text', function () {
     $response = Prism::text()
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     // Make assertions
     expect($response->text)->toBe('Hello, I am Claude!');
@@ -207,7 +207,7 @@ it('can use weather tool', function () {
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withPrompt('What\'s the weather in Paris?')
         ->withTools([$weatherTool])
-        ->generate();
+        ->asText();
 
     // Assert the correct number of API calls were made
     $fake->assertCallCount(2);
@@ -272,7 +272,7 @@ it('can generate structured response', function () {
         ->using('anthropic', 'claude-3-sonnet')
         ->withPrompt('Generate a user profile')
         ->withSchema($schema)
-        ->generate();
+        ->asStructured();
 
     // Assertions
     expect($response->structured)->toBeArray();
