@@ -45,14 +45,6 @@ class Prism
         return new PendingTextRequest;
     }
 
-    /**
-     * @deprecated Use text()->asStream() instead
-     */
-    public static function stream(): PendingTextRequest
-    {
-        return self::text();
-    }
-
     public static function structured(): PendingStructuredRequest
     {
         return new PendingStructuredRequest;
