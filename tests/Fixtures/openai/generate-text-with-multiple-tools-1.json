@@ -1,8 +1,8 @@
 {
-  "id": "chatcmpl-AFOxbLZIHZakbYdtBUkit4ygp7HU4",
+  "id": "chatcmpl-BB7SZZRUBBEJ2Eueiv2n6wWAwiGNS",
   "object": "chat.completion",
-  "created": 1728234231,
-  "model": "gpt-4-0613",
+  "created": 1741989983,
+  "model": "gpt-4o-2024-08-06",
   "choices": [
     {
       "index": 0,
@@ -11,30 +11,44 @@
         "content": null,
         "tool_calls": [
           {
-            "id": "call_dKojmoMmK9d8H1NG2XGwuzQo",
+            "id": "call_AZkZynIOpPQwJ4fyZETY4eTP",
             "type": "function",
             "function": {
               "name": "search",
-              "arguments": "{\n\"query\": \"Detroit Tigers game today time\"\n}"
+              "arguments": "{\"query\": \"Detroit Tigers game March 14 2025 time\"}"
+            }
+          },
+          {
+            "id": "call_huHZrdh8RFUy8a8Uqbb2qV1x",
+            "type": "function",
+            "function": {
+              "name": "weather",
+              "arguments": "{\"city\": \"Detroit\"}"
             }
           }
         ],
-        "refusal": null
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "tool_calls"
     }
   ],
   "usage": {
-    "prompt_tokens": 104,
-    "completion_tokens": 17,
-    "total_tokens": 121,
+    "prompt_tokens": 111,
+    "completion_tokens": 52,
+    "total_tokens": 163,
     "prompt_tokens_details": {
-      "cached_tokens": 0
+      "cached_tokens": 0,
+      "audio_tokens": 0
     },
     "completion_tokens_details": {
-      "reasoning_tokens": 0
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
     }
   },
-  "system_fingerprint": null
+  "service_tier": "default",
+  "system_fingerprint": "fp_f9f4fb6dbf"
 }

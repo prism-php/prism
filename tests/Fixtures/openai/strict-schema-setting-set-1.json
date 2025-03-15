@@ -1,15 +1,16 @@
 {
-  "id": "chatcmpl-AWrIBpMe49rnvX40W8iruo7yZQ4fA",
+  "id": "chatcmpl-BB7YJeNIVCoaVQeYS6EwhbsbfR3nN",
   "object": "chat.completion",
-  "created": 1732394715,
+  "created": 1741990339,
   "model": "gpt-4o-2024-08-06",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "{\"weather\":\"Partly cloudy with a high of 57°F (14°C) and low of 46°F (8°C).\",\"game_time\":\"7:10 PM ET\",\"coat_required\":true}",
-        "refusal": null
+        "content": "{\"weather\":\"59°F, partly cloudy with wind gusts around 5 mph.\",\"game_time\":\"April 4, 2023, at 7:05 PM EDT\",\"coat_required\":true}",
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "stop"
@@ -30,5 +31,6 @@
       "rejected_prediction_tokens": 0
     }
   },
-  "system_fingerprint": "fp_831e067d82"
+  "service_tier": "default",
+  "system_fingerprint": "fp_eb9dce56a8"
 }

@@ -16,7 +16,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openai/stream-basic-text');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-basic-text');
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -44,7 +44,7 @@ it('can generate text with a basic stream', function (): void {
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openai/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-with-tools');
 
     $tools = [
         Tool::as('weather')
@@ -61,7 +61,7 @@ it('can generate text using tools with streaming', function (): void {
     $response = Prism::text()
         ->using('openai', 'gpt-4o')
         ->withTools($tools)
-        ->withMaxSteps(3)
+        ->withMaxSteps(4)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStream();
 
@@ -100,7 +100,7 @@ it('can generate text using tools with streaming', function (): void {
 });
 
 it('can process a complete conversation with multiple tool calls', function (): void {
-    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openai/stream-multi-tool-conversation');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-multi-tool-conversation');
 
     $tools = [
         Tool::as('weather')

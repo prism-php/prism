@@ -1,15 +1,16 @@
 {
-  "id": "chatcmpl-AqRJvJHfl40Mvrt6w2KN3ToEbGipT",
+  "id": "chatcmpl-BB7Y5pkvxQ7usTVl7HXkxMO3kE9Ef",
   "object": "chat.completion",
-  "created": 1737061439,
+  "created": 1741990325,
   "model": "gpt-4o-2024-08-06",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "{\"weather\":\"Cloudy with occasional rain showers in the evening.\",\"game_time\":\"The Tigers are playing at 7:00 PM.\",\"coat_required\":true}",
-        "refusal": null
+        "content": "{\"weather\":\"The weather today is cold and breezy with temperatures ranging from 40°F to 50°F (4°C to 10°C) throughout the day.\",\"game_time\":\"The Tigers game is scheduled for 7:05 PM local time.\",\"coat_required\":true}",
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "stop"
@@ -17,8 +18,8 @@
   ],
   "usage": {
     "prompt_tokens": 94,
-    "completion_tokens": 33,
-    "total_tokens": 127,
+    "completion_tokens": 57,
+    "total_tokens": 151,
     "prompt_tokens_details": {
       "cached_tokens": 0,
       "audio_tokens": 0
@@ -31,5 +32,5 @@
     }
   },
   "service_tier": "default",
-  "system_fingerprint": "fp_50cad350e4"
+  "system_fingerprint": "fp_eb9dce56a8"
 }

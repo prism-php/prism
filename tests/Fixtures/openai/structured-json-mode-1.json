@@ -1,15 +1,16 @@
 {
-  "id": "chatcmpl-AqRHfBBOYjaPZgtsr33cU5ovFOcwy",
+  "id": "chatcmpl-BB7Y6USE9XW8jzspRrxNxEDdWIGWm",
   "object": "chat.completion",
-  "created": 1737061299,
+  "created": 1741990326,
   "model": "gpt-4-turbo-2024-04-09",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "{\n    \"weather\": \"Partly cloudy with temperatures around 60°F\",\n    \"game_time\": \"7:00 PM\",\n    \"coat_required\": true\n}",
-        "refusal": null
+        "content": "{\n    \"weather\": \"chilly with a chance of rain\",\n    \"game_time\": \"7:00 PM\",\n    \"coat_required\": true\n}",
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "stop"
@@ -17,8 +18,8 @@
   ],
   "usage": {
     "prompt_tokens": 164,
-    "completion_tokens": 36,
-    "total_tokens": 200,
+    "completion_tokens": 34,
+    "total_tokens": 198,
     "prompt_tokens_details": {
       "cached_tokens": 0,
       "audio_tokens": 0
@@ -31,5 +32,5 @@
     }
   },
   "service_tier": "default",
-  "system_fingerprint": "fp_f17929ee92"
+  "system_fingerprint": "fp_7c63087da1"
 }

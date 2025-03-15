@@ -1,15 +1,16 @@
 {
-  "id": "chatcmpl-AWrAlSavBSApejk4Fn3QpllgbdFMF",
+  "id": "chatcmpl-BB7Y80jApgXDI3asR06Yhmh5nLz3r",
   "object": "chat.completion",
-  "created": 1732394255,
+  "created": 1741990328,
   "model": "gpt-4o-2024-08-06",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "{\"game_time\":\"3pm\",\"coat_required\":false,\"weather\":\"80 degrees and sunny\"}",
-        "refusal": null
+        "content": "{\"game_time\":\"3pm\",\"weather\":\"80° and sunny\",\"coat_required\":false}",
+        "refusal": null,
+        "annotations": []
       },
       "logprobs": null,
       "finish_reason": "stop"
@@ -17,8 +18,8 @@
   ],
   "usage": {
     "prompt_tokens": 111,
-    "completion_tokens": 19,
-    "total_tokens": 130,
+    "completion_tokens": 20,
+    "total_tokens": 131,
     "prompt_tokens_details": {
       "cached_tokens": 0,
       "audio_tokens": 0
@@ -30,5 +31,6 @@
       "rejected_prediction_tokens": 0
     }
   },
-  "system_fingerprint": "fp_831e067d82"
+  "service_tier": "default",
+  "system_fingerprint": "fp_f9f4fb6dbf"
 }
