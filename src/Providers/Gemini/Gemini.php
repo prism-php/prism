@@ -5,23 +5,24 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
-use Prism\Prism\Contracts\Provider;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
+use Prism\Prism\Contracts\Message;
+use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Embeddings\Request as EmbeddingRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Text\Request as TextRequest;
-use Prism\Prism\Text\Response as TextResponse;
-use Prism\Prism\Providers\Gemini\Handlers\Text;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
-use Prism\Prism\Stream\Request as StreamRequest;
-use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
 use Prism\Prism\Providers\Gemini\Handlers\Structured;
-use Prism\Prism\Embeddings\Request as EmbeddingRequest;
-use Prism\Prism\Structured\Request as StructuredRequest;
-use Prism\Prism\Embeddings\Response as EmbeddingResponse;
-use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Providers\Gemini\Handlers\Text;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
+use Prism\Prism\Stream\Request as StreamRequest;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 readonly class Gemini implements Provider
 {

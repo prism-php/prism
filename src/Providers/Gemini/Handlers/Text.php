@@ -4,28 +4,28 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
-use Throwable;
-use Prism\Prism\Text\Step;
-use Prism\Prism\Text\Request;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Text\ResponseBuilder;
-use Prism\Prism\ValueObjects\ToolResult;
-use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\Gemini\Maps\ToolMap;
-use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
+use Prism\Prism\Providers\Gemini\Maps\ToolMap;
+use Prism\Prism\Text\Request;
+use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\ResponseBuilder;
+use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
-use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
+use Throwable;
 
 class Text
 {

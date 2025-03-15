@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Gemini;
 
-use Prism\Prism\Tool;
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
 use Illuminate\Http\Client\Request;
-use Prism\Prism\Enums\FinishReason;
-use Tests\Fixtures\FixtureResponse;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
     config()->set('prism.providers.gemini.api_key', env('GEMINI_API_KEY', 'sss-1234567890'));
