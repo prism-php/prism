@@ -82,14 +82,17 @@ class Text
 
             $tools = ToolMap::map($request->tools());
 
+            $providerMeta = $request->providerMeta(Provider::Gemini);
+
             return $this->client->post(
                 "{$request->model()}:generateContent",
                 array_filter([
                     ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'cachedContent' => $providerMeta['cachedContentName'] ?? null,
                     'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
                     'tools' => $tools !== [] ? ['function_declarations' => $tools] : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
-                    'safetySettings' => $request->providerMeta(Provider::Gemini, 'safetySettings'),
+                    'safetySettings' => $providerMeta['safetySettings'] ?? null,
                 ])
             );
         } catch (Throwable $e) {
@@ -139,14 +142,19 @@ class Text
      */
     protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
     {
+        $providerMeta = $request->providerMeta(Provider::Gemini);
+
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'candidates.0.content.parts.0.text') ?? '',
             finishReason: $finishReason,
             toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
             toolResults: $toolResults,
             usage: new Usage(
-                data_get($data, 'usageMetadata.promptTokenCount', 0),
-                data_get($data, 'usageMetadata.candidatesTokenCount', 0)
+                promptTokens: isset($providerMeta['cachedContentName'])
+                    ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
+                    : data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
             ),
             meta: new Meta(
                 id: data_get($data, 'id', ''),

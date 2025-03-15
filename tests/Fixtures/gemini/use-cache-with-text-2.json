@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "That's the Consolidated Version of the Treaty on the Functioning of the European Union (TFEU), adopted on 25 March 1957.  It outlines the principles, competencies, and policies of the European Union.  The TFEU organizes the EU's functioning and details its areas of competence, including exclusive, shared, and supporting competences.  It also covers non-discrimination, citizenship, and various EU policies (e.g., internal market, agriculture, and justice).  Finally, it sets out institutional and financial provisions.\n"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.28721424628948344
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 88775,
+    "candidatesTokenCount": 116,
+    "totalTokenCount": 88891,
+    "cachedContentTokenCount": 88759,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 16
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 116
+      }
+    ]
+  },
+  "modelVersion": "gemini-1.5-flash-002"
+}
