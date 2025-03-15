@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Exception;
+use InvalidArgumentException;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -170,6 +171,10 @@ class MessageMap
 
             if ($document->dataFormat === 'content') {
                 throw new PrismException('Gemini does not support custom content documents.');
+            }
+
+            if ($document->isUrl()) {
+                throw new InvalidArgumentException('URL document type is not supported by Anthropic');
             }
 
             return [

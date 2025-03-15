@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Mistral\Maps;
 
-use InvalidArgumentException;
 use Prism\Prism\Enums\ToolChoice;
 
 class ToolChoiceMap
@@ -25,8 +24,8 @@ class ToolChoiceMap
 
         return match ($toolChoice) {
             ToolChoice::Auto => 'auto',
-            null => $toolChoice,
-            default => throw new InvalidArgumentException('Invalid tool choice')
+            ToolChoice::Any => 'any',
+            ToolChoice::None, null => 'none',
         };
     }
 }
