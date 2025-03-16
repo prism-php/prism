@@ -11,6 +11,7 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
@@ -29,7 +30,7 @@ use Throwable;
 
 class Text
 {
-    use CallsTools, ValidatesResponse;
+    use CallsTools, ExtractSearchGroundings, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -166,7 +167,9 @@ class Text
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
-            additionalContent: [],
+            additionalContent: [
+                ...$this->extractSearchGroundingContent($data),
+            ],
         ));
     }
 }

@@ -10,6 +10,8 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
+use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
+use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
@@ -365,5 +367,33 @@ describe('search grounding', function (): void {
             ->generate();
 
         expect($response->text)->toContain('Alphabet Inc.');
+    });
+
+    it('maps search groundings into additional content', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withPrompt('What is the stock price of Google right now?')
+            ->withProviderMeta(Provider::Gemini, ['searchGrounding' => true])
+            ->generate();
+
+        expect($response->additionalContent)->toHaveKey('searchEntryPoint');
+        expect($response->additionalContent)->toHaveKey('searchQueries');
+        expect($response->additionalContent)->toHaveKey('groundingSupports');
+
+        expect($response->additionalContent['searchEntryPoint'])->not()->toBe('');
+        expect($response->additionalContent['searchQueries'])->toHaveCount(1);
+        expect($response->additionalContent['groundingSupports'])->toHaveCount(4);
+
+        expect($response->additionalContent['groundingSupports'][0])->toBeInstanceOf(MessagePartWithSearchGroundings::class);
+        expect($response->additionalContent['groundingSupports'][0]->text)->not()->toBe('');
+        expect($response->additionalContent['groundingSupports'][0]->startIndex)->not()->toBe(0);
+        expect($response->additionalContent['groundingSupports'][0]->endIndex)->not()->toBe(0);
+        expect($response->additionalContent['groundingSupports'][0]->groundings)->toHaveCount(1);
+        expect($response->additionalContent['groundingSupports'][0]->groundings[0])->toBeInstanceOf(SearchGrounding::class);
+        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->title)->not()->toBe('');
+        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->uri)->not()->toBe('');
+        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->confidence)->not()->toBe(0.0);
     });
 });

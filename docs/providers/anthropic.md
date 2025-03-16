@@ -222,7 +222,7 @@ use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
 $messageChunks = $response->additionalContent['messagePartsWithCitations'];
 
 $text = '';
-$footnotes = '';
+$footnotes = [];
 
 $footnoteId = 1;
 

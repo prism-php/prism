@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\Gemini\Concerns;
 
 use Illuminate\Http\Client\Response;
