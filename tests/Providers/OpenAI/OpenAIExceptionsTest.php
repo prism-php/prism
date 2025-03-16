@@ -105,7 +105,11 @@ it('works with milleseconds', function (): void {
 it('works without rate limit headers', function (): void {
     $this->expectException(PrismRateLimitedException::class);
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/insufficient-quota-response', status: 429);
+    FixtureResponse::fakeResponseSequence(
+        'v1/chat/completions',
+        'openai/insufficient-quota-response',
+        status: 429
+    );
 
     Prism::text()
         ->using('openai', 'gpt-4')
