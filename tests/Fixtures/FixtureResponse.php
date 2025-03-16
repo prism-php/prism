@@ -12,7 +12,7 @@ class FixtureResponse
     /**
      * @param  array<string, string>  $headers
      */
-    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = []): void
+    public static function fakeResponseSequence(string $requestPath, string $name, array $headers = [], $forceRecording = false): void
     {
         $basePath = dirname(static::filePath($name));
         $pathInfo = pathinfo($name);
@@ -26,7 +26,7 @@ class FixtureResponse
             : [];
 
         // If no fixture files exist, automatically record the response
-        if (empty($fixtureFiles)) {
+        if ($forceRecording || empty($fixtureFiles)) {
             $iterator = 0;
 
             Http::fake(function ($request) use ($requestPath, $name, &$iterator, $headers) {
