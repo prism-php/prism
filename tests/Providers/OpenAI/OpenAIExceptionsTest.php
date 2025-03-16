@@ -103,19 +103,12 @@ it('works with milleseconds', function (): void {
 });
 
 it('works without rate limit headers', function (): void {
+    $this->expectException(PrismRateLimitedException::class);
+
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/insufficient-quota-response', status: 429);
 
-    try {
-        Prism::text()
-            ->using('openai', 'gpt-4')
-            ->withPrompt('Who are you?')
-            ->generate();
-
-        // If we get here, the test failed because an exception should have been thrown
-        expect(false)->toBeTrue('Expected PrismRateLimitedException was not thrown');
-    } catch (PrismRateLimitedException $e) {
-        // The test passes if we catch the exception, even if rate limits aren't set correctly yet
-        // This will be fixed in a follow-up PR
-        expect(true)->toBeTrue();
-    }
+    Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Who are you?')
+        ->asText();
 });
