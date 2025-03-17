@@ -18,7 +18,7 @@ use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
-    config()->set('prism.providers.mistral.api_key', env('MISTRAL_API_KEY', 'Ar0gJEVmADcvTMXELFQ2jFs9BGRLZn34'));
+    config()->set('prism.providers.mistral.api_key', env('MISTRAL_API_KEY', 'sk-1234'));
 });
 
 describe('Text generation', function (): void {
