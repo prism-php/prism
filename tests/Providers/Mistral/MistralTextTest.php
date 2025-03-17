@@ -8,15 +8,17 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
-    config()->set('prism.providers.mistral.api_key', env('MISTRAL_API_KEY', 'sk-1234'));
+    config()->set('prism.providers.mistral.api_key', env('MISTRAL_API_KEY', 'Ar0gJEVmADcvTMXELFQ2jFs9BGRLZn34'));
 });
 
 describe('Text generation', function (): void {
@@ -222,6 +224,46 @@ describe('Image support', function (): void {
             ]);
 
             expect($message[1]['image_url']['url'])->toBe($image);
+
+            return true;
+        });
+    });
+});
+
+describe('Document support', function (): void {
+    it('can send document from url', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/text-document-from-url');
+
+        // TODO update this to a more long lasting document
+        $document = 'https://github.com/user-attachments/files/19282328/Test.document.for.mistral.document.reading.pdf';
+
+        Prism::text()
+            ->using(Provider::Mistral, 'mistral-small-2402')
+            ->withToolChoice(ToolChoice::Any)
+            ->usingTopP(1)
+            ->withMessages([
+                new UserMessage(
+                    'What is this document',
+                    additionalContent: [
+                        Document::fromUrl($document),
+                    ],
+                ),
+            ])
+            ->generate();
+
+        Http::assertSent(function (Request $request) use ($document): true {
+            $message = $request->data()['messages'][0]['content'];
+
+            expect($message[0])->toBe([
+                'type' => 'text',
+                'text' => 'What is this document',
+            ]);
+
+            expect($message[1])->toBe([
+                'type' => 'document_url',
+                'document_url' => $document,
+                'document_name' => null,
+            ]);
 
             return true;
         });

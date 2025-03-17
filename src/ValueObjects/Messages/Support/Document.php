@@ -117,6 +117,10 @@ class Document
     {
         $mimeType = get_headers($url, true)['Content-Type'] ?? null;
 
+        if (is_array($mimeType)) {
+            $mimeType = $mimeType[count($mimeType) - 1] ?? null;
+        }
+
         if (is_null($mimeType)) {
             throw new InvalidArgumentException("Could not determine mime type for {$url}");
         }

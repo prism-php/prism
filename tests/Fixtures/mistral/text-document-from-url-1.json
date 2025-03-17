@@ -1,0 +1,22 @@
+{
+  "id": "86da40e6d8ed4f0083bc322b5d9cc91e",
+  "object": "chat.completion",
+  "created": 1742202739,
+  "model": "mistral-small-2402",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "tool_calls": null,
+        "content": "This document appears to be a simple text document titled \"Test document for mistral document reading\". It contains a single paragraph with the statement \"This is a paragraph and should be readable.\" The document is marked with \"<START OF DOCUMENT>\" and \"<END OF DOCUMENT>\" tags, which might be used to indicate the beginning and end of the document in some specific context or system."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 48,
+    "total_tokens": 128,
+    "completion_tokens": 80
+  }
+}
