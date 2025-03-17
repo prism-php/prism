@@ -22,6 +22,10 @@ At the time of writing:
     - csv (text/csv)
     - xml (text/xml)
     - rtf (text/rtf)
+- Mistral supports:
+  - PDF (application/pdf)
+  - CSV (text/csv)
+  - text files (text/plain)
 
 All of these formats should work with Prism.
 
@@ -49,6 +53,10 @@ Prism::text()
         // Or from a text string
         new UserMessage('Here is the document from a text string (e.g. from your database)', [
             Document::fromText('Hello world!'),
+        ]),
+        // Or from an URL
+        new UserMessage('Here is the document from a url (make sure this is publically accessable)', [
+            Document::fromUrl('https://example.com/test-pdf.pdf'),
         ]),
     ])
     ->generate();
