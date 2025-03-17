@@ -8,3 +8,4 @@ phpunit.xml
 *.code-workspace
 .vscode
 ray.php
+.env
