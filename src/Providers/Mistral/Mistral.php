@@ -12,8 +12,10 @@ use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
+use Prism\Prism\Providers\Mistral\Handlers\OCR;
 use Prism\Prism\Providers\Mistral\Handlers\Structured;
 use Prism\Prism\Providers\Mistral\Handlers\Text;
+use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -62,6 +64,19 @@ readonly class Mistral implements Provider
         return $handler->handle($request);
     }
 
+    public function ocr(string $model, string $documentUrl): OCRResponse
+    {
+        // todo validation on document value object that is from url
+
+        $handler = new OCR(
+            client: $this->client(),
+            model: $model,
+            documentUrl: $documentUrl
+        );
+
+        return $handler->handle();
+    }
+
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
@@ -74,11 +89,16 @@ readonly class Mistral implements Provider
      */
     protected function client(array $options = [], array $retry = []): PendingRequest
     {
-        return Http::withHeaders(array_filter([
+        $client = Http::withHeaders(array_filter([
             'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
         ]))
             ->withOptions($options)
-            ->retry(...$retry)
             ->baseUrl($this->url);
+
+        if ($retry !== []) {
+            return $client->retry(...$retry);
+        }
+
+        return $client;
     }
 }
