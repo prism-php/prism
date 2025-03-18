@@ -235,7 +235,7 @@ describe('Document support', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/text-document-from-url');
 
         // TODO update this to a more long lasting document
-        $document = 'https://github.com/user-attachments/files/19282328/Test.document.for.mistral.document.reading.pdf';
+        $document = 'https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf';
 
         Prism::text()
             ->using(Provider::Mistral, 'mistral-small-2402')
