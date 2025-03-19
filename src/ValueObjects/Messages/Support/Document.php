@@ -112,4 +112,30 @@ class Document
             documentContext: $context
         );
     }
+
+    public static function fromUrl(string $url, ?string $title = null, ?string $context = null): self
+    {
+        $mimeType = get_headers($url, true)['Content-Type'] ?? null;
+
+        if (is_array($mimeType)) {
+            $mimeType = $mimeType[count($mimeType) - 1] ?? null;
+        }
+
+        if (is_null($mimeType)) {
+            throw new InvalidArgumentException("Could not determine mime type for {$url}");
+        }
+
+        return new self(
+            document: $url,
+            mimeType: $mimeType,
+            dataFormat: 'url',
+            documentTitle: $title,
+            documentContext: $context
+        );
+    }
+
+    public function isUrl(): bool
+    {
+        return $this->dataFormat === 'url';
+    }
 }
