@@ -17,6 +17,7 @@ use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Text\ResponseBuilder;
@@ -93,7 +94,7 @@ class Text
                         'google_search' => (object) [],
                     ],
                 ]
-                : ($request->tools() !== [] ? ['function_declarations' => $request->tools()] : []);
+                : ($request->tools() !== [] ? ['function_declarations' => ToolMap::map($request->tools())] : []);
 
             $providerMeta = $request->providerMeta(Provider::Gemini);
 
