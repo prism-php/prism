@@ -23,11 +23,13 @@ use Prism\Prism\Prism;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\Providers\Mistral\Mistral;
+use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 
-/** @var \Prism\Prism\Providers\Mistral\Mistral $provider */
+/** @var Mistral $provider */
 $provider = Prism::provider(\Prism\Prism\Enums\Provider::Mistral);
 
-/** @var \Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse $ocrResponse */
+/** @var OCRResponse $ocrResponse */
 $ocrResponse = $provider->ocr(
     'mistral-ocr-latest',
     Document::fromUrl('https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf')
