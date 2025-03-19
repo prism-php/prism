@@ -44,13 +44,13 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
-$response = Prism::text()
-    ->using(Provider::Anthropic, \'claude-3-5-sonnet-20241022\')
-    ->withPrompt(\'Tell me a short story about a brave knight.\')
-    ->asText();
-echo $response->text;
+    use Prism\Prism\Prism;
+    use Prism\Prism\Enums\Provider;
+    $response = Prism::text()
+        ->using(Provider::Anthropic, \'claude-3-5-sonnet-20241022\')
+        ->withPrompt(\'Tell me a short story about a brave knight.\')
+        ->asText();
+    echo $response->text;
 ```
 
 
@@ -63,7 +63,7 @@ php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 $response = Prism::text()
-->using(Provider::Anthropic, \'claude-3-5-sonnet-20241022\')
+    ->using(Provider::Anthropic, \'claude-3-5-sonnet-20241022\')
 ```');
     expect($firstPage->images)->toBe([]);
     expect($firstPage->dimensions)->toBe([
