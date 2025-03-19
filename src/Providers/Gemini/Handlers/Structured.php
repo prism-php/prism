@@ -61,7 +61,7 @@ class Structured
                     'cachedContent' => $providerMeta['cachedContentName'] ?? null,
                     'generationConfig' => array_filter([
                         'response_mime_type' => 'application/json',
-                        'response_schema' => new SchemaMap($request->schema()),
+                        'response_schema' => (new SchemaMap($request->schema()))->toArray(),
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),

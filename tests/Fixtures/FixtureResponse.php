@@ -35,7 +35,7 @@ class FixtureResponse
             $iterator = 0;
 
             Http::fake(function ($request) use ($requestPath, $name, &$iterator, $headers) {
-                if (Str::contains($request->url(), $requestPath)) {
+                if ($requestPath === '*' || Str::contains($request->url(), $requestPath)) {
                     $iterator++;
 
                     // Prepare path for recording
