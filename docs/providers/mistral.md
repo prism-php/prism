@@ -34,7 +34,13 @@ $ocrResponse = $provider->ocr(
     'mistral-ocr-latest',
     Document::fromUrl('https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf')
 );
+
+/**
+* Just need the full text of all the pages combined? Use the toText() method.
+ */
+$text = $ocrResponse->toText();
 ```
 ::: tip
 The OCR endpoint response time can vary depending on the size of the document. We recommend doing this in the background like a queue with a longer timeout.
 :::
+
