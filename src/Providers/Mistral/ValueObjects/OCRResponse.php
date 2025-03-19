@@ -35,4 +35,10 @@ readonly class OCRResponse
             ]),
         );
     }
+
+    public function toText(): string
+    {
+        return collect($this->pages)->map(
+            fn (OCRPageResponse $page): string => $page->markdown)->join("\n\n");
+    }
 }
