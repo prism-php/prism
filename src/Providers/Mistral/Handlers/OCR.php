@@ -12,6 +12,7 @@ use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 use Prism\Prism\Text\ResponseBuilder;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Throwable;
 
 class OCR
@@ -25,7 +26,7 @@ class OCR
     public function __construct(
         protected PendingRequest $client,
         protected string $model,
-        protected string $documentUrl,
+        protected Document $document,
     ) {
         $this->responseBuilder = new ResponseBuilder;
     }
@@ -37,7 +38,6 @@ class OCR
     public function handle(): OCRResponse
     {
         $response = $this->sendRequest();
-        dd($response);
 
         return OCRResponse::fromResponse($this->model, $response);
     }
@@ -54,13 +54,12 @@ class OCR
                 'model' => $this->model,
                 'document' => [
                     'type' => 'document_url',
-                    'document_url' => $this->documentUrl,
+                    'document_url' => $this->document->document,
                 ],
             ]);
 
             return $response->json();
         } catch (Throwable $e) {
-            dd($e);
             throw PrismException::providerRequestError($this->model, $e);
         }
     }

@@ -11,6 +11,7 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
 use Prism\Prism\Providers\Mistral\Handlers\Structured;
@@ -20,6 +21,7 @@ use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 readonly class Mistral implements Provider
 {
@@ -64,14 +66,23 @@ readonly class Mistral implements Provider
         return $handler->handle($request);
     }
 
-    public function ocr(string $model, string $documentUrl): OCRResponse
+    /**
+     * @throws PrismRateLimitedException
+     * @throws PrismException
+     */
+    public function ocr(string $model, Document $document): OCRResponse
     {
+        if (! $document->isUrl()) {
+            throw new PrismException('Document must be based on a URL');
+        }
         // todo validation on document value object that is from url
 
         $handler = new OCR(
-            client: $this->client(),
+            client: $this->client([
+                'timeout' => 120,
+            ]),
             model: $model,
-            documentUrl: $documentUrl
+            document: $document
         );
 
         return $handler->handle();
