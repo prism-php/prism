@@ -7,14 +7,19 @@ namespace Prism\Prism\Providers\Mistral\ValueObjects;
 readonly class OCRPageResponse
 {
     /**
-     * @param array{
+     * @param array<int, array{
      *     id: string,
      *     top_left_x: int|null,
      *     top_left_y: int|null,
      *     bottom_right_x: int|null,
      *     bottom_right_y: int|null,
      *     image_base64: string|null,
-     * } $images
+     * }> $images
+     * @param array{
+     *      dpi: int,
+     *      height: int,
+     *      width: int,
+     * } $dimensions
      */
     public function __construct(
         public int $index,
@@ -29,10 +34,10 @@ readonly class OCRPageResponse
      *     markdown: string,
      *     images: array{
      *     id: string,
-     *     top_left_x: int,
-     *     top_left_y: int,
-     *     bottom_right_x: int,
-     *     bottom_right_y: int,
+     *     top_left_x: mixed,
+     *     top_left_y: mixed,
+     *     bottom_right_x: mixed,
+     *     bottom_right_y: mixed,
      *     image_base64: string,
      *     }[],
      *     dimensions: array{
@@ -48,12 +53,12 @@ readonly class OCRPageResponse
 
         foreach (data_get($page, 'images', []) as $image) {
             $images[] = [
-                'id' => (string) data_get($image, 'id', ''),
-                'top_left_x' => (int) data_get($image, 'top_left_x', null),
-                'top_left_y' => (int) data_get($image, 'top_left_y', null),
-                'bottom_right_x' => (int) data_get($image, 'bottom_right_x', null),
-                'bottom_right_y' => (int) data_get($image, 'bottom_right_y', null),
-                'image_base64' => (string) data_get($image, 'image_base64', null),
+                'id' => data_get($image, 'id', ''),
+                'top_left_x' => data_get($image, 'top_left_x', null),
+                'top_left_y' => data_get($image, 'top_left_y', null),
+                'bottom_right_x' => data_get($image, 'bottom_right_x', null),
+                'bottom_right_y' => data_get($image, 'bottom_right_y', null),
+                'image_base64' => data_get($image, 'image_base64', null),
             ];
         }
 
