@@ -75,7 +75,6 @@ readonly class Mistral implements Provider
         if (! $document->isUrl()) {
             throw new PrismException('Document must be based on a URL');
         }
-        // todo validation on document value object that is from url
 
         $handler = new OCR(
             client: $this->client([
