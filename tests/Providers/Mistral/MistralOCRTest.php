@@ -67,7 +67,7 @@ it('can combine all pages of the document to one single string', function (): vo
             ),
         );
 
-  expect($object->toText())->toContain('# Text Generation');
+    expect($object->toText())->toContain('# Text Generation');
     expect($object->toText())->toContain('## Basic Text Generation');
     expect($object->toText())->toContain('## System Prompts and Context');
     expect($object->toText())->toContain('# Message Chains and Conversations');
