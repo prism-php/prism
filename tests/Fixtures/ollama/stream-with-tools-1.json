@@ -1,0 +1,4 @@
+{"model":"mistral","created_at":"2025-03-21T00:13:04.371937Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"calculator","arguments":{"expression":"20+22"}}}]},"done":false}
+{"model":"mistral","created_at":"2025-03-21T00:13:05.940158Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"index":1,"name":"calculator","arguments":{"expression":"sqrt(169)"}}}]},"done":false}
+{"model":"mistral","created_at":"2025-03-21T00:13:07.450005Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"index":2,"name":"calculator","arguments":{"expression":"factorial(5)"}}}]},"done":false}
+{"model":"mistral","created_at":"2025-03-21T00:13:07.75869Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":4800611958,"load_duration":315585583,"prompt_eval_count":74,"prompt_eval_duration":410918500,"eval_count":120,"eval_duration":4073546083}
