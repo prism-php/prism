@@ -1,0 +1,69 @@
+{
+  "pages": [
+    {
+      "index": 0,
+      "markdown": "# Text Generation \n\nPrism provides a powerful interface for generating text using Large Language Models (LLMs). This guide covers everything from basic usage to advanced features like multimodal interactions and response handling.\n\n## Basic Text Generation\n\nAt its simplest, you can generate text with just a few lines of code:\n\n```\n    use Prism\\Prism\\Prism;\n    use Prism\\Prism\\Enums\\Provider;\n    $response = Prism::text()\n        ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')\n        ->withPrompt('Tell me a short story about a brave knight.')\n        ->asText();\n    echo $response->text;\n```\n\n\n## System Prompts and Context\n\nSystem prompts help set the behavior and context for the AI. They're particularly useful for maintaining consistent responses or giving the LLM a persona:\n\n```\nphp\nuse Prism\\Prism\\Prism;\nuse Prism\\Prism\\Enums\\Provider;\n$response = Prism::text()\n    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')\n```",
+      "images": [],
+      "dimensions": {
+        "dpi": 200,
+        "height": 2200,
+        "width": 1700
+      }
+    },
+    {
+      "index": 1,
+      "markdown": "```\n    ->withSystemPrompt('You are an expert mathematician who explains concepts s\n    ->withPrompt('Explain the Pythagorean theorem.')\n    ->asText();\n```\n\nYou can also use Laravel views for complex system prompts:\n\n```\n    use Prism\\Prism\\Prism;\n    use Prism\\Prism\\Enums\\Provider;\n    $response = Prism::text()\n    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')\n    ->withSystemPrompt(view('prompts.math-tutor'))\n    ->withPrompt('What is calculus?')\n    ->asText();\n```\n\nYou an also pass a View to the withPrompt method.\n\n# Message Chains and Conversations \n\nFor interactive conversations, use message chains to maintain context:\n\n```\n    use Prism\\Prism\\Prism;\n    use Prism\\Prism\\Enums\\Provider;\n    use Prism\\Prism\\ValueObjects\\Messages\\UserMessage;\n    use Prism\\Prism\\ValueObjects\\Messages\\AssistantMessage;\n    $response = Prism::text()\n    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')\n    ->withMessages( [\n        new UserMessage('What is JSON?'),\n        new AssistantMessage('JSON is a lightweight data format...'),\n        new UserMessage('Can you show me an example?')\n    ])\n    ->asText();\n```\n\n\n## Message Types\n\n- SystemMessage",
+      "images": [],
+      "dimensions": {
+        "dpi": 200,
+        "height": 2200,
+        "width": 1700
+      }
+    },
+    {
+      "index": 2,
+      "markdown": "- UserMessage\n- AssistantMessage\n- ToolResultMessage\n\nNOTE\nSome providers, like Anthropic, do not support the SystemMessage type. In those cases we convert SystemMessage to UserMessage.\n\n# Generation Parameters \n\nFine-tune your generations with various parameters:\nwithMaxTokens\nMaximum number of tokens to generate.\nusingTemperature\nTemperature setting.\nThe value is passed through to the provider. The range depends on the provider and model. For most providers, 0 means almost deterministic results, and higher values mean more randomness.\n\nTIP\nIt is recommended to set either temperature or topP, but not both.\nusingTopP\nNucleus sampling.\nThe value is passed through to the provider. The range depends on the provider and model. For most providers, nucleus sampling is a number between 0 and 1. E.g. 0.1 would mean that only tokens with the top $10 \\%$ probability mass are considered.\n\nTIP\nIt is recommended to set either temperature or topP, but not both.",
+      "images": [],
+      "dimensions": {
+        "dpi": 200,
+        "height": 2200,
+        "width": 1700
+      }
+    },
+    {
+      "index": 3,
+      "markdown": "```\nwithClientOptions\n```\n\nUnder the hood we use L aravel's HTTP client. You can use this method to pass any of Guzzles request options e.g. ->withClientOptions(['timeout' => 30]) .\nwithClientRetry\n\nUnder the hood we use L aravel's HTTP client. You can use this method to set retries e.g. ->withClientRetry(3, 100) .\nusingProviderConfig\n\nThis allows for complete or partial override of the providers configuration. This is great for multi-tenant applications where users supply their own API keys. These values are merged with the original configuration allowing for partial or complete config override.\n\n# Response Handling \n\nThe response object provides rich access to the generation results:\n\n```\nuse Prism\\Prism\\Prism;\nuse Prism\\Prism\\Enums\\Provider;\n$response = Prism::text()\n    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')\n    ->withPrompt('Explain quantum computing.')\n    ->asText();\n    // Access the generated text\n    echo $response->text;\n    // Check why the generation stopped\n    echo $response->finishReason->name;\n    // Get token usage statistics\n    echo \"Prompt tokens: {$response->usage->promptTokens}\";\n    echo \"Completion tokens: {$response->usage->completionTokens}\";\n    // For multi-step generations, examine each step\n    foreach ($response->steps as $step) {\n        echo \"Step text: {$step->text}\";",
+      "images": [],
+      "dimensions": {
+        "dpi": 200,
+        "height": 2200,
+        "width": 1700
+      }
+    },
+    {
+      "index": 4,
+      "markdown": "```\n        echo \"Step tokens: {$step->usage->completionTokens}\";\n    }\n    // Access message history\n    foreach ($response->responseMessages as $message) {\n        if ($message instanceof AssistantMessage) {\n            echo $message->content;\n        }\n    }\n```\n\n\n# Finish Reasons \n\nFinishReason: :Stop;\nFinishReason: : Length;\nFinishReason: : ContentFilter;\nFinishReason: : ToolCalls;\nFinishReason: :Error;\nFinishReason: :Other;\nFinishReason: :Unknown;\n\n## Error Handling\n\nRemember to handle potential errors in your generations:\n\n```\nphp\nuse Prism\\Prism\\Prism;\nuse Prism\\Prism\\Enums\\Provider;\nuse Prism\\Prism\\Exceptions\\PrismException;\nuse Throwable;\ntry {\n    $response = Prism::text()\n        ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')\n        ->withPrompt('Generate text...')\n        ->asText();\n    } catch (PrismException $e) {\n    Log::error('Text generation failed:', ['error' => $e->getMessage()]);\n    } catch (Throwable $e) {\n    Log::error('Generic error:', ['error' => $e->getMessage()]);\n```",
+      "images": [],
+      "dimensions": {
+        "dpi": 200,
+        "height": 2200,
+        "width": 1700
+      }
+    },
+    {
+      "index": 5,
+      "markdown": "Previous page\nConfiguration\nNext page\nStreaming Ouput",
+      "images": [],
+      "dimensions": {
+        "dpi": 200,
+        "height": 2200,
+        "width": 1700
+      }
+    }
+  ],
+  "model": "mistral-ocr-2503-completion",
+  "usage_info": {
+    "pages_processed": 6,
+    "doc_size_bytes": 306115
+  }
+}
