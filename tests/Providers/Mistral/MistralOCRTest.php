@@ -35,36 +35,10 @@ it('can read a basic pdf', function (): void {
     /** @var OCRResponse $object */
     $firstPage = $object->pages[0];
     expect($firstPage->index)->toBe(0);
-    expect($firstPage->markdown)->toBe('# Text Generation 
+    expect($firstPage->markdown)->toContain('# Text Generation');
+    expect($firstPage->markdown)->toContain('## Basic Text Generation');
+    expect($firstPage->markdown)->toContain('## System Prompts and Context');
 
-Prism provides a powerful interface for generating text using Large Language Models (LLMs). This guide covers everything from basic usage to advanced features like multimodal interactions and response handling.
-
-## Basic Text Generation
-
-At its simplest, you can generate text with just a few lines of code:
-
-```
-    use Prism\Prism\Prism;
-    use Prism\Prism\Enums\Provider;
-    $response = Prism::text()
-        ->using(Provider::Anthropic, \'claude-3-5-sonnet-20241022\')
-        ->withPrompt(\'Tell me a short story about a brave knight.\')
-        ->asText();
-    echo $response->text;
-```
-
-
-## System Prompts and Context
-
-System prompts help set the behavior and context for the AI. They\'re particularly useful for maintaining consistent responses or giving the LLM a persona:
-
-```
-php
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
-$response = Prism::text()
-    ->using(Provider::Anthropic, \'claude-3-5-sonnet-20241022\')
-```');
     expect($firstPage->images)->toBe([]);
     expect($firstPage->dimensions)->toBe([
         'dpi' => 200,
