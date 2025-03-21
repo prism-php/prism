@@ -1,0 +1,2 @@
+{"model":"mistral","created_at":"2025-03-21T00:06:08.613702Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"weather","arguments":{"city":"Paris"}}}]},"done":false}
+{"model":"mistral","created_at":"2025-03-21T00:06:08.64786Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":811013500,"load_duration":16626833,"prompt_eval_count":80,"prompt_eval_duration":223216125,"eval_count":18,"eval_duration":570569666}

@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
+use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;
 use Prism\Prism\Providers\Ollama\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -62,7 +62,12 @@ readonly class Ollama implements Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+        $handler = new Stream($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handle($request);
     }
 
     /**
