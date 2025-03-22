@@ -11,7 +11,7 @@ class FinishReasonMap
     public static function map(string $reason): FinishReason
     {
         return match ($reason) {
-            'end_turn', 'stop_sequence' => FinishReason::Stop,
+            'end_turn', 'stop_sequence', 'message_stop' => FinishReason::Stop,
             'tool_use' => FinishReason::ToolCalls,
             'max_tokens' => FinishReason::Length,
             default => FinishReason::Unknown,
