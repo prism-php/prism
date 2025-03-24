@@ -87,6 +87,7 @@ class FixtureResponse
             $requestPath => Http::sequence($responses->toArray()),
         ])->preventStrayRequests();
     }
+
     public static function fakeStreamResponses(string $requestPath, string $name): void
     {
         $basePath = dirname(static::filePath("{$name}-1.sse"));
