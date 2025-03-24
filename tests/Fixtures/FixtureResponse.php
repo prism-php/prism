@@ -87,6 +87,57 @@ class FixtureResponse
             $requestPath => Http::sequence($responses->toArray()),
         ])->preventStrayRequests();
     }
+    public static function fakeStreamResponses(string $requestPath, string $name): void
+    {
+        $basePath = dirname(static::filePath("{$name}-1.sse"));
+
+        // Find all recorded .sse files for this test
+        $files = collect(is_dir($basePath) ? scandir($basePath) : [])
+            ->filter(fn ($file): int|false => preg_match('/^'.preg_quote(basename($name), '/').'-\d+\.sse$/', $file))
+            ->map(fn ($file): string => $basePath.'/'.$file)
+            ->values()
+            ->toArray();
+
+        // If no files exist, automatically record the streaming responses
+        if (empty($files)) {
+            static::recordStreamResponses($requestPath, $name);
+
+            return;
+        }
+
+        // Sort files numerically
+        usort($files, function ($a, $b): int {
+            preg_match('/-(\d+)\.sse$/', $a, $matchesA);
+            preg_match('/-(\d+)\.sse$/', $b, $matchesB);
+
+            return (int) $matchesA[1] <=> (int) $matchesB[1];
+        });
+
+        // Create response sequence from the files
+        $responses = array_map(fn ($file) => Http::response(
+            file_get_contents($file),
+            200,
+            [
+                'Content-Type' => 'text/event-stream',
+                'Cache-Control' => 'no-cache',
+                'Connection' => 'keep-alive',
+                'Transfer-Encoding' => 'chunked',
+            ]
+        ), $files);
+
+        if ($responses === []) {
+            $responses[] = Http::response(
+                "data: {\"error\":\"No recorded stream responses found\"}\n\ndata: [DONE]\n\n",
+                200,
+                ['Content-Type' => 'text/event-stream']
+            );
+        }
+
+        // Register the fake responses
+        Http::fake([
+            $requestPath => Http::sequence($responses),
+        ])->preventStrayRequests();
+    }
 
     protected static function filePath(string $filePath): string
     {
@@ -171,57 +222,5 @@ class FixtureResponse
             // For non-matching requests, pass through
             return Http::response('{"error":"Not mocked"}', 404);
         });
-    }
-
-    protected static function fakeStreamResponses(string $requestPath, string $name): void
-    {
-        $basePath = dirname(static::filePath("{$name}-1.sse"));
-
-        // Find all recorded .sse files for this test
-        $files = collect(is_dir($basePath) ? scandir($basePath) : [])
-            ->filter(fn ($file): int|false => preg_match('/^'.preg_quote(basename($name), '/').'-\d+\.sse$/', $file))
-            ->map(fn ($file): string => $basePath.'/'.$file)
-            ->values()
-            ->toArray();
-
-        // If no files exist, automatically record the streaming responses
-        if (empty($files)) {
-            static::recordStreamResponses($requestPath, $name);
-
-            return;
-        }
-
-        // Sort files numerically
-        usort($files, function ($a, $b): int {
-            preg_match('/-(\d+)\.sse$/', $a, $matchesA);
-            preg_match('/-(\d+)\.sse$/', $b, $matchesB);
-
-            return (int) $matchesA[1] <=> (int) $matchesB[1];
-        });
-
-        // Create response sequence from the files
-        $responses = array_map(fn ($file) => Http::response(
-            file_get_contents($file),
-            200,
-            [
-                'Content-Type' => 'text/event-stream',
-                'Cache-Control' => 'no-cache',
-                'Connection' => 'keep-alive',
-                'Transfer-Encoding' => 'chunked',
-            ]
-        ), $files);
-
-        if ($responses === []) {
-            $responses[] = Http::response(
-                "data: {\"error\":\"No recorded stream responses found\"}\n\ndata: [DONE]\n\n",
-                200,
-                ['Content-Type' => 'text/event-stream']
-            );
-        }
-
-        // Register the fake responses
-        Http::fake([
-            $requestPath => Http::sequence($responses),
-        ])->preventStrayRequests();
     }
 }
