@@ -281,6 +281,37 @@ it('can generate structured response', function () {
 });
 ```
 
+## Testing Embeddings
+
+```
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+
+it('can generate embeddings', function () {
+    $fakeResponse = new EmbeddingsResponse(
+        embeddings: [new Embedding(array_fill(0, 1536, 0.1))],
+        usage: new EmbeddingsUsage(
+            tokens: 10,
+        )
+    );
+
+    Prism::fake([$fakeResponse]);
+
+    $response = Prism::embeddings()
+        ->using(Provider::OpenAI, 'text-embedding-3-small')
+        ->fromInput('Test content for embedding generation.')
+        ->generate();
+
+    expect($response->embeddings)->toHaveCount(1)
+        ->and($response->embeddings[0]->embedding)
+        ->toBeArray()
+        ->toHaveCount(1536);
+});
+```
+
 ## Assertions
 
 PrismFake provides several helpful assertion methods:
