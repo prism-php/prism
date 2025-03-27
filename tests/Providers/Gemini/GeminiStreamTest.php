@@ -38,7 +38,7 @@ it('can generate text with a basic stream', function (): void {
         );
 
     // Verify the HTTP request
-    Http::assertSent(fn(Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
         && isset($request->data()['contents']));
 });
 
