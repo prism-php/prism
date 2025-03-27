@@ -60,7 +60,7 @@ class Structured
                 'max_tokens' => $request->maxTokens(),
             ], array_filter([
                 'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
+                'top_p' => $request->topP() ?: 1.0,
                 'response_format' => ['type' => 'json_object'],
             ]))
         );

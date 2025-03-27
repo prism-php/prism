@@ -138,7 +138,7 @@ class Text
                 'tools' => ToolMap::map($request->tools()),
                 'temperature' => $request->temperature(),
                 'max_tokens' => $request->maxTokens(),
-                'top_p' => $request->topP(),
+                'top_p' => $request->topP() ?: 1.0,
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             ]);
         } catch (Throwable $e) {
