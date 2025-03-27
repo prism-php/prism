@@ -14,6 +14,7 @@ use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
+use Prism\Prism\Providers\Gemini\Handlers\Stream;
 use Prism\Prism\Providers\Gemini\Handlers\Structured;
 use Prism\Prism\Providers\Gemini\Handlers\Text;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
@@ -66,7 +67,12 @@ readonly class Gemini implements Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+        $handler = new Stream(
+            $this->client($request->clientOptions(), $request->clientRetry()),
+            $this->apiKey
+        );
+
+        return $handler->handle($request);
     }
 
     /**
