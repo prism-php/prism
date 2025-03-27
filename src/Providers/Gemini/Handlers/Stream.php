@@ -13,8 +13,6 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
-use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
@@ -29,7 +27,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ExtractSearchGroundings, ValidatesResponse;
+    use CallsTools;
 
     public function __construct(
         protected PendingRequest $client,
@@ -58,8 +56,6 @@ class Stream
 
         $text = '';
         $toolCalls = [];
-        $groundingSupports = [];
-        $groundingChunks = [];
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -73,44 +69,24 @@ class Stream
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
-                continue;
-            }
+                // Check if this is the final part of the tool calls
+                if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
+                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+                }
 
-            // Extract search grounding information if present
-            if ($this->hasSearchGrounding($data)) {
-                $groundingSupports = array_merge($groundingSupports, data_get($data, 'candidates.0.content.parts.0.text.groundingSupport', []));
-                $groundingChunks = array_merge($groundingChunks, data_get($data, 'groundingChunks', []));
+                continue;
             }
 
             // Handle content
             $content = data_get($data, 'candidates.0.content.parts.0.text') ?? '';
-            if (is_string($content)) {
-                $text .= $content;
+            $text .= $content;
 
-                yield new Chunk(
-                    text: $content,
-                    finishReason: null,
-                );
-            }
-
-            // Handle finish reason
-            $finishReason = $this->mapFinishReason($data);
-            if ($finishReason === FinishReason::Unknown) {
-                continue;
-            }
-
-            if ($finishReason === FinishReason::ToolCalls) {
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                return;
-            }
+            $finishReason = data_get($data, 'done', false) ? FinishReason::Stop : FinishReason::Unknown;
 
             yield new Chunk(
-                text: '',
-                finishReason: $finishReason,
+                text: $content,
+                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
-
-            return;
         }
     }
 
@@ -219,15 +195,6 @@ class Stream
         }
 
         return false;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function hasSearchGrounding(array $data): bool
-    {
-        return ! empty(data_get($data, 'candidates.0.content.parts.0.text.groundingSupport'))
-            && ! empty(data_get($data, 'groundingChunks'));
     }
 
     /**
