@@ -88,7 +88,7 @@ class FixtureResponse
         ])->preventStrayRequests();
     }
 
-    public static function fakeStreamResponses(string $requestPath, string $name): void
+    public static function fakeStreamResponses(string $requestPath, string $name, array $headers = []): void
     {
         $basePath = dirname(static::filePath("{$name}-1.sse"));
 
@@ -123,6 +123,7 @@ class FixtureResponse
                 'Cache-Control' => 'no-cache',
                 'Connection' => 'keep-alive',
                 'Transfer-Encoding' => 'chunked',
+                ...$headers,
             ]
         ), $files);
 

@@ -114,7 +114,7 @@ class Structured extends AnthropicHandlerAbstract
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
-                rateLimits: $this->processRateLimits()
+                rateLimits: $this->processRateLimits($this->httpResponse)
             ),
             additionalContent: array_filter([
                 'messagePartsWithCitations' => $this->extractCitations($data),

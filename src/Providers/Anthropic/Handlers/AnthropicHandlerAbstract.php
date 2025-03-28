@@ -7,20 +7,17 @@ namespace Prism\Prism\Providers\Anthropic\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismProviderOverloadedException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Throwable;
 
 abstract class AnthropicHandlerAbstract
 {
+    use HandlesResponse;
+
     protected Response $httpResponse;
 
     public function __construct(protected PendingRequest $client, protected PrismRequest $request) {}
@@ -73,22 +70,7 @@ abstract class AnthropicHandlerAbstract
 
     protected function handleResponseErrors(): void
     {
-        if ($this->httpResponse->getStatusCode() === 429) {
-            throw PrismRateLimitedException::make(
-                rateLimits: array_values($this->processRateLimits()),
-                retryAfter: $this->httpResponse->hasHeader('retry-after')
-                    ? (int) $this->httpResponse->getHeader('retry-after')[0]
-                    : null
-            );
-        }
-
-        if ($this->httpResponse->getStatusCode() === 529) {
-            throw PrismProviderOverloadedException::make(Provider::Anthropic);
-        }
-
-        if ($this->httpResponse->getStatusCode() === 413) {
-            throw PrismRequestTooLargeException::make(Provider::Anthropic);
-        }
+        $this->handleResponseExceptions($this->httpResponse);
 
         $data = $this->httpResponse->json();
 
@@ -122,40 +104,5 @@ abstract class AnthropicHandlerAbstract
             'thinking' => data_get($thinking, 'thinking'),
             'thinking_signature' => data_get($thinking, 'signature'),
         ];
-    }
-
-    /**
-     * @return ProviderRateLimit[]
-     */
-    protected function processRateLimits(): array
-    {
-        $rate_limits = [];
-
-        foreach ($this->httpResponse->getHeaders() as $headerName => $headerValues) {
-            if (Str::startsWith($headerName, 'anthropic-ratelimit-') === false) {
-                continue;
-            }
-
-            $limit_name = Str::of($headerName)->after('anthropic-ratelimit-')->beforeLast('-')->toString();
-
-            $field_name = Str::of($headerName)->afterLast('-')->toString();
-
-            $rate_limits[$limit_name][$field_name] = $headerValues[0];
-        }
-
-        return array_values(Arr::map($rate_limits, function ($fields, $limit_name): ProviderRateLimit {
-            $resets_at = data_get($fields, 'reset');
-
-            return new ProviderRateLimit(
-                name: $limit_name,
-                limit: data_get($fields, 'limit') !== null
-                    ? (int) data_get($fields, 'limit')
-                    : null,
-                remaining: data_get($fields, 'remaining') !== null
-                    ? (int) data_get($fields, 'remaining')
-                    : null,
-                resetsAt: data_get($fields, 'reset') !== null ? new Carbon($resets_at) : null
-            );
-        }));
     }
 }

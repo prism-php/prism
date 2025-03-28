@@ -246,6 +246,7 @@ foreach ($messageChunks as $messageChunk) {
 }
 ```
 
+Note that when using streaming, Anthropic does not stream citations in the same way. Instead, of building the context as above, yield text to the browser in the usual way and pair text up with the relevant footnote using the `citationIndex` on the text chunk's additionalContent parameter.
 
 ## Considerations
 ### Message Order
