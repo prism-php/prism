@@ -24,11 +24,13 @@ trait ValidatesResponse
         $data = $response->json();
 
         if (! $data || data_get($data, 'object') === 'error') {
+            $message = data_get($data, 'message', 'unknown');
+
             throw PrismException::providerResponseError(vsprintf(
                 'Mistral Error: [%s] %s',
                 [
                     data_get($data, 'type', 'unknown'),
-                    data_get($data, 'message', 'unknown'),
+                    is_array($message) ? json_encode($message) : $message,
                 ]
             ));
         }
