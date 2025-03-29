@@ -28,7 +28,7 @@ Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderMeta(Provider::VoyageAI, ['inputType' => 'query'])
-    ->generate();
+    ->asEmbeddings();
 ```
 
 For document retrieval:
@@ -41,7 +41,7 @@ Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderMeta(Provider::VoyageAI, ['inputType' => 'document'])
-    ->generate();
+    ->asEmbeddings();
 ```
 
 ### Truncation
@@ -58,7 +58,5 @@ Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderMeta(Provider::VoyageAI, ['truncation' => false])
-    ->generate();
+    ->asEmbeddings();
 ```
-
-### Truncation
