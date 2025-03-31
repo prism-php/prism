@@ -37,6 +37,7 @@ class Request implements PrismRequest
         protected Schema $schema,
         protected StructuredMode $mode,
         array $providerMeta = [],
+        protected array $modelOptions = [],
     ) {
         $this->providerMeta = $providerMeta;
     }
@@ -114,5 +115,13 @@ class Request implements PrismRequest
         $this->messages = array_merge($this->messages, [$message]);
 
         return $this;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function options(): array
+    {
+        return $this->modelOptions;
     }
 }
