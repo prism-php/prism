@@ -2,15 +2,13 @@
 
 namespace Prism\Prism\Concerns;
 
-use Prism\Prism\Text\PendingRequest;
-
 trait HasModelOptions
 {
-    /** @var array<string, array<string, mixed>> */
+    /** @var array<string, mixed> */
     protected array $modelOptions = [];
 
     /**
-     * @return HasModelOptions|\Prism\Prism\Structured\PendingRequest|PendingRequest
+     * @param  array<string, mixed>  $options
      */
     public function withOptions(array $options): self
     {
