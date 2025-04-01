@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\OpenAI\Maps;
 use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -77,22 +78,53 @@ class MessageMap
 
     protected function mapUserMessage(UserMessage $message): void
     {
-        $imageParts = array_map(fn (Image $image): array => [
+        $this->mappedMessages[] = [
+            'role' => 'user',
+            'content' => [
+                ['type' => 'text', 'text' => $message->text()],
+                ...self::mapImageParts($message->images()),
+                ...self::mapDocumentParts($message->documents()),
+            ],
+        ];
+    }
+
+    /**
+     * @param  Image[]  $images
+     * @return array<int, mixed>
+     */
+    protected static function mapImageParts(array $images): array
+    {
+        return array_map(fn (Image $image): array => [
             'type' => 'image_url',
             'image_url' => [
                 'url' => $image->isUrl()
                     ? $image->image
                     : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
             ],
-        ], $message->images());
+        ], $images);
+    }
 
-        $this->mappedMessages[] = [
-            'role' => 'user',
-            'content' => [
-                ['type' => 'text', 'text' => $message->text()],
-                ...$imageParts,
-            ],
-        ];
+    /**
+     * @param  Document[]  $documents
+     * @return array<int,mixed>
+     */
+    protected static function mapDocumentParts(array $documents): array
+    {
+        return array_map(function (Document $document): array {
+            if (! in_array($document->dataFormat, ['base64', 'file_id'])) {
+                throw new \InvalidArgumentException("OpenAI does not support $document->dataFormat documents.");
+            }
+
+            return [
+                'type' => 'file',
+                'file' => $document->dataFormat === 'base64' ? [
+                    'file_data' => sprintf('data:%s;base64,%s', $document->mimeType, $document->document), // @phpstan-ignore argument.type
+                    'filename' => $document->documentTitle,
+                ] : [
+                    'file_id' => $document->document,
+                ],
+            ];
+        }, $documents);
     }
 
     protected function mapAssistantMessage(AssistantMessage $message): void

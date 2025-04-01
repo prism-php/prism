@@ -134,6 +134,15 @@ class Document
         );
     }
 
+    public static function fromFileId(string $fileId): self
+    {
+        return new self(
+            document: $fileId,
+            mimeType: null,
+            dataFormat: 'file_id',
+        );
+    }
+
     public function isUrl(): bool
     {
         return $this->dataFormat === 'url';
