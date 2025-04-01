@@ -26,6 +26,9 @@ At the time of writing:
   - PDF (application/pdf)
   - CSV (text/csv)
   - text files (text/plain)
+- OpenAI supports:
+    - PDF (application/pdf)
+    - `file_id` (previously uploaded pdf file id.)
 
 All of these formats should work with Prism.
 
@@ -57,6 +60,10 @@ Prism::text()
         // Or from an URL
         new UserMessage('Here is the document from a url (make sure this is publically accessable)', [
             Document::fromUrl('https://example.com/test-pdf.pdf'),
+        ]),
+        // Or from a file_id
+        new UserMessage('Here is the document from file_id', [
+            Document::fromFileId('file-lsfgSXyV2xEb8gw8fYjXU6'),
         ]),
     ])
     ->generate();

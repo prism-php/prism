@@ -30,3 +30,11 @@ it('can create a document from url', function (): void {
     expect($document->documentTitle)->toBe('title');
     expect($document->documentContext)->toBe('context');
 });
+
+it('can create a document from file_id', function (): void {
+    $document = Document::fromFileId('the-file-id');
+
+    expect($document->document)->toBe('the-file-id');
+    expect($document->mimeType)->toBeNull();
+    expect($document->dataFormat)->toBe('file_id');
+});
