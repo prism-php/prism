@@ -60,6 +60,7 @@ class Structured
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
                 'response_format' => ['type' => 'json_object'],
+                ...$request->options(),
             ]))
         );
 

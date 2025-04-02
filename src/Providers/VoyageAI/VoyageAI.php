@@ -2,6 +2,7 @@
 
 namespace Prism\Prism\Providers\VoyageAI;
 
+use EchoLabs\Prism\Providers\VoyageAI\Handlers\Embeddings;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;

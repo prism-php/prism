@@ -63,6 +63,7 @@ class Embeddings
                     'parts' => [
                         ['text' => $request->inputs()[0]],
                     ],
+                    ...$request->options(),
                 ],
             ]
         );

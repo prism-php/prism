@@ -65,6 +65,7 @@ class Structured
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
+                        ...$request->options(),
                     ]),
                     'safetySettings' => $providerMeta['safetySettings'] ?? null,
                 ])

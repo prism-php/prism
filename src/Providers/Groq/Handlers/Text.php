@@ -12,8 +12,6 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
-use Prism\Prism\Providers\Groq\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Groq\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Text\ResponseBuilder;
@@ -68,15 +66,16 @@ class Text
         try {
             return $this->client->post(
                 'chat/completions',
-                array_filter([
+                array_merge([
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                ], array_filter([
                     'max_tokens' => $request->maxTokens(),
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ])
+                    'response_format' => ['type' => 'json_object'],
+                    ...$request->options(),
+                ]))
             );
         } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);

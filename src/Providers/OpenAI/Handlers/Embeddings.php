@@ -52,6 +52,7 @@ class Embeddings
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
+                ...$request->options(),
             ]
         );
     }

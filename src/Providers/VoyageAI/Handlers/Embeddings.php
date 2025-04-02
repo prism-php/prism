@@ -1,6 +1,6 @@
 <?php
 
-namespace Prism\Prism\Providers\VoyageAI;
+namespace EchoLabs\Prism\Providers\VoyageAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -51,8 +51,9 @@ class Embeddings
             $this->httpResponse = $this->client->post('embeddings', array_filter([
                 'model' => $this->request->model(),
                 'input' => $this->request->inputs(),
-                'input_type' => $providerMeta['inputType'] ?? null,
-                'truncation' => $providerMeta['truncation'] ?? null,
+                'input_type' => data_get($providerMeta, 'input_type'),
+                'truncation' => data_get($providerMeta, 'truncation'),
+                ...$this->request->options(),
             ]));
         } catch (\Exception $e) {
             throw PrismException::providerRequestError($this->request->model(), $e);

@@ -92,6 +92,7 @@ class Structured extends AnthropicHandlerAbstract
             'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
+            ...$request->options(),
         ]);
     }
 

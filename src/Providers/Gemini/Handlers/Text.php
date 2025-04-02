@@ -78,12 +78,6 @@ class Text
         try {
             $providerMeta = $request->providerMeta(Provider::Gemini);
 
-            $generationConfig = array_filter([
-                'temperature' => $request->temperature(),
-                'topP' => $request->topP(),
-                'maxOutputTokens' => $request->maxTokens(),
-            ]);
-
             if ($request->tools() !== [] && ($providerMeta['searchGrounding'] ?? false)) {
                 throw new Exception('Use of search grounding with custom tools is not currently supported by Prism.');
             }
@@ -103,7 +97,12 @@ class Text
                 array_filter([
                     ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'cachedContent' => $providerMeta['cachedContentName'] ?? null,
-                    'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
+                    'generationConfig' => array_filter([
+                        'temperature' => $request->temperature(),
+                        'topP' => $request->topP(),
+                        'maxOutputTokens' => $request->maxTokens(),
+                        ...$request->options(),
+                    ]),
                     'tools' => $tools !== [] ? $tools : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
                     'safetySettings' => $providerMeta['safetySettings'] ?? null,

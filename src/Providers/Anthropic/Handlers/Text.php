@@ -99,6 +99,7 @@ class Text extends AnthropicHandlerAbstract
             'top_p' => $request->topP(),
             'tools' => ToolMap::map($request->tools()),
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            ...$request->options(),
         ]);
     }
 
