@@ -9,6 +9,7 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -84,6 +85,7 @@ class MessageMap
                 ['type' => 'text', 'text' => $message->text()],
                 ...self::mapImageParts($message->images()),
                 ...self::mapDocumentParts($message->documents()),
+                ...self::mapFileParts($message->files()),
             ],
         ];
     }
@@ -111,20 +113,32 @@ class MessageMap
     protected static function mapDocumentParts(array $documents): array
     {
         return array_map(function (Document $document): array {
-            if (! in_array($document->dataFormat, ['base64', 'file_id'])) {
+            if ($document->dataFormat !== 'base64') {
                 throw new \InvalidArgumentException("OpenAI does not support $document->dataFormat documents.");
             }
 
             return [
                 'type' => 'file',
-                'file' => $document->dataFormat === 'base64' ? [
+                'file' => [
                     'file_data' => sprintf('data:%s;base64,%s', $document->mimeType, $document->document), // @phpstan-ignore argument.type
                     'filename' => $document->documentTitle,
-                ] : [
-                    'file_id' => $document->document,
                 ],
             ];
         }, $documents);
+    }
+
+    /**
+     * @param  OpenAIFile[]  $files
+     * @return array<int, mixed>
+     */
+    protected static function mapFileParts(array $files): array
+    {
+        return array_map(fn (OpenAIFile $file): array => [
+            'type' => 'file',
+            'file' => [
+                'file_id' => $file->fileId,
+            ],
+        ], $files);
     }
 
     protected function mapAssistantMessage(AssistantMessage $message): void

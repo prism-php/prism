@@ -41,6 +41,7 @@ use Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -63,7 +64,7 @@ Prism::text()
         ]),
         // Or from a file_id
         new UserMessage('Here is the document from file_id', [
-            Document::fromFileId('file-lsfgSXyV2xEb8gw8fYjXU6'),
+            new OpenAIFile('file-lsfgSXyV2xEb8gw8fYjXU6'),
         ]),
     ])
     ->generate();
