@@ -8,6 +8,7 @@ use Prism\Prism\Concerns\HasProviderMeta;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\Support\Text;
 
 class UserMessage implements Message
@@ -15,7 +16,7 @@ class UserMessage implements Message
     use HasProviderMeta;
 
     /**
-     * @param  array<int, Text|Image|Document>  $additionalContent
+     * @param  array<int, Text|Image|Document|OpenAIFile>  $additionalContent
      */
     public function __construct(
         protected readonly string $content,
@@ -56,6 +57,18 @@ class UserMessage implements Message
     {
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Document)
+            ->toArray();
+    }
+
+    /**
+     * Note: Prism currently only supports previously uploaded Files with OpenAI.
+     *
+     * @return OpenAIFile[]
+     */
+    public function files(): array
+    {
+        return collect($this->additionalContent)
+            ->where(fn ($part): bool => $part instanceof OpenAIFile)
             ->toArray();
     }
 }
