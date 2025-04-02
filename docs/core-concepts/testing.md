@@ -325,8 +325,8 @@ $fake->assertCallCount(2);
 
 // Assert detailed request properties
 $fake->assertRequest(function ($requests) {
-    expect($requests[0]->provider)->toBe('anthropic');
-    expect($requests[0]->model)->toBe('claude-3-sonnet');
+    expect($requests[0]->provider())->toBe('anthropic');
+    expect($requests[0]->model())->toBe('claude-3-sonnet');
 });
 
 // Assert provider configuration
