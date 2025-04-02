@@ -54,4 +54,12 @@ class Prism
     {
         return new PendingEmbeddingRequest;
     }
+
+    /**
+     * @param  array<string,mixed>  $providerConfig
+     */
+    public static function provider(ProviderEnum|string $name, array $providerConfig = []): Provider
+    {
+        return app(PrismManager::class)->resolve($name, $providerConfig);
+    }
 }

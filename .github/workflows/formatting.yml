@@ -27,11 +27,6 @@ jobs:
       - name: Install composer dependencies
         uses: ramsey/composer-install@v3
 
-      - name: Install aspell
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y aspell
-
       - name: Run Pint
         run: |
           vendor/bin/pint
@@ -40,9 +35,4 @@ jobs:
       - name: Run Rector
         run: |
           vendor/bin/rector
-          git diff --exit-code
-
-      - name: Run Peck
-        run: |
-          vendor/bin/peck
           git diff --exit-code

@@ -15,6 +15,7 @@ use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -395,5 +396,44 @@ describe('search grounding', function (): void {
         expect($response->additionalContent['groundingSupports'][0]->groundings[0]->title)->not()->toBe('');
         expect($response->additionalContent['groundingSupports'][0]->groundings[0]->uri)->not()->toBe('');
         expect($response->additionalContent['groundingSupports'][0]->groundings[0]->confidence)->not()->toBe(0.0);
+    });
+});
+
+describe('Cache support for Gemini', function (): void {
+    it('can use a cache object with a text request', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/use-cache-with-text');
+
+        /** @var Gemini */
+        $provider = Prism::provider(Provider::Gemini);
+
+        $object = $provider->cache(
+            model: 'gemini-1.5-flash-002',
+            messages: [
+                new UserMessage('', [
+                    Document::fromPath('tests/Fixtures/long-document.pdf'),
+                ]),
+            ],
+            systemPrompts: [
+                new SystemMessage('You are a legal analyst.'),
+            ],
+            ttl: 30
+        );
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+            ->withProviderMeta(Provider::Gemini, ['cachedContentName' => $object->name])
+            ->withPrompt('In no more than 100 words, what is the document about?')
+            ->generate();
+
+        Http::assertSentInOrder([
+            fn (Request $request): bool => true,
+            fn (Request $request): bool => $request->data()['cachedContent'] === $object->name,
+        ]);
+
+        expect($response->text)->toBe("That's the Consolidated Version of the Treaty on the Functioning of the European Union (TFEU), adopted on 25 March 1957.  It outlines the principles, competencies, and policies of the European Union.  The TFEU organizes the EU's functioning and details its areas of competence, including exclusive, shared, and supporting competences.  It also covers non-discrimination, citizenship, and various EU policies (e.g., internal market, agriculture, and justice).  Finally, it sets out institutional and financial provisions.\n");
+
+        expect($response->usage->promptTokens)->toBe(16);
+        expect($response->usage->completionTokens)->toBe(116);
+        expect($response->usage->cacheReadInputTokens)->toBe(88759);
     });
 });

@@ -61,7 +61,7 @@ class Embeddings
                 'model' => $request->model(),
                 'content' => [
                     'parts' => [
-                        ['text' => $request->inputs()],
+                        ['text' => $request->inputs()[0]],
                     ],
                 ],
             ]

@@ -26,7 +26,7 @@ While we aren't affiliated with Laravel, we follow the Laravel [Code of Conduct]
 
 ## Authors
 
-This library is created by [TJ Miller](https://tjmiller.me) with contributions from the [Open Source Community](https://github.com/prismphp/prism/graphs/contributors).
+This library is created by [TJ Miller](https://tjmiller.me) with contributions from the [Open Source Community](https://github.com/prism-php/prism/graphs/contributors).
 
 ## License
 

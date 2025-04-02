@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\Schema\ArraySchema;
@@ -12,6 +14,9 @@ use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {
@@ -74,4 +79,51 @@ it('returns structured output', function (): void {
 
     expect($response->usage->promptTokens)->toBe(81);
     expect($response->usage->completionTokens)->toBe(64);
+});
+
+it('can use a cache object with a structured request', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/use-cache-with-structured');
+
+    /** @var Gemini */
+    $provider = Prism::provider(Provider::Gemini);
+
+    $object = $provider->cache(
+        model: 'gemini-1.5-flash-002',
+        messages: [
+            new UserMessage('', [
+                Document::fromPath('tests/Fixtures/long-document.pdf'),
+            ]),
+        ],
+        systemPrompts: [
+            new SystemMessage('You are a legal analyst.'),
+        ],
+        ttl: 30
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+        ->withSchema(new ObjectSchema('answer', '', [
+            new StringSchema('legal_jurisdiction', 'Which legal jurisdiction is this document from?'),
+            new StringSchema('legislation_type', 'What type of legislation is this (e.g. a treaty, a regulation, an act, a directive, etc.)?'),
+            new NumberSchema('article_count', 'How many articles does the main body of the legislation contain?'),
+        ]))
+        ->withProviderMeta(Provider::Gemini, ['cachedContentName' => $object->name])
+        ->withPrompt('Summarise this document using the properties and descriptions defined in the schema.')
+        ->generate();
+
+    Http::assertSentInOrder([
+        fn (Request $request): bool => true,
+        fn (Request $request): bool => $request->data()['cachedContent'] === $object->name,
+    ]);
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKeys([
+        'legal_jurisdiction',
+        'legislation_type',
+        'article_count',
+    ]);
+
+    expect($response->structured['article_count'])->toBe(358);
+    expect($response->structured['legal_jurisdiction'])->toBe('European Union');
+    expect($response->structured['legislation_type'])->toBe('Treaty');
 });

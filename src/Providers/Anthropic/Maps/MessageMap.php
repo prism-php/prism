@@ -196,24 +196,30 @@ class MessageMap
      */
     protected static function mapDocumentParts(array $parts, ?array $cache_control = null, array $requestProviderMeta = []): array
     {
-        return array_map(fn (Document $document): array => array_filter([
-            'type' => 'document',
-            'source' => array_filter([
-                'type' => $document->dataFormat,
-                'media_type' => $document->mimeType,
-                'data' => $document->dataFormat !== 'content' && ! is_array($document->document)
-                    ? $document->document
+        return array_map(function (Document $document) use ($cache_control, $requestProviderMeta): array {
+            if ($document->isUrl()) {
+                throw new InvalidArgumentException('URL document type is not supported by Anthropic');
+            }
+
+            return array_filter([
+                'type' => 'document',
+                'source' => array_filter([
+                    'type' => $document->dataFormat,
+                    'media_type' => $document->mimeType,
+                    'data' => $document->dataFormat !== 'content' && ! is_array($document->document)
+                        ? $document->document
+                        : null,
+                    'content' => $document->dataFormat === 'content' && is_array($document->document)
+                        ? array_map(fn (string $chunk): array => ['type' => 'text', 'text' => $chunk], $document->document)
+                        : null,
+                ]),
+                'title' => $document->documentTitle,
+                'context' => $document->documentContext,
+                'cache_control' => $cache_control,
+                'citations' => data_get($requestProviderMeta, 'citations', data_get($document->providerMeta(Provider::Anthropic), 'citations', false))
+                    ? ['enabled' => true]
                     : null,
-                'content' => $document->dataFormat === 'content' && is_array($document->document)
-                    ? array_map(fn (string $chunk): array => ['type' => 'text', 'text' => $chunk], $document->document)
-                    : null,
-            ]),
-            'title' => $document->documentTitle,
-            'context' => $document->documentContext,
-            'cache_control' => $cache_control,
-            'citations' => data_get($requestProviderMeta, 'citations', data_get($document->providerMeta(Provider::Anthropic), 'citations', false))
-                ? ['enabled' => true]
-                : null,
-        ]), $parts);
+            ]);
+        }, $parts);
     }
 }

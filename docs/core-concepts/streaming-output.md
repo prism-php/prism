@@ -9,7 +9,7 @@ At its simplest, streaming works like this:
 ```php
 use Prism\Prism\Prism;
 
-$response = Prism::stream()
+$response = Prism::text()
     ->using('openai', 'gpt-4')
     ->withPrompt('Tell me a story about a brave knight.')
     ->asStream();
@@ -54,7 +54,7 @@ $weatherTool = Tool::as('weather')
         return "The weather in {$city} is sunny and 72°F.";
     });
 
-$response = Prism::stream()
+$response = Prism::text()
     ->using('openai', 'gpt-4o')
     ->withTools([$weatherTool])
     ->withMaxSteps(3) // Control maximum number of back-and-forth steps
@@ -101,7 +101,7 @@ use Illuminate\Http\Response;
 public function streamResponse()
 {
     return response()->stream(function () {
-        $stream = Prism::stream()
+        $stream = Prism::text()
             ->using('openai', 'gpt-4')
             ->withPrompt('Explain quantum computing step by step.')
             ->asStream();
@@ -126,7 +126,7 @@ Stream the output via Laravel event streams ([docs](https://laravel.com/docs/12.
 ```php
 Route::get('/chat', function () {
     return response()->eventStream(function () {
-        $stream = Prism::stream()
+        $stream = Prism::text()
             ->using('openai', 'gpt-4')
             ->withPrompt('Explain quantum computing step by step.')
             ->asStream();

@@ -1,0 +1,30 @@
+{
+    "id": "chatcmpl-259cad75-8b85-4980-a0db-5f64b91b1fc5",
+    "object": "chat.completion",
+    "created": 1742308176,
+    "model": "llama-3.3-70b-versatile",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "{\n   \"game_time\": \"3pm\",\n   \"weather\": \"75º\",\n   \"coat_required\": false\n}"
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "queue_time": 0.0467531,
+        "prompt_tokens": 172,
+        "prompt_time": 0.010657385,
+        "completion_tokens": 26,
+        "completion_time": 0.094545455,
+        "total_tokens": 198,
+        "total_time": 0.10520284
+    },
+    "system_fingerprint": "fp_9a8b91ba77",
+    "x_groq": {
+        "id": "req_01jpmthwvff1h9q278pdhjh7c8"
+    }
+} 

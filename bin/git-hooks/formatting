@@ -13,9 +13,6 @@ main() {
     _header "Running rector..."
     vendor/bin/rector process --no-diffs
 
-    _header "Running Peck..."
-    vendor/bin/peck
-
     files_after_format=$(git diff --name-only --diff-filter=d)
 
     # Find files fixed by pint by comparing file lists before and after pint run
