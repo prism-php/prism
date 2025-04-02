@@ -133,7 +133,7 @@ describe('Text generation for Groq', function (): void {
 
     it('throws an exception for ToolChoice::Any', function (): void {
         $this->expectException(PrismException::class);
-        $this->expectExceptionMessage('Invalid tool choice');
+        $this->expectExceptionMessage('Groq Error:  [invalid_request_error] Invalid API Key');
 
         Prism::text()
             ->using('groq', 'gpt-4')

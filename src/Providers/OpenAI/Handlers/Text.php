@@ -109,12 +109,13 @@ class Text
                 array_merge([
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
                 ], array_filter([
+                    'max_completion_tokens' => $request->maxTokens(),
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ...$request->options(),
                 ]))
             );
         } catch (Throwable $e) {

@@ -11,6 +11,7 @@ use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\ConfiguresTools;
 use Prism\Prism\Concerns\HasMessages;
+use Prism\Prism\Concerns\HasModelOptions;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderMeta;
 use Prism\Prism\Concerns\HasTools;
@@ -25,6 +26,7 @@ class PendingRequest
     use ConfiguresProviders;
     use ConfiguresTools;
     use HasMessages;
+    use HasModelOptions;
     use HasPrompts;
     use HasProviderMeta;
     use HasTools;
@@ -76,6 +78,7 @@ class PendingRequest
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,
             providerMeta: $this->providerMeta,
+            modelOptions: $this->modelOptions,
         );
     }
 }

@@ -48,10 +48,13 @@ class Embeddings
     {
         return $this->client->post(
             'api/embed',
-            [
+            array_filter([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
-            ]
+                'options' => [
+                    ...$request->options(),
+                ],
+            ])
         );
     }
 }

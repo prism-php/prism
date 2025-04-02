@@ -82,7 +82,9 @@ class Text
                         'temperature' => $request->temperature(),
                         'num_predict' => $request->maxTokens() ?? 2048,
                         'top_p' => $request->topP(),
-                    ])]);
+                        ...$request->options(),
+                    ]),
+                ]);
 
             return $response->json();
         } catch (Throwable $e) {

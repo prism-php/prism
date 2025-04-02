@@ -132,15 +132,20 @@ class Text
     protected function sendRequest(Request $request): ClientResponse
     {
         try {
-            return $this->client->post('chat/completions', [
-                'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'tools' => ToolMap::map($request->tools()),
-                'temperature' => $request->temperature(),
-                'max_tokens' => $request->maxTokens(),
-                'top_p' => $request->topP(),
-                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-            ]);
+            return $this->client->post(
+                'chat/completions',
+                array_merge([
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                ], array_filter([
+                    'tools' => ToolMap::map($request->tools()),
+                    'temperature' => $request->temperature(),
+                    'max_tokens' => $request->maxTokens(),
+                    'top_p' => $request->topP(),
+                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ...$request->options(),
+                ])));
+
         } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);
         }

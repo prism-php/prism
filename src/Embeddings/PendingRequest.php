@@ -6,6 +6,7 @@ namespace Prism\Prism\Embeddings;
 
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
+use Prism\Prism\Concerns\HasModelOptions;
 use Prism\Prism\Concerns\HasProviderMeta;
 use Prism\Prism\Exceptions\PrismException;
 
@@ -13,6 +14,7 @@ class PendingRequest
 {
     use ConfiguresClient;
     use ConfiguresProviders;
+    use HasModelOptions;
     use HasProviderMeta;
 
     /** @var array<string> */
@@ -76,7 +78,8 @@ class PendingRequest
             inputs: $this->inputs,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
-            providerMeta: $this->providerMeta
+            providerMeta: $this->providerMeta,
+            modelOptions: $this->modelOptions,
         );
     }
 }

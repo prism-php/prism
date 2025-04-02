@@ -57,11 +57,12 @@ class Structured
             array_merge([
                 'model' => $request->model(),
                 'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_tokens' => $request->maxTokens(),
             ], array_filter([
+                'max_tokens' => $request->maxTokens(),
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
                 'response_format' => ['type' => 'json_object'],
+                ...$request->options(),
             ]))
         );
     }

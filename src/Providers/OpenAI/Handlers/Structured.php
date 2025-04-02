@@ -97,11 +97,12 @@ class Structured
                 array_merge([
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
                 ], array_filter([
+                    'max_completion_tokens' => $request->maxTokens(),
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'response_format' => $responseFormat,
+                    ...$request->options(),
                 ]))
             );
         } catch (Throwable $e) {
