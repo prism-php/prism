@@ -1,6 +1,6 @@
 <?php
 
-namespace EchoLabs\Prism\Providers\VoyageAI\Handlers;
+namespace Prism\Prism\Providers\VoyageAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
