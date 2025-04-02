@@ -26,6 +26,9 @@ At the time of writing:
   - PDF (application/pdf)
   - CSV (text/csv)
   - text files (text/plain)
+- OpenAI supports:
+    - PDF (application/pdf)
+    - `file_id` (previously uploaded pdf file id.)
 
 All of these formats should work with Prism.
 
@@ -38,6 +41,7 @@ use Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -57,6 +61,10 @@ Prism::text()
         // Or from an URL
         new UserMessage('Here is the document from a url (make sure this is publically accessable)', [
             Document::fromUrl('https://example.com/test-pdf.pdf'),
+        ]),
+        // Or from a file_id
+        new UserMessage('Here is the document from file_id', [
+            new OpenAIFile('file-lsfgSXyV2xEb8gw8fYjXU6'),
         ]),
     ])
     ->generate();
