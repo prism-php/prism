@@ -99,8 +99,7 @@ it('handles streaming requests', function (): void {
     $meta = new Meta('cmp_asdf123', 'gpt-4');
     $chunk = new Chunk(
         text: "I'm Nyx!",
-        meta: $meta,
-        content: "I'm Nyx!",
+        meta: $meta
     );
 
     $generator->expects('asStream')
