@@ -41,6 +41,7 @@ return [
         ],
         'deepseek' => [
             'api_key' => env('DEEPSEEK_API_KEY', ''),
+            'url' => env('DEEPSEEK_URL', 'https://api.deepseek.com/v1'),
         ],
         'voyageai' => [
             'api_key' => env('VOYAGEAI_API_KEY', ''),

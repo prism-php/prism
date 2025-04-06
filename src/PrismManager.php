@@ -132,6 +132,7 @@ class PrismManager
     {
         return new DeepSeek(
             apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? '',
         );
     }
 

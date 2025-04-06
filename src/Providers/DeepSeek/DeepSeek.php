@@ -23,6 +23,7 @@ readonly class DeepSeek implements Provider
 {
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
+        public string $url,
     ) {}
 
     #[\Override]
@@ -63,13 +64,15 @@ readonly class DeepSeek implements Provider
      * @param  array<string, mixed>  $options
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $retry
      */
-    protected function client(array $options, array $retry): PendingRequest
+    protected function client(array $options, array $retry, ?string $baseUrl = null): PendingRequest
     {
+        $baseUrl ??= $this->url;
+
         return Http::withHeaders(array_filter([
             'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
         ]))
             ->withOptions($options)
             ->retry(...$retry)
-            ->baseUrl('https://api.deepseek.com/v1');
+            ->baseUrl($baseUrl);
     }
 }
