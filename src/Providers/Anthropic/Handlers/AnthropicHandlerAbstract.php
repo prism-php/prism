@@ -15,7 +15,9 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\Providers\Anthropic\Maps\CitationMap;
+use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations as AnthropicMessagePartWithCitations;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Throwable;
 
@@ -60,15 +62,33 @@ abstract class AnthropicHandlerAbstract
 
     /**
      * @param  array<string, mixed>  $data
-     * @return null|MessagePartWithCitations[]
+     * @return null|AnthropicMessagePartWithCitations[]
      */
-    protected function extractCitations(array $data): ?array
+    protected function extractAnthropicCitations(array $data): ?array
     {
         if (array_filter(data_get($data, 'content.*.citations')) === []) {
             return null;
         }
 
-        return Arr::map(data_get($data, 'content', []), fn ($contentBlock): \Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations => MessagePartWithCitations::fromContentBlock($contentBlock));
+        return Arr::map(data_get($data, 'content', []), fn ($contentBlock): AnthropicMessagePartWithCitations => AnthropicMessagePartWithCitations::fromContentBlock($contentBlock));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return null|MessagePartWithCitations[]
+     */
+    protected function extractCitations(array $data): ?array
+    {
+        $anthropicCitations = $this->extractAnthropicCitations($data);
+
+        if ($anthropicCitations === null) {
+            return null;
+        }
+
+        return array_map(
+            fn (AnthropicMessagePartWithCitations $part): MessagePartWithCitations => CitationMap::mapMessagePart($part),
+            $anthropicCitations
+        );
     }
 
     protected function handleResponseErrors(): void

@@ -172,7 +172,8 @@ class Text extends AnthropicHandlerAbstract
                 rateLimits: $this->processRateLimits()
             ),
             additionalContent: array_filter([
-                'messagePartsWithCitations' => $this->extractCitations($data),
+                'messagePartsWithCitations' => $this->extractAnthropicCitations($data),
+                'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])
         );
