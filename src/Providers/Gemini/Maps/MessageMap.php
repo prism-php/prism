@@ -53,6 +53,7 @@ class MessageMap
             UserMessage::class => $this->mapUserMessage($message),
             AssistantMessage::class => $this->mapAssistantMessage($message),
             ToolResultMessage::class => $this->mapToolResultMessage($message),
+            SystemMessage::class => $this->mapSystemMessage($message),
             default => throw new Exception('Could not map message type '.$message::class),
         };
     }

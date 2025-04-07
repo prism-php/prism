@@ -219,6 +219,22 @@ it('maps system prompt', function (): void {
     ]);
 });
 
+it('maps system messages to system prompts', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new SystemMessage('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]'),
+        ],
+    );
+
+    expect($messageMap())->toBe([
+        'system_instruction' => [
+            'parts' => [
+                ['text' => 'MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]'],
+            ],
+        ],
+    ]);
+});
+
 it('throws an exception of multiple system prompts are given', function (): void {
     $messageMap = new MessageMap(
         messages: [],
