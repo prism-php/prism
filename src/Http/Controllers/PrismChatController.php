@@ -8,6 +8,7 @@ use Prism\Prism\Facades\PrismServer;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -123,14 +124,15 @@ class PrismChatController
 
     /**
      * @param  array<int, mixed>  $messages
-     * @return array<int, UserMessage|AssistantMessage>
+     * @return array<int, UserMessage|AssistantMessage|SystemMessage>
      */
     protected function mapMessages(array $messages): array
     {
         return collect($messages)
-            ->map(fn ($message): UserMessage|AssistantMessage => match ($message['role']) {
+            ->map(fn ($message): UserMessage|AssistantMessage|SystemMessage => match ($message['role']) {
                 'user' => new UserMessage($message['content']),
                 'assistant' => new AssistantMessage($message['content']),
+                'system' => new SystemMessage($message['content']),
                 default => throw new PrismServerException("Couldn't map messages to Prism messages")
             })
             ->toArray();
