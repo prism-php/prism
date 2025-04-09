@@ -235,7 +235,7 @@ it('maps system messages to system prompts', function (): void {
     ]);
 });
 
-it('throws an exception of multiple system prompts are given', function (): void {
+it('throws an exception if multiple system prompts are given', function (): void {
     $messageMap = new MessageMap(
         messages: [],
         systemPrompts: [
