@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Gemini;
 
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -235,7 +234,7 @@ it('maps system messages to system prompts', function (): void {
     ]);
 });
 
-it('throws an exception if multiple system prompts are given', function (): void {
+it('can process multiple system prompts', function (): void {
     $messageMap = new MessageMap(
         messages: [],
         systemPrompts: [
@@ -244,5 +243,12 @@ it('throws an exception if multiple system prompts are given', function (): void
         ]
     );
 
-    $messageMap();
-})->throws(PrismException::class, 'Gemini only supports one system instruction.');
+    expect($messageMap())->toBe([
+        'system_instruction' => [
+            'parts' => [
+                ['text' => 'MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]'],
+                ['text' => 'But my friends call my Nyx.'],
+            ],
+        ],
+    ]);
+});

@@ -60,17 +60,7 @@ class MessageMap
 
     protected function mapSystemMessage(SystemMessage $message): void
     {
-        if (isset($this->contents['system_instruction'])) {
-            throw new PrismException('Gemini only supports one system instruction.');
-        }
-
-        $this->contents['system_instruction'] = [
-            'parts' => [
-                [
-                    'text' => $message->content,
-                ],
-            ],
-        ];
+        $this->contents['system_instruction']['parts'][] = ['text' => $message->content];
     }
 
     protected function mapToolResultMessage(ToolResultMessage $message): void
