@@ -114,6 +114,10 @@ export default defineConfig({
                 link: "/core-concepts/embeddings",
               },
               {
+                text: "Citations",
+                link: "/core-concepts/citations",
+              },
+              {
                 text: "Schemas",
                 link: "/core-concepts/schemas",
               },
