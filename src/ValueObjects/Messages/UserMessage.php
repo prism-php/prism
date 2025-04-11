@@ -19,8 +19,8 @@ class UserMessage implements Message
      * @param  array<int, Text|Image|Document|OpenAIFile>  $additionalContent
      */
     public function __construct(
-        protected readonly string $content,
-        protected array $additionalContent = []
+        public readonly string $content,
+        public array $additionalContent = []
     ) {
         $this->additionalContent[] = new Text($content);
     }
