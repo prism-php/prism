@@ -13,7 +13,7 @@ Depending on your configuration, responses tend to time out. You may need to ext
 
 ```php
 Prism::text() // [!code focus]
-  ->using(Provider::Anthropic, 'claude-3-sonnet-latest')
+  ->using(Provider::Ollama, 'gemma3:1b')
   ->withPrompt('Who are you?')
   ->withClientOptions(['timeout' => 60]) // [!code focus]
 ```
