@@ -22,6 +22,8 @@ trait ConfiguresProviders
 
         $this->provider = resolve(PrismManager::class)->resolve($this->providerKey);
 
+        app()->instance(ProviderEnum::class, $this->providerKey);
+
         $this->model = $model;
 
         return $this;
