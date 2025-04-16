@@ -67,6 +67,6 @@ Prism::text()
             new OpenAIFile('file-lsfgSXyV2xEb8gw8fYjXU6'),
         ]),
     ])
-    ->generate();
+    ->asText();
 
 ```
