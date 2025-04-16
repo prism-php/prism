@@ -10,6 +10,27 @@ use Throwable;
 
 class PrismException extends Exception
 {
+    public function __construct(
+        string $message = '',
+        int $code = 0,
+        ?Throwable $previous = null,
+        protected ?array $data = null
+    ) {
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function getData(): ?array
+    {
+        return $this->data;
+    }
+
+    protected function setData(?array $data): self
+    {
+        $this->data = $data;
+
+        return $this;
+    }
+
     public static function promptOrMessages(): self
     {
         return new self('You can only use `prompt` or `messages`');
