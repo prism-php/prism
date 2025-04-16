@@ -61,7 +61,7 @@ class Text
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
-            default => throw new PrismException('OpenAI: unknown finish reason'),
+            default => throw new PrismException(message: 'OpenAI: unknown finish reason', data: $data),
         };
     }
 
