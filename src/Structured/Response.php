@@ -19,13 +19,13 @@ readonly class Response
      * @param  array<string,mixed>  $additionalContent
      */
     public function __construct(
-        public readonly Collection $steps,
-        public readonly Collection $responseMessages,
-        public readonly string $text,
-        public readonly ?array $structured,
-        public readonly FinishReason $finishReason,
-        public readonly Usage $usage,
-        public readonly Meta $meta,
-        public readonly array $additionalContent = []
+        public Collection $steps,
+        public Collection $responseMessages,
+        public string $text,
+        public ?array $structured,
+        public FinishReason $finishReason,
+        public Usage $usage,
+        public Meta $meta,
+        public array $additionalContent = []
     ) {}
 }
