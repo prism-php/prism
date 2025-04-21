@@ -72,8 +72,9 @@ class Structured
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                promptTokens: data_get($data, 'usage.prompt_tokens', 0) - data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0),
+                completionTokens: data_get($data, 'usage.completion_tokens'),
+                cacheReadInputTokens: data_get($data, 'usage.prompt_tokens_details.cached_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

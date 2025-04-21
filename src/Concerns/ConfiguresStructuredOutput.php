@@ -10,7 +10,7 @@ trait ConfiguresStructuredOutput
 {
     protected StructuredMode $structuredMode = StructuredMode::Auto;
 
-    protected function usingStructuredMode(StructuredMode $mode): self
+    public function usingStructuredMode(StructuredMode $mode): self
     {
         $this->structuredMode = $mode;
 

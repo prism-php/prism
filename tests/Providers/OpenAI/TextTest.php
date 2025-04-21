@@ -257,3 +257,28 @@ it('sets the rate limits on meta', function (): void {
         expect($response->meta->rateLimits[1]->resetsAt->equalTo(now()->addMinutes(6)->addSeconds(30)))->toBeTrue();
     });
 });
+
+it('sets usage correctly with automatic caching', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/chat/completions',
+        'openai/cache-usage-automatic-caching'
+    );
+
+    $prompt = fake()->paragraphs(40, true);
+
+    Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt($prompt)
+        ->asText();
+
+    $two = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt($prompt)
+        ->asText();
+
+    expect($two->usage)
+        ->promptTokens->toEqual(1111 - 1024)
+        ->completionTokens->toEqual(109)
+        ->cacheWriteInputTokens->toEqual(null)
+        ->cacheReadInputTokens->toEqual(1024);
+});

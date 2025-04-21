@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Schema\BooleanSchema;
@@ -249,4 +250,42 @@ it('sets the rate limits on meta', function (): void {
         expect($response->meta->rateLimits[1]->remaining)->toEqual(149984);
         expect($response->meta->rateLimits[1]->resetsAt->equalTo(now()->addMinutes(6)->addSeconds(30)))->toBeTrue();
     });
+});
+
+it('sets usage correctly with automatic caching', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/chat/completions',
+        'openai/structured-cache-usage-automatic-caching',
+    );
+
+    $schema = new ObjectSchema(
+        name: 'output',
+        description: 'the output object',
+        properties: [
+            new StringSchema('answer', 'Your answer'),
+        ],
+        requiredFields: ['answer']
+    );
+
+    $prompt = fake()->paragraphs(40, true);
+
+    Prism::structured()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt($prompt)
+        ->withSchema($schema)
+        ->usingStructuredMode(StructuredMode::Structured)
+        ->asStructured();
+
+    $two = Prism::structured()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt($prompt)
+        ->withSchema($schema)
+        ->usingStructuredMode(StructuredMode::Structured)
+        ->asStructured();
+
+    expect($two->usage)
+        ->promptTokens->toEqual(1531 - 1408)
+        ->completionTokens->toEqual(583)
+        ->cacheWriteInputTokens->toEqual(null)
+        ->cacheReadInputTokens->toEqual(1408);
 });
