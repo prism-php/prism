@@ -149,7 +149,7 @@ export default defineConfig({
               },
               {
                 text: "Bedrock",
-                link: "https://github.com/prism-php/bedrock",
+                link: "/providers/bedrock",
               },
               {
                 text: "DeepSeek",
@@ -207,11 +207,11 @@ export default defineConfig({
             items: [
               {
                 text: "Relay",
-                link: "https://github.com/prism-php/relay",
+                link: "/packages/relay",
               },
               {
                 text: "Bedrock",
-                link: "https://github.com/prism-php/bedrock",
+                link: "/packages/bedrock",
               },
             ],
           },
