@@ -14,8 +14,12 @@ use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Testing\EmbeddingsResponseFake;
+use Prism\Prism\Testing\StructuredResponseFake;
+use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
@@ -82,14 +86,16 @@ it('fake responses using the prism fake for structured', function (): void {
     });
 });
 
-it('fake responses using the prism fake for emeddings', function (): void {
+it('fake responses using the prism fake for embeddings', function (): void {
     $fake = Prism::fake([
         new EmbeddingResponse(
             embeddings: [
-                -0.009639355,
-                -0.00047589254,
-                -0.022748338,
-                -0.005906468,
+                Embedding::fromArray([
+                    -0.009639355,
+                    -0.00047589254,
+                    -0.022748338,
+                    -0.005906468,
+                ]),
             ],
             usage: new EmbeddingsUsage(100),
             meta: new Meta(
@@ -109,6 +115,54 @@ it('fake responses using the prism fake for emeddings', function (): void {
         expect($requests)->toHaveCount(1);
         expect($requests[0])->toBeInstanceOf(EmbeddingRequest::class);
     });
+});
+
+it('can consume the fake text responses', function (): void {
+    Prism::fake([
+        TextResponseFake::make()->withText('fake response text'),
+    ]);
+
+    $text = Prism::text()
+        ->using('anthropic', 'claude-3-sonnet')
+        ->withPrompt('What is the meaning of life?')
+        ->asText();
+
+    expect($text->text)->toBe('fake response text');
+});
+
+it('can consume the fake structured text response', function (): void {
+    Prism::fake([
+        StructuredResponseFake::make()->withText('{"foo": "bar"}'),
+    ]);
+
+    $structured = Prism::structured()
+        ->using('anthropic', 'claude-3-sonnet')
+        ->withPrompt('What is the meaning of life?')
+        ->withSchema(new ObjectSchema(
+            'foo',
+            'foo schema',
+            [
+                new StringSchema('foo', 'foo value'),
+            ]
+        ))
+        ->asStructured();
+
+    expect($structured->text)->toBe('{"foo": "bar"}');
+});
+
+it('can consume the fake embeddings response', function (): void {
+    Prism::fake([
+        EmbeddingsResponseFake::make()->withEmbeddings([Embedding::fromArray([0.1, 0.2, 0.3])]),
+    ]);
+
+    $embeddings = Prism::embeddings()
+        ->using(Provider::OpenAI, 'text-embedding-ada-002')
+        ->fromInput('What is the meaning of life?')
+        ->asEmbeddings();
+
+    expect($embeddings->embeddings)->toBeArray()
+        ->and($embeddings->embeddings[0])->toBeInstanceOf(Embedding::class)
+        ->and($embeddings->embeddings[0]->embedding)->toBe([0.1, 0.2, 0.3]);
 });
 
 it("throws an exception when it can't runs out of responses", function (): void {
