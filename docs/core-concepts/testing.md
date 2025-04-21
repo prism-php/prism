@@ -283,7 +283,7 @@ it('can generate structured response', function () {
 
 ## Testing Embeddings
 
-```
+```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Embedding;
