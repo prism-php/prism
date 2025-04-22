@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Prism\Prism\Testing;
+
+use Prism\Prism\Concerns\Withable;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Text\Step;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
+
+/**
+ * @method self withText(string $text)
+ * @method self withFinishReason(FinishReason $finishReason)
+ * @method self withToolCalls(array $toolCalls)
+ * @method self withToolResults(array $toolResults)
+ * @method self withUsage(Usage $usage)
+ * @method self withMeta(Meta $meta)
+ * @method self withMessages(array $messages)
+ * @method self withSystemPrompts(array $systemPrompts)
+ * @method self withAdditionalContent(array $additionalContent)
+ */
+readonly class TextStepFake extends Step
+{
+    use Withable;
+
+    public static function make(): self
+    {
+        return new self(
+            text: '',
+            finishReason: FinishReason::Stop,
+            toolCalls: [],
+            toolResults: [],
+            usage: new Usage(0, 0),
+            meta: new Meta('fake', 'fake'),
+            messages: [],
+            systemPrompts: [],
+            additionalContent: [],
+        );
+    }
+}

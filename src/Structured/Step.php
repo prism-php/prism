@@ -18,12 +18,12 @@ readonly class Step
      * @param  array<string,mixed>  $additionalContent
      */
     public function __construct(
-        public readonly string $text,
-        public readonly FinishReason $finishReason,
-        public readonly Usage $usage,
-        public readonly Meta $meta,
-        public readonly array $messages,
-        public readonly array $systemPrompts,
-        public readonly array $additionalContent = []
+        public string $text,
+        public FinishReason $finishReason,
+        public Usage $usage,
+        public Meta $meta,
+        public array $messages,
+        public array $systemPrompts,
+        public array $additionalContent = []
     ) {}
 }
