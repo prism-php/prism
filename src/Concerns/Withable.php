@@ -2,7 +2,9 @@
 
 namespace Prism\Prism\Concerns;
 
+use BadMethodCallException;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 trait Withable
 {
@@ -18,6 +20,10 @@ trait Withable
         $propertyName = Str::of($name)->after('with')->camel()->value();
 
         if (property_exists($this, $propertyName)) {
+            if (count($arguments) !== 1) {
+                throw new InvalidArgumentException("Method {$name} expects exactly one argument.");
+            }
+
             return new self(
                 ...array_merge(
                     get_object_vars($this),
@@ -26,6 +32,6 @@ trait Withable
             );
         }
 
-        throw new \BadMethodCallException("Method {$name} does not exist.");
+        throw new BadMethodCallException("Method {$name} does not exist.");
     }
 }

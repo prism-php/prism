@@ -32,6 +32,28 @@ it('can take named arguments', function (): void {
         ->and($instance->foo)->toBe('bar');
 });
 
+it('disallows empty arguments', function (): void {
+    $instance = new class
+    {
+        use Withable;
+
+        public function __construct(public readonly string $foo = 'bar') {}
+    };
+
+    $instance->withFoo();
+})->throws(InvalidArgumentException::class, 'Method withFoo expects exactly one argument.');
+
+it('disallows multiple arguments', function (): void {
+    $instance = new class
+    {
+        use Withable;
+
+        public function __construct(public readonly string $foo = 'bar') {}
+    };
+
+    $instance->withFoo('baz', 'qux');
+})->throws(InvalidArgumentException::class, 'Method withFoo expects exactly one argument.');
+
 it('throws if the property does not exist', function (): void {
     $instance = new class
     {
