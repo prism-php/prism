@@ -1,6 +1,6 @@
 # Testing
 
-Want to make sure your Prism integrations work flawlessly? Let's dive into testing! Prism provides a powerful fake implementation that makes it a breeze to test your AI-powered features.
+Want to make sure your Prism integrations work flawlessly? Let's dive into testing! Prism provides a powerful fake implementation that makes it a breeze to test your AI‑powered features.
 
 ## Basic Test Setup
 
@@ -10,24 +10,12 @@ First, let's look at how to set up basic response faking:
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\ValueObjects\ResponseMeta;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Testing\TextResponseFake;
 
 it('can generate text', function () {
-    // Create a fake text response
-    $fakeResponse = new TextResponse(
-        text: 'Hello, I am Claude!',
-        steps: collect([]),
-        responseMessages: collect([]),
-        toolCalls: [],
-        toolResults: [],
-        usage: new Usage(10, 20),
-        finishReason: FinishReason::Stop,
-        meta: new Meta('fake-1', 'fake-model'),
-        messages: collect([]),
-        additionalContent: []
-    );
+    $fakeResponse = TextResponseFake::make()
+        ->withText('Hello, I am Claude!')
+        ->withUsage(new Usage(10, 20));
 
     // Set up the fake
     $fake = Prism::fake([$fakeResponse]);
@@ -43,48 +31,35 @@ it('can generate text', function () {
 });
 ```
 
+The response fakes create a new response with default values and let you fluently set the values you need for your test.
+
 ## Testing Multiple Responses
 
 When testing conversations or tool usage, you might need to simulate multiple responses:
 
 ```php
-use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\ValueObjects\ResponseMeta;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\ValueObjects\Meta;
 
 it('can handle tool calls', function () {
     $responses = [
-        new TextResponse(
-            text: '',
-            steps: collect([]),
-            responseMessages: collect([]),
-            toolCalls: [
+        TextResponseFake::make()
+            ->withToolCalls([
                 new ToolCall(
                     id: 'call_1',
                     name: 'search',
                     arguments: ['query' => 'Latest news']
                 )
-            ],
-            toolResults: [],
-            usage: new Usage(15, 25),
-            finishReason: FinishReason::ToolCalls,
-            meta: new Meta('fake-1', 'fake-model'),
-            messages: collect([]),
-            additionalContent: []
-        ),
-        new TextResponse(
-            text: 'Here are the latest news...',
-            steps: collect([]),
-            responseMessages: collect([]),
-            toolCalls: [],
-            toolResults: [],
-            usage: new Usage(20, 30),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('fake-2', 'fake-model'),
-            messages: collect([]),
-            additionalContent: []
-        ),
+            ])
+            ->withUsage(new Usage(15, 25))
+            ->withMeta(new Meta('fake-1', 'fake-model')),
+
+        TextResponseFake::make()
+            ->withText('Here are the latest news...')
+            ->withUsage(new Usage(20, 30))
+            ->withMeta(new Meta('fake-2', 'fake-model')),
     ];
 
     $fake = Prism::fake($responses);
@@ -93,104 +68,105 @@ it('can handle tool calls', function () {
 
 ## Using the ResponseBuilder
 
-If you need to test a richer response object, e.g. with Steps, you may find it easier to use the ResponseBuilder:
+If you need to test a richer response object, e.g. with Steps, you may find it easier to use the `ResponseBuilder` together with the fake Step helpers:
 
 ```php
 use Prism\Prism\Text\ResponseBuilder;
-use Prism\Prism\Text\Step;
+use Prism\Prism\Testing\TextStepFake;
 use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\ValueObjects\ResponseMeta;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Messages\{UserMessage,AssistantMessage,SystemMessage};
+use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 Prism::fake([
     (new ResponseBuilder)
-        ->addStep(new Step(
-            text: "Step 1 response text",
-            finishReason: FinishReason::Stop,
-            toolCalls: [/** tool calls */],
-            toolResults: [/** tool results */],
-            usage: new Usage(1000, 750),
-            meta: new Meta(id: 123, model: 'test-model'),
-            messages: [
-                new UserMessage('Test message 1', [
-                    new Document(
-                        document: '', 
-                        mimeType: 'text/plain', 
-                        dataFormat: 'text', 
-                        documentTitle: 'Test document', 
-                        documentContext: 'Test context'
-                    ),
-                ]),
-                new AssistantMessage('Test message 2')
-            ],
-            systemPrompts: [
-                new SystemMessage('Test system')
-            ],
-            additionalContent: ['test' => 'additional']
-        ))
-        ->addStep(new Step(
-            text: "Step 2 response text",
-            finishReason: FinishReason::Stop,
-            toolCalls: [/** tool calls */],
-            toolResults: [/** tool results */],
-            usage: new Usage(1000, 750),
-            meta: new Meta(id: 123, model: 'test-model'),
-            messages: [/** Second step messages */],
-            systemPrompts: [/** Second step system prompts */],
-            additionalContent: [/** Second step additional data */]
-        ))
+        ->addStep(
+            TextStepFake::make()
+                ->withText('Step 1 response text')
+                ->withFinishReason(FinishReason::Stop)
+                ->withToolCalls([/* tool calls */])
+                ->withToolResults([/* tool results */])
+                ->withUsage(new Usage(1000, 750))
+                ->withMeta(new Meta('step1', 'test-model'))
+                ->withMessages([
+                    new UserMessage('Test message 1', [
+                        new Document(
+                            document: '',
+                            mimeType: 'text/plain',
+                            dataFormat: 'text',
+                            documentTitle: 'Test document',
+                            documentContext: 'Test context'
+                        ),
+                    ]),
+                    new AssistantMessage('Test message 2')
+                ])
+                ->withSystemPrompts([
+                    new SystemMessage('Test system')
+                ])
+                ->withAdditionalContent(['test' => 'additional'])
+        )
+       ->addStep(
+           TextStepFake::make()
+                ->withText('Step 2 response text')
+                ->withFinishReason(FinishReason::Stop)
+                ->withToolCalls([/* tool calls */])
+                ->withToolResults([/* tool results */])
+                ->withUsage(new Usage(1000, 750))
+                ->withMeta(new Meta(id: 123, model: 'test-model'))
+                ->withMessages([/* Second step messages */])
+                ->withSystemPrompts([/* Second step system prompts */])
+                ->withAdditionalContent([/* Second step additional data */])
+       )
         ->toResponse()
 ]);
 ```
 
 ## Testing Tools
 
-When testing tools, you'll want to verify both the tool calls and their results. Here's a complete example:
-
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\ValueObjects\ResponseMeta;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 
 it('can use weather tool', function () {
     // Define the expected tool call and response sequence
     $responses = [
         // First response: AI decides to use the weather tool
-        new TextResponse(
-            text: '', // Empty text since the AI is using a tool
-            steps: collect([]),
-            responseMessages: collect([]),
-            toolCalls: [
+        TextResponseFake::make()
+            ->withToolCalls([
                 new ToolCall(
                     id: 'call_123',
                     name: 'weather',
                     arguments: ['city' => 'Paris']
                 )
-            ],
-            toolResults: [],
-            usage: new Usage(15, 25),
-            finishReason: FinishReason::ToolCalls,
-            meta: new Meta('fake-1', 'fake-model'),
-            messages: collect([]),
-            additionalContent: []
-        ),
+            ])
+            ->withFinishReason(FinishReason::ToolCalls)
+            ->withUsage(new Usage(15, 25))
+            ->withMeta(new Meta('fake-1', 'fake-model')),
+
         // Second response: AI uses the tool result to form a response
-        new TextResponse(
-            text: 'Based on current conditions, the weather in Paris is sunny with a temperature of 72°F.',
-            steps: collect([]),
-            responseMessages: collect([]),
-            toolCalls: [],
-            toolResults: [],
-            usage: new Usage(20, 30),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('fake-2', 'fake-model'),
-            messages: collect([]),
-            additionalContent: []
-        ),
+        TextResponseFake::make()
+            ->withText('Based on current conditions, the weather in Paris is sunny with a temperature of 72°F.')
+            ->withToolResults([
+                new ToolResult(
+                    toolCallId: 'call_123',
+                    toolName: 'weather',
+                    args: ['city' => 'Paris'],
+                    result: 'Sunny, 72°F'
+                )
+            ])
+            ->withFinishReason(FinishReason::Stop)
+            ->withUsage(new Usage(20, 30))
+            ->withMeta(new Meta('fake-2', 'fake-model')),
     ];
 
     // Set up the fake
@@ -220,7 +196,7 @@ it('can use weather tool', function () {
     // Assert tool results were processed
     expect($response->toolResults)->toHaveCount(1);
     expect($response->toolResults[0]->result)
-        ->toBe('The weather in Paris is sunny with a temperature of 72°F');
+        ->toBe('Sunny, 72°F');
 
     // Assert final response
     expect($response->text)
@@ -232,9 +208,10 @@ it('can use weather tool', function () {
 
 ```php
 use Prism\Prism\Prism;
-use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\ValueObjects\ResponseMeta;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 
@@ -249,22 +226,18 @@ it('can generate structured response', function () {
         requiredFields: ['name', 'bio']
     );
 
-    $fakeResponse = new StructuredResponse(
-        steps: collect([]),
-        responseMessages: collect([]),
-        text: json_encode([
+    $fakeResponse = StructuredResponseFake::make()
+        ->withText(json_encode([
             'name' => 'Alice Tester',
             'bio' => 'Professional bug hunter and code wrangler'
-        ]),
-        structured: [
+        ], JSON_THROW_ON_ERROR))
+        ->withStructured([
             'name' => 'Alice Tester',
             'bio' => 'Professional bug hunter and code wrangler'
-        ],
-        finishReason: FinishReason::Stop,
-        usage: new Usage(10, 20),
-        meta: new Meta('fake-1', 'fake-model'),
-        additionalContent: []
-    );
+        ])
+        ->withFinishReason(FinishReason::Stop)
+        ->withUsage(new Usage(10, 20))
+        ->withMeta(new Meta('fake-1', 'fake-model'));
 
     $fake = Prism::fake([$fakeResponse]);
 
@@ -288,22 +261,21 @@ use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
-use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Testing\EmbeddingsResponseFake;
+use Prism\Prism\ValueObjects\Meta;
 
 it('can generate embeddings', function () {
-    $fakeResponse = new EmbeddingsResponse(
-        embeddings: [new Embedding(array_fill(0, 1536, 0.1))],
-        usage: new EmbeddingsUsage(
-            tokens: 10,
-        )
-    );
+    $fakeResponse = EmbeddingsResponseFake::make()
+        ->withEmbeddings([Embedding::fromArray(array_fill(0, 1536, 0.1))])
+        ->withUsage(new EmbeddingsUsage(10))
+        ->withMeta(new Meta('fake-emb-1', 'fake-model'));
 
     Prism::fake([$fakeResponse]);
 
     $response = Prism::embeddings()
         ->using(Provider::OpenAI, 'text-embedding-3-small')
         ->fromInput('Test content for embedding generation.')
-        ->generate();
+        ->asEmbeddings();
 
     expect($response->embeddings)->toHaveCount(1)
         ->and($response->embeddings[0]->embedding)
@@ -314,7 +286,7 @@ it('can generate embeddings', function () {
 
 ## Assertions
 
-PrismFake provides several helpful assertion methods:
+`PrismFake` provides several helpful assertion methods:
 
 ```php
 // Assert specific prompt was sent
@@ -332,3 +304,34 @@ $fake->assertRequest(function ($requests) {
 // Assert provider configuration
 $fake->assertProviderConfig(['api_key' => 'sk-1234']);
 ```
+
+---
+
+## Using the real response classes
+
+While the fake helpers make tests concise, you can still build responses with the real
+classes if you know you will need to test against all the properties of the response:
+
+```php
+use Prism\Prism\Text\Response;
+use Illuminate\Support\Collection;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\Meta;
+
+$response = new Response(
+    steps: collect([]),
+    responseMessages: collect([]),
+    text: 'The meaning of life is 42',
+    finishReason: FinishReason::Stop,
+    toolCalls: [],
+    toolResults: [],
+    usage: new Usage(42, 42),
+    meta: new Meta('resp_1', 'real-model'),
+    messages: collect([]),
+    additionalContent: [],
+);
+```
+
+This approach is perfectly valid—but for most tests the fake builders are shorter and
+easier to read.
