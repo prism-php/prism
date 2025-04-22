@@ -14,10 +14,16 @@ To add an image to your message, add an `Image` value object to the `additionalC
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 
-// From a local file
+// From a local path
 $message = new UserMessage(
     "What's in this image?",
-    [Image::fromPath('/path/to/image.jpg')]
+    [Image::fromLocalPath('/path/to/image.jpg')]
+);
+
+// From a path on a storage disk
+$message = new UserMessage(
+    "What's in this image?",
+    [Image::fromStoragePath('/path/to/image.jpg', 'my-disk')]
 );
 
 // From a URL
@@ -26,23 +32,15 @@ $message = new UserMessage(
     [Image::fromUrl('https://example.com/diagram.png')]
 );
 
-// From a URL which does not end in the image format,
-// you can pass the mime type as the second argument
-// e.g. if you are generating a temporary URL
+// From a Base64
 $message = new UserMessage(
     'Analyze this diagram:',
-    [Image::fromUrl(
-        'https://storage.example.com/diagram.png?AccessID=test&Expires=1742330260&Signature=dVQaFcIk9FJWIVnvV1%2FWu',
-        'image/png'
-    )]
+    [Image::fromBase64(base64_encode(file_get_contents('/path/to/image.jpg')))]
 );
 
-// From a Base64
-$image = base64_encode(file_get_contents('/path/to/image.jpg'));
-
 $message = new UserMessage(
     'Analyze this diagram:',
-    [Image::fromBase64($image)]
+    [Image::fromRawContent(file_get_contents('/path/to/image.jpg'))]
 );
 
 $response = Prism::text()
