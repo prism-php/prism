@@ -242,7 +242,7 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromUrl($image, 'image/png'),
+                        Image::fromUrl($image),
                     ],
                 ),
             ])
