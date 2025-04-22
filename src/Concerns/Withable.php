@@ -21,7 +21,7 @@ trait Withable
             return new self(
                 ...array_merge(
                     get_object_vars($this),
-                    [$propertyName => $arguments[0]]
+                    [$propertyName => array_values($arguments)[0]]
                 )
             );
         }

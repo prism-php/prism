@@ -17,6 +17,21 @@ it('can update readonly properties by copying the class', function (): void {
         ->and($instance->foo)->toBe('bar');
 });
 
+it('can take named arguments', function (): void {
+    $instance = new class
+    {
+        use Withable;
+
+        public function __construct(public readonly string $foo = 'bar') {}
+    };
+
+    $newInstance = $instance->withFoo(foo: 'baz');
+
+    expect($newInstance->foo)->toBe('baz')
+        ->and($newInstance::class)->toBe($instance::class)
+        ->and($instance->foo)->toBe('bar');
+});
+
 it('throws if the property does not exist', function (): void {
     $instance = new class
     {
