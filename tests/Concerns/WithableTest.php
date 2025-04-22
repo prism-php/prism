@@ -72,15 +72,15 @@ it('can still call other methods', function (): void {
 
         public function __construct(public readonly string $foo = 'bar') {}
 
-        public function test(string $foo): self
+        public function test(string $foo): string
         {
-            return new self($foo);
+            return 'baz';
         }
     };
 
-    $newInstance = $instance->test('baz');
+    $output = $instance->test('baz');
 
-    expect($newInstance->foo)->toBe('baz')
+    expect($output)->toBe('baz')
         ->and($instance->foo)->toBe('bar');
 });
 

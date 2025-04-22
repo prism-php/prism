@@ -13,10 +13,6 @@ trait Withable
      */
     public function __call(string $name, array $arguments): self
     {
-        if (method_exists($this, $name)) {
-            return $this->{$name}(...$arguments);
-        }
-
         $propertyName = Str::of($name)->after('with')->camel()->value();
 
         if (! property_exists($this, $propertyName)) {
