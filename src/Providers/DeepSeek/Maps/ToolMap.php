@@ -26,7 +26,7 @@ class ToolMap
                     'required' => $tool->requiredParameters(),
                 ],
             ],
-            'strict' => data_get($tool->providerMeta(Provider::DeepSeek), 'strict', null),
+            'strict' => $tool->providerMeta(Provider::DeepSeek, 'strict'),
         ]), $tools);
     }
 }

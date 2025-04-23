@@ -69,7 +69,7 @@ class MessageMap
      */
     protected static function mapSystemMessage(SystemMessage $systemMessage): array
     {
-        $cacheType = data_get($systemMessage->providerMeta(Provider::Anthropic), 'cacheType', null);
+        $cacheType = $systemMessage->providerMeta(Provider::Anthropic, 'cacheType');
 
         return array_filter([
             'type' => 'text',
@@ -99,7 +99,8 @@ class MessageMap
      */
     protected static function mapUserMessage(UserMessage $message, array $requestProviderMeta = []): array
     {
-        $cacheType = data_get($message->providerMeta(Provider::Anthropic), 'cacheType', null);
+        $cacheType = $message->providerMeta(Provider::Anthropic, 'cacheType');
+
         $cache_control = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
 
         return [
@@ -121,7 +122,7 @@ class MessageMap
      */
     protected static function mapAssistantMessage(AssistantMessage $message): array
     {
-        $cacheType = data_get($message->providerMeta(Provider::Anthropic), 'cacheType', null);
+        $cacheType = $message->providerMeta(Provider::Anthropic, 'cacheType');
 
         $content = [];
 
@@ -216,7 +217,7 @@ class MessageMap
                 'title' => $document->documentTitle,
                 'context' => $document->documentContext,
                 'cache_control' => $cache_control,
-                'citations' => data_get($requestProviderMeta, 'citations', data_get($document->providerMeta(Provider::Anthropic), 'citations', false))
+                'citations' => data_get($requestProviderMeta, 'citations', $document->providerMeta(Provider::Anthropic, 'citations'))
                     ? ['enabled' => true]
                     : null,
             ]);

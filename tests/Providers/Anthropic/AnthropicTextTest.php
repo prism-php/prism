@@ -31,7 +31,7 @@ it('can generate text with a prompt', function (): void {
     $response = Prism::text()
         ->using('anthropic', 'claude-3-5-sonnet-20240620')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     expect($response->usage->promptTokens)->toBe(11);
     expect($response->usage->completionTokens)->toBe(55);
@@ -51,7 +51,7 @@ it('can generate text with a system prompt', function (): void {
         ->using('anthropic', 'claude-3-5-sonnet-20240620')
         ->withSystemPrompt('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     expect($response->usage->promptTokens)->toBe(33);
     expect($response->usage->completionTokens)->toBe(98);
@@ -81,7 +81,7 @@ it('can generate text using multiple tools and multiple steps', function (): voi
         ->withTools($tools)
         ->withMaxSteps(3)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->generate();
+        ->asText();
 
     // Assert tool calls in the first step
     $firstStep = $response->steps[0];
@@ -126,7 +126,7 @@ it('can send images from file', function (): void {
                 ],
             ),
         ])
-        ->generate();
+        ->asText();
 
     Http::assertSent(function (Request $request): true {
         $message = $request->data()['messages'][0]['content'];
@@ -165,7 +165,7 @@ it('handles specific tool choice', function (): void {
         ->withPrompt('Do something')
         ->withTools($tools)
         ->withToolChoice('weather')
-        ->generate();
+        ->asText();
 
     expect($response->toolCalls[0]->name)->toBe('weather');
 });
@@ -178,7 +178,7 @@ it('can calculate cache usage correctly', function (): void {
         ->withMessages([
             (new UserMessage('New context'))->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral']),
         ])
-        ->generate();
+        ->asText();
 
     expect($response->usage->cacheWriteInputTokens)->toBe(200);
     expect($response->usage->cacheReadInputTokens)->ToBe(100);
@@ -209,7 +209,7 @@ it('adds rate limit data to the responseMeta', function (): void {
     $response = Prism::text()
         ->using('anthropic', 'claude-3-5-sonnet-20240620')
         ->withPrompt('Who are you?')
-        ->generate();
+        ->asText();
 
     expect($response->meta->rateLimits)->toHaveCount(4);
     expect($response->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
@@ -271,7 +271,7 @@ describe('Anthropic citations', function (): void {
                 )),
             ])
             ->withProviderMeta(Provider::Anthropic, ['citations' => true])
-            ->generate();
+            ->asText();
 
         expect($response->text)->toEqual('According to the text, the grass is green and the sky is blue.');
 
@@ -311,7 +311,7 @@ describe('Anthropic citations', function (): void {
                 )),
             ])
             ->withProviderMeta(Provider::Anthropic, ['citations' => true])
-            ->generate();
+            ->asText();
 
         expect($response->text)->toBe("According to the documents:\nThe grass is green and the sky is blue.");
 
@@ -351,7 +351,7 @@ describe('Anthropic citations', function (): void {
                 )),
             ])
             ->withProviderMeta(Provider::Anthropic, ['citations' => true])
-            ->generate();
+            ->asText();
 
         expect($response->text)->toBe('According to the documents, the grass is green and the sky is blue.');
 
@@ -384,7 +384,7 @@ describe('Anthropic extended thinking', function (): void {
             ->using('anthropic', 'claude-3-7-sonnet-latest')
             ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
             ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
-            ->generate();
+            ->asText();
 
         $expected_thinking = "This is a reference to Douglas Adams' popular science fiction series \"The Hitchhiker's Guide to the Galaxy\" where the supercomputer Deep Thought was built to calculate \"the Answer to the Ultimate Question of Life, the Universe, and Everything.\" After 7.5 million years of computation, it famously determined the answer to be \"42\" - a deliberately anticlimactic and absurd response that has become a significant pop culture reference.\n\nBeyond the Hitchhiker's reference, the question of life's meaning appears in many works of fiction across different media, with various philosophical approaches.\n\nI should note this humorous 42 reference while also mentioning how other fictional works have approached this philosophical question.";
         $expected_signature = 'EuYBCkQYAiJAQ7ZOmBu5pa8U03x/RN5+Gs3tyKXFYcruUfnC8X/4AKBpJmB8qX+nQQ9atvYOXLD/mUAClCRZEaxt2fyEvdxnhRIMfFi6CLULECysli0mGgy5JRaOXL06fVJndm8iMD2T+D8dSIFJuctCnVeFKZme2TfIPIH+UMFO33a0ojzUq2VYy8+RzKkH7WYK9+580ipQ4yDVegd/67LKRtfb574HOHqwlPcfEbeiJuFuHrayoqK8KS2ltGYRckVGH6lNH46zUyjGaD2z3nZeti8UjmgnfMWRpjUmv0TWWGtrCKRoHGQ=';
@@ -434,7 +434,7 @@ describe('Anthropic extended thinking', function (): void {
             ->withMaxSteps(3)
             ->withPrompt('What time is the tigers game today and should I wear a coat?')
             ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
-            ->generate();
+            ->asText();
 
         $expected_thinking = "The user is asking about:\n1. The time of the Tigers game today (likely referring to a sports team, probably Detroit Tigers baseball)\n2. Whether they should wear a coat (which relates to weather conditions)\n\nFor the first question, I need to search for the Tigers game schedule for today. For the second question, I need to check the weather in the relevant location.\n\nHowever, I'm missing some information:\n- The user hasn't specified which Tigers team they're referring to (though Detroit Tigers is most likely)\n- The user hasn't specified their location, which I need for the weather check\n\nI'll need to search for the Tigers game information first, and then check the weather in the appropriate location (likely Detroit if it's a home game).";
         $expected_signature = 'EuYBCkQYAiJAY1corUurDaKsURSV32GUvrp4ZySJDYJXGHIBx2aPaphiKr+Kcenv2gTcLxAvkU5zUxek2mX3GGkrp8XlN2qJAhIM7v4WGU9Wwfpn8qu1Ggzd9cK0sZX2z6qEbaciMKAfMsaYMc9zVHF1Y2qY+iC35WGiXAnEAZk+KBNGCo0V+t/U1bzJGhAigvTRKkDKpipQDXkfw+XdPzHh+VGFXut2TIPatMN5UrE1CvR+GtQT1cscbxBnuiXFwgs3B/QPlC2/l2VloajCHeYVaHqY3MIXiTyqe4HAyt51Go1Xt1ydVaY=';
@@ -460,7 +460,7 @@ it('includes anthropic beta header if set in config', function (): void {
         ->using('anthropic', 'claude-3-7-sonnet-latest')
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
         ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
-        ->generate();
+        ->asText();
 
     Http::assertSent(fn (Request $request) => $request->hasHeader('anthropic-beta', 'beta1,beta2'));
 });

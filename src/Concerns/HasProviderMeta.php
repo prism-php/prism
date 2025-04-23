@@ -27,6 +27,10 @@ trait HasProviderMeta
             []
         );
 
-        return data_get($providerMeta, $valuePath, $providerMeta);
+        if ($valuePath === null) {
+            return $providerMeta;
+        }
+
+        return data_get($providerMeta, $valuePath, null);
     }
 }

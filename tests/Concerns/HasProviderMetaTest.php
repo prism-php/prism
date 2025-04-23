@@ -19,3 +19,11 @@ test('providerMeta returns a string with the exact providerMeta if valuePath is 
 
     expect($class->providerMeta('openai', 'key'))->toBe('value');
 });
+
+test('providerMeta returns null if the value path is not set', function (): void {
+    $class = new PendingRequest;
+
+    $class->withProviderMeta('openai', ['key' => 'value']);
+
+    expect($class->providerMeta('openai', 'foo'))->toBeNull();
+});

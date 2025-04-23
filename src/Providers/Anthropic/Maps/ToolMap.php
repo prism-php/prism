@@ -17,7 +17,7 @@ class ToolMap
     public static function map(array $tools): array
     {
         return array_map(function (PrismTool $tool): array {
-            $cacheType = data_get($tool->providerMeta(Provider::Anthropic), 'cacheType', null);
+            $cacheType = $tool->providerMeta(Provider::Anthropic, 'cacheType');
 
             return array_filter([
                 'name' => $tool->name(),

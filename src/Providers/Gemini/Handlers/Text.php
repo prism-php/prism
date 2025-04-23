@@ -96,8 +96,6 @@ class Text
                 ]
                 : ($request->tools() !== [] ? ['function_declarations' => ToolMap::map($request->tools())] : []);
 
-            $providerMeta = $request->providerMeta(Provider::Gemini);
-
             return $this->client->post(
                 "{$request->model()}:generateContent",
                 array_filter([

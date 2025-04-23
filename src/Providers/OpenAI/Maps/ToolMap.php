@@ -28,7 +28,7 @@ class ToolMap
                     ],
                 ] : [],
             ],
-            'strict' => data_get($tool->providerMeta(Provider::OpenAI), 'strict', null),
+            'strict' => (bool) $tool->providerMeta(Provider::OpenAI, 'strict'),
         ]), $tools);
     }
 }
