@@ -17,30 +17,34 @@ use Prism\Prism\ValueObjects\Messages\Support\Image;
 // From a local path
 $message = new UserMessage(
     "What's in this image?",
-    [Image::fromLocalPath('/path/to/image.jpg')]
+    [Image::fromLocalPath(path: '/path/to/image.jpg')]
 );
 
 // From a path on a storage disk
 $message = new UserMessage(
     "What's in this image?",
-    [Image::fromStoragePath('/path/to/image.jpg', 'my-disk')]
+    [Image::fromStoragePath(
+        path: '/path/to/image.jpg', 
+        disk: 'my-disk' // optional - omit/null for default disk
+    )]
 );
 
 // From a URL
 $message = new UserMessage(
     'Analyze this diagram:',
-    [Image::fromUrl('https://example.com/diagram.png')]
+    [Image::fromUrl(url: 'https://example.com/diagram.png')]
 );
 
-// From a Base64
+// From base64
 $message = new UserMessage(
     'Analyze this diagram:',
-    [Image::fromBase64(base64_encode(file_get_contents('/path/to/image.jpg')))]
+    [Image::fromBase64(base64: base64_encode(file_get_contents('/path/to/image.jpg')))]
 );
 
+// From raw content
 $message = new UserMessage(
     'Analyze this diagram:',
-    [Image::fromRawContent(file_get_contents('/path/to/image.jpg'))]
+    [Image::fromRawContent(rawContent: file_get_contents('/path/to/image.jpg'))]
 );
 
 $response = Prism::text()

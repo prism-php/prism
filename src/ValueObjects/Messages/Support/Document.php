@@ -17,7 +17,7 @@ class Document extends Media
     protected ?array $chunks = null;
 
     /**
-     * @deprecated Use `fromLocalPath` instead.
+     * @deprecated Use `fromLocalPath()` instead.
      */
     public static function fromPath(string $path, ?string $title = null): static
     {
@@ -29,9 +29,9 @@ class Document extends Media
         return parent::fromLocalPath($path)->setDocumentTitle($title);
     }
 
-    public static function fromStoragePath(string $path, ?string $disk = null, ?string $title = null): static
+    public static function fromStoragePath(string $path, ?string $diskName = null, ?string $title = null): static
     {
-        return parent::fromStoragePath($path, $disk)->setDocumentTitle($title);
+        return parent::fromStoragePath($path, $diskName)->setDocumentTitle($title);
     }
 
     public static function fromUrl(string $url, ?string $title = null): static
@@ -39,12 +39,12 @@ class Document extends Media
         return parent::fromUrl($url)->setDocumentTitle($title);
     }
 
-    public static function fromRawContent(string $rawContent, string $mimeType, ?string $title = null): static
+    public static function fromRawContent(string $rawContent, ?string $mimeType = null, ?string $title = null): static
     {
         return parent::fromRawContent($rawContent, $mimeType)->setDocumentTitle($title);
     }
 
-    public static function fromBase64(string $document, string $mimeType, ?string $title = null): static
+    public static function fromBase64(string $document, ?string $mimeType = null, ?string $title = null): static
     {
         return parent::fromBase64($document, $mimeType)->setDocumentTitle($title);
     }
@@ -57,7 +57,7 @@ class Document extends Media
     /**
      * @param  array<string>  $chunks
      */
-    public static function fromChunks(array $chunks, ?string $title = null): static
+    public static function fromChunks(array $chunks, ?string $title = null): self
     {
         $document = new self;
         $document->chunks = $chunks;
@@ -83,6 +83,9 @@ class Document extends Media
         return $this->documentTitle;
     }
 
+    /**
+     * @return null|array<string,string>
+     */
     public function chunks(): ?array
     {
         return $this->chunks;
