@@ -98,8 +98,7 @@ class MessageMap
     protected static function mapUserMessage(UserMessage $message, array $requestProviderOptions = []): array
     {
         $cacheType = $message->providerOptions('cacheType');
-
-        $cache_control = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
 
         return [
             'role' => 'user',
@@ -107,10 +106,10 @@ class MessageMap
                 array_filter([
                     'type' => 'text',
                     'text' => $message->text(),
-                    'cache_control' => $cache_control,
+                    'cache_control' => $cacheControl,
                 ]),
-                ...self::mapImageParts($message->images(), $cache_control),
-                ...self::mapDocumentParts($message->documents(), $cache_control, $requestProviderOptions),
+                ...self::mapImageParts($message->images(), $cacheControl),
+                ...self::mapDocumentParts($message->documents(), $cacheControl, $requestProviderOptions),
             ],
         ];
     }

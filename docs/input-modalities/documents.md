@@ -4,7 +4,7 @@ Prism currently supports documents with Gemini and Anthropic.
 
 ## Supported file types
 
-Different providers support different document types.
+Different providers support different mime types (and transfer mediums).
 
 At the time of writing:
 - Anthropic supports (file contents or url)
@@ -32,7 +32,7 @@ At the time of writing:
 
 All of these formats should work with Prism.
 
-## Supported mediums 
+## Supported transfer mediums 
 
 Providers are not consistent in their support of sending file contents and/or URLs (as noted above). 
 
@@ -40,9 +40,9 @@ Prism tries to smooth over these rough edges, but its not always possible.
 
 In summary:
 - Where a provider only supports URLs: if you provide a file path, contents, base64 or chunks, for security reasons Prism does not create a URL for you and your request will fail.
-- Where a provider does not support URLs: Prism will fetch the URL and send the file contents.
-- Where you provide base64 or rawContent: Prism will switch between them depending on what the provider accepts.
-- Where you provide chunks and the provider does not support them: Prism will convert your chunks to rawContent or base64 (depending on what the provider accepts).
+- Where a provider does not support URLs: Prism will fetch the URL and use the contents.
+- Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
+- Where you provide chunks and the provider does not support them: Prism will convert your chunks to rawContent or base64 (depending on what the provider accepts), which each chunk separated by a new line.
 
 ## Getting started
 
@@ -60,36 +60,57 @@ Prism::text()
     ->withMessages([
         // From a local path
         new UserMessage('Here is the document from a local path', [
-            Document::fromLocalPath('tests/Fixtures/test-pdf.pdf', 'My document title'),
+            Document::fromLocalPath(
+                path: 'tests/Fixtures/test-pdf.pdf', 
+                title: 'My document title' // optional
+            ),
         ]),
         // From a storage path
         new UserMessage('Here is the document from a storage path', [
-            Document::fromStoragePath('mystoragepath/file.pdf', 'my-disk', 'My document title'),
+            Document::fromStoragePath(
+                path: 'mystoragepath/file.pdf', 
+                disk: 'my-disk', // optional - omit/null for default disk
+                title: 'My document title' // optional
+            ),
         ]),
         // From base64
         new UserMessage('Here is the document from base64', [
-            Document::fromBase64($baseFromDB, 'application/pdf', 'My document title'),
+            Document::fromBase64(
+                base64: $baseFromDB, 
+                mimeType: 'optional/mimetype', // optional 
+                title: 'My document title' // optional
+            ),
         ]),
         // From raw content
         new UserMessage('Here is the document from raw content', [
-            Document::fromRawContent($rawContent, 'application/pdf', 'My document title'),
+            Document::fromRawContent(
+                rawContent: $rawContent, 
+                mimeType: 'optional/mimetype', // optional 
+                title: 'My document title' // optional
+            ),
         ]),
         // From a text string
         new UserMessage('Here is the document from a text string (e.g. from your database)', [
-            Document::fromText('Hello world!', 'My document title'),
+            Document::fromText(
+                text: 'Hello world!', 
+                title: 'My document title' // optional
+            ),
         ]),
         // From an URL
         new UserMessage('Here is the document from a url (make sure this is publically accessible)', [
-            Document::fromUrl('https://example.com/test-pdf.pdf', 'My document title'),
+            Document::fromUrl(
+                url: 'https://example.com/test-pdf.pdf', 
+                title: 'My document title' // optional
+            ),
         ]),
         // From chunks
         new UserMessage('Here is a chunked document', [
             Document::fromChunks(
-                [
+                chunks: [
                     'chunk one',
                     'chunk two'
                 ], 
-                'My document title'
+                title: 'My document title' // optional
             ),
         ]),
     ])

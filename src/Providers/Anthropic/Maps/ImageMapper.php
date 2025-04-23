@@ -17,6 +17,7 @@ class ImageMapper extends ProviderMediaMapper
         public readonly Media $media,
         public ?array $cacheControl = null,
     ) {}
+
     public function toPayload(): array
     {
         $payload = [

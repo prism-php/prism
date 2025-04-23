@@ -20,6 +20,7 @@ class DocumentMapper extends ProviderMediaMapper
         public ?array $cacheControl = null,
         public array $requestProviderOptions = [],
     ) {}
+
     public function toPayload(): array
     {
         $providerOptions = $this->media->providerOptions();
@@ -42,9 +43,9 @@ class DocumentMapper extends ProviderMediaMapper
         } elseif ($this->media->isChunks()) {
             $payload['source'] = [
                 'type' => 'content',
-                'content' => array_map(fn (string $chunk): array => ['type' => 'text', 'text' => $chunk], $this->media->chunks()),
+                'content' => array_map(fn (string $chunk): array => ['type' => 'text', 'text' => $chunk], $this->media->chunks() ?? []),
             ];
-        } elseif (Str::startsWith($this->media->mimeType(), 'text/')) {
+        } elseif ($this->media->mimeType() && Str::startsWith($this->media->mimeType(), 'text/')) {
             $payload['source'] = [
                 'type' => 'text',
                 'media_type' => $this->media->mimeType(),
