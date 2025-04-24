@@ -53,7 +53,7 @@ class Text
         $isToolCall = ! empty(data_get($data, 'candidates.0.content.parts.0.functionCall'));
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'message.content') ?? '',
+            data_get($data, 'candidates.0.content.parts.0.text') ?? '',
             $isToolCall ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
         );
 
