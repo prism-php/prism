@@ -2,7 +2,7 @@
 
 namespace Prism\Prism\Testing;
 
-use Prism\Prism\Concerns\Withable;
+use Prism\Prism\Concerns\HasFluentAttributes;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
@@ -14,7 +14,7 @@ use Prism\Prism\ValueObjects\Meta;
  */
 readonly class EmbeddingsResponseFake extends EmbeddingResponse
 {
-    use Withable;
+    use HasFluentAttributes;
 
     public static function make(): self
     {

@@ -6,7 +6,7 @@ use BadMethodCallException;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-trait Withable
+trait HasFluentAttributes
 {
     /**
      * @param  list<mixed>  $arguments

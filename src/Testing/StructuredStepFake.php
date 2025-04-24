@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Testing;
 
-use Prism\Prism\Concerns\Withable;
+use Prism\Prism\Concerns\HasFluentAttributes;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Meta;
@@ -21,7 +21,7 @@ use Prism\Prism\ValueObjects\Usage;
  */
 readonly class StructuredStepFake extends Step
 {
-    use Withable;
+    use HasFluentAttributes;
 
     public static function make(): self
     {

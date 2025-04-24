@@ -3,7 +3,7 @@
 namespace Prism\Prism\Testing;
 
 use Illuminate\Support\Collection;
-use Prism\Prism\Concerns\Withable;
+use Prism\Prism\Concerns\HasFluentAttributes;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Meta;
@@ -23,7 +23,7 @@ use Prism\Prism\ValueObjects\Usage;
  */
 readonly class TextResponseFake extends Response
 {
-    use Withable;
+    use HasFluentAttributes;
 
     public static function make(): self
     {

@@ -1,11 +1,11 @@
 <?php
 
-use Prism\Prism\Concerns\Withable;
+use Prism\Prism\Concerns\HasFluentAttributes;
 
 it('can update readonly properties by copying the class', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
     };
@@ -20,7 +20,7 @@ it('can update readonly properties by copying the class', function (): void {
 it('can take named arguments', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
     };
@@ -35,7 +35,7 @@ it('can take named arguments', function (): void {
 it('disallows empty arguments', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
     };
@@ -46,7 +46,7 @@ it('disallows empty arguments', function (): void {
 it('disallows multiple arguments', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
     };
@@ -57,7 +57,7 @@ it('disallows multiple arguments', function (): void {
 it('throws if the property does not exist', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
     };
@@ -68,7 +68,7 @@ it('throws if the property does not exist', function (): void {
 it('can still call other methods', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
 
@@ -87,7 +87,7 @@ it('can still call other methods', function (): void {
 it('will prefer existing methods over properties', function (): void {
     $instance = new class
     {
-        use Withable;
+        use HasFluentAttributes;
 
         public function __construct(public readonly string $foo = 'bar') {}
 
