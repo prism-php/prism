@@ -52,3 +52,16 @@ $response = Prism::text()
     ->withMessages([$message])
     ->generate();
 ```
+
+## Transfer mediums 
+
+Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above). 
+
+Prism tries to smooth over these rough edges, but its not always possible.
+
+### Supported conversions
+- Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.
+- Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
+
+### Limitations
+- Where a provider only supports URLs: if you provide a file path, raw contents or base64, for security reasons Prism does not create a URL for you and your request will fail.

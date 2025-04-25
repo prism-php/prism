@@ -68,6 +68,8 @@ class Media
         /** @var FilesystemAdapter */
         $disk = Storage::disk($diskName);
 
+        $diskName ??= 'default';
+
         if ($disk->exists($path) === false) {
             throw new InvalidArgumentException("$path does not exist on the '$diskName' disk");
         }

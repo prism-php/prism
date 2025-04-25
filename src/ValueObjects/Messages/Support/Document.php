@@ -84,23 +84,10 @@ class Document extends Media
     }
 
     /**
-     * @return null|array<string,string>
+     * @return null|array<mixed>
      */
     public function chunks(): ?array
     {
         return $this->chunks;
-    }
-
-    public function rawContent(): ?string
-    {
-        if ($parent = parent::rawContent()) {
-            return $parent;
-        }
-
-        if ($this->isChunks()) {
-            return implode("\n", $this->chunks);
-        }
-
-        return null;
     }
 }
