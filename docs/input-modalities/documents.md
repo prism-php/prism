@@ -7,7 +7,7 @@ Prism currently supports documents with Gemini and Anthropic.
 Different providers support different mime types (and transfer mediums).
 
 At the time of writing:
-- Anthropic supports (file contents or url)
+- Anthropic* supports (file contents or url):
     - pdf (application/pdf) 
     - txt (text/plain)
     - md (text/md)
@@ -24,25 +24,39 @@ At the time of writing:
     - xml (text/xml)
     - rtf (text/rtf)
 - Mistral supports (url only):
-  - PDF (application/pdf)
-  - CSV (text/csv)
-  - text files (text/plain)
+    - pdf (application/pdf)
+    - csv (text/csv)
+    - txt (text/plain)
 - OpenAI supports (file contents, url or file_id):
-    - PDF (application/pdf)
+    - pdf (application/pdf)
+- AWS Bedrock - Converse (file contents):
+    - pdf (application/pdf)
+    - csv (text/csv)
+    - doc (application/msword)
+    - docx (application/vnd.openxmlformats-officedocument.wordprocessingml.document)
+    - xls (application/vnd.ms-excel)
+    - xlsx (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+    - html (text/html)
+    - txt (text/plain)
+    - md (text/md)
 
 All of these formats should work with Prism.
 
-## Supported transfer mediums 
+\* Via the Anthropic provider only. Bedrock currently only supports documents via the Converse schema, which does not use native Anthropic document functionality.
 
-Providers are not consistent in their support of sending file contents and/or URLs (as noted above). 
+## Transfer mediums 
+
+Providers are not consistent in their support of sending file raw contents, base64 and/or URLs (as noted above). 
 
 Prism tries to smooth over these rough edges, but its not always possible.
 
-In summary:
-- Where a provider only supports URLs: if you provide a file path, contents, base64 or chunks, for security reasons Prism does not create a URL for you and your request will fail.
-- Where a provider does not support URLs: Prism will fetch the URL and use the contents.
+### Supported conversions
+- Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.
 - Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
-- Where you provide chunks and the provider does not support them: Prism will convert your chunks to rawContent or base64 (depending on what the provider accepts), which each chunk separated by a new line.
+
+### Limitations
+- Where a provider only supports URLs: if you provide a file path, raw contents, base64 or chunks, for security reasons Prism does not create a URL for you and your request will fail.
+- Chunks cannot be passed between providers, as they could be in different formats (however, currently only Anthropic supports them).
 
 ## Getting started
 
