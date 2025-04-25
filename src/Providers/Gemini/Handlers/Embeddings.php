@@ -8,6 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\ValueObjects\Embedding;
@@ -55,16 +56,21 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
+        $providerMeta = $request->providerMeta(Provider::Gemini);
+
         return $this->client->post(
             "{$request->model()}:embedContent",
-            [
+            array_filter([
                 'model' => $request->model(),
                 'content' => [
                     'parts' => [
                         ['text' => $request->inputs()[0]],
                     ],
                 ],
-            ]
+                'title' => $providerMeta['title'] ?? null,
+                'taskType' => $providerMeta['taskType'] ?? null,
+                'outputDimensionality' => $providerMeta['outputDimensionality'] ?? null,
+            ])
         );
     }
 }

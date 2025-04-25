@@ -73,3 +73,53 @@ foreach ($response->additionalContent['groundingSupports'] as $part) {
 
 // Pass $text and $footnotes to your frontend.
 ```
+
+## Embeddings
+
+You can customize your Gemini embeddings request with additional parameters using `->withProviderMeta()`.
+
+### Title
+
+You can add a title to your embedding request. Only applicable when TaskType is `RETRIEVAL_DOCUMENT`
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'text-embedding-004')
+    ->fromInput('The food was delicious and the waiter...')
+    ->withProviderMeta(['title' => 'Restaurant Review'])
+    ->asEmbeddings();
+```
+
+### Task Type
+
+Gemini allows you to specify the task type for your embeddings to optimize them for specific use cases:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'text-embedding-004')
+    ->fromInput('The food was delicious and the waiter...')
+    ->withProviderMeta(['taskType' => 'RETRIEVAL_QUERY'])
+    ->asEmbeddings();
+```
+[Available task types](https://ai.google.dev/api/embeddings#tasktype)
+
+### Output Dimensionality
+
+You can control the dimensionality of your embeddings:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'text-embedding-004')
+    ->fromInput('The food was delicious and the waiter...')
+    ->withProviderMeta(['outputDimensionality' => 768])
+    ->asEmbeddings();
+```
