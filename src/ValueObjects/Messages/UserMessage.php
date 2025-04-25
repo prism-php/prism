@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects\Messages;
 
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
@@ -13,7 +13,7 @@ use Prism\Prism\ValueObjects\Messages\Support\Text;
 
 class UserMessage implements Message
 {
-    use HasProviderMeta;
+    use HasProviderOptions;
 
     /**
      * @param  array<int, Text|Image|Document|OpenAIFile>  $additionalContent

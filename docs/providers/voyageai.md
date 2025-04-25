@@ -10,7 +10,7 @@
 
 ## Provider specific options
 
-You can change some options on your request specific to Voyage AI by using `->withProviderMeta()`.
+You can change some options on your request specific to Voyage AI by using `->withProviderOptions()`.
 
 ### Input type
 
@@ -27,7 +27,7 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderMeta(Provider::VoyageAI, ['inputType' => 'query'])
+    ->withProviderOptions(Provider::VoyageAI, ['inputType' => 'query'])
     ->asEmbeddings();
 ```
 
@@ -40,7 +40,7 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderMeta(Provider::VoyageAI, ['inputType' => 'document'])
+    ->withProviderOptions(Provider::VoyageAI, ['inputType' => 'document'])
     ->asEmbeddings();
 ```
 
@@ -57,6 +57,6 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderMeta(Provider::VoyageAI, ['truncation' => false])
+    ->withProviderOptions(Provider::VoyageAI, ['truncation' => false])
     ->asEmbeddings();
 ```

@@ -35,7 +35,7 @@ it('maps tools with strict mode', function (): void {
         ->for('Searching the web')
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]')
-        ->withProviderMeta(Provider::OpenAI, [
+        ->withProviderOptions(Provider::OpenAI, [
             'strict' => true,
         ]);
 

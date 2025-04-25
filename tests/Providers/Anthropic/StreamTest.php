@@ -160,7 +160,7 @@ describe('citations', function (): void {
 
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withProviderMeta(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
             ->withMessages([
                 (new UserMessage(
                     content: 'What color is the grass and sky?',
@@ -199,7 +199,7 @@ describe('citations', function (): void {
 
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withProviderMeta(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
             ->withMessages([
                 (new UserMessage(
                     content: 'What color is the grass and sky?',
@@ -232,7 +232,7 @@ describe('thinking', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withPrompt('What is the meaning of life?')
-            ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+            ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
             ->asStream();
 
         $chunks = [];
@@ -269,7 +269,7 @@ describe('thinking', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withPrompt('What is the meaning of life?')
-            ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+            ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
             ->asStream();
 
         $chunks = [];
@@ -292,7 +292,7 @@ describe('thinking', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withPrompt('What is the meaning of life?')
-            ->withProviderMeta(Provider::Anthropic, [
+            ->withProviderOptions(Provider::Anthropic, [
                 'thinking' => [
                     'enabled' => true,
                     'budgetTokens' => $customBudget,

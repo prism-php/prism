@@ -6,27 +6,27 @@ namespace Prism\Prism\Embeddings;
 
 use Closure;
 use Prism\Prism\Concerns\ChecksSelf;
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\PrismRequest;
 
 class Request implements PrismRequest
 {
-    use ChecksSelf, HasProviderMeta;
+    use ChecksSelf, HasProviderOptions;
 
     /**
      * @param  array<string>  $inputs
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
-     * @param  array<string, mixed>  $providerMeta
+     * @param  array<string, mixed>  $providerOptions
      */
     public function __construct(
         protected string $model,
         protected array $inputs,
         protected array $clientOptions,
         protected array $clientRetry,
-        array $providerMeta = [],
+        array $providerOptions = [],
     ) {
-        $this->providerMeta = $providerMeta;
+        $this->providerOptions = $providerOptions;
     }
 
     /**

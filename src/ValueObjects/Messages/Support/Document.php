@@ -7,14 +7,14 @@ namespace Prism\Prism\ValueObjects\Messages\Support;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 
 /**
  * Note: Prism currently only supports Documents with Anthropic.
  */
 class Document
 {
-    use HasProviderMeta;
+    use HasProviderOptions;
 
     public readonly string $dataFormat;
 

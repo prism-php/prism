@@ -21,7 +21,7 @@ We support Anthropic prompt caching on:
 - Assistant Messages (text only)
 - Tools
 
-The API for enabling prompt caching is the same for all, enabled via the `withProviderMeta()` method. Where a UserMessage contains both text and an image or document, both will be cached.
+The API for enabling prompt caching is the same for all, enabled via the `withProviderOptions()` method. Where a UserMessage contains both text and an image or document, both will be cached.
 
 ```php
 use Prism\Enums\Provider;
@@ -34,14 +34,14 @@ Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withMessages([
         (new SystemMessage('I am a long re-usable system message.'))
-            ->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            ->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
 
         (new UserMessage('I am a long re-usable user message.'))
-            ->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral'])
+            ->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral'])
     ])
     ->withTools([
         Tool::as('cache me')
-            ->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral'])
+            ->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral'])
     ])
     ->asText();
 ```
@@ -54,7 +54,7 @@ use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 
-(new UserMessage('I am a long re-usable user message.'))->withProviderMeta(Provider::Anthropic, ['cacheType' => AnthropicCacheType::ephemeral])
+(new UserMessage('I am a long re-usable user message.'))->withProviderOptions(Provider::Anthropic, ['cacheType' => AnthropicCacheType::ephemeral])
 ```
 Note that you must use the `withMessages()` method in order to enable prompt caching, rather than `withPrompt()` or `withSystemPrompt()`.
 
@@ -75,12 +75,12 @@ Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     // enable thinking
-    ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
+    ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
     ->asText();
 ```
 By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
 
-You can overide the config (or its default) using `withProviderMeta`:
+You can overide the config (or its default) using `withProviderOptions`:
 
 ```php
 use Prism\Enums\Provider;
@@ -90,7 +90,7 @@ Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     // Enable thinking and set a budget
-    ->withProviderMeta(Provider::Anthropic, [
+    ->withProviderOptions(Provider::Anthropic, [
         'thinking' => [
             'enabled' => true, 
             'budgetTokens' => 2048
@@ -116,7 +116,7 @@ use Prism\Prism\Prism;
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-    ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
+    ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
     ->asText();
 
 $response->additionalContent['thinking'];
@@ -132,7 +132,7 @@ $response = Prism::text()
     ->withTools($tools)
     ->withMaxSteps(3)
     ->withPrompt('What time is the tigers game today and should I wear a coat?')
-    ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+    ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
     ->asText();
 
 $response->steps->first()->additionalContent->thinking;
@@ -183,7 +183,7 @@ Please note however that due to Anthropic not supporting "native" structured out
 
 ### Enabling citations
 
-Anthropic require citations to be enabled on all documents in a request. To enable them, using the `withProviderMeta()` method when building your request:
+Anthropic require citations to be enabled on all documents in a request. To enable them, using the `withProviderOptions()` method when building your request:
 
 ```php
 use Prism\Enums\Provider;
@@ -205,7 +205,7 @@ $response = Prism::text()
             ]
         )
     ])
-    ->withProviderMeta(Provider::Anthropic, ['citations' => true])
+    ->withProviderOptions(Provider::Anthropic, ['citations' => true])
     ->asText();
 ```
 

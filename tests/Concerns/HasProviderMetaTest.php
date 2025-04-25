@@ -4,26 +4,26 @@ namespace Tests\Http;
 
 use Prism\Prism\Text\PendingRequest;
 
-test('providerMeta returns an array with all providerMeta if no valuePath is provided.', function (): void {
+test('providerOptions returns an array with all providerOptions if no valuePath is provided.', function (): void {
     $class = new PendingRequest;
 
-    $class->withProviderMeta('openai', ['key' => 'value']);
+    $class->withProviderOptions('openai', ['key' => 'value']);
 
-    expect($class->providerMeta('openai'))->toBe(['key' => 'value']);
+    expect($class->providerOptions('openai'))->toBe(['key' => 'value']);
 });
 
-test('providerMeta returns a string with the exact providerMeta if valuePath is provided.', function (): void {
+test('providerOptions returns a string with the exact providerOptions if valuePath is provided.', function (): void {
     $class = new PendingRequest;
 
-    $class->withProviderMeta('openai', ['key' => 'value']);
+    $class->withProviderOptions('openai', ['key' => 'value']);
 
-    expect($class->providerMeta('openai', 'key'))->toBe('value');
+    expect($class->providerOptions('openai', 'key'))->toBe('value');
 });
 
-test('providerMeta returns null if the value path is not set', function (): void {
+test('providerOptions returns null if the value path is not set', function (): void {
     $class = new PendingRequest;
 
-    $class->withProviderMeta('openai', ['key' => 'value']);
+    $class->withProviderOptions('openai', ['key' => 'value']);
 
-    expect($class->providerMeta('openai', 'foo'))->toBeNull();
+    expect($class->providerOptions('openai', 'foo'))->toBeNull();
 });

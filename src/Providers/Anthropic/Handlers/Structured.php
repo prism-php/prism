@@ -79,13 +79,13 @@ class Structured extends AnthropicHandlerAbstract
 
         return array_filter([
             'model' => $request->model(),
-            'messages' => MessageMap::map($request->messages(), $request->providerMeta(Provider::Anthropic)),
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions(Provider::Anthropic)),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
-            'thinking' => $request->providerMeta(Provider::Anthropic, 'thinking.enabled') === true
+            'thinking' => $request->providerOptions(Provider::Anthropic, 'thinking.enabled') === true
             ? [
                 'type' => 'enabled',
-                'budget_tokens' => is_int($request->providerMeta(Provider::Anthropic, 'thinking.budgetTokens'))
-                    ? $request->providerMeta(Provider::Anthropic, 'thinking.budgetTokens')
+                'budget_tokens' => is_int($request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens'))
+                    ? $request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens')
                     : config('prism.anthropic.default_thinking_budget', 1024),
             ]
             : null,
@@ -128,7 +128,7 @@ class Structured extends AnthropicHandlerAbstract
         $this->request->addMessage(new UserMessage(sprintf(
             "Respond with ONLY JSON (i.e. not in backticks or a code block, with NO CONTENT outside the JSON) that matches the following schema: \n %s %s",
             json_encode($this->request->schema()->toArray(), JSON_PRETTY_PRINT),
-            ($this->request->providerMeta(Provider::Anthropic)['citations'] ?? false)
+            ($this->request->providerOptions(Provider::Anthropic)['citations'] ?? false)
                 ? "\n\n Return the JSON as a single text block with a single set of citations."
                 : ''
         )));

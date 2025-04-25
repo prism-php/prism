@@ -278,9 +278,9 @@ it('maps system messages', function (): void {
 });
 
 describe('Anthropic cache mapping', function (): void {
-    it('sets the cache type on a UserMessage if cacheType providerMeta is set on message', function (mixed $cacheType): void {
+    it('sets the cache type on a UserMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::map([
-            (new UserMessage(content: 'Who are you?'))->withProviderMeta(Provider::Anthropic, ['cacheType' => $cacheType]),
+            (new UserMessage(content: 'Who are you?'))->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]),
         ]))->toBe([[
             'role' => 'user',
             'content' => [
@@ -296,12 +296,12 @@ describe('Anthropic cache mapping', function (): void {
         AnthropicCacheType::Ephemeral,
     ]);
 
-    it('sets the cache type on a UserMessage image if cacheType providerMeta is set on message', function (): void {
+    it('sets the cache type on a UserMessage image if cacheType providerOptions is set on message', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'Who are you?',
                 additionalContent: [Image::fromPath('tests/Fixtures/test-image.png')]
-            ))->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            ))->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
             'content' => [
@@ -323,12 +323,12 @@ describe('Anthropic cache mapping', function (): void {
         ]]);
     });
 
-    it('sets the cache type on a UserMessage document if cacheType providerMeta is set on message', function (): void {
+    it('sets the cache type on a UserMessage document if cacheType providerOptions is set on message', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'Who are you?',
                 additionalContent: [Document::fromPath('tests/Fixtures/test-pdf.pdf')]
-            ))->withProviderMeta(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            ))->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
             'content' => [
@@ -350,9 +350,9 @@ describe('Anthropic cache mapping', function (): void {
         ]]);
     });
 
-    it('sets the cache type on an AssistantMessage if cacheType providerMeta is set on message', function (mixed $cacheType): void {
+    it('sets the cache type on an AssistantMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::map([
-            (new AssistantMessage(content: 'Who are you?'))->withProviderMeta(Provider::Anthropic, ['cacheType' => $cacheType]),
+            (new AssistantMessage(content: 'Who are you?'))->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]),
         ]))->toBe([[
             'role' => 'assistant',
             'content' => [
@@ -368,9 +368,9 @@ describe('Anthropic cache mapping', function (): void {
         AnthropicCacheType::Ephemeral,
     ]);
 
-    it('sets the cache type on a SystemMessage if cacheType providerMeta is set on message', function (mixed $cacheType): void {
+    it('sets the cache type on a SystemMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::mapSystemMessages([
-            (new SystemMessage(content: 'Who are you?'))->withProviderMeta(Provider::Anthropic, ['cacheType' => $cacheType]),
+            (new SystemMessage(content: 'Who are you?'))->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]),
         ]))->toBe([
             [
                 'type' => 'text',
@@ -385,12 +385,12 @@ describe('Anthropic cache mapping', function (): void {
 });
 
 describe('Anthropic citation mapping', function (): void {
-    it('sets citiations to true on a UserMessage Document if citations providerMeta is true', function (): void {
+    it('sets citiations to true on a UserMessage Document if citations providerOptions is true', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'What color is the grass and sky?',
                 additionalContent: [
-                    Document::fromText('The grass is green. The sky is blue.')->withProviderMeta(Provider::Anthropic, ['citations' => true]),
+                    Document::fromText('The grass is green. The sky is blue.')->withProviderOptions(Provider::Anthropic, ['citations' => true]),
                 ]
             )),
         ]))->toBe([[
@@ -496,7 +496,7 @@ describe('Anthropic citation mapping', function (): void {
             (new UserMessage(
                 content: 'What color is the grass and sky?',
                 additionalContent: [
-                    Document::fromChunks(['chunk1', 'chunk2'])->withProviderMeta(Provider::Anthropic, ['citations' => true]),
+                    Document::fromChunks(['chunk1', 'chunk2'])->withProviderOptions(Provider::Anthropic, ['citations' => true]),
                 ]
             )),
         ]))->toBe([[

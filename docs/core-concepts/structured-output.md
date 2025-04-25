@@ -58,7 +58,7 @@ use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
-    ->withProviderMeta(Provider::OpenAI, [
+    ->withProviderOptions(Provider::OpenAI, [
         'schema' => [
             'strict' => true
         ]
@@ -127,7 +127,7 @@ Structured output supports several configuration options to fine-tune your gener
 - `withClientOptions` - Set HTTP client options (e.g., timeouts)
 - `withClientRetry` - Configure automatic retries on failures
 - `usingProviderConfig` - Override provider configuration
-- `withProviderMeta` - Set provider-specific options
+- `withProviderOptions` - Set provider-specific options
 
 > [!NOTE]
 > Unlike text generation, structured output does not support tools/function calling. For those features, use the text generation API instead.

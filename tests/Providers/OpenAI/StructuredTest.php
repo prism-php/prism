@@ -128,7 +128,7 @@ it('uses meta to define strict mode', function (): void {
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withSchema($schema)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->withProviderMeta(Provider::OpenAI, [
+        ->withProviderOptions(Provider::OpenAI, [
             'schema' => ['strict' => true],
         ])
         ->asStructured();

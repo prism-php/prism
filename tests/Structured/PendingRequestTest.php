@@ -60,7 +60,7 @@ test('it generates a proper request object', function (): void {
     $topP = 0.9;
     $clientOptions = ['timeout' => 30];
     $clientRetry = [3, 100, null, true];
-    $providerMeta = ['test' => 'meta'];
+    $providerOptions = ['test' => 'meta'];
 
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, $model)
@@ -72,7 +72,7 @@ test('it generates a proper request object', function (): void {
         ->usingTopP($topP)
         ->withClientOptions($clientOptions)
         ->withClientRetry(...$clientRetry)
-        ->withProviderMeta(Provider::OpenAI, $providerMeta)
+        ->withProviderOptions(Provider::OpenAI, $providerOptions)
         ->toRequest();
 
     expect($request)
@@ -87,7 +87,7 @@ test('it generates a proper request object', function (): void {
         ->clientOptions()->toBe($clientOptions)
         ->clientRetry()->toBe($clientRetry)
         ->mode()->toBe(StructuredMode::Auto)
-        ->and($request->providerMeta(Provider::OpenAI))->toBe($providerMeta);
+        ->and($request->providerOptions(Provider::OpenAI))->toBe($providerOptions);
 });
 
 test('you can run toRequest multiple times', function (): void {
@@ -104,11 +104,11 @@ test('it sets provider meta with enum', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
         ->withSchema(new StringSchema('test', 'test description'))
-        ->withProviderMeta(Provider::OpenAI, ['key' => 'value']);
+        ->withProviderOptions(Provider::OpenAI, ['key' => 'value']);
 
     $generated = $request->toRequest();
 
-    expect($generated->providerMeta(Provider::OpenAI))
+    expect($generated->providerOptions(Provider::OpenAI))
         ->toBe(['key' => 'value']);
 });
 
@@ -116,11 +116,11 @@ test('it sets provider meta with string', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
         ->withSchema(new StringSchema('test', 'test description'))
-        ->withProviderMeta('openai', ['key' => 'value']);
+        ->withProviderOptions('openai', ['key' => 'value']);
 
     $generated = $request->toRequest();
 
-    expect($generated->providerMeta('openai'))
+    expect($generated->providerOptions('openai'))
         ->toBe(['key' => 'value']);
 });
 
@@ -128,20 +128,20 @@ test('it gets provider meta on a request with an enum', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
         ->withSchema(new StringSchema('test', 'test description'))
-        ->withProviderMeta(Provider::OpenAI, ['key' => 'value']);
+        ->withProviderOptions(Provider::OpenAI, ['key' => 'value']);
 
     $generated = $request->toRequest();
 
-    expect($generated->providerMeta(Provider::OpenAI, 'key'))->toBe('value');
+    expect($generated->providerOptions(Provider::OpenAI, 'key'))->toBe('value');
 });
 
 test('it gets provider meta on a request with a string', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
         ->withSchema(new StringSchema('test', 'test description'))
-        ->withProviderMeta(Provider::OpenAI, ['key' => 'value']);
+        ->withProviderOptions(Provider::OpenAI, ['key' => 'value']);
 
     $generated = $request->toRequest();
 
-    expect($generated->providerMeta('openai', 'key'))->toBe('value');
+    expect($generated->providerOptions('openai', 'key'))->toBe('value');
 });

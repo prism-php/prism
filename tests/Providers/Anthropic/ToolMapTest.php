@@ -32,13 +32,13 @@ it('maps tools', function (): void {
     ]]);
 });
 
-it('sets the cache typeif cacheType providerMeta is set on tool', function (mixed $cacheType): void {
+it('sets the cache typeif cacheType providerOptions is set on tool', function (mixed $cacheType): void {
     $tool = (new Tool)
         ->as('search')
         ->for('Searching the web')
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]')
-        ->withProviderMeta(Provider::Anthropic, ['cacheType' => $cacheType]);
+        ->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]);
 
     expect(ToolMap::map([$tool]))->toBe([[
         'name' => 'search',

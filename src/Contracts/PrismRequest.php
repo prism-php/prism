@@ -18,7 +18,7 @@ interface PrismRequest
     /**
      * @param  array<string, mixed>  $meta
      */
-    public function withProviderMeta(string|Provider $provider, array $meta): self;
+    public function withProviderOptions(string|Provider $provider, array $meta): self;
 
-    public function providerMeta(string|Provider $provider, ?string $valuePath = null): mixed;
+    public function providerOptions(string|Provider $provider, ?string $valuePath = null): mixed;
 }

@@ -48,7 +48,7 @@ it('can generate text stream using searchGrounding', function (): void {
 
     $response = Prism::text()
         ->using(Provider::Gemini, 'gemini-2.0-flash')
-        ->withProviderMeta(Provider::Gemini, ['searchGrounding' => true])
+        ->withProviderOptions(Provider::Gemini, ['searchGrounding' => true])
         ->withMaxSteps(4)
         ->withPrompt('What\'s the current weather in San Francisco? And tell me if I need to wear a coat?')
         ->asStream();

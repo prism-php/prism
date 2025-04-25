@@ -97,7 +97,7 @@ it('adds rate limit data to the responseMeta', function (): void {
     expect($response->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
 });
 
-it('applies the citations request level providerMeta to all documents', function (): void {
+it('applies the citations request level providerOptions to all documents', function (): void {
     Prism::fake();
 
     $schema = new ObjectSchema(
@@ -122,7 +122,7 @@ it('applies the citations request level providerMeta to all documents', function
                 ]
             )),
         ])
-        ->withProviderMeta(Provider::Anthropic, ['citations' => true]);
+        ->withProviderOptions(Provider::Anthropic, ['citations' => true]);
 
     $payload = Structured::buildHttpRequestPayload($request->toRequest());
 
@@ -160,7 +160,7 @@ it('saves message parts with citations to additionalContent on response steps an
             ),
         ])
         ->withSchema(new ObjectSchema('body', '', [new BooleanSchema('answer', '')], ['answer']))
-        ->withProviderMeta(Provider::Anthropic, ['citations' => true])
+        ->withProviderOptions(Provider::Anthropic, ['citations' => true])
         ->asStructured();
 
     expect($response->structured)->toBe(['answer' => true]);
@@ -193,7 +193,7 @@ it('can use extending thinking', function (): void {
         ->using('anthropic', 'claude-3-7-sonnet-latest')
         ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('text', 'the output text')], ['text']))
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-        ->withProviderMeta(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+        ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
         ->asStructured();
 
     $expected_thinking = "The question asks about \"the meaning of life, the universe and everything in popular fiction.\" This is a reference to Douglas Adams' \"The Hitchhiker's Guide to the Galaxy\" series, where a supercomputer named Deep Thought calculates that the answer to \"the ultimate question of life, the universe, and everything\" is 42.\n\nI'm being asked to respond with only JSON that matches a specific schema. The schema requires an object with a property called \"text\" that contains a string, and no additional properties are allowed.\n\nSo I should create a JSON object with a \"text\" property that explains that in popular fiction, particularly in \"The Hitchhiker's Guide to the Galaxy,\" the meaning of life, the universe, and everything is famously presented as \"42.\"";

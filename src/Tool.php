@@ -8,7 +8,7 @@ use ArgumentCountError;
 use Closure;
 use Error;
 use InvalidArgumentException;
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Schema\ArraySchema;
@@ -22,7 +22,7 @@ use TypeError;
 
 class Tool
 {
-    use HasProviderMeta;
+    use HasProviderOptions;
 
     protected string $name = '';
 

@@ -45,14 +45,14 @@ class Embeddings
 
     protected function sendRequest(): void
     {
-        $providerMeta = $this->request->providerMeta(Provider::VoyageAI);
+        $providerOptions = $this->request->providerOptions(Provider::VoyageAI);
 
         try {
             $this->httpResponse = $this->client->post('embeddings', array_filter([
                 'model' => $this->request->model(),
                 'input' => $this->request->inputs(),
-                'input_type' => $providerMeta['inputType'] ?? null,
-                'truncation' => $providerMeta['truncation'] ?? null,
+                'input_type' => $providerOptions['inputType'] ?? null,
+                'truncation' => $providerOptions['truncation'] ?? null,
             ]));
         } catch (\Exception $e) {
             throw PrismException::providerRequestError($this->request->model(), $e);

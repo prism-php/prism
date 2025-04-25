@@ -85,12 +85,12 @@ class Text extends AnthropicHandlerAbstract
         return array_filter([
             'model' => $request->model(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
-            'messages' => MessageMap::map($request->messages(), $request->providerMeta(Provider::Anthropic)),
-            'thinking' => $request->providerMeta(Provider::Anthropic, 'thinking.enabled') === true
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions(Provider::Anthropic)),
+            'thinking' => $request->providerOptions(Provider::Anthropic, 'thinking.enabled') === true
                 ? [
                     'type' => 'enabled',
-                    'budget_tokens' => is_int($request->providerMeta(Provider::Anthropic, 'thinking.budgetTokens'))
-                        ? $request->providerMeta(Provider::Anthropic, 'thinking.budgetTokens')
+                    'budget_tokens' => is_int($request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens'))
+                        ? $request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens')
                         : config('prism.anthropic.default_thinking_budget', 1024),
                 ]
                 : null,

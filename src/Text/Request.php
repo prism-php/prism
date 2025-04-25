@@ -6,7 +6,7 @@ namespace Prism\Prism\Text;
 
 use Closure;
 use Prism\Prism\Concerns\ChecksSelf;
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\ToolChoice;
@@ -15,7 +15,7 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 class Request implements PrismRequest
 {
-    use ChecksSelf, HasProviderMeta;
+    use ChecksSelf, HasProviderOptions;
 
     /**
      * @param  SystemMessage[]  $systemPrompts
@@ -23,7 +23,7 @@ class Request implements PrismRequest
      * @param  array<int, Tool>  $tools
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
-     * @param  array<string, mixed>  $providerMeta
+     * @param  array<string, mixed>  $providerOptions
      */
     public function __construct(
         protected string $model,
@@ -38,9 +38,9 @@ class Request implements PrismRequest
         protected array $clientOptions,
         protected array $clientRetry,
         protected string|ToolChoice|null $toolChoice,
-        array $providerMeta = [],
+        array $providerOptions = [],
     ) {
-        $this->providerMeta = $providerMeta;
+        $this->providerOptions = $providerOptions;
     }
 
     public function toolChoice(): string|ToolChoice|null

@@ -6,7 +6,7 @@ namespace Prism\Prism\Structured;
 
 use Closure;
 use Prism\Prism\Concerns\ChecksSelf;
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Contracts\Schema;
@@ -15,14 +15,14 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 class Request implements PrismRequest
 {
-    use ChecksSelf, HasProviderMeta;
+    use ChecksSelf, HasProviderOptions;
 
     /**
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<int, Message>  $messages
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
-     * @param  array<string, mixed>  $providerMeta
+     * @param  array<string, mixed>  $providerOptions
      */
     public function __construct(
         protected array $systemPrompts,
@@ -36,9 +36,9 @@ class Request implements PrismRequest
         protected array $clientRetry,
         protected Schema $schema,
         protected StructuredMode $mode,
-        array $providerMeta = [],
+        array $providerOptions = [],
     ) {
-        $this->providerMeta = $providerMeta;
+        $this->providerOptions = $providerOptions;
     }
 
     /**

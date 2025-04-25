@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects\Messages;
 
-use Prism\Prism\Concerns\HasProviderMeta;
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\ToolCall;
 
 class AssistantMessage implements Message
 {
-    use HasProviderMeta;
+    use HasProviderOptions;
 
     /**
      * @param  ToolCall[]  $toolCalls

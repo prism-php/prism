@@ -10,7 +10,7 @@
 
 ## Search grounding
 
-You may enable Google search grounding on text requests using providerMeta:
+You may enable Google search grounding on text requests using providerOptions:
 
 ```php
 use Prism\Prism\Prism;
@@ -20,7 +20,7 @@ $response = Prism::text()
     ->using(Provider::Gemini, 'gemini-2.0-flash')
     ->withPrompt('What is the stock price of Google right now?')
     // Enable search grounding
-    ->withProviderMeta(Provider::Gemini, ['searchGrounding' => true])
+    ->withProviderOptions(Provider::Gemini, ['searchGrounding' => true])
     ->generate();
 ```
 

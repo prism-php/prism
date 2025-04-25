@@ -91,7 +91,7 @@ abstract class AnthropicHandlerAbstract
      */
     protected function extractThinking(array $data): array
     {
-        if ($this->request->providerMeta(Provider::Anthropic, 'thinking.enabled') !== true) {
+        if ($this->request->providerOptions(Provider::Anthropic, 'thinking.enabled') !== true) {
             return [];
         }
 

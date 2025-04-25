@@ -107,7 +107,7 @@ it('can use a cache object with a structured request', function (): void {
             new StringSchema('legislation_type', 'What type of legislation is this (e.g. a treaty, a regulation, an act, a directive, etc.)?'),
             new NumberSchema('article_count', 'How many articles does the main body of the legislation contain?'),
         ]))
-        ->withProviderMeta(Provider::Gemini, ['cachedContentName' => $object->name])
+        ->withProviderOptions(Provider::Gemini, ['cachedContentName' => $object->name])
         ->withPrompt('Summarise this document using the properties and descriptions defined in the schema.')
         ->generate();
 

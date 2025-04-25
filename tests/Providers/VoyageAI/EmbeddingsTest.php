@@ -50,7 +50,7 @@ it('returns embeddings with inputType set', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious and the waiter...')
-        ->withProviderMeta(Provider::VoyageAI, ['inputType' => 'query'])
+        ->withProviderOptions(Provider::VoyageAI, ['inputType' => 'query'])
         ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-with-input-type-1.json'), true);
@@ -67,7 +67,7 @@ it('returns embeddings with truncation set', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious and the waiter...')
-        ->withProviderMeta(Provider::VoyageAI, ['truncation' => false])
+        ->withProviderOptions(Provider::VoyageAI, ['truncation' => false])
         ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/voyageai/embeddings-with-truncation-1.json'), true);
@@ -84,7 +84,7 @@ it('returns embeddings with inputType and truncation', function (): void {
     $response = Prism::embeddings()
         ->using(Provider::VoyageAI, 'voyage-3-lite')
         ->fromInput('The food was delicious and the waiter...')
-        ->withProviderMeta(Provider::VoyageAI, [
+        ->withProviderOptions(Provider::VoyageAI, [
             'inputType' => 'query',
             'truncation' => false,
         ])
