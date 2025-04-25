@@ -14,6 +14,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
+use Prism\Prism\Providers\Mistral\Handlers\Stream;
 use Prism\Prism\Providers\Mistral\Handlers\Structured;
 use Prism\Prism\Providers\Mistral\Handlers\Text;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
@@ -90,7 +91,12 @@ readonly class Mistral implements Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+        $handler = new Stream(
+            $this->client($request->clientOptions(), $request->clientRetry()),
+            $this->apiKey
+        );
+
+        return $handler->handle($request);
     }
 
     /**

@@ -114,8 +114,8 @@ it('maps tool result messages', function (): void {
 
     expect($messageMap())->toBe([[
         'role' => 'tool',
-        'tool_call_id' => 'tool_1234',
         'content' => '[search results]',
+        'tool_call_id' => 'tool_1234',
     ]]);
 });
 

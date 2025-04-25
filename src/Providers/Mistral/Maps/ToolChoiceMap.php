@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Mistral\Maps;
 
+use InvalidArgumentException;
 use Prism\Prism\Enums\ToolChoice;
 
 class ToolChoiceMap
@@ -13,6 +14,10 @@ class ToolChoiceMap
      */
     public static function map(string|ToolChoice|null $toolChoice): string|array|null
     {
+        if (is_null($toolChoice)) {
+            return null;
+        }
+
         if (is_string($toolChoice)) {
             return [
                 'type' => 'function',
@@ -22,10 +27,14 @@ class ToolChoiceMap
             ];
         }
 
+        if (! in_array($toolChoice, [ToolChoice::Auto, ToolChoice::Any, ToolChoice::None])) {
+            throw new InvalidArgumentException('Invalid tool choice');
+        }
+
         return match ($toolChoice) {
             ToolChoice::Auto => 'auto',
             ToolChoice::Any => 'any',
-            ToolChoice::None, null => 'none',
+            ToolChoice::None => 'none',
         };
     }
 }

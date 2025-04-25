@@ -8,7 +8,7 @@ use Prism\Prism\Enums\FinishReason;
 
 class FinishReasonMap
 {
-    public static function map(string $reason): FinishReason
+    public static function map(?string $reason): FinishReason
     {
         return match ($reason) {
             'stop', => FinishReason::Stop,
