@@ -13,7 +13,7 @@ $response = Prism::text()
     ->whenProvider(
         Provider::Anthropic,
         fn ($request) => $request
-            ->withProviderOptions('anthropic', [
+            ->withProviderOptions([
                 'cacheType' => 'ephemeral',
             ])
     )
@@ -40,13 +40,13 @@ $response = Prism::text()
         Provider::Anthropic,
         fn ($request) => $request
             ->withMaxTokens(4000)
-            ->withProviderOptions('anthropic', ['cacheType' => 'ephemeral'])
     )
+->withProviderOptions(['cacheType' => 'ephemeral'])
     ->whenProvider(
         Provider::OpenAI,
         fn ($request) => $request
             ->withMaxTokens(2000)
-            ->withProviderOptions('openai', ['response_format' => ['type' => 'text']])
+            ->withProviderOptions(['response_format' => ['type' => 'text']])
     )
     ->asText();
 ```
@@ -62,7 +62,7 @@ class AnthropicConfigurator
     {
         return $request
             ->withMaxTokens(4000)
-            ->withProviderOptions('anthropic', [
+            ->withProviderOptions([
                 'cacheType' => 'ephemeral',
                 'citations' => true,
             ]);
