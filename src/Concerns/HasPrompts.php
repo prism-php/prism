@@ -41,7 +41,7 @@ trait HasPrompts
      */
     public function withSystemPrompts(array $messages): self
     {
-        $this->systemPrompts = array_merge($this->systemPrompts, $messages);
+        $this->systemPrompts = $messages;
 
         return $this;
     }
