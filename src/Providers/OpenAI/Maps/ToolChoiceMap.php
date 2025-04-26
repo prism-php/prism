@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenAI\Maps;
 
-use InvalidArgumentException;
 use Prism\Prism\Enums\ToolChoice;
 
 class ToolChoiceMap
@@ -28,7 +27,6 @@ class ToolChoiceMap
             ToolChoice::Any => 'required',
             ToolChoice::None => 'none',
             null => $toolChoice,
-            default => throw new InvalidArgumentException('Invalid tool choice')
         };
     }
 }
