@@ -25,6 +25,8 @@ class ToolChoiceMap
 
         return match ($toolChoice) {
             ToolChoice::Auto => 'auto',
+            ToolChoice::Any => 'required',
+            ToolChoice::None => 'none',
             null => $toolChoice,
             default => throw new InvalidArgumentException('Invalid tool choice')
         };
