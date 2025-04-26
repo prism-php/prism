@@ -67,3 +67,29 @@ PROVIDER_URL=https://custom-endpoint.com
 ```
 > [!NOTE]
 > Remember to always refer to your chosen provider's documentation pages for the most up-to-date configuration options and requirements specific to that provider.
+
+## Overriding config in your code
+
+You can override config in your code in two ways:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+
+// Via the third parameter of `using()`
+$response = Prism::text()
+    ->using(Provider::OpenAI, 'claude-3-5-sonnet-20241022', [
+        'url' => 'new-base-url'
+    ])
+    ->withPrompt('Explain quantum computing.')
+    ->asText();
+
+// Or via `usingProviderConfig()` (note that this will re-resolve the provider).
+$response = Prism::text()
+    ->using(Provider::OpenAI, 'claude-3-5-sonnet-20241022')
+    ->usingProviderConfig([
+        'url' => 'new-base-url'
+    ])
+    ->withPrompt('Explain quantum computing.')
+    ->asText();
+```
