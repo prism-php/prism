@@ -125,19 +125,19 @@ export default {
         },
         {
           name: "Gemini",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
         {
           name: "Groq",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
         {
           name: "Mistral",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
@@ -149,16 +149,22 @@ export default {
         },
         {
           name: "OpenAI",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
+          overloaded: Unsupported,
+          tooLarge: Unsupported,
+        },
+        {
+          name: "Voyage AI",
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
         {
           name: "xAI",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
-        },
+        },        
       ],
     };
   },
