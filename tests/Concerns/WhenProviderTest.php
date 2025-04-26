@@ -100,13 +100,13 @@ test('it allows setting provider options', function (): void {
     $request->whenProvider(
         Provider::Anthropic,
         fn (PendingRequest $req): PendingRequest => $req
-            ->withProviderMeta('anthropic', ['cacheType' => 'ephemeral'])
+            ->withProviderOptions(['cacheType' => 'ephemeral'])
     );
 
     // Generate the request
     $textRequest = $request->toRequest();
 
-    expect($textRequest->providerMeta('anthropic'))->toBe(['cacheType' => 'ephemeral']);
+    expect($textRequest->providerOptions())->toBe(['cacheType' => 'ephemeral']);
 });
 
 test('it accepts invokable class', function (): void {
