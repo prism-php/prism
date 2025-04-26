@@ -52,4 +52,15 @@ trait ConfiguresProviders
     {
         return $this->providerKey;
     }
+
+    public function whenProvider(string|ProviderEnum $provider, callable $callback): self
+    {
+        $providerKey = is_string($provider) ? $provider : $provider->value;
+
+        if ($this->providerKey() === $providerKey) {
+            return $callback($this);
+        }
+
+        return $this;
+    }
 }

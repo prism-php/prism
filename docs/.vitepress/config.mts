@@ -114,6 +114,10 @@ export default defineConfig({
                 link: "/core-concepts/embeddings",
               },
               {
+                text: "Provider Interoperability",
+                link: "/core-concepts/provider-interoperability",
+              },
+              {
                 text: "Schemas",
                 link: "/core-concepts/schemas",
               },
