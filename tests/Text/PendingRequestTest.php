@@ -28,6 +28,21 @@ test('it can configure the provider and model', function (): void {
     expect($generated->model())->toBe('gpt-4');
 });
 
+test('it can configure the provider and model with custom config via using', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4', ['url' => 'value']);
+
+    expect($request->provider()->url)->toBe('value');
+});
+
+test('it can configure the provider and model with custom config via withProviderConfig', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->usingProviderConfig(['url' => 'value']);
+
+    expect($request->provider()->url)->toBe('value');
+});
+
 test('it sets provider meta with enum', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')

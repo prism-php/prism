@@ -16,15 +16,16 @@ trait ConfiguresProviders
 
     protected string $model;
 
-    public function using(string|ProviderEnum $provider, string $model): self
+    /**
+     * @param  array<string, mixed>  $providerConfig
+     */
+    public function using(string|ProviderEnum $provider, string $model, array $providerConfig = []): self
     {
         $this->providerKey = is_string($provider) ? $provider : $provider->value;
 
-        $this->provider = resolve(PrismManager::class)->resolve($this->providerKey);
-
         $this->model = $model;
 
-        return $this;
+        return $this->usingProviderConfig($providerConfig);
     }
 
     public function provider(): Provider
