@@ -10,7 +10,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
@@ -216,7 +215,7 @@ class Stream
     protected function sendRequest(Request $request): Response
     {
         try {
-            $providerOptions = $request->providerOptions(Provider::Gemini);
+            $providerOptions = $request->providerOptions();
 
             if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
                 throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');

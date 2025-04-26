@@ -8,7 +8,6 @@ use BackedEnum;
 use Exception;
 use InvalidArgumentException;
 use Prism\Prism\Contracts\Message;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -69,7 +68,7 @@ class MessageMap
      */
     protected static function mapSystemMessage(SystemMessage $systemMessage): array
     {
-        $cacheType = $systemMessage->providerOptions(Provider::Anthropic, 'cacheType');
+        $cacheType = $systemMessage->providerOptions('cacheType');
 
         return array_filter([
             'type' => 'text',
@@ -99,7 +98,7 @@ class MessageMap
      */
     protected static function mapUserMessage(UserMessage $message, array $requestProviderMeta = []): array
     {
-        $cacheType = $message->providerOptions(Provider::Anthropic, 'cacheType');
+        $cacheType = $message->providerOptions('cacheType');
 
         $cache_control = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
 
@@ -122,7 +121,7 @@ class MessageMap
      */
     protected static function mapAssistantMessage(AssistantMessage $message): array
     {
-        $cacheType = $message->providerOptions(Provider::Anthropic, 'cacheType');
+        $cacheType = $message->providerOptions('cacheType');
 
         $content = [];
 
@@ -217,7 +216,7 @@ class MessageMap
                 'title' => $document->documentTitle,
                 'context' => $document->documentContext,
                 'cache_control' => $cache_control,
-                'citations' => data_get($requestProviderMeta, 'citations', $document->providerOptions(Provider::Anthropic, 'citations'))
+                'citations' => data_get($requestProviderMeta, 'citations', $document->providerOptions('citations'))
                     ? ['enabled' => true]
                     : null,
             ]);

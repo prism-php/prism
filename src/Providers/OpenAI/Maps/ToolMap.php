@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenAI\Maps;
 
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
 class ToolMap
@@ -28,7 +27,7 @@ class ToolMap
                     ],
                 ] : [],
             ],
-            'strict' => (bool) $tool->providerOptions(Provider::OpenAI, 'strict'),
+            'strict' => (bool) $tool->providerOptions('strict'),
         ]), $tools);
     }
 }

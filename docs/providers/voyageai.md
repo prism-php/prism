@@ -27,7 +27,7 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderOptions(Provider::VoyageAI, ['inputType' => 'query'])
+    ->withProviderOptions(['inputType' => 'query'])
     ->asEmbeddings();
 ```
 
@@ -40,7 +40,7 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderOptions(Provider::VoyageAI, ['inputType' => 'document'])
+    ->withProviderOptions(['inputType' => 'document'])
     ->asEmbeddings();
 ```
 
@@ -57,6 +57,6 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderOptions(Provider::VoyageAI, ['truncation' => false])
+    ->withProviderOptions(['truncation' => false])
     ->asEmbeddings();
 ```

@@ -176,7 +176,7 @@ it('can calculate cache usage correctly', function (): void {
     $response = Prism::text()
         ->using('anthropic', 'claude-3-5-sonnet-20240620')
         ->withMessages([
-            (new UserMessage('New context'))->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            (new UserMessage('New context'))->withProviderOptions(['cacheType' => 'ephemeral']),
         ])
         ->asText();
 
@@ -233,7 +233,7 @@ describe('Anthropic citations', function (): void {
                     ]
                 )),
             ])
-            ->withProviderOptions(Provider::Anthropic, ['citations' => true]);
+            ->withProviderOptions(['citations' => true]);
 
         $payload = Text::buildHttpRequestPayload($request->toRequest());
 
@@ -270,7 +270,7 @@ describe('Anthropic citations', function (): void {
                     ]
                 )),
             ])
-            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(['citations' => true])
             ->asText();
 
         expect($response->text)->toEqual('According to the text, the grass is green and the sky is blue.');
@@ -310,7 +310,7 @@ describe('Anthropic citations', function (): void {
                     ]
                 )),
             ])
-            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(['citations' => true])
             ->asText();
 
         expect($response->text)->toBe("According to the documents:\nThe grass is green and the sky is blue.");
@@ -350,7 +350,7 @@ describe('Anthropic citations', function (): void {
                     ]
                 )),
             ])
-            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(['citations' => true])
             ->asText();
 
         expect($response->text)->toBe('According to the documents, the grass is green and the sky is blue.');
@@ -383,7 +383,7 @@ describe('Anthropic extended thinking', function (): void {
         $response = Prism::text()
             ->using('anthropic', 'claude-3-7-sonnet-latest')
             ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-            ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+            ->withProviderOptions(['thinking' => ['enabled' => true]])
             ->asText();
 
         $expected_thinking = "This is a reference to Douglas Adams' popular science fiction series \"The Hitchhiker's Guide to the Galaxy\" where the supercomputer Deep Thought was built to calculate \"the Answer to the Ultimate Question of Life, the Universe, and Everything.\" After 7.5 million years of computation, it famously determined the answer to be \"42\" - a deliberately anticlimactic and absurd response that has become a significant pop culture reference.\n\nBeyond the Hitchhiker's reference, the question of life's meaning appears in many works of fiction across different media, with various philosophical approaches.\n\nI should note this humorous 42 reference while also mentioning how other fictional works have approached this philosophical question.";
@@ -402,7 +402,7 @@ describe('Anthropic extended thinking', function (): void {
         $response = Prism::text()
             ->using('anthropic', 'claude-3-7-sonnet-latest')
             ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-            ->withProviderOptions(Provider::Anthropic, [
+            ->withProviderOptions([
                 'thinking' => [
                     'enabled' => true,
                     'budgetTokens' => 2048,
@@ -433,7 +433,7 @@ describe('Anthropic extended thinking', function (): void {
             ->withTools($tools)
             ->withMaxSteps(3)
             ->withPrompt('What time is the tigers game today and should I wear a coat?')
-            ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+            ->withProviderOptions(['thinking' => ['enabled' => true]])
             ->asText();
 
         $expected_thinking = "The user is asking about:\n1. The time of the Tigers game today (likely referring to a sports team, probably Detroit Tigers baseball)\n2. Whether they should wear a coat (which relates to weather conditions)\n\nFor the first question, I need to search for the Tigers game schedule for today. For the second question, I need to check the weather in the relevant location.\n\nHowever, I'm missing some information:\n- The user hasn't specified which Tigers team they're referring to (though Detroit Tigers is most likely)\n- The user hasn't specified their location, which I need for the weather check\n\nI'll need to search for the Tigers game information first, and then check the weather in the appropriate location (likely Detroit if it's a home game).";
@@ -459,7 +459,7 @@ it('includes anthropic beta header if set in config', function (): void {
     Prism::text()
         ->using('anthropic', 'claude-3-7-sonnet-latest')
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-        ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+        ->withProviderOptions(['thinking' => ['enabled' => true]])
         ->asText();
 
     Http::assertSent(fn (Request $request) => $request->hasHeader('anthropic-beta', 'beta1,beta2'));

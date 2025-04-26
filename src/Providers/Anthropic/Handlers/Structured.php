@@ -6,7 +6,6 @@ namespace Prism\Prism\Providers\Anthropic\Handlers;
 
 use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\PrismRequest;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -79,13 +78,13 @@ class Structured extends AnthropicHandlerAbstract
 
         return array_filter([
             'model' => $request->model(),
-            'messages' => MessageMap::map($request->messages(), $request->providerOptions(Provider::Anthropic)),
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
-            'thinking' => $request->providerOptions(Provider::Anthropic, 'thinking.enabled') === true
+            'thinking' => $request->providerOptions('thinking.enabled') === true
             ? [
                 'type' => 'enabled',
-                'budget_tokens' => is_int($request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens'))
-                    ? $request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens')
+                'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
+                    ? $request->providerOptions('thinking.budgetTokens')
                     : config('prism.anthropic.default_thinking_budget', 1024),
             ]
             : null,
@@ -128,7 +127,7 @@ class Structured extends AnthropicHandlerAbstract
         $this->request->addMessage(new UserMessage(sprintf(
             "Respond with ONLY JSON (i.e. not in backticks or a code block, with NO CONTENT outside the JSON) that matches the following schema: \n %s %s",
             json_encode($this->request->schema()->toArray(), JSON_PRETTY_PRINT),
-            ($this->request->providerOptions(Provider::Anthropic)['citations'] ?? false)
+            ($this->request->providerOptions()['citations'] ?? false)
                 ? "\n\n Return the JSON as a single text block with a single set of citations."
                 : ''
         )));

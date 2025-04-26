@@ -34,14 +34,14 @@ Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withMessages([
         (new SystemMessage('I am a long re-usable system message.'))
-            ->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            ->withProviderOptions(['cacheType' => 'ephemeral']),
 
         (new UserMessage('I am a long re-usable user message.'))
-            ->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral'])
+            ->withProviderOptions(['cacheType' => 'ephemeral'])
     ])
     ->withTools([
         Tool::as('cache me')
-            ->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral'])
+            ->withProviderOptions(['cacheType' => 'ephemeral'])
     ])
     ->asText();
 ```
@@ -54,7 +54,7 @@ use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 
-(new UserMessage('I am a long re-usable user message.'))->withProviderOptions(Provider::Anthropic, ['cacheType' => AnthropicCacheType::ephemeral])
+(new UserMessage('I am a long re-usable user message.'))->withProviderOptions(['cacheType' => AnthropicCacheType::ephemeral])
 ```
 Note that you must use the `withMessages()` method in order to enable prompt caching, rather than `withPrompt()` or `withSystemPrompt()`.
 
@@ -75,7 +75,7 @@ Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     // enable thinking
-    ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
+    ->withProviderOptions(['thinking' => ['enabled' => true']]) 
     ->asText();
 ```
 By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
@@ -90,7 +90,7 @@ Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     // Enable thinking and set a budget
-    ->withProviderOptions(Provider::Anthropic, [
+    ->withProviderOptions([
         'thinking' => [
             'enabled' => true, 
             'budgetTokens' => 2048
@@ -116,7 +116,7 @@ use Prism\Prism\Prism;
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-    ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]]) 
+    ->withProviderOptions(['thinking' => ['enabled' => true']]) 
     ->asText();
 
 $response->additionalContent['thinking'];
@@ -132,7 +132,7 @@ $response = Prism::text()
     ->withTools($tools)
     ->withMaxSteps(3)
     ->withPrompt('What time is the tigers game today and should I wear a coat?')
-    ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+    ->withProviderOptions(['thinking' => ['enabled' => true]])
     ->asText();
 
 $response->steps->first()->additionalContent->thinking;
@@ -205,7 +205,7 @@ $response = Prism::text()
             ]
         )
     ])
-    ->withProviderOptions(Provider::Anthropic, ['citations' => true])
+    ->withProviderOptions(['citations' => true])
     ->asText();
 ```
 

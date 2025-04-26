@@ -9,7 +9,6 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
@@ -76,7 +75,7 @@ class Text
     protected function sendRequest(Request $request): ClientResponse
     {
         try {
-            $providerOptions = $request->providerOptions(Provider::Gemini);
+            $providerOptions = $request->providerOptions();
 
             $generationConfig = array_filter([
                 'temperature' => $request->temperature(),
@@ -154,7 +153,7 @@ class Text
      */
     protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
     {
-        $providerOptions = $request->providerOptions(Provider::Gemini);
+        $providerOptions = $request->providerOptions();
 
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'candidates.0.content.parts.0.text') ?? '',

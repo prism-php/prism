@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Maps;
 
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool as PrismTool;
 use UnitEnum;
 
@@ -17,7 +16,7 @@ class ToolMap
     public static function map(array $tools): array
     {
         return array_map(function (PrismTool $tool): array {
-            $cacheType = $tool->providerOptions(Provider::Anthropic, 'cacheType');
+            $cacheType = $tool->providerOptions('cacheType');
 
             return array_filter([
                 'name' => $tool->name(),

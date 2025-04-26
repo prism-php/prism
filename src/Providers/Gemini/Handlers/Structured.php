@@ -3,7 +3,6 @@
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
@@ -52,7 +51,7 @@ class Structured
     public function sendRequest(Request $request): array
     {
         try {
-            $providerOptions = $request->providerOptions(Provider::Gemini);
+            $providerOptions = $request->providerOptions();
 
             $response = $this->client->post(
                 "{$request->model()}:generateContent",

@@ -20,7 +20,7 @@ $response = Prism::text()
     ->using(Provider::Gemini, 'gemini-2.0-flash')
     ->withPrompt('What is the stock price of Google right now?')
     // Enable search grounding
-    ->withProviderOptions(Provider::Gemini, ['searchGrounding' => true])
+    ->withProviderOptions(['searchGrounding' => true])
     ->generate();
 ```
 

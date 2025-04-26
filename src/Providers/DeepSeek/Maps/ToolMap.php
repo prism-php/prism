@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\DeepSeek\Maps;
 
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
 class ToolMap
@@ -26,7 +25,7 @@ class ToolMap
                     'required' => $tool->requiredParameters(),
                 ],
             ],
-            'strict' => $tool->providerOptions(Provider::DeepSeek, 'strict'),
+            'strict' => $tool->providerOptions('strict'),
         ]), $tools);
     }
 }

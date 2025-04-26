@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use InvalidArgumentException;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
@@ -280,7 +279,7 @@ it('maps system messages', function (): void {
 describe('Anthropic cache mapping', function (): void {
     it('sets the cache type on a UserMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::map([
-            (new UserMessage(content: 'Who are you?'))->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]),
+            (new UserMessage(content: 'Who are you?'))->withProviderOptions(['cacheType' => $cacheType]),
         ]))->toBe([[
             'role' => 'user',
             'content' => [
@@ -301,7 +300,7 @@ describe('Anthropic cache mapping', function (): void {
             (new UserMessage(
                 content: 'Who are you?',
                 additionalContent: [Image::fromPath('tests/Fixtures/test-image.png')]
-            ))->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            ))->withProviderOptions(['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
             'content' => [
@@ -328,7 +327,7 @@ describe('Anthropic cache mapping', function (): void {
             (new UserMessage(
                 content: 'Who are you?',
                 additionalContent: [Document::fromPath('tests/Fixtures/test-pdf.pdf')]
-            ))->withProviderOptions(Provider::Anthropic, ['cacheType' => 'ephemeral']),
+            ))->withProviderOptions(['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
             'content' => [
@@ -352,7 +351,7 @@ describe('Anthropic cache mapping', function (): void {
 
     it('sets the cache type on an AssistantMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::map([
-            (new AssistantMessage(content: 'Who are you?'))->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]),
+            (new AssistantMessage(content: 'Who are you?'))->withProviderOptions(['cacheType' => $cacheType]),
         ]))->toBe([[
             'role' => 'assistant',
             'content' => [
@@ -370,7 +369,7 @@ describe('Anthropic cache mapping', function (): void {
 
     it('sets the cache type on a SystemMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::mapSystemMessages([
-            (new SystemMessage(content: 'Who are you?'))->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]),
+            (new SystemMessage(content: 'Who are you?'))->withProviderOptions(['cacheType' => $cacheType]),
         ]))->toBe([
             [
                 'type' => 'text',
@@ -390,7 +389,7 @@ describe('Anthropic citation mapping', function (): void {
             (new UserMessage(
                 content: 'What color is the grass and sky?',
                 additionalContent: [
-                    Document::fromText('The grass is green. The sky is blue.')->withProviderOptions(Provider::Anthropic, ['citations' => true]),
+                    Document::fromText('The grass is green. The sky is blue.')->withProviderOptions(['citations' => true]),
                 ]
             )),
         ]))->toBe([[
@@ -496,7 +495,7 @@ describe('Anthropic citation mapping', function (): void {
             (new UserMessage(
                 content: 'What color is the grass and sky?',
                 additionalContent: [
-                    Document::fromChunks(['chunk1', 'chunk2'])->withProviderOptions(Provider::Anthropic, ['citations' => true]),
+                    Document::fromChunks(['chunk1', 'chunk2'])->withProviderOptions(['citations' => true]),
                 ]
             )),
         ]))->toBe([[

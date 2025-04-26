@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Contracts;
 
-use Prism\Prism\Enums\Provider;
-
 interface PrismRequest
 {
     /**
@@ -16,9 +14,9 @@ interface PrismRequest
     public function model(): string;
 
     /**
-     * @param  array<string, mixed>  $meta
+     * @param  array<string, mixed>  $options
      */
-    public function withProviderOptions(string|Provider $provider, array $meta): self;
+    public function withProviderOptions(array $options = []): self;
 
-    public function providerOptions(string|Provider $provider, ?string $valuePath = null): mixed;
+    public function providerOptions(?string $valuePath = null): mixed;
 }

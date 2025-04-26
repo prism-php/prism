@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolMap;
 use Prism\Prism\Tool;
 
@@ -33,7 +32,7 @@ it('maps tools with strict mode', function (): void {
         ->for('Searching the web')
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]')
-        ->withProviderOptions(Provider::DeepSeek, [
+        ->withProviderOptions([
             'strict' => true,
         ]);
 

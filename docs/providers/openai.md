@@ -19,7 +19,7 @@ Tool::as('search') // [!code focus]
     ->for('Searching the web')
     ->withStringParameter('query', 'the detailed search query')
     ->using(fn (): string => '[Search results]')
-    ->withProviderOptions(Provider::OpenAI, [ // [!code focus]
+    ->withProviderOptions([ // [!code focus]
       'strict' => true, // [!code focus]
     ]); // [!code focus]
 ```
@@ -28,7 +28,7 @@ Tool::as('search') // [!code focus]
 
 ```php
 $response = Prism::structured()
-    ->withProviderOptions(Provider::OpenAI, [ // [!code focus]
+    ->withProviderOptions([ // [!code focus]
         'schema' => [ // [!code focus]
             'strict' => true // [!code focus]
         ] // [!code focus]

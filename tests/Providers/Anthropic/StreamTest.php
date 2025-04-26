@@ -160,7 +160,7 @@ describe('citations', function (): void {
 
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(['citations' => true])
             ->withMessages([
                 (new UserMessage(
                     content: 'What color is the grass and sky?',
@@ -199,7 +199,7 @@ describe('citations', function (): void {
 
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withProviderOptions(Provider::Anthropic, ['citations' => true])
+            ->withProviderOptions(['citations' => true])
             ->withMessages([
                 (new UserMessage(
                     content: 'What color is the grass and sky?',
@@ -232,7 +232,7 @@ describe('thinking', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withPrompt('What is the meaning of life?')
-            ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+            ->withProviderOptions(['thinking' => ['enabled' => true]])
             ->asStream();
 
         $chunks = [];
@@ -269,7 +269,7 @@ describe('thinking', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withPrompt('What is the meaning of life?')
-            ->withProviderOptions(Provider::Anthropic, ['thinking' => ['enabled' => true]])
+            ->withProviderOptions(['thinking' => ['enabled' => true]])
             ->asStream();
 
         $chunks = [];
@@ -292,7 +292,7 @@ describe('thinking', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withPrompt('What is the meaning of life?')
-            ->withProviderOptions(Provider::Anthropic, [
+            ->withProviderOptions([
                 'thinking' => [
                     'enabled' => true,
                     'budgetTokens' => $customBudget,

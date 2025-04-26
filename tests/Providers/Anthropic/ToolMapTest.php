@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
 use Prism\Prism\Tool;
@@ -38,7 +37,7 @@ it('sets the cache typeif cacheType providerOptions is set on tool', function (m
         ->for('Searching the web')
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]')
-        ->withProviderOptions(Provider::Anthropic, ['cacheType' => $cacheType]);
+        ->withProviderOptions(['cacheType' => $cacheType]);
 
     expect(ToolMap::map([$tool]))->toBe([[
         'name' => 'search',

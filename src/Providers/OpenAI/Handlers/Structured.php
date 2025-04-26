@@ -4,7 +4,6 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
@@ -134,7 +133,7 @@ class Structured
             'json_schema' => array_filter([
                 'name' => $request->schema()->name(),
                 'schema' => $request->schema()->toArray(),
-                'strict' => (bool) $request->providerOptions(Provider::OpenAI, 'schema.strict'),
+                'strict' => (bool) $request->providerOptions('schema.strict'),
             ]),
         ]);
     }

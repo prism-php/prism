@@ -58,7 +58,7 @@ use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
-    ->withProviderOptions(Provider::OpenAI, [
+    ->withProviderOptions([
         'schema' => [
             'strict' => true
         ]

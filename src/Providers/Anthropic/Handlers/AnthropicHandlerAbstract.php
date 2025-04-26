@@ -8,7 +8,6 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\PrismRequest;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
@@ -91,7 +90,7 @@ abstract class AnthropicHandlerAbstract
      */
     protected function extractThinking(array $data): array
     {
-        if ($this->request->providerOptions(Provider::Anthropic, 'thinking.enabled') !== true) {
+        if ($this->request->providerOptions('thinking.enabled') !== true) {
             return [];
         }
 

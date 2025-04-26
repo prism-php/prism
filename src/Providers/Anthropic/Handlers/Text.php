@@ -8,7 +8,6 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
@@ -85,12 +84,12 @@ class Text extends AnthropicHandlerAbstract
         return array_filter([
             'model' => $request->model(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
-            'messages' => MessageMap::map($request->messages(), $request->providerOptions(Provider::Anthropic)),
-            'thinking' => $request->providerOptions(Provider::Anthropic, 'thinking.enabled') === true
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
+            'thinking' => $request->providerOptions('thinking.enabled') === true
                 ? [
                     'type' => 'enabled',
-                    'budget_tokens' => is_int($request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens'))
-                        ? $request->providerOptions(Provider::Anthropic, 'thinking.budgetTokens')
+                    'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
+                        ? $request->providerOptions('thinking.budgetTokens')
                         : config('prism.anthropic.default_thinking_budget', 1024),
                 ]
                 : null,
