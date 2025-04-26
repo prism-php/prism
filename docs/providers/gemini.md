@@ -76,7 +76,7 @@ foreach ($response->additionalContent['groundingSupports'] as $part) {
 
 ## Embeddings
 
-You can customize your Gemini embeddings request with additional parameters using `->withProviderMeta()`.
+You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
 
 ### Title
 
@@ -89,7 +89,7 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::Gemini, 'text-embedding-004')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderMeta(['title' => 'Restaurant Review'])
+    ->withProviderOptions(['title' => 'Restaurant Review'])
     ->asEmbeddings();
 ```
 
@@ -104,7 +104,7 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::Gemini, 'text-embedding-004')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderMeta(['taskType' => 'RETRIEVAL_QUERY'])
+    ->withProviderOptions(['taskType' => 'RETRIEVAL_QUERY'])
     ->asEmbeddings();
 ```
 [Available task types](https://ai.google.dev/api/embeddings#tasktype)
@@ -120,6 +120,6 @@ use Prism\Prism\Prism;
 Prism::embeddings()
     ->using(Provider::Gemini, 'text-embedding-004')
     ->fromInput('The food was delicious and the waiter...')
-    ->withProviderMeta(['outputDimensionality' => 768])
+    ->withProviderOptions(['outputDimensionality' => 768])
     ->asEmbeddings();
 ```

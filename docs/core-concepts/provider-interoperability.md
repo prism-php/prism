@@ -13,14 +13,14 @@ $response = Prism::text()
     ->whenProvider(
         Provider::Anthropic,
         fn ($request) => $request
-            ->withProviderMeta('anthropic', [
+            ->withProviderOptions('anthropic', [
                 'cacheType' => 'ephemeral',
             ])
     )
     ->asText();
 ```
 
-In this example, the `withProviderMeta` settings will only be applied when using Anthropic's provider. If you're using OpenAI (as specified in the `using` method), these customizations are simply skipped.
+In this example, the `withProviderOptions` settings will only be applied when using Anthropic's provider. If you're using OpenAI (as specified in the `using` method), these customizations are simply skipped.
 
 ## Key Benefits
 
@@ -40,13 +40,13 @@ $response = Prism::text()
         Provider::Anthropic,
         fn ($request) => $request
             ->withMaxTokens(4000)
-            ->withProviderMeta('anthropic', ['cacheType' => 'ephemeral'])
+            ->withProviderOptions('anthropic', ['cacheType' => 'ephemeral'])
     )
     ->whenProvider(
         Provider::OpenAI,
         fn ($request) => $request
             ->withMaxTokens(2000)
-            ->withProviderMeta('openai', ['response_format' => ['type' => 'text']])
+            ->withProviderOptions('openai', ['response_format' => ['type' => 'text']])
     )
     ->asText();
 ```
@@ -62,7 +62,7 @@ class AnthropicConfigurator
     {
         return $request
             ->withMaxTokens(4000)
-            ->withProviderMeta('anthropic', [
+            ->withProviderOptions('anthropic', [
                 'cacheType' => 'ephemeral',
                 'citations' => true,
             ]);

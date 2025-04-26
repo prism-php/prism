@@ -62,7 +62,7 @@ it('returns embeddings with provider meta options', function (): void {
 
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
-        ->withProviderMeta(Provider::Gemini, [
+        ->withProviderOptions([
             'title' => 'Test Embedding',
             'taskType' => 'RETRIEVAL_QUERY',
             'outputDimensionality' => 128,
@@ -83,7 +83,7 @@ it('returns embeddings with title specified', function (): void {
 
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
-        ->withProviderMeta(Provider::Gemini, ['title' => 'Test Embedding'])
+        ->withProviderOptions(['title' => 'Test Embedding'])
         ->fromInput('Embed this sentence.')
         ->asEmbeddings();
 
@@ -100,7 +100,7 @@ it('returns embeddings with task type specified', function (): void {
 
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
-        ->withProviderMeta(Provider::Gemini, ['taskType' => 'RETRIEVAL_DOCUMENT'])
+        ->withProviderOptions(['taskType' => 'RETRIEVAL_DOCUMENT'])
         ->fromInput('Embed this sentence.')
         ->asEmbeddings();
 
@@ -117,7 +117,7 @@ it('returns embeddings with output dimensionality specified', function (): void 
 
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
-        ->withProviderMeta(Provider::Gemini, ['outputDimensionality' => 256])
+        ->withProviderOptions(['outputDimensionality' => 256])
         ->fromInput('Embed this sentence.')
         ->asEmbeddings();
 
