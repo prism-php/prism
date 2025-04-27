@@ -202,7 +202,7 @@ export default defineConfig({
               },
               {
                 text: "Provider Interoperability",
-                link: "/core-concepts/provider-interoperability",
+                link: "/advanced/provider-interoperability",
               },
             ],
           },
