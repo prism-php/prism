@@ -12,9 +12,10 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Testing\Concerns\CanGenerateFakeChunksFromTextResponses;
+use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
@@ -23,6 +24,8 @@ use Prism\Prism\ValueObjects\Usage;
 
 class PrismFake implements Provider
 {
+    use CanGenerateFakeChunksFromTextResponses;
+
     protected int $responseSequence = 0;
 
     /** @var array<int, StructuredRequest|TextRequest|EmbeddingRequest> */
@@ -84,10 +87,40 @@ class PrismFake implements Provider
         );
     }
 
+    /**
+     * Fake implementation of the streaming endpoint.
+     *
+     * Behavior:
+     *  1. Records the incoming {@link TextRequest}
+     *  2. Pulls the next fixture from the list supplied to {@see \Prism\Prism\Prism::fake()}.
+     *  3. Yields an appropriate chunk stream.
+     *
+     * Supported fixture type:
+     *  • {@link TextResponse} – auto-chunked into a stream.
+     *
+     * @return Generator<Chunk>
+     *
+     * @throws Exception if the fixture type is unknown or no fixture remains.
+     */
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+        $this->recorded[] = $request;
+
+        $fixture = $this->nextTextResponse() ?? new TextResponse(
+            steps: collect([]),
+            responseMessages: collect([]),
+            text: '',
+            finishReason: FinishReason::Stop,
+            toolCalls: [],
+            toolResults: [],
+            usage: new Usage(0, 0),
+            meta: new Meta('fake', 'fake'),
+            messages: collect([]),
+            additionalContent: [],
+        );
+
+        yield from $this->chunksFromTextResponse($fixture);
     }
 
     /**

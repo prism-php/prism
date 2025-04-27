@@ -17,11 +17,15 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\EmbeddingsResponseFake;
 use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Testing\TextStepFake;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 it('fake responses using the prism fake for text', function (): void {
@@ -128,6 +132,104 @@ it('can consume the fake text responses', function (): void {
         ->asText();
 
     expect($text->text)->toBe('fake response text');
+});
+
+it('can consume the fake text stream responses', function (): void {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('fake response text'),
+    ]);
+
+    $text = Prism::text()
+        ->using('anthropic', 'claude-3-sonnet')
+        ->withPrompt('What is the meaning of life?')
+        ->asStream();
+
+    $outputText = '';
+    $toolCalls = [];
+    $toolResults = [];
+    foreach ($text as $chunk) {
+        $outputText .= $chunk->text;
+
+        // Check for tool calls
+        if ($chunk->toolCalls) {
+            foreach ($chunk->toolCalls as $call) {
+                $toolCalls[] = $call;
+            }
+        }
+
+        // Check for tool results
+        if ($chunk->toolResults) {
+            foreach ($chunk->toolResults as $result) {
+                $toolResults[] = $result;
+            }
+        }
+    }
+
+    expect($outputText)->toBe('fake response text')
+        ->and($toolCalls)->toBeEmpty()
+        ->and($toolResults)->toBeEmpty();
+});
+
+it('can consume the fake text response builder responses when streaming', function (): void {
+    Prism::fake([
+        (new ResponseBuilder)->addStep(
+            TextStepFake::make()
+                ->withToolCalls(
+                    [
+                        new ToolCall('id-123', 'tool', ['input' => 'value']),
+                    ]
+                ))
+            ->addStep(
+                TextStepFake::make()
+                    ->withToolResults(
+                        [
+                            new ToolResult('id-123', 'tool', ['result' => 'value'], 'result'),
+                        ]
+                    )
+            )
+            ->addStep(TextStepFake::make()
+                ->withText('fake response text')
+            )->toResponse(),
+    ]);
+
+    $text = Prism::text()
+        ->using('anthropic', 'claude-3-sonnet')
+        ->withPrompt('What is the meaning of life?')
+        ->asStream();
+
+    $outputText = '';
+    $toolCalls = [];
+    $toolResults = [];
+    foreach ($text as $chunk) {
+        $outputText .= $chunk->text;
+
+        // Check for tool calls
+        if ($chunk->toolCalls) {
+            foreach ($chunk->toolCalls as $call) {
+                $toolCalls[] = $call;
+            }
+        }
+
+        // Check for tool results
+        if ($chunk->toolResults) {
+            foreach ($chunk->toolResults as $result) {
+                $toolResults[] = $result;
+            }
+        }
+    }
+
+    expect($outputText)->toBe('fake response text')
+        ->and($toolCalls)->toHaveCount(1)
+        ->and($toolCalls[0])->toBeInstanceOf(ToolCall::class)
+        ->and($toolCalls[0]->id)->toBe('id-123')
+        ->and($toolCalls[0]->name)->toBe('tool')
+        ->and($toolResults)->toHaveCount(1)
+        ->and($toolResults[0])->toBeInstanceOf(ToolResult::class)
+        ->and($toolResults[0]->toolCallId)->toBe('id-123')
+        ->and($toolResults[0]->toolName)->toBe('tool')
+        ->and($toolResults[0]->args)->toBe(['result' => 'value'])
+        ->and($toolResults[0]->result)->toBe('result');
 });
 
 it('can consume the fake structured text response', function (): void {
