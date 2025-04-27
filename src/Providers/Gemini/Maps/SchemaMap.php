@@ -29,7 +29,8 @@ class SchemaMap
             'items' => property_exists($this->schema, 'items') ?
                 (new self($this->schema->items))->toArray() :
                 null,
-            'properties' => property_exists($this->schema, 'properties') ?
+            // Only include 'properties' field for ObjectSchema
+            'properties' => $this->schema instanceof ObjectSchema && property_exists($this->schema, 'properties') ?
                 array_reduce($this->schema->properties, fn (array $carry, Schema $property) => [
                     ...$carry,
                     $property->name() => (new self($property))->toArray(),
