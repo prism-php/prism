@@ -2,7 +2,6 @@
 
 namespace Tests\Http;
 
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Mockery;
@@ -16,11 +15,14 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
+use function Pest\Laravel\freezeTime;
+
 beforeEach(function (): void {
     config()->set('prism.prism_server.enabled', true);
 });
 
 it('handles chat requests successfully', function (): void {
+    freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
@@ -61,13 +63,10 @@ it('handles chat requests successfully', function (): void {
 
     $response->assertOk();
 
-    $now = now();
-
-    Carbon::setTestNow($now);
     expect($response->json())->toBe([
         'id' => 'cmp_asdf123',
         'object' => 'chat.completion',
-        'created' => $now->timestamp,
+        'created' => now()->timestamp,
         'model' => 'gpt-4',
         'usage' => [
             'prompt_tokens' => $textResponse->usage->promptTokens,
@@ -89,6 +88,7 @@ it('handles chat requests successfully', function (): void {
 });
 
 it('handles streaming requests', function (): void {
+    freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
@@ -126,13 +126,10 @@ it('handles streaming requests', function (): void {
 
     $data = Str::of($streamParts[0])->substr(6);
 
-    $now = now();
-    Carbon::setTestNow($now);
-
     expect(json_decode($data, true))->toBe([
         'id' => 'cmp_asdf123',
         'object' => 'chat.completion.chunk',
-        'created' => $now->timestamp,
+        'created' => now()->timestamp,
         'model' => 'gpt-4',
         'choices' => [
             [
