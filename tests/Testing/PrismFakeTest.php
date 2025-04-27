@@ -173,13 +173,15 @@ it('can consume the fake text stream responses', function (): void {
 
 it('can consume the fake text response builder responses when streaming', function (): void {
     Prism::fake([
-        (new ResponseBuilder)->addStep(
-            TextStepFake::make()
-                ->withToolCalls(
-                    [
-                        new ToolCall('id-123', 'tool', ['input' => 'value']),
-                    ]
-                ))
+        (new ResponseBuilder)
+            ->addStep(
+                TextStepFake::make()
+                    ->withToolCalls(
+                        [
+                            new ToolCall('id-123', 'tool', ['input' => 'value']),
+                        ]
+                    )
+            )
             ->addStep(
                 TextStepFake::make()
                     ->withToolResults(
@@ -188,8 +190,9 @@ it('can consume the fake text response builder responses when streaming', functi
                         ]
                     )
             )
-            ->addStep(TextStepFake::make()
-                ->withText('fake response text')
+            ->addStep(
+                TextStepFake::make()
+                    ->withText('fake response text')
             )->toResponse(),
     ]);
 
