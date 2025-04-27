@@ -111,7 +111,7 @@ class Structured
     protected function appendMessageForJsonMode(Request $request): Request
     {
         return $request->addMessage(new SystemMessage(sprintf(
-            "Respond with JSON that matches the following schema: \n %s",
+            "You MUST respond EXCLUSIVELY with a JSON object that strictly adheres to the following schema. \n Do NOT explain or add other content. Validate your response against this schema \n %s",
             json_encode($request->schema()->toArray(), JSON_PRETTY_PRINT)
         )));
     }
