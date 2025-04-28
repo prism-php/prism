@@ -64,6 +64,9 @@ class Structured
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
+						'thinkingConfig' => array_filter([
+							'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+						]),
                     ]),
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])

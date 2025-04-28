@@ -81,6 +81,9 @@ class Text
                 'temperature' => $request->temperature(),
                 'topP' => $request->topP(),
                 'maxOutputTokens' => $request->maxTokens(),
+				'thinkingConfig' => array_filter([
+					'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+				]),
             ]);
 
             if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
