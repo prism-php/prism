@@ -243,8 +243,10 @@ class Stream
                             'topP' => $request->topP(),
                             'maxOutputTokens' => $request->maxTokens(),
 							'thinkingConfig' => array_filter([
-								'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-							]),
+								'thinkingBudget' => array_key_exists('thinkingBudget', $providerOptions)
+									? $providerOptions['thinkingBudget']
+									: null,
+							], fn($v) => $v !== null),
                         ]),
                         'tools' => $tools !== [] ? $tools : null,
                         'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,

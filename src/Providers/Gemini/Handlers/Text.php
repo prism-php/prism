@@ -82,8 +82,10 @@ class Text
                 'topP' => $request->topP(),
                 'maxOutputTokens' => $request->maxTokens(),
 				'thinkingConfig' => array_filter([
-					'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-				]),
+					'thinkingBudget' => array_key_exists('thinkingBudget', $providerOptions)
+						? $providerOptions['thinkingBudget']
+						: null,
+				], fn($v) => $v !== null),
             ]);
 
             if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
