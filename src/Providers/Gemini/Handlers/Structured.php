@@ -106,8 +106,9 @@ class Structured
                     data_get($data, 'candidates.0.finishReason'),
                 ),
                 usage: new Usage(
-                    data_get($data, 'usageMetadata.promptTokenCount', 0),
-                    data_get($data, 'usageMetadata.candidatesTokenCount', 0)
+                    promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+					completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+					thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

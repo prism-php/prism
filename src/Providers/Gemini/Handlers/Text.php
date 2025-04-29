@@ -169,6 +169,7 @@ class Text
                     : data_get($data, 'usageMetadata.promptTokenCount', 0),
                 completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
                 cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
+				thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
             ),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
