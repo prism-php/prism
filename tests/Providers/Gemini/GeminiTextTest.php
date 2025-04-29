@@ -443,7 +443,7 @@ describe('Cache support for Gemini', function (): void {
 });
 
 describe('Thinking Mode for Gemini', function (): void {
-	it('uses thought tokens on 2.5 series models', function (): void {
+	it('uses thought tokens on 2.5 series models by default without specifying a budget', function (): void {
 		FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
 
 		$response = Prism::text()
@@ -452,6 +452,14 @@ describe('Thinking Mode for Gemini', function (): void {
 			->asText();
 
 		expect($response->usage->thoughtTokens)->toBe(1209);
+
+		Http::assertSent(function (Request $request) {
+			$data = $request->data();
+
+			expect($data['generationConfig'])->not->toHaveKey('thinkingConfig');
+
+			return true;
+		});
 
 	});
 
@@ -465,6 +473,17 @@ describe('Thinking Mode for Gemini', function (): void {
 			->asText();
 
 		expect($response->usage->thoughtTokens)->toBeNull();
+
+		Http::assertSent(function (Request $request) {
+			$data = $request->data();
+
+			expect($data['generationConfig'])->toHaveKey('thinkingConfig')
+				->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
+					'thinkingBudget' => 0,
+				]);
+
+			return true;
+		});
 
 	});
 });
