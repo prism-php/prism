@@ -12,6 +12,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
 use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
+use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
@@ -439,4 +440,31 @@ describe('Cache support for Gemini', function (): void {
         expect($response->usage->completionTokens)->toBe(116);
         expect($response->usage->cacheReadInputTokens)->toBe(88759);
     });
+});
+
+describe('Thinking Mode for Gemini', function (): void {
+	it('uses thought tokens on 2.5 series models', function (): void {
+		FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
+
+		$response = Prism::text()
+			->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+			->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+			->asText();
+
+		expect($response->usage->thoughtTokens)->toBe(1209);
+
+	});
+
+	it('sets thinking budget to 0', function (): void {
+		FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-no-thinking-budget');
+
+		$response = Prism::text()
+			->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+			->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+			->withProviderOptions(['thinkingBudget' => 0])
+			->asText();
+
+		expect($response->usage->thoughtTokens)->toBeNull();
+
+	});
 });
