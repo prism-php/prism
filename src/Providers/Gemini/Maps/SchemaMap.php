@@ -44,12 +44,19 @@ class SchemaMap
 
     protected function mapType(): string
     {
-        return match ($this->schema::class) {
-            ArraySchema::class => 'array',
-            BooleanSchema::class => 'boolean',
-            NumberSchema::class => 'number',
-            ObjectSchema::class => 'object',
-            default => 'string',
-        };
+        if ($this->schema instanceof ArraySchema) {
+            return 'array';
+        }
+        if ($this->schema instanceof BooleanSchema) {
+            return 'boolean';
+        }
+        if ($this->schema instanceof NumberSchema) {
+            return 'number';
+        }
+        if ($this->schema instanceof ObjectSchema) {
+            return 'object';
+        }
+
+        return 'string';
     }
 }
