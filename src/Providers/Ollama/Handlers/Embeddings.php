@@ -51,6 +51,7 @@ class Embeddings
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
+                'options' => array_filter($request->providerOptions()),
             ]
         );
     }
