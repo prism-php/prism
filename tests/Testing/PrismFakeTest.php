@@ -28,246 +28,316 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
-it('fake responses using the prism fake for text', function (): void {
-    $fake = Prism::fake([
-        new TextResponse(
-            text: 'The meaning of life is 42',
-            steps: collect([]),
-            responseMessages: collect([]),
-            messages: collect([]),
-            toolCalls: [],
-            toolResults: [],
-            usage: new Usage(42, 42),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('cpl_1234', 'claude-3-sonnet')
-        ),
-    ]);
+describe('fake text, structured, and embedding responses', function (): void {
+    it('fake responses using the prism fake for text', function (): void {
+        $fake = Prism::fake([
+            new TextResponse(
+                text: 'The meaning of life is 42',
+                steps: collect([]),
+                responseMessages: collect([]),
+                messages: collect([]),
+                toolCalls: [],
+                toolResults: [],
+                usage: new Usage(42, 42),
+                finishReason: FinishReason::Stop,
+                meta: new Meta('cpl_1234', 'claude-3-sonnet')
+            ),
+        ]);
 
-    Prism::text()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withPrompt('What is the meaning of life?')
-        ->asText();
+        Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asText();
 
-    $fake->assertCallCount(1);
-    $fake->assertPrompt('What is the meaning of life?');
-    $fake->assertRequest(function (array $requests): void {
-        expect($requests)->toHaveCount(1);
-        expect($requests[0])->toBeInstanceOf(TextRequest::class);
+        $fake->assertCallCount(1);
+        $fake->assertPrompt('What is the meaning of life?');
+        $fake->assertRequest(function (array $requests): void {
+            expect($requests)->toHaveCount(1);
+            expect($requests[0])->toBeInstanceOf(TextRequest::class);
+        });
     });
-});
 
-it('fake responses using the prism fake for structured', function (): void {
-    $fake = Prism::fake([
-        new StructuredResponse(
-            steps: collect([]),
-            text: json_encode(['foo' => 'bar']),
-            responseMessages: collect([]),
-            structured: ['foo' => 'bar'],
-            usage: new Usage(42, 42),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('cpl_1234', 'claude-3-sonnet'),
-            additionalContent: [],
-        ),
-    ]);
+    it('fake responses using the prism fake for structured', function (): void {
+        $fake = Prism::fake([
+            new StructuredResponse(
+                steps: collect([]),
+                text: json_encode(['foo' => 'bar']),
+                responseMessages: collect([]),
+                structured: ['foo' => 'bar'],
+                usage: new Usage(42, 42),
+                finishReason: FinishReason::Stop,
+                meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+                additionalContent: [],
+            ),
+        ]);
 
-    Prism::structured()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withPrompt('What is the meaning of life?')
-        ->withSchema(new ObjectSchema(
-            'foo',
-            'foo schema',
-            [
-                new StringSchema('foo', 'foo value'),
-            ]
-        ))
-        ->asStructured();
+        Prism::structured()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->withSchema(new ObjectSchema(
+                'foo',
+                'foo schema',
+                [
+                    new StringSchema('foo', 'foo value'),
+                ]
+            ))
+            ->asStructured();
 
-    $fake->assertCallCount(1);
-    $fake->assertPrompt('What is the meaning of life?');
-    $fake->assertRequest(function (array $requests): void {
-        expect($requests)->toHaveCount(1);
-        expect($requests[0])->toBeInstanceOf(StructuredRequest::class);
+        $fake->assertCallCount(1);
+        $fake->assertPrompt('What is the meaning of life?');
+        $fake->assertRequest(function (array $requests): void {
+            expect($requests)->toHaveCount(1);
+            expect($requests[0])->toBeInstanceOf(StructuredRequest::class);
+        });
     });
-});
 
-it('fake responses using the prism fake for embeddings', function (): void {
-    $fake = Prism::fake([
-        new EmbeddingResponse(
-            embeddings: [
-                Embedding::fromArray([
-                    -0.009639355,
-                    -0.00047589254,
-                    -0.022748338,
-                    -0.005906468,
-                ]),
-            ],
-            usage: new EmbeddingsUsage(100),
-            meta: new Meta(
-                id: 'fake-id',
-                model: 'fake-model'
-            )
-        ),
-    ]);
+    it('fake responses using the prism fake for embeddings', function (): void {
+        $fake = Prism::fake([
+            new EmbeddingResponse(
+                embeddings: [
+                    Embedding::fromArray([
+                        -0.009639355,
+                        -0.00047589254,
+                        -0.022748338,
+                        -0.005906468,
+                    ]),
+                ],
+                usage: new EmbeddingsUsage(100),
+                meta: new Meta(
+                    id: 'fake-id',
+                    model: 'fake-model'
+                )
+            ),
+        ]);
 
-    Prism::embeddings()
-        ->using(Provider::OpenAI, 'text-embedding-ada-002')
-        ->fromInput('What is the meaning of life?')
-        ->asEmbeddings();
+        Prism::embeddings()
+            ->using(Provider::OpenAI, 'text-embedding-ada-002')
+            ->fromInput('What is the meaning of life?')
+            ->asEmbeddings();
 
-    $fake->assertCallCount(1);
-    $fake->assertRequest(function (array $requests): void {
-        expect($requests)->toHaveCount(1);
-        expect($requests[0])->toBeInstanceOf(EmbeddingRequest::class);
+        $fake->assertCallCount(1);
+        $fake->assertRequest(function (array $requests): void {
+            expect($requests)->toHaveCount(1);
+            expect($requests[0])->toBeInstanceOf(EmbeddingRequest::class);
+        });
     });
+
+    it('can consume the fake text responses', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('fake response text'),
+        ]);
+
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asText();
+
+        expect($text->text)->toBe('fake response text');
+    });
+
+    it('can consume the fake structured text response', function (): void {
+        Prism::fake([
+            StructuredResponseFake::make()->withText('{"foo": "bar"}'),
+        ]);
+
+        $structured = Prism::structured()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->withSchema(new ObjectSchema(
+                'foo',
+                'foo schema',
+                [
+                    new StringSchema('foo', 'foo value'),
+                ]
+            ))
+            ->asStructured();
+
+        expect($structured->text)->toBe('{"foo": "bar"}');
+    });
+
+    it('can consume the fake embeddings response', function (): void {
+        Prism::fake([
+            EmbeddingsResponseFake::make()->withEmbeddings([Embedding::fromArray([0.1, 0.2, 0.3])]),
+        ]);
+
+        $embeddings = Prism::embeddings()
+            ->using(Provider::OpenAI, 'text-embedding-ada-002')
+            ->fromInput('What is the meaning of life?')
+            ->asEmbeddings();
+
+        expect($embeddings->embeddings)->toBeArray()
+            ->and($embeddings->embeddings[0])->toBeInstanceOf(Embedding::class)
+            ->and($embeddings->embeddings[0]->embedding)->toBe([0.1, 0.2, 0.3]);
+    });
+
 });
 
-it('can consume the fake text responses', function (): void {
-    Prism::fake([
-        TextResponseFake::make()->withText('fake response text'),
-    ]);
+describe('fake streaming responses', function (): void {
 
-    $text = Prism::text()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withPrompt('What is the meaning of life?')
-        ->asText();
+    it('can consume the fake text stream responses', function (): void {
+        Prism::fake([
+            TextResponseFake::make()
+                ->withText('fake response text'),
+        ]);
 
-    expect($text->text)->toBe('fake response text');
-});
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
 
-it('can consume the fake text stream responses', function (): void {
-    Prism::fake([
-        TextResponseFake::make()
-            ->withText('fake response text'),
-    ]);
+        $outputText = '';
+        $toolCalls = [];
+        $toolResults = [];
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
 
-    $text = Prism::text()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withPrompt('What is the meaning of life?')
-        ->asStream();
+            // Check for tool calls
+            if ($chunk->toolCalls) {
+                foreach ($chunk->toolCalls as $call) {
+                    $toolCalls[] = $call;
+                }
+            }
 
-    $outputText = '';
-    $toolCalls = [];
-    $toolResults = [];
-    foreach ($text as $chunk) {
-        $outputText .= $chunk->text;
-
-        // Check for tool calls
-        if ($chunk->toolCalls) {
-            foreach ($chunk->toolCalls as $call) {
-                $toolCalls[] = $call;
+            // Check for tool results
+            if ($chunk->toolResults) {
+                foreach ($chunk->toolResults as $result) {
+                    $toolResults[] = $result;
+                }
             }
         }
 
-        // Check for tool results
-        if ($chunk->toolResults) {
-            foreach ($chunk->toolResults as $result) {
-                $toolResults[] = $result;
+        expect($outputText)->toBe('fake response text')
+            ->and($toolCalls)->toBeEmpty()
+            ->and($toolResults)->toBeEmpty();
+    });
+
+    it('can consume the fake text response builder responses when streaming', function (): void {
+        Prism::fake([
+            (new ResponseBuilder)
+                ->addStep(
+                    TextStepFake::make()
+                        ->withToolCalls(
+                            [
+                                new ToolCall('id-123', 'tool', ['input' => 'value']),
+                            ]
+                        )
+                )
+                ->addStep(
+                    TextStepFake::make()
+                        ->withToolResults(
+                            [
+                                new ToolResult('id-123', 'tool', ['result' => 'value'], 'result'),
+                            ]
+                        )
+                )
+                ->addStep(
+                    TextStepFake::make()
+                        ->withText('fake response text')
+                )->toResponse(),
+        ]);
+
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
+
+        $outputText = '';
+        $toolCalls = [];
+        $toolResults = [];
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
+
+            // Check for tool calls
+            if ($chunk->toolCalls) {
+                foreach ($chunk->toolCalls as $call) {
+                    $toolCalls[] = $call;
+                }
+            }
+
+            // Check for tool results
+            if ($chunk->toolResults) {
+                foreach ($chunk->toolResults as $result) {
+                    $toolResults[] = $result;
+                }
             }
         }
-    }
 
-    expect($outputText)->toBe('fake response text')
-        ->and($toolCalls)->toBeEmpty()
-        ->and($toolResults)->toBeEmpty();
-});
+        expect($outputText)->toBe('fake response text')
+            ->and($toolCalls)->toHaveCount(1)
+            ->and($toolCalls[0])->toBeInstanceOf(ToolCall::class)
+            ->and($toolCalls[0]->id)->toBe('id-123')
+            ->and($toolCalls[0]->name)->toBe('tool')
+            ->and($toolResults)->toHaveCount(1)
+            ->and($toolResults[0])->toBeInstanceOf(ToolResult::class)
+            ->and($toolResults[0]->toolCallId)->toBe('id-123')
+            ->and($toolResults[0]->toolName)->toBe('tool')
+            ->and($toolResults[0]->args)->toBe(['result' => 'value'])
+            ->and($toolResults[0]->result)->toBe('result');
+    });
 
-it('can consume the fake text response builder responses when streaming', function (): void {
-    Prism::fake([
-        (new ResponseBuilder)
-            ->addStep(
-                TextStepFake::make()
-                    ->withToolCalls(
-                        [
-                            new ToolCall('id-123', 'tool', ['input' => 'value']),
-                        ]
-                    )
-            )
-            ->addStep(
-                TextStepFake::make()
-                    ->withToolResults(
-                        [
-                            new ToolResult('id-123', 'tool', ['result' => 'value'], 'result'),
-                        ]
-                    )
-            )
-            ->addStep(
-                TextStepFake::make()
-                    ->withText('fake response text')
-            )->toResponse(),
-    ]);
+    it('can consume empty text responses when streaming', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText(''),
+        ]);
 
-    $text = Prism::text()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withPrompt('What is the meaning of life?')
-        ->asStream();
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
 
-    $outputText = '';
-    $toolCalls = [];
-    $toolResults = [];
-    foreach ($text as $chunk) {
-        $outputText .= $chunk->text;
-
-        // Check for tool calls
-        if ($chunk->toolCalls) {
-            foreach ($chunk->toolCalls as $call) {
-                $toolCalls[] = $call;
-            }
+        $outputText = '';
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
         }
 
-        // Check for tool results
-        if ($chunk->toolResults) {
-            foreach ($chunk->toolResults as $result) {
-                $toolResults[] = $result;
-            }
+        expect($outputText)->toBe('');
+    });
+
+    it('handles different chunk sizes', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('fake response text'),
+        ])->withFakeChunkSize(1);
+
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
+
+        $outputText = '';
+        $chunks = [];
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
+            $chunks[] = $chunk;
         }
-    }
 
-    expect($outputText)->toBe('fake response text')
-        ->and($toolCalls)->toHaveCount(1)
-        ->and($toolCalls[0])->toBeInstanceOf(ToolCall::class)
-        ->and($toolCalls[0]->id)->toBe('id-123')
-        ->and($toolCalls[0]->name)->toBe('tool')
-        ->and($toolResults)->toHaveCount(1)
-        ->and($toolResults[0])->toBeInstanceOf(ToolResult::class)
-        ->and($toolResults[0]->toolCallId)->toBe('id-123')
-        ->and($toolResults[0]->toolName)->toBe('tool')
-        ->and($toolResults[0]->args)->toBe(['result' => 'value'])
-        ->and($toolResults[0]->result)->toBe('result');
-});
+        expect($outputText)->toBe('fake response text')
+            ->and($chunks)->toHaveCount(19);
+    });
 
-it('can consume the fake structured text response', function (): void {
-    Prism::fake([
-        StructuredResponseFake::make()->withText('{"foo": "bar"}'),
-    ]);
+    it('adds an empty chunk with the finish reason at the end', function (): void {
+        Prism::fake([
+            TextResponseFake::make()
+                ->withText('fake response text')
+                ->withFinishReason(FinishReason::Length),
+        ]);
 
-    $structured = Prism::structured()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withPrompt('What is the meaning of life?')
-        ->withSchema(new ObjectSchema(
-            'foo',
-            'foo schema',
-            [
-                new StringSchema('foo', 'foo value'),
-            ]
-        ))
-        ->asStructured();
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
 
-    expect($structured->text)->toBe('{"foo": "bar"}');
-});
+        $outputText = '';
+        $lastChunk = null;
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
+            $lastChunk = $chunk;
+        }
 
-it('can consume the fake embeddings response', function (): void {
-    Prism::fake([
-        EmbeddingsResponseFake::make()->withEmbeddings([Embedding::fromArray([0.1, 0.2, 0.3])]),
-    ]);
+        expect($outputText)->toBe('fake response text')
+            ->and($lastChunk?->text)->toBe('')
+            ->and($lastChunk?->finishReason)->toBe(FinishReason::Length);
+    });
 
-    $embeddings = Prism::embeddings()
-        ->using(Provider::OpenAI, 'text-embedding-ada-002')
-        ->fromInput('What is the meaning of life?')
-        ->asEmbeddings();
-
-    expect($embeddings->embeddings)->toBeArray()
-        ->and($embeddings->embeddings[0])->toBeInstanceOf(Embedding::class)
-        ->and($embeddings->embeddings[0]->embedding)->toBe([0.1, 0.2, 0.3]);
 });
 
 it("throws an exception when it can't runs out of responses", function (): void {
