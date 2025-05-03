@@ -211,6 +211,28 @@ describe('fake streaming responses', function (): void {
             ->and($toolResults)->toBeEmpty();
     });
 
+    it('has a default chunk size of five', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('fake response text'),
+        ]);
+
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
+
+        $outputText = '';
+        $chunks = [];
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
+            $chunks[] = $chunk;
+        }
+
+        expect($outputText)->toBe('fake response text')
+            // 19 characters -> 3 chunks of 5 + one with 4 characters + 1 empty chunk with finish reason
+            ->and($chunks)->toHaveCount(5);
+    });
+
     it('can consume the fake text response builder responses when streaming', function (): void {
         Prism::fake([
             (new ResponseBuilder)
