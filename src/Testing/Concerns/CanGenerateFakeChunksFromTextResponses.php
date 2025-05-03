@@ -5,13 +5,14 @@ namespace Prism\Prism\Testing\Concerns;
 use Generator;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\Step;
 
 trait CanGenerateFakeChunksFromTextResponses
 {
     /** Default string length used when chunking strings for the fake stream. */
     protected int $fakeChunkSize = 5;
 
-    /** Override the default chunk size used when splitting text. */
+    /** Override the default chunk size used when generating fake chunks. */
     public function withFakeChunkSize(int $chunkSize): self
     {
         $this->fakeChunkSize = max(1, $chunkSize);
@@ -35,30 +36,19 @@ trait CanGenerateFakeChunksFromTextResponses
 
         if ($response->steps->isNotEmpty()) {
             foreach ($response->steps as $step) {
-                // Stream out the textual part of the step.
                 yield from $this->convertStringToTextChunkGenerator($step->text, $fakeChunkSize);
 
-                // Forward tool calls / results as separate chunks (empty text).
-                if ($step->toolCalls) {
-                    yield new Chunk(text: '', toolCalls: $step->toolCalls);
-                }
-                if ($step->toolResults) {
-                    yield new Chunk(text: '', toolResults: $step->toolResults);
+                if ($toolCallsOrResultsChunk = $this->getToolChunkFromStepIfItExists($step)) {
+                    yield $toolCallsOrResultsChunk;
                 }
             }
         } else {
             yield from $this->convertStringToTextChunkGenerator($response->text, $fakeChunkSize);
         }
 
-        // Signal the end of the stream with the original finish reason.
         yield new Chunk(text: '', finishReason: $response->finishReason);
     }
 
-    /**
-     * Split a string into a sequence of {@link Chunk}s of roughly <$size> bytes.
-     *
-     * @return Generator<Chunk>
-     */
     protected function convertStringToTextChunkGenerator(string $text, int $chunkSize): Generator
     {
         $length = strlen($text);
@@ -72,5 +62,18 @@ trait CanGenerateFakeChunksFromTextResponses
 
             yield new Chunk(text: $chunk);
         }
+    }
+
+    private function getToolChunkFromStepIfItExists(Step $step): ?Chunk
+    {
+        if ($step->toolCalls) {
+            return new Chunk(text: '', toolCalls: $step->toolCalls);
+        }
+
+        if ($step->toolResults) {
+            return new Chunk(text: '', toolResults: $step->toolResults);
+        }
+
+        return null;
     }
 }
