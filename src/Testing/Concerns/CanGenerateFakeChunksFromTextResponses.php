@@ -8,13 +8,13 @@ use Prism\Prism\Text\Response as TextResponse;
 
 trait CanGenerateFakeChunksFromTextResponses
 {
-    /** Default byte length used when chunking strings for the fake stream. */
-    protected int $defaultChunkBytes = 5;
+    /** Default string length used when chunking strings for the fake stream. */
+    protected int $fakeChunkSize = 5;
 
     /** Override the default chunk size used when splitting text. */
-    public function withChunkSize(int $bytes): self
+    public function withFakeChunkSize(int $chunkSize): self
     {
-        $this->defaultChunkBytes = max(1, $bytes);
+        $this->fakeChunkSize = max(1, $chunkSize);
 
         return $this;
     }
@@ -31,12 +31,12 @@ trait CanGenerateFakeChunksFromTextResponses
      */
     protected function chunksFromTextResponse(TextResponse $response): Generator
     {
-        $chunkBytes = $this->defaultChunkBytes;
+        $fakeChunkSize = $this->fakeChunkSize;
 
         if ($response->steps->isNotEmpty()) {
             foreach ($response->steps as $step) {
                 // Stream out the textual part of the step.
-                yield from $this->splitTextToTextChunkGenerator($step->text, $chunkBytes);
+                yield from $this->convertStringToTextChunkGenerator($step->text, $fakeChunkSize);
 
                 // Forward tool calls / results as separate chunks (empty text).
                 if ($step->toolCalls) {
@@ -47,7 +47,7 @@ trait CanGenerateFakeChunksFromTextResponses
                 }
             }
         } else {
-            yield from $this->splitTextToTextChunkGenerator($response->text, $chunkBytes);
+            yield from $this->convertStringToTextChunkGenerator($response->text, $fakeChunkSize);
         }
 
         // Signal the end of the stream with the original finish reason.
@@ -59,17 +59,18 @@ trait CanGenerateFakeChunksFromTextResponses
      *
      * @return Generator<Chunk>
      */
-    protected function splitTextToTextChunkGenerator(string $text, int $size): Generator
+    protected function convertStringToTextChunkGenerator(string $text, int $chunkSize): Generator
     {
         $length = strlen($text);
 
-        for ($offset = 0; $offset < $length; $offset += $size) {
-            $piece = substr($text, $offset, $size);
-            if ($piece === '') {
+        for ($offset = 0; $offset < $length; $offset += $chunkSize) {
+            $chunk = mb_substr($text, $offset, $chunkSize);
+
+            if ($chunk === '') {
                 continue;
             }
 
-            yield new Chunk(text: $piece);
+            yield new Chunk(text: $chunk);
         }
     }
 }
