@@ -69,7 +69,7 @@ it('can handle tool calls', function () {
 ## Using the ResponseBuilder
 
 If you need to test a richer response object, e.g. with Steps, you may find it easier to use the `ResponseBuilder` together with the fake Step helpers.
-This is especially useful when you want to test complex streaming responses.
+This is especially useful when you want to test complex streamed responses.
 
 ```php
 use Prism\Prism\Text\ResponseBuilder;
