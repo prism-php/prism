@@ -68,7 +68,8 @@ it('can handle tool calls', function () {
 
 ## Using the ResponseBuilder
 
-If you need to test a richer response object, e.g. with Steps, you may find it easier to use the `ResponseBuilder` together with the fake Step helpers:
+If you need to test a richer response object, e.g. with Steps, you may find it easier to use the `ResponseBuilder` together with the fake Step helpers.
+This is especially useful when you want to test complex streaming responses.
 
 ```php
 use Prism\Prism\Text\ResponseBuilder;
@@ -204,6 +205,113 @@ it('can use weather tool', function () {
 });
 ```
 
+## Testing Streamed Responses
+
+To test streamed responses, you can use any text response for a fake. The fake Provider will turn the text response into a fake stream of text chunks.
+It will always finish with an empty chunk including your given finish reason.
+
+```php
+Prism::fake([
+    TextResponseFake::make()
+        ->withText('fake response text') // text to be streamed
+        ->withFinishReason(FinishReason::Stop), // finish reason for final chunk
+]);
+
+$text = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withPrompt('What is the meaning of life?')
+    ->asStream();
+
+$outputText = '';
+foreach ($text as $chunk) {
+    $outputText .= $chunk->text; // will be ['fake ', 'respo', 'nse t', 'ext', '']; 
+}
+
+expect($outputText)->toBe('fake response text');
+```
+
+You can adjust the chunk size by using `withFakeChunkSize` on the fake.
+
+```php
+Prism::fake([
+    TextResponseFake::make()->withText('fake response text'),
+])->withFakeChunkSize(1);
+```
+
+Now, the text will be streamed in chunks of one character (`['f', 'a', 'k', ...]`).
+
+### Testing Tool Calling while Streaming
+
+When testing streamed responses with tool calls, you can use the `ResponseBuilder` to create a more complex response.
+Given a text response with steps, the fake provider will not only generate text chunks, but also include chunks for tool calls and results.
+
+```php
+Prism::fake([
+    (new ResponseBuilder)
+        ->addStep(
+            TextStepFake::make()
+                ->withToolCalls(
+                    [
+                        new ToolCall('id-123', 'tool', ['input' => 'value']),
+                    ]
+                )
+        )
+        ->addStep(
+            TextStepFake::make()
+                ->withToolResults(
+                    [
+                        new ToolResult('id-123', 'tool', ['input' => 'value'], 'result'),
+                    ]
+                )
+        )
+        ->addStep(
+            TextStepFake::make()
+                ->withText('fake response text')
+        )
+        ->toResponse(),
+]);
+
+$text = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withPrompt('What is the meaning of life?')
+    ->asStream();
+
+$outputText = '';
+$toolCalls = [];
+$toolResults = [];
+
+foreach ($text as $chunk) {
+    $outputText .= $chunk->text;
+
+    // Accumulate tool calls
+    if ($chunk->toolCalls) {
+        foreach ($chunk->toolCalls as $call) {
+            $toolCalls[] = $call;
+        }
+    }
+
+    // Accumulate tool results
+    if ($chunk->toolResults) {
+        foreach ($chunk->toolResults as $result) {
+            $toolResults[] = $result;
+        }
+    }
+}
+
+expect($outputText)->toBe('fake response text')
+    ->and($toolCalls)->toHaveCount(1)
+    ->and($toolCalls[0])->toBeInstanceOf(ToolCall::class)
+    ->and($toolCalls[0]->id)->toBe('id-123')
+    ->and($toolCalls[0]->name)->toBe('tool')
+    ->and($toolCalls[0]->arguments())->toBe(['input' => 'value'])
+    ->and($toolResults)->toHaveCount(1)
+    ->and($toolResults[0])->toBeInstanceOf(ToolResult::class)
+    ->and($toolResults[0]->toolCallId)->toBe('id-123')
+    ->and($toolResults[0]->toolName)->toBe('tool')
+    ->and($toolResults[0]->args)->toBe(['input' => 'value'])
+    ->and($toolResults[0]->result)->toBe('result');
+```
+
 ## Testing Structured Output
 
 ```php
@@ -304,8 +412,6 @@ $fake->assertRequest(function ($requests) {
 // Assert provider configuration
 $fake->assertProviderConfig(['api_key' => 'sk-1234']);
 ```
-
----
 
 ## Using the real response classes
 
