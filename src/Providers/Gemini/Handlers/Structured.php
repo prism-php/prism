@@ -64,11 +64,11 @@ class Structured
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
-						'thinkingConfig' => array_filter([
-							'thinkingBudget' => array_key_exists('thinkingBudget', $providerOptions)
-								? $providerOptions['thinkingBudget']
-								: null,
-						], fn($v) => $v !== null),
+                        'thinkingConfig' => array_filter([
+                            'thinkingBudget' => array_key_exists('thinkingBudget', $providerOptions)
+                                ? $providerOptions['thinkingBudget']
+                                : null,
+                        ], fn ($v) => $v !== null),
                     ]),
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])
@@ -109,8 +109,8 @@ class Structured
                 ),
                 usage: new Usage(
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
-					completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-					thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+                    completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

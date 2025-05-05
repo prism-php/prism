@@ -12,7 +12,6 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
 use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
-use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
@@ -443,47 +442,47 @@ describe('Cache support for Gemini', function (): void {
 });
 
 describe('Thinking Mode for Gemini', function (): void {
-	it('uses thought tokens on 2.5 series models by default without specifying a budget', function (): void {
-		FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
+    it('uses thought tokens on 2.5 series models by default without specifying a budget', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
 
-		$response = Prism::text()
-			->using(Provider::Gemini, 'gemini-2.5-flash-preview')
-			->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
-			->asText();
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+            ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+            ->asText();
 
-		expect($response->usage->thoughtTokens)->toBe(1209);
+        expect($response->usage->thoughtTokens)->toBe(1209);
 
-		Http::assertSent(function (Request $request) {
-			$data = $request->data();
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
 
-			expect($data['generationConfig'])->not->toHaveKey('thinkingConfig');
+            expect($data['generationConfig'])->not->toHaveKey('thinkingConfig');
 
-			return true;
-		});
+            return true;
+        });
 
-	});
+    });
 
-	it('sets thinking budget to 0', function (): void {
-		FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-no-thinking-budget');
+    it('sets thinking budget to 0', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-no-thinking-budget');
 
-		$response = Prism::text()
-			->using(Provider::Gemini, 'gemini-2.5-flash-preview')
-			->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
-			->withProviderOptions(['thinkingBudget' => 0])
-			->asText();
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+            ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+            ->withProviderOptions(['thinkingBudget' => 0])
+            ->asText();
 
-		expect($response->usage->thoughtTokens)->toBeNull();
+        expect($response->usage->thoughtTokens)->toBeNull();
 
-		Http::assertSent(function (Request $request) {
-			$data = $request->data();
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
 
-			expect($data['generationConfig'])->toHaveKey('thinkingConfig')
-				->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
-					'thinkingBudget' => 0,
-				]);
+            expect($data['generationConfig'])->toHaveKey('thinkingConfig')
+                ->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
+                    'thinkingBudget' => 0,
+                ]);
 
-			return true;
-		});
+            return true;
+        });
 
-	});
+    });
 });
