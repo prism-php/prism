@@ -211,28 +211,6 @@ describe('fake streaming responses', function (): void {
             ->and($toolResults)->toBeEmpty();
     });
 
-    it('has a default chunk size of five', function (): void {
-        Prism::fake([
-            TextResponseFake::make()->withText('fake response text'),
-        ]);
-
-        $text = Prism::text()
-            ->using('anthropic', 'claude-3-sonnet')
-            ->withPrompt('What is the meaning of life?')
-            ->asStream();
-
-        $outputText = '';
-        $chunks = [];
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-            $chunks[] = $chunk;
-        }
-
-        expect($outputText)->toBe('fake response text')
-            // 19 characters -> 3 chunks of 5 + one with 4 characters + 1 empty chunk with finish reason
-            ->and($chunks)->toHaveCount(5);
-    });
-
     it('can consume the fake text response builder responses when streaming', function (): void {
         Prism::fake([
             (new ResponseBuilder)
@@ -248,7 +226,7 @@ describe('fake streaming responses', function (): void {
                     TextStepFake::make()
                         ->withToolResults(
                             [
-                                new ToolResult('id-123', 'tool', ['result' => 'value'], 'result'),
+                                new ToolResult('id-123', 'tool', ['input' => 'value'], 'result'),
                             ]
                         )
                 )
@@ -289,11 +267,12 @@ describe('fake streaming responses', function (): void {
             ->and($toolCalls[0])->toBeInstanceOf(ToolCall::class)
             ->and($toolCalls[0]->id)->toBe('id-123')
             ->and($toolCalls[0]->name)->toBe('tool')
+            ->and($toolCalls[0]->arguments())->toBe(['input' => 'value'])
             ->and($toolResults)->toHaveCount(1)
             ->and($toolResults[0])->toBeInstanceOf(ToolResult::class)
             ->and($toolResults[0]->toolCallId)->toBe('id-123')
             ->and($toolResults[0]->toolName)->toBe('tool')
-            ->and($toolResults[0]->args)->toBe(['result' => 'value'])
+            ->and($toolResults[0]->args)->toBe(['input' => 'value'])
             ->and($toolResults[0]->result)->toBe('result');
     });
 
@@ -313,6 +292,28 @@ describe('fake streaming responses', function (): void {
         }
 
         expect($outputText)->toBe('');
+    });
+
+    it('has a default chunk size of five', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('fake response text'),
+        ]);
+
+        $text = Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream();
+
+        $outputText = '';
+        $chunks = [];
+        foreach ($text as $chunk) {
+            $outputText .= $chunk->text;
+            $chunks[] = $chunk;
+        }
+
+        expect($outputText)->toBe('fake response text')
+            // 19 characters -> 3 chunks of 5 + one with 3 characters + 1 empty chunk with finish reason
+            ->and($chunks)->toHaveCount(5);
     });
 
     it('handles different chunk sizes', function (): void {
