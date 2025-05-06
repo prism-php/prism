@@ -123,3 +123,21 @@ Prism::embeddings()
     ->withProviderOptions(['outputDimensionality' => 768])
     ->asEmbeddings();
 ```
+
+### Thinking Mode
+
+Gemini 2.5 series models use an internal "thinking process" during response generation. Thinking is on by default as these models have the ability to automatically decide when and how much to think based on the prompt. If you would like to customize how many tokens the model may use for thinking, or disable thinking altogether, utilize the `withProviderOptions()` method, and pass through an array with a key value pair with `thinkingBudget` and an integer representing the budget of tokens. Set this value to `0` to disable thinking.
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+    ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+    // Set thinking budget
+    ->withProviderOptions(['thinkingBudget' => 300])
+    ->generate();
+```
+> [!NOTE]
+> Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.

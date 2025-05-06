@@ -84,6 +84,9 @@ readonly class ResponseBuilder
             cacheReadInputTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->cacheReadInputTokens !== null)
                 ? $this->steps->sum(fn (Step $result): int => $result->usage->cacheReadInputTokens ?? 0)
                 : null,
+            thoughtTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->thoughtTokens !== null)
+                ? $this->steps->sum(fn (Step $result): int => $result->usage->thoughtTokens ?? 0)
+                : null,
         );
     }
 }
