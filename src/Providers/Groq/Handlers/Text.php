@@ -46,7 +46,7 @@ class Text
         $data = $response->json();
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'message.content') ?? '',
+            data_get($data, 'choices.0.message.content') ?? '',
             $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
 

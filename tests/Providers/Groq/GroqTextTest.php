@@ -31,13 +31,16 @@ describe('Text generation for Groq', function (): void {
             ->withPrompt('Who are you?')
             ->generate();
 
-        expect($response->usage->promptTokens)->toBe(13);
-        expect($response->usage->completionTokens)->toBe(208);
-        expect($response->meta->id)->toBe('chatcmpl-ea37c181-ed35-4bd4-af20-c1fcf203e0d8');
-        expect($response->meta->model)->toBe('llama3-8b-8192');
-        expect($response->text)->toBe(
-            'I am LLaMA, an AI assistant developed by Meta AI.'
-        );
+        expect($response->usage->promptTokens)->toBe(13)
+            ->and($response->usage->completionTokens)->toBe(208)
+            ->and($response->meta->id)->toBe('chatcmpl-ea37c181-ed35-4bd4-af20-c1fcf203e0d8')
+            ->and($response->meta->model)->toBe('llama3-8b-8192')
+            ->and($response->text)->toBe(
+                'I am LLaMA, an AI assistant developed by Meta AI.'
+            )
+            ->and($response->responseMessages->first()->content)->toBe(
+                'I am LLaMA, an AI assistant developed by Meta AI.'
+            );
     });
 
     it('can generate text with a system prompt', function (): void {
