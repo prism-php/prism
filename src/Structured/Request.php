@@ -32,6 +32,7 @@ class Request implements PrismRequest
         protected ?int $maxTokens,
         protected int|float|null $temperature,
         protected int|float|null $topP,
+        protected ?array $metadata,
         protected array $clientOptions,
         protected array $clientRetry,
         protected Schema $schema,
@@ -81,6 +82,11 @@ class Request implements PrismRequest
     public function topP(): int|float|null
     {
         return $this->topP;
+    }
+
+    public function metadata(): ?array
+    {
+        return $this->metadata;
     }
 
     /**

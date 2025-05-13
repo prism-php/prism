@@ -113,6 +113,7 @@ class Text
                 ], array_filter([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
+                    'metadata' => $request->metadata(),
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                 ]))

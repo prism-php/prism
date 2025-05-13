@@ -12,6 +12,8 @@ trait ConfiguresModels
 
     protected int|float|null $topP = null;
 
+    protected ?array $metadata = null;
+
     public function withMaxTokens(?int $maxTokens): self
     {
         $this->maxTokens = $maxTokens;
@@ -29,6 +31,13 @@ trait ConfiguresModels
     public function usingTopP(int|float $topP): self
     {
         $this->topP = $topP;
+
+        return $this;
+    }
+
+    public function withMetadata(array $metadata): self
+    {
+        $this->metadata = $metadata;
 
         return $this;
     }
