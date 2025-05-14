@@ -101,6 +101,7 @@ class Structured
                 ], array_filter([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
+                    'metadata' => $request->metadata(),
                     'response_format' => $responseFormat,
                 ]))
             );
