@@ -20,6 +20,7 @@ class Request implements PrismRequest
     /**
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<int, Message>  $messages
+     * @param  array<string, mixed>  $metadata
      * @param  array<int, Tool>  $tools
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
@@ -78,6 +79,9 @@ class Request implements PrismRequest
         return $this->topP;
     }
 
+    /**
+     * @return array<string, mixed> $metadata
+     */
     public function metadata(): ?array
     {
         return $this->metadata;

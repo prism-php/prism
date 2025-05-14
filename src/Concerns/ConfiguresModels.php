@@ -12,6 +12,9 @@ trait ConfiguresModels
 
     protected int|float|null $topP = null;
 
+    /**
+     * @var array<string, mixed>
+     */
     protected ?array $metadata = null;
 
     public function withMaxTokens(?int $maxTokens): self
@@ -35,6 +38,9 @@ trait ConfiguresModels
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
     public function withMetadata(array $metadata): self
     {
         $this->metadata = $metadata;
