@@ -2,6 +2,7 @@
 
 namespace Prism\Prism;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,10 +31,13 @@ class PrismServiceProvider extends ServiceProvider
             'prism'
         );
 
-        $this->app->singleton(
-            PrismManager::class,
-            fn (): PrismManager => new PrismManager($this->app)
-        );
+        $this->app->singleton(PrismManager::class, function (): PrismManager {
+            if (method_exists(RequestException::class, 'dontTruncate')) {
+                RequestException::dontTruncate();
+            }
+
+            return new PrismManager($this->app);
+        });
 
         $this->app->alias(PrismManager::class, 'prism-manager');
 
