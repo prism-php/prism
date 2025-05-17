@@ -1,4 +1,5 @@
 import { defineConfig } from "vitepress";
+import llmstxt from "vitepress-plugin-llms";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -234,5 +235,8 @@ export default defineConfig({
       message: "Released under the MIT License.",
       copyright: "Copyright © 2024-present TJ Miller",
     },
+  },
+  vite: {
+    plugins: [llmstxt()],
   },
 });
