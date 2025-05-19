@@ -20,7 +20,6 @@ class Request implements PrismRequest
     /**
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<int, Message>  $messages
-     * @param  array<string, mixed>  $metadata
      * @param  array<int, Tool>  $tools
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
@@ -35,7 +34,6 @@ class Request implements PrismRequest
         protected ?int $maxTokens,
         protected int|float|null $temperature,
         protected int|float|null $topP,
-        protected ?array $metadata,
         protected array $tools,
         protected array $clientOptions,
         protected array $clientRetry,
@@ -77,14 +75,6 @@ class Request implements PrismRequest
     public function topP(): int|float|null
     {
         return $this->topP;
-    }
-
-    /**
-     * @return array<string, mixed> $metadata
-     */
-    public function metadata(): ?array
-    {
-        return $this->metadata;
     }
 
     public function temperature(): int|float|null

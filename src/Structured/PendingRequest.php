@@ -63,7 +63,6 @@ class PendingRequest
             temperature: $this->temperature,
             maxTokens: $this->maxTokens,
             topP: $this->topP,
-            metadata: $this->metadata,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             providerOptions: $this->providerOptions,

@@ -71,7 +71,6 @@ class PendingRequest
             maxTokens: $this->maxTokens,
             maxSteps: $this->maxSteps,
             topP: $this->topP,
-            metadata: $this->metadata,
             tools: $this->tools,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
