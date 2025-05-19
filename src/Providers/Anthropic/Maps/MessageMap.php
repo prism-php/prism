@@ -6,7 +6,6 @@ namespace Prism\Prism\Providers\Anthropic\Maps;
 
 use BackedEnum;
 use Exception;
-use InvalidArgumentException;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -22,17 +21,17 @@ class MessageMap
 {
     /**
      * @param  array<int, Message>  $messages
-     * @param  array<string, mixed>  $requestProviderMeta
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<int, mixed>
      */
-    public static function map(array $messages, array $requestProviderMeta = []): array
+    public static function map(array $messages, array $requestProviderOptions = []): array
     {
         if (array_filter($messages, fn (Message $message): bool => $message instanceof SystemMessage) !== []) {
             throw new PrismException('Anthropic does not support SystemMessages in the messages array. Use withSystemPrompt or withSystemPrompts instead.');
         }
 
         return array_map(
-            fn (Message $message): array => self::mapMessage($message, $requestProviderMeta),
+            fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
         );
     }
@@ -50,13 +49,13 @@ class MessageMap
     }
 
     /**
-     * @param  array<string, mixed>  $requestProviderMeta
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
-    protected static function mapMessage(Message $message, array $requestProviderMeta = []): array
+    protected static function mapMessage(Message $message, array $requestProviderOptions = []): array
     {
         return match ($message::class) {
-            UserMessage::class => self::mapUserMessage($message, $requestProviderMeta),
+            UserMessage::class => self::mapUserMessage($message, $requestProviderOptions),
             AssistantMessage::class => self::mapAssistantMessage($message),
             ToolResultMessage::class => self::mapToolResultMessage($message),
             default => throw new Exception('Could not map message type '.$message::class),
@@ -93,14 +92,13 @@ class MessageMap
     }
 
     /**
-     * @param  array<string, mixed>  $requestProviderMeta
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
-    protected static function mapUserMessage(UserMessage $message, array $requestProviderMeta = []): array
+    protected static function mapUserMessage(UserMessage $message, array $requestProviderOptions = []): array
     {
         $cacheType = $message->providerOptions('cacheType');
-
-        $cache_control = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
 
         return [
             'role' => 'user',
@@ -108,10 +106,10 @@ class MessageMap
                 array_filter([
                     'type' => 'text',
                     'text' => $message->text(),
-                    'cache_control' => $cache_control,
+                    'cache_control' => $cacheControl,
                 ]),
-                ...self::mapImageParts($message->images(), $cache_control),
-                ...self::mapDocumentParts($message->documents(), $cache_control, $requestProviderMeta),
+                ...self::mapImageParts($message->images(), $cacheControl),
+                ...self::mapDocumentParts($message->documents(), $cacheControl, $requestProviderOptions),
             ],
         ];
     }
@@ -166,60 +164,28 @@ class MessageMap
 
     /**
      * @param  Image[]  $parts
-     * @param  array<string, mixed>|null  $cache_control
+     * @param  array<string, mixed>|null  $cacheControl
      * @return array<int, mixed>
      */
-    protected static function mapImageParts(array $parts, ?array $cache_control = null): array
+    protected static function mapImageParts(array $parts, ?array $cacheControl = null): array
     {
-        return array_map(function (Image $image) use ($cache_control): array {
-            if ($image->isUrl()) {
-                throw new InvalidArgumentException('URL image type is not supported by Anthropic');
-            }
-
-            return array_filter([
-                'type' => 'image',
-                'source' => [
-                    'type' => 'base64',
-                    'media_type' => $image->mimeType,
-                    'data' => $image->image,
-                ],
-                'cache_control' => $cache_control,
-            ]);
-        }, $parts);
+        return array_map(
+            fn (Image $image): array => (new ImageMapper($image, $cacheControl))->toPayload(),
+            $parts
+        );
     }
 
     /**
      * @param  Document[]  $parts
-     * @param  array<string, mixed>|null  $cache_control
-     * @param  array<string, mixed>  $requestProviderMeta
+     * @param  array<string, mixed>|null  $cacheControl
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<int, mixed>
      */
-    protected static function mapDocumentParts(array $parts, ?array $cache_control = null, array $requestProviderMeta = []): array
+    protected static function mapDocumentParts(array $parts, ?array $cacheControl = null, array $requestProviderOptions = []): array
     {
-        return array_map(function (Document $document) use ($cache_control, $requestProviderMeta): array {
-            if ($document->isUrl()) {
-                throw new InvalidArgumentException('URL document type is not supported by Anthropic');
-            }
-
-            return array_filter([
-                'type' => 'document',
-                'source' => array_filter([
-                    'type' => $document->dataFormat,
-                    'media_type' => $document->mimeType,
-                    'data' => $document->dataFormat !== 'content' && ! is_array($document->document)
-                        ? $document->document
-                        : null,
-                    'content' => $document->dataFormat === 'content' && is_array($document->document)
-                        ? array_map(fn (string $chunk): array => ['type' => 'text', 'text' => $chunk], $document->document)
-                        : null,
-                ]),
-                'title' => $document->documentTitle,
-                'context' => $document->documentContext,
-                'cache_control' => $cache_control,
-                'citations' => data_get($requestProviderMeta, 'citations', $document->providerOptions('citations'))
-                    ? ['enabled' => true]
-                    : null,
-            ]);
-        }, $parts);
+        return array_map(
+            fn (Document $document): array => (new DocumentMapper($document, $cacheControl, $requestProviderOptions))->toPayload(),
+            $parts
+        );
     }
 }
