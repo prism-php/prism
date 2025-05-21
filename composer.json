@@ -3,14 +3,6 @@
   "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications.",
   "type": "library",
   "license": "MIT",
-  "autoload": {
-    "psr-4": {
-      "Prism\\Prism\\": "src/"
-    },
-    "files": [
-      "src/helpers.php"
-    ]
-  },
   "authors": [
     {
       "name": "TJ Miller",
@@ -19,30 +11,15 @@
   ],
   "require": {
     "php": "^8.2",
-    "laravel/framework": "^11.0|^12.0"
+    "laravel/framework": "^10.0"
   },
-  "config": {
-    "allow-plugins": {
-      "php-http/discovery": true,
-      "pestphp/pest-plugin": true,
-      "phpstan/extension-installer": true
-    }
-  },
-  "require-dev": {
-    "pestphp/pest": "^3.0",
-    "laravel/pint": "^1.14",
-    "phpstan/phpstan": "^1.11",
-    "pestphp/pest-plugin-arch": "^3.0",
-    "pestphp/pest-plugin-laravel": "^3.0",
-    "phpstan/extension-installer": "^1.3",
-    "phpstan/phpstan-deprecation-rules": "^1.2",
-    "rector/rector": "^1.1",
-    "projektgopher/whisky": "^0.7.0",
-    "orchestra/testbench": "^9.4",
-    "mockery/mockery": "^1.6",
-    "symplify/rule-doc-generator-contracts": "^11.2",
-    "phpstan/phpdoc-parser": "^1.24",
-    "spatie/laravel-ray": "^1.39"
+  "autoload": {
+    "psr-4": {
+      "Prism\\Prism\\": "src/"
+    },
+    "files": [
+      "src/helpers.php"
+    ]
   },
   "autoload-dev": {
     "psr-4": {
@@ -52,35 +29,12 @@
       "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
     }
   },
-  "scripts": {
-    "post-install-cmd": [
-      "whisky update"
-    ],
-    "post-update-cmd": [
-      "whisky update"
-    ],
-    "post-autoload-dump": [
-      "@clear",
-      "@prepare"
-    ],
-    "format": [
-      "@php vendor/bin/pint --ansi",
-      "@php vendor/bin/rector process --no-diffs"
-    ],
-    "test": [
-      "@php vendor/bin/pest --parallel"
-    ],
-    "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
-    "prepare": "@php vendor/bin/testbench package:discover --ansi",
-    "build": "@php vendor/bin/testbench workbench:build --ansi",
-    "serve": [
-      "Composer\\Config::disableProcessTimeout",
-      "@build",
-      "@php vendor/bin/testbench serve --ansi"
-    ],
-    "types": [
-      "@php vendor/bin/phpstan analyse --verbose --ansi"
-    ]
+  "require-dev": {},
+  "scripts": {},
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    }
   },
   "extra": {
     "laravel": {
