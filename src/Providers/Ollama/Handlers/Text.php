@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
@@ -27,6 +28,7 @@ use Throwable;
 class Text
 {
     use CallsTools;
+    use HasTelemetry;
     use MapsFinishReason;
     use MapsToolCalls;
     use ValidatesResponse;
@@ -69,26 +71,34 @@ class Text
             throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
         }
 
-        try {
-            $response = $this
-                ->client
-                ->post('api/chat', [
-                    'model' => $request->model(),
-                    'system' => data_get($request->systemPrompts(), '0.content', ''),
-                    'messages' => (new MessageMap($request->messages()))->map(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'stream' => false,
-                    'options' => array_filter(array_merge([
-                        'temperature' => $request->temperature(),
-                        'num_predict' => $request->maxTokens() ?? 2048,
-                        'top_p' => $request->topP(),
-                    ], $request->providerOptions())),
-                ]);
+        return $this->trace('ollama.http.chat', [
+            'http.method' => 'POST',
+            'ollama.endpoint' => 'api/chat',
+            'prism.provider' => 'ollama',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'text',
+        ], function () use ($request) {
+            try {
+                $response = $this
+                    ->client
+                    ->post('api/chat', [
+                        'model' => $request->model(),
+                        'system' => data_get($request->systemPrompts(), '0.content', ''),
+                        'messages' => (new MessageMap($request->messages()))->map(),
+                        'tools' => ToolMap::map($request->tools()),
+                        'stream' => false,
+                        'options' => array_filter(array_merge([
+                            'temperature' => $request->temperature(),
+                            'num_predict' => $request->maxTokens() ?? 2048,
+                            'top_p' => $request->topP(),
+                        ], $request->providerOptions())),
+                    ]);
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                return $response->json();
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     /**

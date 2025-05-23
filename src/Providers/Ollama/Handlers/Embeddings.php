@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -16,6 +17,8 @@ use Throwable;
 
 class Embeddings
 {
+    use HasTelemetry;
+
     public function __construct(protected PendingRequest $client) {}
 
     public function handle(Request $request): EmbeddingsResponse
@@ -46,13 +49,19 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        return $this->trace('ollama.http.embed', [
+            'http.method' => 'POST',
+            'ollama.endpoint' => 'api/embed',
+            'prism.provider' => 'ollama',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'embeddings',
+        ], fn() => $this->client->post(
             'api/embed',
             array_filter([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
                 'options' => array_filter($request->providerOptions()),
             ])
-        );
+        ));
     }
 }

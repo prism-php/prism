@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -26,7 +27,10 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, MapsToolCalls;
+    use CallsTools;
+    use HasTelemetry;
+    use MapsFinishReason;
+    use MapsToolCalls;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -170,30 +174,38 @@ class Stream
             throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
         }
 
-        try {
-            return $this
-                ->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post('api/chat', [
-                    'model' => $request->model(),
-                    'system' => data_get($request->systemPrompts(), '0.content', ''),
-                    'messages' => (new MessageMap($request->messages()))->map(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'stream' => true,
-                    'options' => array_filter(array_merge([
-                        'temperature' => $request->temperature(),
-                        'num_predict' => $request->maxTokens() ?? 2048,
-                        'top_p' => $request->topP(),
-                    ], $request->providerOptions())),
-                ]);
-        } catch (Throwable $e) {
-            if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException([]);
-            }
+        return $this->trace('ollama.http.chat_stream', [
+            'http.method' => 'POST',
+            'ollama.endpoint' => 'api/chat',
+            'prism.provider' => 'ollama',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'stream',
+        ], function () use ($request) {
+            try {
+                return $this
+                    ->client
+                    ->withOptions(['stream' => true])
+                    ->throw()
+                    ->post('api/chat', [
+                        'model' => $request->model(),
+                        'system' => data_get($request->systemPrompts(), '0.content', ''),
+                        'messages' => (new MessageMap($request->messages()))->map(),
+                        'tools' => ToolMap::map($request->tools()),
+                        'stream' => true,
+                        'options' => array_filter(array_merge([
+                            'temperature' => $request->temperature(),
+                            'num_predict' => $request->maxTokens() ?? 2048,
+                            'top_p' => $request->topP(),
+                        ], $request->providerOptions())),
+                    ]);
+            } catch (Throwable $e) {
+                if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
+                    throw new PrismRateLimitedException([]);
+                }
 
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     protected function readLine(StreamInterface $stream): string
