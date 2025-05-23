@@ -5,122 +5,54 @@ declare(strict_types=1);
 namespace Prism\Prism\Concerns;
 
 use Generator;
-use OpenTelemetry\API\Trace\SpanInterface;
-use OpenTelemetry\API\Trace\StatusCode;
-use OpenTelemetry\API\Trace\TracerInterface;
-use Throwable;
+use Prism\Prism\Contracts\Telemetry;
 
 trait HasTelemetry
 {
-    protected function shouldTrace(): bool
+    protected function telemetry(): Telemetry
     {
-        return config('prism.telemetry.enabled', false);
-    }
-
-    protected function getTracer(): ?TracerInterface
-    {
-        if (! $this->shouldTrace()) {
-            return null;
-        }
-
-        return app(TracerInterface::class);
+        return app(Telemetry::class);
     }
 
     /**
      * @template T
      *
      * @param  non-empty-string  $spanName
-     * @param  callable(SpanInterface|null): T  $callback
      * @param  array<non-empty-string, mixed>  $attributes
+     * @param  callable(): T  $callback
      * @return T
      */
-    protected function trace(string $spanName, callable $callback, array $attributes = []): mixed
+    protected function trace(string $spanName, array $attributes, callable $callback): mixed
     {
-        $tracer = $this->getTracer();
-
-        if (! $tracer) {
-            return $callback(null);
-        }
-
-        $span = $tracer->spanBuilder($spanName)->startSpan();
-
-        foreach ($attributes as $key => $value) {
-            $span->setAttribute($key, $value);
-        }
-
-        $scope = $span->activate();
-
-        try {
-            $result = $callback($span);
-            $span->setStatus(StatusCode::STATUS_OK);
-
-            return $result;
-        } catch (Throwable $e) {
-            $span->recordException($e);
-            $span->setStatus(StatusCode::STATUS_ERROR, $e->getMessage());
-            throw $e;
-        } finally {
-            $scope->detach();
-            $span->end();
-        }
+        return $this->telemetry()->span($spanName, $attributes, $callback);
     }
 
     /**
      * @template T
      *
      * @param  non-empty-string  $spanName
-     * @param  callable(SpanInterface|null): Generator<T>  $callback
      * @param  array<non-empty-string, mixed>  $attributes
+     * @param  callable(): Generator<T>  $callback
      * @return Generator<T>
      */
-    protected function traceStream(string $spanName, callable $callback, array $attributes = []): Generator
+    protected function traceStream(string $spanName, array $attributes, callable $callback): Generator
     {
-        $tracer = $this->getTracer();
+        $telemetry = $this->telemetry();
 
-        if (! $tracer) {
-            yield from $callback(null);
+        if (! $telemetry->enabled()) {
+            yield from $callback();
 
             return;
         }
 
-        $span = $tracer->spanBuilder($spanName)->startSpan();
+        // For streaming, we need to handle chunk counting specially
         $chunkCount = 0;
 
-        foreach ($attributes as $key => $value) {
-            $span->setAttribute($key, $value);
-        }
-
-        $scope = $span->activate();
-
-        try {
-            foreach ($callback($span) as $chunk) {
+        yield from $telemetry->span($spanName, $attributes, function () use ($callback, &$chunkCount): Generator {
+            foreach ($callback() as $chunk) {
                 $chunkCount++;
                 yield $chunk;
             }
-
-            $span->setAttribute('prism.stream.chunk_count', $chunkCount);
-            $span->setStatus(StatusCode::STATUS_OK);
-        } catch (Throwable $e) {
-            $span->recordException($e);
-            $span->setStatus(StatusCode::STATUS_ERROR, $e->getMessage());
-            throw $e;
-        } finally {
-            $scope->detach();
-            $span->end();
-        }
-    }
-
-    /**
-     * @param  array<non-empty-string, mixed>  $attributes
-     */
-    protected function addSpanAttributes(?SpanInterface $span, array $attributes): void
-    {
-        if (!$span instanceof \OpenTelemetry\API\Trace\SpanInterface) {
-            return;
-        }
-
-        foreach ($attributes as $key => $value) {
-            $span->setAttribute($key, $value);
-        }
+        });
     }
 }

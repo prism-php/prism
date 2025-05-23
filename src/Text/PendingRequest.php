@@ -43,12 +43,12 @@ class PendingRequest
     {
         return $this->trace(
             'prism.text.generate',
-            fn (): \Prism\Prism\Text\Response => $this->provider->text($this->toRequest()),
             [
                 'prism.provider' => $this->provider::class,
                 'prism.model' => $this->model,
                 'prism.request_type' => 'text',
-            ]
+            ],
+            fn (): \Prism\Prism\Text\Response => $this->provider->text($this->toRequest())
         );
     }
 
@@ -59,12 +59,12 @@ class PendingRequest
     {
         return $this->traceStream(
             'prism.text.stream',
-            fn (): \Generator => $this->provider->stream($this->toRequest()),
             [
                 'prism.provider' => $this->provider::class,
                 'prism.model' => $this->model,
                 'prism.request_type' => 'stream',
-            ]
+            ],
+            fn (): \Generator => $this->provider->stream($this->toRequest())
         );
     }
 

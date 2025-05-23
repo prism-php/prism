@@ -13,6 +13,9 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
 use OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor;
 use OpenTelemetry\SDK\Trace\TracerProvider;
+use Prism\Prism\Contracts\Telemetry;
+use Prism\Prism\Telemetry\NullDriver;
+use Prism\Prism\Telemetry\OpenTelemetryDriver;
 
 class PrismServiceProvider extends ServiceProvider
 {
@@ -52,6 +55,7 @@ class PrismServiceProvider extends ServiceProvider
         );
 
         $this->registerTelemetry();
+        $this->registerTelemetryService();
     }
 
     protected function registerTelemetry(): void
@@ -83,6 +87,22 @@ class PrismServiceProvider extends ServiceProvider
                 ->build();
 
             return $tracerProvider->getTracer('prism');
+        });
+    }
+
+    protected function registerTelemetryService(): void
+    {
+        $this->app->singleton(Telemetry::class, function (): Telemetry {
+            $enabled = config('prism.telemetry.enabled', false);
+
+            if (! $enabled) {
+                return new NullDriver;
+            }
+
+            return new OpenTelemetryDriver(
+                tracer: $this->app->make(TracerInterface::class),
+                enabled: $enabled
+            );
         });
     }
 }

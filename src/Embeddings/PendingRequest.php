@@ -70,13 +70,13 @@ class PendingRequest
 
         return $this->trace(
             'prism.embeddings.generate',
-            fn (): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($this->toRequest()),
             [
                 'prism.provider' => $this->provider::class,
                 'prism.model' => $this->model,
                 'prism.request_type' => 'embeddings',
                 'prism.input_count' => count($this->inputs),
-            ]
+            ],
+            fn (): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($this->toRequest())
         );
     }
 

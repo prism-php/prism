@@ -40,13 +40,13 @@ class PendingRequest
     {
         return $this->trace(
             'prism.structured.generate',
-            fn (): \Prism\Prism\Structured\Response => $this->provider->structured($this->toRequest()),
             [
                 'prism.provider' => $this->provider::class,
                 'prism.model' => $this->model,
                 'prism.request_type' => 'structured',
                 'prism.schema_type' => $this->schema?->name() ?? 'unknown',
-            ]
+            ],
+            fn (): \Prism\Prism\Structured\Response => $this->provider->structured($this->toRequest())
         );
     }
 
