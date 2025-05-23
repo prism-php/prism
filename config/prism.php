@@ -6,6 +6,13 @@ return [
         'middleware' => [],
         'enabled' => env('PRISM_SERVER_ENABLED', true),
     ],
+
+    'telemetry' => [
+        'enabled' => env('PRISM_TELEMETRY_ENABLED', false),
+        'service_name' => env('PRISM_TELEMETRY_SERVICE_NAME', 'prism'),
+        'service_version' => env('PRISM_TELEMETRY_SERVICE_VERSION', '1.0.0'),
+        'endpoint' => env('PRISM_TELEMETRY_ENDPOINT', 'http://localhost:4318/v1/traces'),
+    ],
     'providers' => [
         'openai' => [
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),

@@ -7,6 +7,7 @@ namespace Prism\Prism\Embeddings;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 
 class PendingRequest
@@ -14,6 +15,7 @@ class PendingRequest
     use ConfiguresClient;
     use ConfiguresProviders;
     use HasProviderOptions;
+    use HasTelemetry;
 
     /** @var array<string> */
     protected array $inputs = [];
@@ -66,7 +68,16 @@ class PendingRequest
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        return $this->trace(
+            'prism.embeddings.generate',
+            fn (): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($this->toRequest()),
+            [
+                'prism.provider' => $this->provider::class,
+                'prism.model' => $this->model,
+                'prism.request_type' => 'embeddings',
+                'prism.input_count' => count($this->inputs),
+            ]
+        );
     }
 
     protected function toRequest(): Request

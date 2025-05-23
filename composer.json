@@ -19,13 +19,17 @@
   ],
   "require": {
     "php": "^8.2",
-    "laravel/framework": "^11.0|^12.0"
+    "laravel/framework": "^11.0|^12.0",
+    "open-telemetry/api": "^1.0",
+    "open-telemetry/sdk": "^1.0",
+    "open-telemetry/exporter-otlp": "^1.0"
   },
   "config": {
     "allow-plugins": {
       "php-http/discovery": true,
       "pestphp/pest-plugin": true,
-      "phpstan/extension-installer": true
+      "phpstan/extension-installer": true,
+      "tbachert/spi": true
     }
   },
   "require-dev": {
