@@ -8,6 +8,7 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\ConfiguresStructuredOutput;
+use Prism\Prism\Concerns\HasMCPServers;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
@@ -21,6 +22,7 @@ class PendingRequest
     use ConfiguresModels;
     use ConfiguresProviders;
     use ConfiguresStructuredOutput;
+    use HasMCPServers;
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
@@ -56,18 +58,19 @@ class PendingRequest
         }
 
         return new Request(
-            model: $this->model,
             systemPrompts: $this->systemPrompts,
+            model: $this->model,
             prompt: $this->prompt,
             messages: $messages,
-            temperature: $this->temperature,
             maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
             topP: $this->topP,
+            mcpServers: $this->mcpServers,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
-            providerOptions: $this->providerOptions,
             schema: $this->schema,
             mode: $this->structuredMode,
+            providerOptions: $this->providerOptions,
         );
     }
 }

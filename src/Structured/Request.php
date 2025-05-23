@@ -11,6 +11,7 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Enums\StructuredMode;
+use Prism\Prism\ValueObjects\MCPServer;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 class Request implements PrismRequest
@@ -20,6 +21,7 @@ class Request implements PrismRequest
     /**
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<int, Message>  $messages
+     * @param  array<int, MCPServer>  $mcpServers
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
@@ -32,6 +34,7 @@ class Request implements PrismRequest
         protected ?int $maxTokens,
         protected int|float|null $temperature,
         protected int|float|null $topP,
+        protected array $mcpServers,
         protected array $clientOptions,
         protected array $clientRetry,
         protected Schema $schema,
@@ -66,6 +69,14 @@ class Request implements PrismRequest
     public function messages(): array
     {
         return $this->messages;
+    }
+
+    /**
+     * @return MCPServer[]
+     */
+    public function mcpServers(): array
+    {
+        return $this->mcpServers;
     }
 
     public function maxTokens(): ?int

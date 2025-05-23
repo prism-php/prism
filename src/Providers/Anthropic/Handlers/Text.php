@@ -81,7 +81,7 @@ class Text extends AnthropicHandlerAbstract
             throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
-        return array_filter([
+        $payload = array_filter([
             'model' => $request->model(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
@@ -99,6 +99,16 @@ class Text extends AnthropicHandlerAbstract
             'tools' => ToolMap::map($request->tools()),
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]);
+
+        // Add MCP servers if present
+        if (! empty($request->mcpServers())) {
+            $payload['mcp_servers'] = array_map(
+                fn ($mcpServer): array => $mcpServer->toArray(),
+                $request->mcpServers()
+            );
+        }
+
+        return $payload;
     }
 
     protected function handleToolCalls(): Response

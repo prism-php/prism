@@ -62,6 +62,7 @@ class AnthropicConfigurator
     {
         return $request
             ->withMaxTokens(4000)
+            ->withMCPServer('filesystem', 'https://mcp-server.com')
             ->withProviderOptions([
                 'cacheType' => 'ephemeral',
                 'citations' => true,
@@ -77,6 +78,25 @@ $response = Prism::text()
 ```
 
 This approach can be especially helpful when you have complex or reusable provider configurations.
+
+### Provider-Specific Features
+
+Some providers offer unique features that others don't support. For example, Anthropic's MCP Connector allows you to connect to external MCP servers for additional tools and resources:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenAI, 'gpt-4o')
+    ->withPrompt('Analyze the database and create a report')
+    ->whenProvider(
+        Provider::Anthropic,
+        fn ($request) => $request
+            ->withMCPServer('database', 'https://db-server.com', 'auth-token')
+            ->withMCPServer('filesystem', 'https://fs-server.com')
+    )
+    ->asText();
+```
+
+When using OpenAI, the MCP servers are simply ignored, but when using Anthropic, they provide additional capabilities.
 
 > [!TIP]
 > The `whenProvider` method works with all request types in Prism including text, structured output, and embeddings requests.

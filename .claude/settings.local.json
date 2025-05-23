@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(composer install:*)",
+      "Bash(php:*)",
+      "Bash(rm:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(./vendor/bin/pest)",
+      "Bash(find:*)",
+      "Bash(./vendor/bin/pest:*)"
+    ],
+    "deny": []
+  }
+}
