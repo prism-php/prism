@@ -11,6 +11,7 @@ it('can create a span with log driver', function (): void {
     // Mock the Log facade to handle all channel calls
     Log::shouldReceive('channel')->andReturnSelf();
     Log::shouldReceive('info')->twice();
+    Log::shouldReceive('warning')->zeroOrMoreTimes(); // Allow warning calls from Str::ulid()
 
     $result = $driver->span('test.span', [
         'test.attribute' => 'test.value',
@@ -25,6 +26,7 @@ it('can create a child span with log driver', function (): void {
     // Mock the Log facade to handle all channel calls
     Log::shouldReceive('channel')->andReturnSelf();
     Log::shouldReceive('info')->twice();
+    Log::shouldReceive('warning')->zeroOrMoreTimes(); // Allow warning calls from Str::ulid()
 
     $result = $driver->childSpan('test.child.span', [
         'test.attribute' => 'test.value',
@@ -39,6 +41,7 @@ it('handles exceptions in spans', function (): void {
     // Mock the Log facade to handle all channel calls
     Log::shouldReceive('channel')->andReturnSelf();
     Log::shouldReceive('info')->twice();
+    Log::shouldReceive('warning')->zeroOrMoreTimes(); // Allow warning calls from Str::ulid()
 
     expect(function () use ($driver): void {
         $driver->span('test.error.span', [], function (): void {
