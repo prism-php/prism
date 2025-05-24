@@ -25,8 +25,7 @@
     "allow-plugins": {
       "php-http/discovery": true,
       "pestphp/pest-plugin": true,
-      "phpstan/extension-installer": true,
-      "tbachert/spi": true
+      "phpstan/extension-installer": true
     }
   },
   "require-dev": {
