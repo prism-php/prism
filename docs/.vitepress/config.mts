@@ -222,6 +222,10 @@ export default defineConfig({
                 text: "Bedrock",
                 link: "https://github.com/prism-php/bedrock",
               },
+              {
+                text: "OpenTelemetry",
+                link: "https://github.com/prism-php/opentelemetry",
+              },
             ],
           },
         ],
