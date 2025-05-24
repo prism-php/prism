@@ -18,10 +18,6 @@ return [
             \Prism\Prism\Telemetry\LogDriver::class => [
                 'channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'default'),
             ],
-
-            \Prism\Prism\Telemetry\OpenTelemetryDriver::class => [
-                'endpoint' => env('PRISM_TELEMETRY_ENDPOINT', 'http://localhost:4318/v1/traces'),
-            ],
         ],
     ],
     'providers' => [

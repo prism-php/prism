@@ -27,6 +27,7 @@ it('can create a span with log driver', function (): void {
                        $context['prism.telemetry.span_name'] === 'test.span' &&
                        isset($context['prism.telemetry.span_id']);
             }
+
             // Second call should be span end
             return str_contains($message, 'span completed') &&
                    $context['prism.telemetry.event'] === 'span.end' &&
@@ -37,7 +38,7 @@ it('can create a span with log driver', function (): void {
 
     $result = $driver->span('test.span', [
         'test.attribute' => 'test.value',
-    ], fn(): string => 'test result');
+    ], fn (): string => 'test result');
 
     expect($result)->toBe('test result');
 });
@@ -64,6 +65,7 @@ it('can create a child span with log driver', function (): void {
                        $context['prism.telemetry.span_name'] === 'test.child.span' &&
                        $context['prism.telemetry.span_type'] === 'child';
             }
+
             // Second call should be span end
             return str_contains($message, 'span completed') &&
                    $context['prism.telemetry.event'] === 'span.end' &&
@@ -73,7 +75,7 @@ it('can create a child span with log driver', function (): void {
 
     $result = $driver->childSpan('test.child.span', [
         'test.attribute' => 'test.value',
-    ], fn(): string => 'child result');
+    ], fn (): string => 'child result');
 
     expect($result)->toBe('child result');
 });
@@ -98,6 +100,7 @@ it('handles exceptions in spans', function (): void {
                 return str_contains($message, 'span started') &&
                        $context['prism.telemetry.event'] === 'span.start';
             }
+
             // Second call should be span end with error
             return str_contains($message, 'span failed') &&
                    $context['prism.telemetry.event'] === 'span.end' &&
@@ -122,7 +125,7 @@ it('respects enabled flag', function (): void {
     Log::shouldReceive('channel')->never();
     Log::shouldReceive('info')->never();
 
-    $result = $driver->span('test.span', [], fn(): string => 'disabled result');
+    $result = $driver->span('test.span', [], fn (): string => 'disabled result');
 
     expect($result)->toBe('disabled result');
 });

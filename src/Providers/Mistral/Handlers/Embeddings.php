@@ -53,7 +53,7 @@ class Embeddings
             'prism.provider' => 'mistral',
             'prism.model' => $request->model(),
             'prism.request_type' => 'embeddings',
-        ], fn() => $this->client->post(
+        ], fn () => $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),

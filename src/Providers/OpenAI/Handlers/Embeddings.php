@@ -54,7 +54,7 @@ class Embeddings
             'prism.provider' => 'openai',
             'prism.model' => $request->model(),
             'prism.request_type' => 'embeddings',
-        ], fn() => $this->client->post(
+        ], fn () => $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),

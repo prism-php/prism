@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Prism\Prism\Contracts\Telemetry;
 use Prism\Prism\Telemetry\LogDriver;
 use Prism\Prism\Telemetry\NullDriver;
-use Prism\Prism\Telemetry\OpenTelemetryDriver;
 
 it('can resolve telemetry from container', function (): void {
     $telemetry = app(Telemetry::class);
@@ -71,18 +70,6 @@ it('resolves log driver when configured with class name', function (): void {
     $telemetry = app(Telemetry::class);
 
     expect($telemetry)->toBeInstanceOf(LogDriver::class)
-        ->and($telemetry->enabled())->toBeTrue();
-});
-
-it('resolves opentelemetry driver when configured with class name', function (): void {
-    config([
-        'prism.telemetry.enabled' => true,
-        'prism.telemetry.driver' => OpenTelemetryDriver::class,
-    ]);
-
-    $telemetry = app(Telemetry::class);
-
-    expect($telemetry)->toBeInstanceOf(OpenTelemetryDriver::class)
         ->and($telemetry->enabled())->toBeTrue();
 });
 

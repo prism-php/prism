@@ -60,7 +60,7 @@ class Structured
             'prism.provider' => 'mistral',
             'prism.model' => $request->model(),
             'prism.request_type' => 'structured',
-        ], fn() => $this->client->post(
+        ], fn () => $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
