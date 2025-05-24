@@ -50,7 +50,7 @@ class PrismServiceProvider extends ServiceProvider
 
     protected function registerTelemetryDrivers(): void
     {
-        $this->app->bind(LogDriver::class, fn(): LogDriver => new LogDriver(
+        $this->app->bind(LogDriver::class, fn (): LogDriver => new LogDriver(
             channel: config('prism.telemetry.log_channel', 'default'),
             enabled: config('prism.telemetry.enabled', false)
         ));
@@ -58,6 +58,6 @@ class PrismServiceProvider extends ServiceProvider
 
     protected function registerTelemetryService(): void
     {
-        $this->app->singleton(Telemetry::class, fn(): Telemetry => $this->app->make(LogDriver::class));
+        $this->app->singleton(Telemetry::class, fn (): Telemetry => $this->app->make(LogDriver::class));
     }
 }

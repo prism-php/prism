@@ -135,7 +135,7 @@ it('array log driver logs span start and end events', function (): void {
 it('array log driver logs child span with correct type', function (): void {
     $driver = new ArrayLogDriver(enabled: true);
 
-    $driver->childSpan('test.child', ['foo' => 'bar'], fn(): string => 'child-result');
+    $driver->childSpan('test.child', ['foo' => 'bar'], fn (): string => 'child-result');
 
     $logs = $driver->getLogs();
 
@@ -194,7 +194,7 @@ it('disabled array log driver executes callback without logging', function (): v
 it('array log driver can clear logs', function (): void {
     $driver = new ArrayLogDriver(enabled: true);
 
-    $driver->span('test.span', [], fn(): string => 'result');
+    $driver->span('test.span', [], fn (): string => 'result');
 
     expect($driver->getLogs())->toHaveCount(2);
 
