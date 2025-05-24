@@ -164,7 +164,7 @@ class Stream
             ->setTempContentBlockType($blockType)
             ->setTempContentBlockIndex($blockIndex);
 
-        if ($blockType === 'tool_use') {
+        if ($blockType === 'tool_use' || $blockType === 'mcp_tool_use') {
             $this->state->addToolCall($blockIndex, [
                 'id' => data_get($chunk, 'content_block.id'),
                 'name' => data_get($chunk, 'content_block.name'),
@@ -185,7 +185,7 @@ class Stream
             return $this->handleTextBlockDelta($chunk, $deltaType);
         }
 
-        if ($blockType === 'tool_use' && $deltaType === 'input_json_delta') {
+        if (($blockType === 'tool_use' || $blockType === 'mcp_tool_use') && $deltaType === 'input_json_delta') {
             return $this->handleToolInputDelta($chunk);
         }
 

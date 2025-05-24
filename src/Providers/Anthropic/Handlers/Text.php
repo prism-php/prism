@@ -197,7 +197,8 @@ class Text extends AnthropicHandlerAbstract
         $contents = data_get($data, 'content', []);
 
         foreach ($contents as $content) {
-            if (data_get($content, 'type') === 'tool_use') {
+            $contentType = data_get($content, 'type');
+            if ($contentType === 'tool_use' || $contentType === 'mcp_tool_use') {
                 $toolCalls[] = new ToolCall(
                     id: data_get($content, 'id'),
                     name: data_get($content, 'name'),
