@@ -5,6 +5,7 @@ namespace Prism\Prism;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Prism\Prism\Contracts\Telemetry;
+use Prism\Prism\Telemetry\ArrayLogDriver;
 use Prism\Prism\Telemetry\LogDriver;
 
 class PrismServiceProvider extends ServiceProvider
