@@ -106,24 +106,38 @@ expect($logs[0]['context']['prism.provider'])->toBe('openai');
 You can create custom telemetry drivers by implementing the `\Prism\Prism\Contracts\Telemetry` interface:
 
 ```php
-use Prism\Prism\Contracts\Telemetry;
+namespace Prism\Prism\Contracts;
 
-class CustomTelemetryDriver implements Telemetry
+interface Telemetry
 {
-    public function enabled(): bool
-    {
-        return true;
-    }
+    /**
+     * Check if telemetry is enabled.
+     */
+    public function enabled(): bool;
 
-    public function start(string $event, array $context = []): void
-    {
-        // Your custom implementation
-    }
+    /**
+     * Create a span and execute a callback within its context.
+     *
+     * @template T
+     *
+     * @param  non-empty-string  $spanName
+     * @param  array<non-empty-string, mixed>  $attributes
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function span(string $spanName, array $attributes, callable $callback): mixed;
 
-    public function end(string $event, array $context = []): void
-    {
-        // Your custom implementation
-    }
+    /**
+     * Create a child span with the current context as parent.
+     *
+     * @template T
+     *
+     * @param  non-empty-string  $spanName
+     * @param  array<non-empty-string, mixed>  $attributes
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function childSpan(string $spanName, array $attributes, callable $callback): mixed;
 }
 ```
 
@@ -141,11 +155,5 @@ Then configure it in your config:
 
 > [!NOTE]
 > Looking for enterprise-grade observability? Check out our [OpenTelemetry package](https://github.com/prism-php/opentelemetry) for seamless integration with observability platforms like Jaeger, Zipkin, and New Relic.
-
-The OpenTelemetry integration provides:
-- Distributed tracing across your entire application stack
-- Integration with popular APM tools
-- Advanced span correlation and sampling
-- Rich metadata and custom attributes
 
 Perfect for production environments where you need comprehensive observability across multiple services.
