@@ -1,5 +1,7 @@
 <?php
 
+use Prism\Prism\Telemetry\LogDriver;
+
 return [
     'prism_server' => [
         // The middleware that will be applied to the Prism Server routes.
@@ -9,9 +11,10 @@ return [
 
     'telemetry' => [
         'enabled' => env('PRISM_TELEMETRY_ENABLED', false),
+        'driver' => LogDriver::class,
         'service_name' => env('PRISM_TELEMETRY_SERVICE_NAME', 'prism'),
         'service_version' => env('PRISM_TELEMETRY_SERVICE_VERSION', '1.0.0'),
-        'log_channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'default'),
+        'log_channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', env('LOG_CHANNEL', 'stack')),
     ],
     'providers' => [
         'openai' => [
