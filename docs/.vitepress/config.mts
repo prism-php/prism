@@ -205,6 +205,10 @@ export default defineConfig({
                 text: "Provider Interoperability",
                 link: "/advanced/provider-interoperability",
               },
+              {
+                text: "Telemetry",
+                link: "/advanced/telemetry",
+              },
             ],
           },
           {

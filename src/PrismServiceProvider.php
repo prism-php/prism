@@ -14,6 +14,7 @@ use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
 use OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor;
 use OpenTelemetry\SDK\Trace\TracerProvider;
 use Prism\Prism\Contracts\Telemetry;
+use Prism\Prism\Telemetry\LogDriver;
 use Prism\Prism\Telemetry\NullDriver;
 use Prism\Prism\Telemetry\OpenTelemetryDriver;
 
@@ -55,6 +56,7 @@ class PrismServiceProvider extends ServiceProvider
         );
 
         $this->registerTelemetry();
+        $this->registerTelemetryDrivers();
         $this->registerTelemetryService();
     }
 
@@ -74,9 +76,12 @@ class PrismServiceProvider extends ServiceProvider
                 )
             );
 
+            $openTelemetryConfig = config('prism.telemetry.driver_config.'.OpenTelemetryDriver::class, []);
+            $endpoint = $openTelemetryConfig['endpoint'] ?? 'http://localhost:4318/v1/traces';
+
             $spanExporter = new SpanExporter(
                 (new OtlpHttpTransportFactory)->create(
-                    config('prism.telemetry.endpoint', 'http://localhost:4318/v1/traces'),
+                    $endpoint,
                     'application/x-protobuf'
                 )
             );
@@ -90,19 +95,36 @@ class PrismServiceProvider extends ServiceProvider
         });
     }
 
+    protected function registerTelemetryDrivers(): void
+    {
+        $this->app->bind(NullDriver::class, fn (): NullDriver => new NullDriver);
+
+        $this->app->bind(LogDriver::class, function (): LogDriver {
+            $driverConfig = config('prism.telemetry.driver_config.'.LogDriver::class, []);
+
+            return new LogDriver(
+                channel: $driverConfig['channel'] ?? 'default',
+                enabled: config('prism.telemetry.enabled', false)
+            );
+        });
+
+        $this->app->bind(OpenTelemetryDriver::class, fn(): OpenTelemetryDriver => new OpenTelemetryDriver(
+            tracer: $this->app->make(TracerInterface::class),
+            enabled: config('prism.telemetry.enabled', false)
+        ));
+    }
+
     protected function registerTelemetryService(): void
     {
         $this->app->singleton(Telemetry::class, function (): Telemetry {
             $enabled = config('prism.telemetry.enabled', false);
+            $driverClass = config('prism.telemetry.driver', NullDriver::class);
 
-            if (! $enabled) {
+            if (! $enabled || $driverClass === NullDriver::class) {
                 return new NullDriver;
             }
 
-            return new OpenTelemetryDriver(
-                tracer: $this->app->make(TracerInterface::class),
-                enabled: $enabled
-            );
+            return $this->app->make($driverClass);
         });
     }
 }

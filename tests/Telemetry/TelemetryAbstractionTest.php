@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Prism\Prism\Contracts\Telemetry;
+use Prism\Prism\Telemetry\LogDriver;
 use Prism\Prism\Telemetry\NullDriver;
+use Prism\Prism\Telemetry\OpenTelemetryDriver;
 
 it('can resolve telemetry from container', function (): void {
     $telemetry = app(Telemetry::class);
@@ -46,4 +48,51 @@ it('null driver child span executes callback without tracing', function (): void
 
     expect($called)->toBeTrue()
         ->and($result)->toBe('child-result');
+});
+
+it('resolves null driver when configured with class name', function (): void {
+    config([
+        'prism.telemetry.enabled' => true,
+        'prism.telemetry.driver' => NullDriver::class,
+    ]);
+
+    $telemetry = app(Telemetry::class);
+
+    expect($telemetry)->toBeInstanceOf(NullDriver::class);
+});
+
+it('resolves log driver when configured with class name', function (): void {
+    config([
+        'prism.telemetry.enabled' => true,
+        'prism.telemetry.driver' => LogDriver::class,
+        'prism.telemetry.log_channel' => 'test',
+    ]);
+
+    $telemetry = app(Telemetry::class);
+
+    expect($telemetry)->toBeInstanceOf(LogDriver::class)
+        ->and($telemetry->enabled())->toBeTrue();
+});
+
+it('resolves opentelemetry driver when configured with class name', function (): void {
+    config([
+        'prism.telemetry.enabled' => true,
+        'prism.telemetry.driver' => OpenTelemetryDriver::class,
+    ]);
+
+    $telemetry = app(Telemetry::class);
+
+    expect($telemetry)->toBeInstanceOf(OpenTelemetryDriver::class)
+        ->and($telemetry->enabled())->toBeTrue();
+});
+
+it('falls back to null driver when telemetry is disabled even with class name', function (): void {
+    config([
+        'prism.telemetry.enabled' => false,
+        'prism.telemetry.driver' => LogDriver::class,
+    ]);
+
+    $telemetry = app(Telemetry::class);
+
+    expect($telemetry)->toBeInstanceOf(NullDriver::class);
 });

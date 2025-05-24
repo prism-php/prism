@@ -59,7 +59,12 @@ class OpenTelemetryDriver implements Telemetry
         $span = $spanBuilder->startSpan();
 
         foreach ($attributes as $key => $value) {
-            $span->setAttribute($key, $value);
+            // OpenTelemetry setAttribute expects: array|bool|float|int|string|null
+            if (is_scalar($value) || is_null($value) || is_array($value)) {
+                $span->setAttribute($key, $value);
+            } else {
+                $span->setAttribute($key, (string) $value);
+            }
         }
 
         $scope = $span->activate();
