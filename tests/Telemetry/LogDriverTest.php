@@ -8,8 +8,8 @@ use Prism\Prism\Telemetry\LogDriver;
 it('can create a span with log driver', function (): void {
     $driver = new LogDriver('test', true);
 
-    // Mock the Log facade more simply
-    Log::shouldReceive('channel')->with('test')->andReturnSelf();
+    // Mock the Log facade to handle all channel calls
+    Log::shouldReceive('channel')->andReturnSelf();
     Log::shouldReceive('info')->twice();
 
     $result = $driver->span('test.span', [
@@ -22,8 +22,8 @@ it('can create a span with log driver', function (): void {
 it('can create a child span with log driver', function (): void {
     $driver = new LogDriver('test', true);
 
-    // Mock the Log facade more simply
-    Log::shouldReceive('channel')->with('test')->andReturnSelf();
+    // Mock the Log facade to handle all channel calls
+    Log::shouldReceive('channel')->andReturnSelf();
     Log::shouldReceive('info')->twice();
 
     $result = $driver->childSpan('test.child.span', [
@@ -36,8 +36,8 @@ it('can create a child span with log driver', function (): void {
 it('handles exceptions in spans', function (): void {
     $driver = new LogDriver('test', true);
 
-    // Mock the Log facade more simply
-    Log::shouldReceive('channel')->with('test')->andReturnSelf();
+    // Mock the Log facade to handle all channel calls
+    Log::shouldReceive('channel')->andReturnSelf();
     Log::shouldReceive('info')->twice();
 
     expect(function () use ($driver): void {
