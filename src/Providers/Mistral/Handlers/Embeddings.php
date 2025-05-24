@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -17,7 +18,7 @@ use Throwable;
 
 class Embeddings
 {
-    use ValidatesResponse;
+    use HasTelemetry, ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -46,12 +47,18 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        return $this->trace('mistral.http', [
+            'http.method' => 'POST',
+            'mistral.endpoint' => 'embeddings',
+            'prism.provider' => 'mistral',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'embeddings',
+        ], fn() => $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
             ]
-        );
+        ));
     }
 }

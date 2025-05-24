@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -17,6 +18,8 @@ use Throwable;
 
 class Embeddings
 {
+    use HasTelemetry;
+
     public function __construct(protected PendingRequest $client) {}
 
     public function handle(Request $request): EmbeddingsResponse
@@ -55,21 +58,29 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        $providerOptions = $request->providerOptions();
+        return $this->trace('gemini.http', [
+            'http.method' => 'POST',
+            'gemini.endpoint' => 'embedContent',
+            'prism.provider' => 'gemini',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'embeddings',
+        ], function () use ($request) {
+            $providerOptions = $request->providerOptions();
 
-        return $this->client->post(
-            "{$request->model()}:embedContent",
-            array_filter([
-                'model' => $request->model(),
-                'content' => [
-                    'parts' => [
-                        ['text' => $request->inputs()[0]],
+            return $this->client->post(
+                "{$request->model()}:embedContent",
+                array_filter([
+                    'model' => $request->model(),
+                    'content' => [
+                        'parts' => [
+                            ['text' => $request->inputs()[0]],
+                        ],
                     ],
-                ],
-                'title' => $providerOptions['title'] ?? null,
-                'taskType' => $providerOptions['taskType'] ?? null,
-                'outputDimensionality' => $providerOptions['outputDimensionality'] ?? null,
-            ])
-        );
+                    'title' => $providerOptions['title'] ?? null,
+                    'taskType' => $providerOptions['taskType'] ?? null,
+                    'outputDimensionality' => $providerOptions['outputDimensionality'] ?? null,
+                ])
+            );
+        });
     }
 }

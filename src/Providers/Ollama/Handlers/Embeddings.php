@@ -49,7 +49,7 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->trace('ollama.http.embed', [
+        return $this->trace('ollama.http', [
             'http.method' => 'POST',
             'ollama.endpoint' => 'api/embed',
             'prism.provider' => 'ollama',

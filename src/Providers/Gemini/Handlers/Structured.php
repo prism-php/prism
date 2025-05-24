@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
@@ -19,7 +22,7 @@ use Throwable;
 
 class Structured
 {
-    use ValidatesResponse;
+    use HasTelemetry, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -50,32 +53,40 @@ class Structured
      */
     public function sendRequest(Request $request): array
     {
-        try {
-            $providerOptions = $request->providerOptions();
+        return $this->trace('gemini.http', [
+            'http.method' => 'POST',
+            'gemini.endpoint' => 'generateContent',
+            'prism.provider' => 'gemini',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'structured',
+        ], function () use ($request) {
+            try {
+                $providerOptions = $request->providerOptions();
 
-            $response = $this->client->post(
-                "{$request->model()}:generateContent",
-                array_filter([
-                    ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                    'generationConfig' => array_filter([
-                        'response_mime_type' => 'application/json',
-                        'response_schema' => (new SchemaMap($request->schema()))->toArray(),
-                        'temperature' => $request->temperature(),
-                        'topP' => $request->topP(),
-                        'maxOutputTokens' => $request->maxTokens(),
-                        'thinkingConfig' => array_filter([
-                            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                        ], fn ($v): bool => $v !== null),
-                    ]),
-                    'safetySettings' => $providerOptions['safetySettings'] ?? null,
-                ])
-            );
+                $response = $this->client->post(
+                    "{$request->model()}:generateContent",
+                    array_filter([
+                        ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                        'generationConfig' => array_filter([
+                            'response_mime_type' => 'application/json',
+                            'response_schema' => (new SchemaMap($request->schema()))->toArray(),
+                            'temperature' => $request->temperature(),
+                            'topP' => $request->topP(),
+                            'maxOutputTokens' => $request->maxTokens(),
+                            'thinkingConfig' => array_filter([
+                                'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+                            ], fn ($v): bool => $v !== null),
+                        ]),
+                        'safetySettings' => $providerOptions['safetySettings'] ?? null,
+                    ])
+                );
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                return $response->json();
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     /**

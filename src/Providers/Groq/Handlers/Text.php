@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
@@ -28,7 +29,7 @@ use Throwable;
 
 class Text
 {
-    use CallsTools, ValidateResponse;
+    use CallsTools, HasTelemetry, ValidateResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -65,22 +66,30 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                array_filter([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_tokens' => $request->maxTokens(),
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ])
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->trace('groq.http', [
+            'http.method' => 'POST',
+            'groq.endpoint' => 'chat/completions',
+            'prism.provider' => 'groq',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'text',
+        ], function () use ($request) {
+            try {
+                return $this->client->post(
+                    'chat/completions',
+                    array_filter([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_tokens' => $request->maxTokens(),
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'tools' => ToolMap::map($request->tools()),
+                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ])
+                );
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     /**

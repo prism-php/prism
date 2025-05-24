@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\VoyageAI;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -14,6 +17,8 @@ use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {
+    use HasTelemetry;
+
     protected EmbeddingsRequest $request;
 
     protected Response $httpResponse;
@@ -44,18 +49,26 @@ class Embeddings
 
     protected function sendRequest(): void
     {
-        $providerOptions = $this->request->providerOptions();
+        $this->httpResponse = $this->trace('voyageai.http', [
+            'http.method' => 'POST',
+            'voyageai.endpoint' => 'embeddings',
+            'prism.provider' => 'voyageai',
+            'prism.model' => $this->request->model(),
+            'prism.request_type' => 'embeddings',
+        ], function () {
+            $providerOptions = $this->request->providerOptions();
 
-        try {
-            $this->httpResponse = $this->client->post('embeddings', array_filter([
-                'model' => $this->request->model(),
-                'input' => $this->request->inputs(),
-                'input_type' => $providerOptions['inputType'] ?? null,
-                'truncation' => $providerOptions['truncation'] ?? null,
-            ]));
-        } catch (\Exception $e) {
-            throw PrismException::providerRequestError($this->request->model(), $e);
-        }
+            try {
+                return $this->client->post('embeddings', array_filter([
+                    'model' => $this->request->model(),
+                    'input' => $this->request->inputs(),
+                    'input_type' => $providerOptions['inputType'] ?? null,
+                    'truncation' => $providerOptions['truncation'] ?? null,
+                ]));
+            } catch (\Exception $e) {
+                throw PrismException::providerRequestError($this->request->model(), $e);
+            }
+        });
     }
 
     protected function validateResponse(): void

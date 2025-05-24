@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -18,7 +19,7 @@ use Throwable;
 
 class Embeddings
 {
-    use ProcessesRateLimits, ValidatesResponse;
+    use HasTelemetry, ProcessesRateLimits, ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -47,12 +48,18 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        return $this->trace('openai.http', [
+            'http.method' => 'POST',
+            'openai.endpoint' => 'embeddings',
+            'prism.provider' => 'openai',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'embeddings',
+        ], fn() => $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
             ]
-        );
+        ));
     }
 }

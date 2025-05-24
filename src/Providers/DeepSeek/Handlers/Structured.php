@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
@@ -20,6 +23,7 @@ use Throwable;
 
 class Structured
 {
+    use HasTelemetry;
     use MapsFinishReason;
     use ValidatesResponses;
 
@@ -50,20 +54,28 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        $response = $this->client->post(
-            'chat/completions',
-            array_merge([
-                'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_completion_tokens' => $request->maxTokens(),
-            ], array_filter([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'response_format' => ['type' => 'json_object'],
-            ]))
-        );
+        return $this->trace('deepseek.http', [
+            'http.method' => 'POST',
+            'deepseek.endpoint' => 'chat/completions',
+            'prism.provider' => 'deepseek',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'structured',
+        ], function () use ($request) {
+            $response = $this->client->post(
+                'chat/completions',
+                array_merge([
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_completion_tokens' => $request->maxTokens(),
+                ], array_filter([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'response_format' => ['type' => 'json_object'],
+                ]))
+            );
 
-        return $response->json();
+            return $response->json();
+        });
     }
 
     /**

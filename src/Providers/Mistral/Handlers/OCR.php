@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
@@ -18,6 +19,7 @@ use Throwable;
 class OCR
 {
     use CallsTools;
+    use HasTelemetry;
     use MapsFinishReason;
     use ValidatesResponse;
 
@@ -49,18 +51,26 @@ class OCR
      */
     protected function sendRequest(): array
     {
-        try {
-            $response = $this->client->post('/ocr', [
-                'model' => $this->model,
-                'document' => [
-                    'type' => 'document_url',
-                    'document_url' => $this->document->document,
-                ],
-            ]);
+        return $this->trace('mistral.http', [
+            'http.method' => 'POST',
+            'mistral.endpoint' => 'ocr',
+            'prism.provider' => 'mistral',
+            'prism.model' => $this->model,
+            'prism.request_type' => 'ocr',
+        ], function () {
+            try {
+                $response = $this->client->post('/ocr', [
+                    'model' => $this->model,
+                    'document' => [
+                        'type' => 'document_url',
+                        'document_url' => $this->document->document,
+                    ],
+                ]);
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($this->model, $e);
-        }
+                return $response->json();
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($this->model, $e);
+            }
+        });
     }
 }

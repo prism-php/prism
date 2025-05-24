@@ -10,6 +10,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -29,7 +30,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessesRateLimits;
+    use CallsTools, HasTelemetry, ProcessesRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -202,33 +203,41 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        try {
-            return $this
-                ->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post(
-                    'chat/completions',
-                    array_merge([
-                        'stream' => true,
-                        'model' => $request->model(),
-                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_completion_tokens' => $request->maxTokens(),
-                    ], array_filter([
-                        'temperature' => $request->temperature(),
-                        'top_p' => $request->topP(),
-                        'metadata' => (array) $request->providerOptions('metadata'),
-                        'tools' => ToolMap::map($request->tools()),
-                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    ]))
-                );
-        } catch (Throwable $e) {
-            if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException($this->processRateLimits($e->response));
-            }
+        return $this->trace('openai.http', [
+            'http.method' => 'POST',
+            'openai.endpoint' => 'chat/completions',
+            'prism.provider' => 'openai',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'stream',
+        ], function () use ($request) {
+            try {
+                return $this
+                    ->client
+                    ->withOptions(['stream' => true])
+                    ->throw()
+                    ->post(
+                        'chat/completions',
+                        array_merge([
+                            'stream' => true,
+                            'model' => $request->model(),
+                            'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                            'max_completion_tokens' => $request->maxTokens(),
+                        ], array_filter([
+                            'temperature' => $request->temperature(),
+                            'top_p' => $request->topP(),
+                            'metadata' => (array) $request->providerOptions('metadata'),
+                            'tools' => ToolMap::map($request->tools()),
+                            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                        ]))
+                    );
+            } catch (Throwable $e) {
+                if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
+                    throw new PrismRateLimitedException($this->processRateLimits($e->response));
+                }
 
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     protected function readLine(StreamInterface $stream): string

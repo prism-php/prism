@@ -71,7 +71,7 @@ class Text
             throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
         }
 
-        return $this->trace('ollama.http.chat', [
+        return $this->trace('ollama.http', [
             'http.method' => 'POST',
             'ollama.endpoint' => 'api/chat',
             'prism.provider' => 'ollama',

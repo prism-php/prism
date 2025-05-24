@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
@@ -20,7 +23,7 @@ use Throwable;
 
 class Structured
 {
-    use ValidateResponse;
+    use HasTelemetry, ValidateResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -48,7 +51,13 @@ class Structured
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        return $this->trace('groq.http', [
+            'http.method' => 'POST',
+            'groq.endpoint' => 'chat/completions',
+            'prism.provider' => 'groq',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'structured',
+        ], fn() => $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -59,7 +68,7 @@ class Structured
                 'top_p' => $request->topP(),
                 'response_format' => ['type' => 'json_object'],
             ]))
-        );
+        ));
     }
 
     /**

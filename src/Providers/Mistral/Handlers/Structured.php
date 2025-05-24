@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
@@ -23,6 +24,7 @@ use Throwable;
 
 class Structured
 {
+    use HasTelemetry;
     use MapsFinishReason;
     use ValidatesResponse;
 
@@ -52,7 +54,13 @@ class Structured
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        return $this->trace('mistral.http', [
+            'http.method' => 'POST',
+            'mistral.endpoint' => 'chat/completions',
+            'prism.provider' => 'mistral',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'structured',
+        ], fn() => $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -63,7 +71,7 @@ class Structured
                 'top_p' => $request->topP(),
                 'response_format' => ['type' => 'json_object'],
             ]))
-        );
+        ));
     }
 
     /**

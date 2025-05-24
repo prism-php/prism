@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
@@ -14,6 +15,8 @@ use Throwable;
 
 class Cache
 {
+    use HasTelemetry;
+
     /**
      * @param  Message[]  $messages
      * @param  SystemMessage[]  $systemPrompts
@@ -37,19 +40,27 @@ class Cache
      */
     protected function sendRequest(): array
     {
-        try {
-            $response = $this->client->post(
-                '/cachedContents',
-                array_filter([
-                    'model' => 'models/'.$this->model,
-                    ...(new MessageMap($this->messages, $this->systemPrompts))(),
-                    'ttl' => $this->ttl.'s',
-                ])
-            );
+        return $this->trace('gemini.http', [
+            'http.method' => 'POST',
+            'gemini.endpoint' => 'cachedContents',
+            'prism.provider' => 'gemini',
+            'prism.model' => $this->model,
+            'prism.request_type' => 'cache',
+        ], function () {
+            try {
+                $response = $this->client->post(
+                    '/cachedContents',
+                    array_filter([
+                        'model' => 'models/'.$this->model,
+                        ...(new MessageMap($this->messages, $this->systemPrompts))(),
+                        'ttl' => $this->ttl.'s',
+                    ])
+                );
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw new Exception('Gemini error - caching content failed: '.$e->getMessage(), $e->getCode(), $e);
-        }
+                return $response->json();
+            } catch (Throwable $e) {
+                throw new Exception('Gemini error - caching content failed: '.$e->getMessage(), $e->getCode(), $e);
+            }
+        });
     }
 }
