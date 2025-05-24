@@ -8,11 +8,11 @@ use Prism\Prism\Telemetry\LogDriver;
 it('can create a span with log driver', function (): void {
     $driver = new LogDriver('test', true);
 
-    // Allow any channel calls (including Laravel's internal 'deprecations' channel)
-    Log::shouldReceive('channel')
-        ->andReturnSelf();
-
-    Log::shouldReceive('info')
+    // Mock the Log facade to handle both our calls and Laravel's internal calls
+    Log::partialMock()
+        ->shouldReceive('channel')
+        ->andReturnSelf()
+        ->shouldReceive('info')
         ->twice()
         ->withArgs(function ($message, $context): bool {
             static $callCount = 0;
@@ -44,11 +44,11 @@ it('can create a span with log driver', function (): void {
 it('can create a child span with log driver', function (): void {
     $driver = new LogDriver('test', true);
 
-    // Allow any channel calls (including Laravel's internal 'deprecations' channel)
-    Log::shouldReceive('channel')
-        ->andReturnSelf();
-
-    Log::shouldReceive('info')
+    // Mock the Log facade to handle both our calls and Laravel's internal calls
+    Log::partialMock()
+        ->shouldReceive('channel')
+        ->andReturnSelf()
+        ->shouldReceive('info')
         ->twice()
         ->withArgs(function ($message, array $context): bool {
             static $callCount = 0;
@@ -79,11 +79,11 @@ it('can create a child span with log driver', function (): void {
 it('handles exceptions in spans', function (): void {
     $driver = new LogDriver('test', true);
 
-    // Allow any channel calls (including Laravel's internal 'deprecations' channel)
-    Log::shouldReceive('channel')
-        ->andReturnSelf();
-
-    Log::shouldReceive('info')
+    // Mock the Log facade to handle both our calls and Laravel's internal calls
+    Log::partialMock()
+        ->shouldReceive('channel')
+        ->andReturnSelf()
+        ->shouldReceive('info')
         ->twice()
         ->withArgs(function ($message, array $context): bool {
             static $callCount = 0;
@@ -115,11 +115,11 @@ it('respects enabled flag', function (): void {
 
     expect($driver->enabled())->toBeFalse();
 
-    // Allow any channel calls for Laravel internals but no info calls should be made
-    Log::shouldReceive('channel')
-        ->andReturnSelf();
-
-    Log::shouldReceive('info')->never();
+    // Mock the Log facade to handle Laravel's internal calls but expect no info calls
+    Log::partialMock()
+        ->shouldReceive('channel')
+        ->andReturnSelf()
+        ->shouldReceive('info')->never();
 
     $result = $driver->span('test.span', [], fn (): string => 'disabled result');
 
