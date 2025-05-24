@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Prism\Prism\Contracts\Telemetry;
 use Prism\Prism\Telemetry\LogDriver;
-use Prism\Prism\Telemetry\NullDriver;
 
 class PrismServiceProvider extends ServiceProvider
 {
@@ -51,30 +50,14 @@ class PrismServiceProvider extends ServiceProvider
 
     protected function registerTelemetryDrivers(): void
     {
-        $this->app->bind(NullDriver::class, fn (): NullDriver => new NullDriver);
-
-        $this->app->bind(LogDriver::class, function (): LogDriver {
-            $driverConfig = config('prism.telemetry.driver_config.'.LogDriver::class, []);
-
-            return new LogDriver(
-                channel: $driverConfig['channel'] ?? 'default',
-                enabled: config('prism.telemetry.enabled', false)
-            );
-        });
-
+        $this->app->bind(LogDriver::class, fn(): LogDriver => new LogDriver(
+            channel: config('prism.telemetry.log_channel', 'default'),
+            enabled: config('prism.telemetry.enabled', false)
+        ));
     }
 
     protected function registerTelemetryService(): void
     {
-        $this->app->singleton(Telemetry::class, function (): Telemetry {
-            $enabled = config('prism.telemetry.enabled', false);
-            $driverClass = config('prism.telemetry.driver', NullDriver::class);
-
-            if (! $enabled || $driverClass === NullDriver::class) {
-                return new NullDriver;
-            }
-
-            return $this->app->make($driverClass);
-        });
+        $this->app->singleton(Telemetry::class, fn(): Telemetry => $this->app->make(LogDriver::class));
     }
 }

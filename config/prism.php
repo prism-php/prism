@@ -9,16 +9,9 @@ return [
 
     'telemetry' => [
         'enabled' => env('PRISM_TELEMETRY_ENABLED', false),
-        'driver' => env('PRISM_TELEMETRY_DRIVER', \Prism\Prism\Telemetry\NullDriver::class),
         'service_name' => env('PRISM_TELEMETRY_SERVICE_NAME', 'prism'),
         'service_version' => env('PRISM_TELEMETRY_SERVICE_VERSION', '1.0.0'),
-
-        // Driver-specific configuration
-        'driver_config' => [
-            \Prism\Prism\Telemetry\LogDriver::class => [
-                'channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'default'),
-            ],
-        ],
+        'log_channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'default'),
     ],
     'providers' => [
         'openai' => [
