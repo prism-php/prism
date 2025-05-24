@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
@@ -29,6 +30,7 @@ use Throwable;
 class Text
 {
     use CallsTools;
+    use HasTelemetry;
     use MapsFinishReason;
     use ValidatesResponse;
 
@@ -131,23 +133,31 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_tokens' => $request->maxTokens(),
-                ], array_filter([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->trace('mistral.http', [
+            'http.method' => 'POST',
+            'mistral.endpoint' => 'chat/completions',
+            'prism.provider' => 'mistral',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'text',
+        ], function () use ($request) {
+            try {
+                return $this->client->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_tokens' => $request->maxTokens(),
+                    ], array_filter([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'tools' => ToolMap::map($request->tools()),
+                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ]))
+                );
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     /**

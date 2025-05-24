@@ -205,6 +205,10 @@ export default defineConfig({
                 text: "Provider Interoperability",
                 link: "/advanced/provider-interoperability",
               },
+              {
+                text: "Telemetry",
+                link: "/advanced/telemetry",
+              },
             ],
           },
           {
@@ -217,6 +221,10 @@ export default defineConfig({
               {
                 text: "Bedrock",
                 link: "https://github.com/prism-php/bedrock",
+              },
+              {
+                text: "OpenTelemetry",
+                link: "https://github.com/prism-php/opentelemetry",
               },
             ],
           },

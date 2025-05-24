@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -27,7 +28,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, ValidatesResponse;
+    use CallsTools, HasTelemetry, MapsFinishReason, ValidatesResponse;
 
     public function __construct(
         protected PendingRequest $client,
@@ -200,28 +201,36 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        try {
-            return $this
-                ->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post('chat/completions',
-                    array_merge([
-                        'stream' => true,
-                        'model' => $request->model(),
-                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_tokens' => $request->maxTokens(),
-                    ], array_filter([
-                        'temperature' => $request->temperature(),
-                        'top_p' => $request->topP(),
-                        'tools' => ToolMap::map($request->tools()),
-                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    ]))
-                );
-        } catch (Throwable $e) {
-            logger()->error('Mistral API error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->trace('mistral.http', [
+            'http.method' => 'POST',
+            'mistral.endpoint' => 'chat/completions',
+            'prism.provider' => 'mistral',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'stream',
+        ], function () use ($request) {
+            try {
+                return $this
+                    ->client
+                    ->withOptions(['stream' => true])
+                    ->throw()
+                    ->post('chat/completions',
+                        array_merge([
+                            'stream' => true,
+                            'model' => $request->model(),
+                            'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                            'max_tokens' => $request->maxTokens(),
+                        ], array_filter([
+                            'temperature' => $request->temperature(),
+                            'top_p' => $request->topP(),
+                            'tools' => ToolMap::map($request->tools()),
+                            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                        ]))
+                    );
+            } catch (Throwable $e) {
+                logger()->error('Mistral API error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     protected function readLine(StreamInterface $stream): string

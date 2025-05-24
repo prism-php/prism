@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Response;
 use InvalidArgumentException;
 use Pest\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -31,7 +32,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, HandlesResponse;
+    use CallsTools, HandlesResponse, HasTelemetry;
 
     protected StreamState $state;
 
@@ -559,21 +560,29 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
-        try {
-            return $this->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post('messages', array_filter([
-                    'stream' => true,
-                    ...Text::buildHttpRequestPayload($request),
-                ]));
-        } catch (Throwable $e) {
-            if ($e instanceof RequestException && in_array($e->response->getStatusCode(), [413, 429, 529])) {
-                $this->handleResponseExceptions($e->response);
-            }
+        return $this->trace('anthropic.http', [
+            'http.method' => 'POST',
+            'anthropic.endpoint' => 'messages',
+            'prism.provider' => 'anthropic',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'stream',
+        ], function () use ($request) {
+            try {
+                return $this->client
+                    ->withOptions(['stream' => true])
+                    ->throw()
+                    ->post('messages', array_filter([
+                        'stream' => true,
+                        ...Text::buildHttpRequestPayload($request),
+                    ]));
+            } catch (Throwable $e) {
+                if ($e instanceof RequestException && in_array($e->response->getStatusCode(), [413, 429, 529])) {
+                    $this->handleResponseExceptions($e->response);
+                }
 
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     protected function readLine(StreamInterface $stream): string

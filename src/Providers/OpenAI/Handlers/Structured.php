@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
@@ -23,6 +26,7 @@ use Throwable;
 
 class Structured
 {
+    use HasTelemetry;
     use MapsFinishReason;
     use ProcessesRateLimits;
     use ValidatesResponse;
@@ -91,23 +95,31 @@ class Structured
      */
     protected function sendRequest(Request $request, array $responseFormat): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => (array) $request->providerOptions('metadata'),
-                    'response_format' => $responseFormat,
-                ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->trace('openai.http', [
+            'http.method' => 'POST',
+            'openai.endpoint' => 'chat/completions',
+            'prism.provider' => 'openai',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'structured',
+        ], function () use ($request, $responseFormat) {
+            try {
+                return $this->client->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_completion_tokens' => $request->maxTokens(),
+                    ], array_filter([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'metadata' => (array) $request->providerOptions('metadata'),
+                        'response_format' => $responseFormat,
+                    ]))
+                );
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     protected function handleAutoMode(Request $request): ClientResponse

@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Anthropic\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
@@ -15,7 +16,7 @@ use Throwable;
 
 abstract class AnthropicHandlerAbstract
 {
-    use HandlesResponse;
+    use HandlesResponse, HasTelemetry;
 
     protected Response $httpResponse;
 
@@ -26,16 +27,33 @@ abstract class AnthropicHandlerAbstract
      */
     abstract public static function buildHttpRequestPayload(PrismRequest $request): array;
 
+    protected function getRequestType(): string
+    {
+        return match ($this->request::class) {
+            \Prism\Prism\Text\Request::class => 'text',
+            \Prism\Prism\Structured\Request::class => 'structured',
+            default => 'unknown',
+        };
+    }
+
     protected function sendRequest(): void
     {
-        try {
-            $this->httpResponse = $this->client->post(
-                'messages',
-                static::buildHttpRequestPayload($this->request)
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($this->request->model(), $e);
-        }
+        $this->httpResponse = $this->trace('anthropic.http', [
+            'http.method' => 'POST',
+            'anthropic.endpoint' => 'messages',
+            'prism.provider' => 'anthropic',
+            'prism.model' => $this->request->model(),
+            'prism.request_type' => $this->getRequestType(),
+        ], function () {
+            try {
+                return $this->client->post(
+                    'messages',
+                    static::buildHttpRequestPayload($this->request)
+                );
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($this->request->model(), $e);
+            }
+        });
 
         $this->handleResponseErrors();
     }

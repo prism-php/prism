@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
@@ -28,6 +29,7 @@ use Throwable;
 class Text
 {
     use CallsTools;
+    use HasTelemetry;
     use MapsFinishReason;
     use ValidatesResponses;
 
@@ -102,25 +104,33 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
-        try {
-            $response = $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
-            );
+        return $this->trace('deepseek.http', [
+            'http.method' => 'POST',
+            'deepseek.endpoint' => 'chat/completions',
+            'prism.provider' => 'deepseek',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'text',
+        ], function () use ($request) {
+            try {
+                $response = $this->client->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_completion_tokens' => $request->maxTokens(),
+                    ], array_filter([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'tools' => ToolMap::map($request->tools()),
+                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ]))
+                );
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                return $response->json();
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     /**

@@ -13,6 +13,7 @@ use Prism\Prism\Concerns\ConfiguresTools;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -27,6 +28,7 @@ class PendingRequest
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
+    use HasTelemetry;
     use HasTools;
 
     /**
@@ -39,7 +41,15 @@ class PendingRequest
 
     public function asText(): Response
     {
-        return $this->provider->text($this->toRequest());
+        return $this->trace(
+            'prism.text.generate',
+            [
+                'prism.provider' => $this->provider::class,
+                'prism.model' => $this->model,
+                'prism.request_type' => 'text',
+            ],
+            fn (): \Prism\Prism\Text\Response => $this->provider->text($this->toRequest())
+        );
     }
 
     /**
@@ -47,7 +57,15 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
-        return $this->provider->stream($this->toRequest());
+        return $this->traceStream(
+            'prism.text.stream',
+            [
+                'prism.provider' => $this->provider::class,
+                'prism.model' => $this->model,
+                'prism.request_type' => 'stream',
+            ],
+            fn (): \Generator => $this->provider->stream($this->toRequest())
+        );
     }
 
     public function toRequest(): Request

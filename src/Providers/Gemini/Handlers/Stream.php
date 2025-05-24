@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -26,7 +27,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools;
+    use CallsTools, HasTelemetry;
 
     public function __construct(
         protected PendingRequest $client,
@@ -214,46 +215,54 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        try {
-            $providerOptions = $request->providerOptions();
+        return $this->trace('gemini.http', [
+            'http.method' => 'POST',
+            'gemini.endpoint' => 'streamGenerateContent',
+            'prism.provider' => 'gemini',
+            'prism.model' => $request->model(),
+            'prism.request_type' => 'stream',
+        ], function () use ($request) {
+            try {
+                $providerOptions = $request->providerOptions();
 
-            if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
-                throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
-            }
+                if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
+                    throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
+                }
 
-            $tools = match (true) {
-                $providerOptions['searchGrounding'] ?? false => [
-                    [
-                        'google_search' => (object) [],
+                $tools = match (true) {
+                    $providerOptions['searchGrounding'] ?? false => [
+                        [
+                            'google_search' => (object) [],
+                        ],
                     ],
-                ],
-                $request->tools() !== [] => ['function_declarations' => ToolMap::map($request->tools())],
-                default => [],
-            };
+                    $request->tools() !== [] => ['function_declarations' => ToolMap::map($request->tools())],
+                    default => [],
+                };
 
-            return $this->client
-                ->withOptions(['stream' => true])
-                ->post(
-                    "{$request->model()}:streamGenerateContent?alt=sse",
-                    array_filter([
-                        ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                        'generationConfig' => array_filter([
-                            'temperature' => $request->temperature(),
-                            'topP' => $request->topP(),
-                            'maxOutputTokens' => $request->maxTokens(),
-                            'thinkingConfig' => array_filter([
-                                'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            ], fn ($v): bool => $v !== null),
-                        ]),
-                        'tools' => $tools !== [] ? $tools : null,
-                        'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
-                        'safetySettings' => $providerOptions['safetySettings'] ?? null,
-                    ])
-                );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+                return $this->client
+                    ->withOptions(['stream' => true])
+                    ->post(
+                        "{$request->model()}:streamGenerateContent?alt=sse",
+                        array_filter([
+                            ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                            'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                            'generationConfig' => array_filter([
+                                'temperature' => $request->temperature(),
+                                'topP' => $request->topP(),
+                                'maxOutputTokens' => $request->maxTokens(),
+                                'thinkingConfig' => array_filter([
+                                    'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+                                ], fn ($v): bool => $v !== null),
+                            ]),
+                            'tools' => $tools !== [] ? $tools : null,
+                            'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                            'safetySettings' => $providerOptions['safetySettings'] ?? null,
+                        ])
+                    );
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     protected function readLine(StreamInterface $stream): string

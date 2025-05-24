@@ -4,6 +4,9 @@ namespace Prism\Prism;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Prism\Prism\Contracts\Telemetry;
+use Prism\Prism\Telemetry\ArrayLogDriver;
+use Prism\Prism\Telemetry\LogDriver;
 
 class PrismServiceProvider extends ServiceProvider
 {
@@ -41,5 +44,29 @@ class PrismServiceProvider extends ServiceProvider
             'prism-server',
             fn (): PrismServer => new PrismServer
         );
+
+        $this->registerTelemetryDrivers();
+        $this->registerTelemetryService();
+    }
+
+    protected function registerTelemetryDrivers(): void
+    {
+        $this->app->bind(LogDriver::class, fn (): LogDriver => new LogDriver(
+            channel: config('prism.telemetry.log_channel', 'default'),
+            enabled: config('prism.telemetry.enabled', false)
+        ));
+
+        $this->app->bind(ArrayLogDriver::class, fn (): ArrayLogDriver => new ArrayLogDriver(
+            enabled: config('prism.telemetry.enabled', false)
+        ));
+    }
+
+    protected function registerTelemetryService(): void
+    {
+        $this->app->singleton(Telemetry::class, function (): Telemetry {
+            $driverClass = config('prism.telemetry.driver', LogDriver::class);
+
+            return $this->app->make($driverClass);
+        });
     }
 }

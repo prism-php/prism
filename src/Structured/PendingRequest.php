@@ -12,6 +12,7 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasSchema;
+use Prism\Prism\Concerns\HasTelemetry;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -25,6 +26,7 @@ class PendingRequest
     use HasPrompts;
     use HasProviderOptions;
     use HasSchema;
+    use HasTelemetry;
 
     /**
      * @deprecated Use `asStructured` instead.
@@ -36,7 +38,16 @@ class PendingRequest
 
     public function asStructured(): Response
     {
-        return $this->provider->structured($this->toRequest());
+        return $this->trace(
+            'prism.structured.generate',
+            [
+                'prism.provider' => $this->provider::class,
+                'prism.model' => $this->model,
+                'prism.request_type' => 'structured',
+                'prism.schema_type' => $this->schema?->name() ?? 'unknown',
+            ],
+            fn (): \Prism\Prism\Structured\Response => $this->provider->structured($this->toRequest())
+        );
     }
 
     public function toRequest(): Request
