@@ -55,7 +55,7 @@ class Embeddings
             'prism.provider' => 'ollama',
             'prism.model' => $request->model(),
             'prism.request_type' => 'embeddings',
-        ], fn() => $this->client->post(
+        ], fn () => $this->client->post(
             'api/embed',
             array_filter([
                 'model' => $request->model(),
