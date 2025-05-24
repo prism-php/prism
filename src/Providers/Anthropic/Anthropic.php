@@ -8,6 +8,7 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Providers\Anthropic\Handlers\Stream;
@@ -32,7 +33,8 @@ readonly class Anthropic implements Provider
         $handler = new Text(
             $this->client(
                 $request->clientOptions(),
-                $request->clientRetry()
+                $request->clientRetry(),
+                $request
             ),
             $request
         );
@@ -46,7 +48,8 @@ readonly class Anthropic implements Provider
         $handler = new Structured(
             $this->client(
                 $request->clientOptions(),
-                $request->clientRetry()
+                $request->clientRetry(),
+                $request
             ),
             $request
         );
@@ -59,7 +62,8 @@ readonly class Anthropic implements Provider
     {
         $handler = new Stream($this->client(
             $request->clientOptions(),
-            $request->clientRetry()
+            $request->clientRetry(),
+            $request
         ));
 
         return $handler->handle($request);
@@ -75,12 +79,20 @@ readonly class Anthropic implements Provider
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?PrismRequest $request = null): PendingRequest
     {
+        $betaFeatures = $this->betaFeatures;
+        
+        // Automatically add MCP Connector beta header if MCP servers are present
+        if (($request instanceof TextRequest || $request instanceof StructuredRequest) && $request->mcpServers() !== []) {
+            $mcpBeta = 'mcp-client-2025-04-04';
+            $betaFeatures = $betaFeatures ? $betaFeatures . ',' . $mcpBeta : $mcpBeta;
+        }
+
         return Http::withHeaders(array_filter([
             'x-api-key' => $this->apiKey,
             'anthropic-version' => $this->apiVersion,
-            'anthropic-beta' => $this->betaFeatures,
+            'anthropic-beta' => $betaFeatures,
         ]))
             ->withOptions($options)
             ->retry(...$retry)

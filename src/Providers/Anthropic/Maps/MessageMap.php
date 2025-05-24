@@ -85,7 +85,7 @@ class MessageMap
         return [
             'role' => 'user',
             'content' => array_map(fn (ToolResult $toolResult): array => [
-                'type' => 'tool_result',
+                'type' => str_starts_with($toolResult->toolCallId, 'mcptoolu_') ? 'mcp_tool_result' : 'tool_result',
                 'tool_use_id' => $toolResult->toolCallId,
                 'content' => $toolResult->result,
             ], $message->toolResults),

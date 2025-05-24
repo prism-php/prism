@@ -76,7 +76,7 @@ class Structured extends AnthropicHandlerAbstract
             throw new \InvalidArgumentException('Request must be an instance of '.StructuredRequest::class);
         }
 
-        return array_filter([
+        $payload = array_filter([
             'model' => $request->model(),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
@@ -92,6 +92,16 @@ class Structured extends AnthropicHandlerAbstract
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
         ]);
+
+        // Add MCP servers if present
+        if (! empty($request->mcpServers())) {
+            $payload['mcp_servers'] = array_map(
+                fn ($mcpServer): array => $mcpServer->toArray(),
+                $request->mcpServers()
+            );
+        }
+
+        return $payload;
     }
 
     protected function prepareTempResponse(): void

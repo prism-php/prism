@@ -280,6 +280,26 @@ $prism = Prism::text()
 > [!WARNING]
 > Tool choice support varies by provider. Check your provider's documentation for specific capabilities.
 
+## MCP Connector (Anthropic)
+
+For Anthropic users, Prism supports the Model Context Protocol (MCP) Connector, which allows you to connect to remote MCP servers that provide tools and resources. This gives you access to external tools without having to implement them directly in your application.
+
+```php
+use Prism\Prism\Prism;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer('filesystem', 'https://filesystem-server.com')
+    ->withMCPServer('database', 'https://database-server.com')
+    ->withPrompt('List files and query the user database')
+    ->generate();
+```
+
+MCP Connector automatically discovers and makes available tools from connected MCP servers, extending your AI's capabilities beyond locally defined tools.
+
+> [!TIP]
+> Learn more about MCP Connector setup and configuration in the [Anthropic provider documentation](/providers/anthropic#mcp-connector).
+
 ## Response Handling with Tools
 
 When your AI uses tools, you can inspect the results and see how it arrived at its answer:

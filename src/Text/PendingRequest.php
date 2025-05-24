@@ -10,6 +10,7 @@ use Prism\Prism\Concerns\ConfiguresGeneration;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\ConfiguresTools;
+use Prism\Prism\Concerns\HasMCPServers;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
@@ -24,6 +25,7 @@ class PendingRequest
     use ConfiguresModels;
     use ConfiguresProviders;
     use ConfiguresTools;
+    use HasMCPServers;
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
@@ -67,11 +69,12 @@ class PendingRequest
             systemPrompts: $this->systemPrompts,
             prompt: $this->prompt,
             messages: $messages,
-            temperature: $this->temperature,
-            maxTokens: $this->maxTokens,
             maxSteps: $this->maxSteps,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
             topP: $this->topP,
             tools: $this->tools,
+            mcpServers: $this->mcpServers,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,

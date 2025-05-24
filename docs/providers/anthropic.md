@@ -144,6 +144,180 @@ Claude Sonnet 3.7 also brings extended output mode which increase the output lim
 
 This feature is currently in beta, so you will need to enable to by adding `output-128k-2025-02-19` to your Anthropic anthropic_beta config (see [Configuration](#configuration) above).
 
+## MCP Connector
+
+Anthropic's MCP (Model Context Protocol) Connector allows you to connect to remote MCP servers directly through the Messages API without implementing a separate MCP client. This enables Claude to access tools and resources from external services seamlessly.
+
+### Overview
+
+MCP Connector provides:
+- Direct connection to remote MCP servers via HTTPS
+- Tool calling support through the Messages API
+- OAuth authentication for secure server connections
+- Support for multiple MCP servers in a single request
+
+### Basic Usage
+
+Add MCP servers to your text generation requests using the `withMCPServer()` method:
+
+```php
+use Prism\Prism\Prism;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer('filesystem', 'https://filesystem-server.com')
+    ->withPrompt('List all files in the current directory')
+    ->generate();
+```
+
+### Multiple MCP Servers
+
+You can connect to multiple MCP servers in a single request:
+
+```php
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer('filesystem', 'https://filesystem-server.com')
+    ->withMCPServer('database', 'https://database-server.com')
+    ->withPrompt('Read the sales data from the database and save a summary to a file')
+    ->generate();
+```
+
+### Authentication
+
+For secure MCP servers that require authentication, provide an OAuth Bearer token:
+
+```php
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer(
+        name: 'secure-api',
+        url: 'https://secure-api.example.com',
+        authorizationToken: 'your-oauth-token'
+    )
+    ->withPrompt('Fetch user data securely')
+    ->generate();
+```
+
+### Tool Configuration
+
+Configure tool access and restrictions per server:
+
+```php
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer(
+        name: 'filesystem',
+        url: 'https://filesystem-server.com',
+        authorizationToken: 'auth-token',
+        toolConfiguration: [
+            'allowed_paths' => ['/safe/directory/*'],
+            'read_only' => true
+        ]
+    )
+    ->withPrompt('Read the configuration file safely')
+    ->generate();
+```
+
+### Batch Configuration
+
+Add multiple servers at once using arrays:
+
+```php
+$mcpServers = [
+    [
+        'name' => 'api-gateway',
+        'url' => 'https://api-gateway.example.com',
+        'authorization_token' => 'gateway-token'
+    ],
+    [
+        'name' => 'monitoring',
+        'url' => 'https://monitoring.example.com',
+        'authorization_token' => 'monitoring-token'
+    ]
+];
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServers($mcpServers)
+    ->withPrompt('Check system health and API status')
+    ->generate();
+```
+
+### Structured Output with MCP
+
+MCP Connector works seamlessly with structured output:
+
+```php
+$response = Prism::structured()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer('analytics', 'https://analytics-server.com')
+    ->withSchema([
+        'type' => 'object',
+        'properties' => [
+            'summary' => ['type' => 'string'],
+            'key_metrics' => [
+                'type' => 'array',
+                'items' => ['type' => 'string']
+            ]
+        ]
+    ])
+    ->withPrompt('Analyze the latest user engagement data')
+    ->generate();
+```
+
+### Streaming Support
+
+MCP servers work with streaming requests as well:
+
+```php
+foreach (Prism::text()
+    ->using('anthropic', 'claude-3-sonnet')
+    ->withMCPServer('realtime-data', 'https://realtime.example.com')
+    ->withPrompt('Get live system metrics')
+    ->stream() as $chunk) {
+    echo $chunk->text;
+}
+```
+
+### Beta Header Management
+
+Prism automatically manages the required beta headers when MCP servers are present. The `mcp-client-2025-04-04` beta header is added automatically - no manual configuration needed.
+
+If you have existing beta features configured, Prism will combine them appropriately:
+
+```php
+// In config/prism.php
+'anthropic' => [
+    'anthropic_beta' => 'existing-feature',
+    // MCP beta header will be automatically added when servers are used
+]
+```
+
+### Requirements
+
+- MCP servers must be publicly accessible via HTTPS
+- Currently supports tool calls only (resources coming in future updates)
+- Not supported on Amazon Bedrock and Google Vertex AI
+- OAuth tokens must be managed by your application
+
+### Error Handling
+
+Handle MCP-related errors gracefully:
+
+```php
+try {
+    $response = Prism::text()
+        ->using('anthropic', 'claude-3-sonnet')
+        ->withMCPServer('external-api', 'https://api.example.com', 'token')
+        ->withPrompt('Fetch data from external service')
+        ->generate();
+} catch (PrismException $e) {
+    // Handle MCP server connection or tool execution errors
+    logger()->error('MCP request failed: ' . $e->getMessage());
+}
+```
+
 ## Documents
 
 Anthropic supports PDF, text and markdown documents. Note that Anthropic uses vision to process PDFs under the hood, and consequently there are some limitations detailed in their [feature documentation](https://docs.anthropic.com/en/docs/build-with-claude/pdf-support).
