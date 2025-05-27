@@ -128,7 +128,9 @@ class Stream
                 $toolCalls[$index]['id'] = data_get($toolCall, 'id');
             }
 
-            if ($arguments = data_get($toolCall, 'function.arguments')) {
+            $arguments = data_get($toolCall, 'function.arguments');
+
+            if (! is_null($arguments)) {
                 $toolCalls[$index]['arguments'] .= $arguments;
             }
         }

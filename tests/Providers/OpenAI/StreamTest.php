@@ -154,3 +154,27 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
         // Don't remove me rector!
     }
 })->throws(PrismRateLimitedException::class);
+
+it('can accept falsy parameters', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-falsy-argument-conversation');
+
+    $modelTool = Tool::as('get_models')
+        ->for('Returns info about of available models')
+        ->withNumberParameter('modelId', 'Id of the model to load. Returns all models if null', false)
+        ->using(fn(int $modelId): string => "The model {$modelId} is the funniest of all");
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Can you tell me more about the model with id 0 ?')
+        ->withTools([$modelTool])
+        ->withMaxSteps(2)
+        ->asStream();
+
+    foreach ($response as $chunk) {
+        echo $chunk->text;
+        ob_flush();
+        flush();
+    }
+
+    // No assertion: test passes if no exceptions are thrown.
+})->throwsNoExceptions();
