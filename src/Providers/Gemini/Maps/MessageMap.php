@@ -174,7 +174,7 @@ class MessageMap
             }
 
             if ($document->isUrl()) {
-                throw new InvalidArgumentException('URL document type is not supported by Anthropic');
+                throw new InvalidArgumentException('URL document type is not supported by Gemini');
             }
 
             return [
