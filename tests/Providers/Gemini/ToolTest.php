@@ -22,7 +22,6 @@ it('maps tools to gemini format', function (): void {
         )
         ->using(fn (): string => '[Search results]');
 
-    ray(ToolMap::map([$tool]));
     expect(ToolMap::map([$tool]))->toBe([[
         'name' => $tool->name(),
         'description' => $tool->description(),
