@@ -1,52 +1,26 @@
 # Documents
 
-Prism currently supports documents with Gemini and Anthropic.
+Prism supports including documents in your messages with some providers.
+
+See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
+
+Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports documents.
 
 ## Supported file types
 
-Different providers support different mime types (and transfer mediums).
+> [!TIP]
+> If provider interoperability is important to your app, we recommend converting documents to markdown.
 
-At the time of writing:
-- Anthropic* supports (file contents or url):
-    - pdf (application/pdf) 
-    - txt (text/plain)
-    - md (text/md)
-    - chunks (array of strings)
-- Gemini supports (file contents or url):
-    - pdf (application/pdf)
-    - javascript (text/javascript)
-    - python (text/x-python)
-    - txt (text/plain)
-    - html (text/html)
-    - css (text/css)
-    - md (text/md)
-    - csv (text/csv)
-    - xml (text/xml)
-    - rtf (text/rtf)
-- Mistral supports (url only):
-    - pdf (application/pdf)
-    - csv (text/csv)
-    - txt (text/plain)
-- OpenAI supports (file contents, url or file_id):
-    - pdf (application/pdf)
-- AWS Bedrock - Converse (file contents):
-    - pdf (application/pdf)
-    - csv (text/csv)
-    - doc (application/msword)
-    - docx (application/vnd.openxmlformats-officedocument.wordprocessingml.document)
-    - xls (application/vnd.ms-excel)
-    - xlsx (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
-    - html (text/html)
-    - txt (text/plain)
-    - md (text/md)
+Please check provider documentation for supported file/mime types, as support differs widely.
 
-All of these formats should work with Prism.
-
-\* Via the Anthropic provider only. Bedrock currently only supports documents via the Converse schema, which does not use native Anthropic document functionality.
+The most supported file types are pdf and text/plain (which may include markdown).
 
 ## Transfer mediums 
 
-Providers are not consistent in their support of sending file raw contents, base64 and/or URLs (as noted above). 
+> [!TIP]
+> If provider interoperability is important to your app, we recommend using rawContent or base64.
+
+Providers are not consistent in their support of sending file raw contents, base64 and/or URLs. 
 
 Prism tries to smooth over these rough edges, but its not always possible.
 
@@ -55,6 +29,7 @@ Prism tries to smooth over these rough edges, but its not always possible.
 - Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
 
 ### Limitations
+
 - Where a provider only supports URLs: if you provide a file path, raw contents, base64 or chunks, for security reasons Prism does not create a URL for you and your request will fail.
 - Chunks cannot be passed between providers, as they could be in different formats (however, currently only Anthropic supports them).
 
