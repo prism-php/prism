@@ -140,7 +140,7 @@ describe('Image support', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
                     ],
                 ),
             ])
