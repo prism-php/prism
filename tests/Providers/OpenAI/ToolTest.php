@@ -21,7 +21,12 @@ it('maps tools', function (): void {
             'description' => $tool->description(),
             'parameters' => [
                 'type' => 'object',
-                'properties' => $tool->parameters(),
+                'properties' => [
+                    'query' => [
+                        'description' => 'the detailed search query',
+                        'type' => 'string',
+                    ],
+                ],
                 'required' => $tool->requiredParameters(),
             ],
         ],
@@ -45,7 +50,12 @@ it('maps tools with strict mode', function (): void {
             'description' => $tool->description(),
             'parameters' => [
                 'type' => 'object',
-                'properties' => $tool->parameters(),
+                'properties' => [
+                    'query' => [
+                        'description' => 'the detailed search query',
+                        'type' => 'string',
+                    ],
+                ],
                 'required' => $tool->requiredParameters(),
             ],
         ],

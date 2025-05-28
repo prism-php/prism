@@ -23,7 +23,7 @@ it('can return tool details', function (): void {
 
     expect($searchTool->name())->toBe('search');
     expect($searchTool->description())->toBe('useful for searching current data');
-    expect($searchTool->parameters())->toBe([
+    expect($searchTool->parametersAsArray())->toBe([
         'query' => [
             'description' => 'the search query',
             'type' => 'string',

@@ -7,6 +7,7 @@ namespace Prism\Prism;
 use ArgumentCountError;
 use Closure;
 use Error;
+use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Schema;
@@ -28,7 +29,7 @@ class Tool
 
     protected string $description;
 
-    /** @var array<string, array<string, mixed>> */
+    /** @var array<string,Schema> */
     protected array $parameters = [];
 
     /** @var array <int, string> */
@@ -60,7 +61,7 @@ class Tool
 
     public function withParameter(Schema $parameter, bool $required = true): self
     {
-        $this->parameters[$parameter->name()] = $parameter->toArray();
+        $this->parameters[$parameter->name()] = $parameter;
 
         if ($required) {
             $this->requiredParameters[] = $parameter->name();
@@ -146,11 +147,21 @@ class Tool
     }
 
     /**
-     * @return array<string, array<string, mixed>>
+     * @return array<string,Schema>
      */
     public function parameters(): array
     {
         return $this->parameters;
+    }
+
+    /**
+     * @return array<string, array<string,mixed>>
+     */
+    public function parametersAsArray(): array
+    {
+        return Arr::mapWithKeys($this->parameters, fn (Schema $schema, string $name): array => [
+            $name => $schema->toArray(),
+        ]);
     }
 
     public function name(): string
