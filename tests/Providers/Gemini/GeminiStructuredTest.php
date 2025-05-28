@@ -91,7 +91,7 @@ it('can use a cache object with a structured request', function (): void {
         model: 'gemini-1.5-flash-002',
         messages: [
             new UserMessage('', [
-                Document::fromPath('tests/Fixtures/long-document.pdf'),
+                Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
             ]),
         ],
         systemPrompts: [

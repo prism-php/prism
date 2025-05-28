@@ -80,7 +80,7 @@ use Prism\Prism\ValueObjects\Messages\Support\Image;
 // From a local file
 $message = new UserMessage(
     "What's in this image?",
-    [Image::fromPath('/path/to/image.jpg')]
+    [Image::fromLocalPath('/path/to/image.jpg')]
 );
 
 // From a URL
