@@ -22,7 +22,7 @@ it('can store a document in the cache', function (): void {
         model: 'gemini-1.5-flash-002',
         messages: [
             new UserMessage('', [
-                Document::fromPath('tests/Fixtures/long-document.pdf'),
+                Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
             ]),
         ],
         systemPrompts: [
