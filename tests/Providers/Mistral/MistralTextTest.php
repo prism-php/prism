@@ -262,7 +262,6 @@ describe('Document support', function (): void {
             expect($message[1])->toBe([
                 'type' => 'document_url',
                 'document_url' => $document,
-                'document_name' => null,
             ]);
 
             return true;

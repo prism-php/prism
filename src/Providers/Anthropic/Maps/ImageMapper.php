@@ -18,6 +18,9 @@ class ImageMapper extends ProviderMediaMapper
         public ?array $cacheControl = null,
     ) {}
 
+    /**
+     * @return array<string,mixed>
+     */
     public function toPayload(): array
     {
         $payload = [
@@ -52,10 +55,6 @@ class ImageMapper extends ProviderMediaMapper
             return true;
         }
 
-        if ($this->media->hasRawContent()) {
-            return true;
-        }
-
-        return $this->media->hasBase64();
+        return $this->media->hasRawContent();
     }
 }

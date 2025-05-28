@@ -10,6 +10,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Mistral\Maps\DocumentMapper;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -52,10 +53,7 @@ class OCR
         try {
             $response = $this->client->post('/ocr', [
                 'model' => $this->model,
-                'document' => [
-                    'type' => 'document_url',
-                    'document_url' => $this->document->document,
-                ],
+                'document' => (new DocumentMapper($this->document))->toPayload(),
             ]);
 
             return $response->json();

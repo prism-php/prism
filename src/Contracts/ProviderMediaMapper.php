@@ -19,10 +19,7 @@ abstract class ProviderMediaMapper
         }
     }
 
-    /**
-     * @return array<string,mixed>
-     */
-    abstract public function toPayload(): array;
+    abstract public function toPayload(): mixed;
 
     abstract protected function provider(): string|Provider;
 
