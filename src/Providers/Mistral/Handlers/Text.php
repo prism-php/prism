@@ -49,7 +49,7 @@ class Text
 
         $responseMessage = new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
+            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -70,7 +70,7 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
+            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -123,7 +123,7 @@ class Text
             ),
             messages: $request->messages(),
             toolResults: $toolResults,
-            toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
             additionalContent: [],
             systemPrompts: $request->systemPrompts(),
         ));

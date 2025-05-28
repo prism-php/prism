@@ -51,7 +51,7 @@ class Text
 
         $responseMessage = new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -72,7 +72,7 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -132,7 +132,7 @@ class Text
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
             toolResults: $toolResults,
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.prompt_tokens', 0) - data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0),
