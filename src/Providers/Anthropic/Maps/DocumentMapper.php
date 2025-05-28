@@ -21,6 +21,9 @@ class DocumentMapper extends ProviderMediaMapper
         public array $requestProviderOptions = [],
     ) {}
 
+    /**
+     * @return array<string,mixed>
+     */
     public function toPayload(): array
     {
         $providerOptions = $this->media->providerOptions();
@@ -77,10 +80,6 @@ class DocumentMapper extends ProviderMediaMapper
             return true;
         }
 
-        if ($this->media->hasRawContent()) {
-            return true;
-        }
-
-        return $this->media->hasBase64();
+        return $this->media->hasRawContent();
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
