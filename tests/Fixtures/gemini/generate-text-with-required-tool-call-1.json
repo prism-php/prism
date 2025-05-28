@@ -1,39 +1,46 @@
 {
-    "candidates": [
-        {
-            "content": {
-                "parts": [
-                    {
-                        "functionCall": {
-                            "name": "weather",
-                            "args": {
-                                "city": "London"
-                            }
-                        }
-                    }
-                ],
-                "role": "model"
-            },
-            "finishReason": "STOP",
-            "avgLogprobs": -0.036342903971672
-        }
-    ],
-    "usageMetadata": {
-        "promptTokenCount": 91,
-        "candidatesTokenCount": 3,
-        "totalTokenCount": 94,
-        "promptTokensDetails": [
-            {
-                "modality": "TEXT",
-                "tokenCount": 23
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "functionCall": {
+              "name": "weather",
+              "args": {
+                "options": {
+                  "decimals": false,
+                  "days": 1,
+                  "alerts": [],
+                  "unit": "Fahrenheit"
+                },
+                "city": "Detroit"
+              }
             }
+          }
         ],
-        "candidatesTokensDetails": [
-            {
-                "modality": "TEXT",
-                "tokenCount": 3
-            }
-        ]
-    },
-    "modelVersion": "gemini-1.5-flash"
-} 
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.64373282591501868
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 124,
+    "candidatesTokenCount": 12,
+    "totalTokenCount": 136,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 124
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 12
+      }
+    ]
+  },
+  "modelVersion": "gemini-1.5-flash",
+  "responseId": "TBM3aMLqO42RsbQP1MbQ6AY"
+}

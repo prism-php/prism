@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Maps;
 
+use Illuminate\Support\Arr;
+use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Tool;
 
 class ToolMap
@@ -24,10 +26,21 @@ class ToolMap
             ...$tool->hasParameters() ? [
                 'parameters' => [
                     'type' => 'object',
-                    'properties' => $tool->parameters(),
+                    'properties' => self::mapProperties($tool->parameters()),
                     'required' => $tool->requiredParameters(),
                 ],
             ] : [],
         ], $tools);
+    }
+
+    /**
+     * @param  array<string,Schema>  $properties
+     * @return array<string,mixed>
+     */
+    public static function mapProperties(array $properties): array
+    {
+        return Arr::mapWithKeys($properties, fn (Schema $schema, string $name) => [
+            $name => (new SchemaMap($schema))->toArray(),
+        ]);
     }
 }
