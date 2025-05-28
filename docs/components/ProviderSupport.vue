@@ -172,7 +172,7 @@ export default {
         {
           name: "Anthropic",
           text: Supported,
-          streaming: Planned,
+          streaming: Supported,
           structured: Adapted,
           embeddings: Unsupported,
           image: Supported,
@@ -225,7 +225,7 @@ export default {
           streaming: Unsupported,
           structured: Supported,
           embeddings: Unsupported,
-          image: Unsupported,
+          image: Supported,
           tools: Supported,
           documents: Unsupported,
         },
@@ -277,7 +277,7 @@ export default {
           embeddings: Supported,
           image: Supported,
           tools: Supported,
-          documents: Unsupported,
+          documents: Supported,
         },
         {
           name: "VoyageAI",

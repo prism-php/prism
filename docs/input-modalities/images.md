@@ -4,7 +4,7 @@ Prism supports including images in your messages for vision analysis for most pr
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that not all models with a supported provider support vision. If you are running into issues with not supported messages, double check the provider model documentation for support.
+Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports images.
 
 ## Getting started
 
