@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
@@ -40,7 +41,7 @@ class Cache
         try {
             $response = $this->client->post(
                 '/cachedContents',
-                array_filter([
+                Arr::whereNotNull([
                     'model' => 'models/'.$this->model,
                     ...(new MessageMap($this->messages, $this->systemPrompts))(),
                     'ttl' => $this->ttl.'s',

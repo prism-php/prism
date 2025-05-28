@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
@@ -235,16 +236,16 @@ class Stream
                 ->withOptions(['stream' => true])
                 ->post(
                     "{$request->model()}:streamGenerateContent?alt=sse",
-                    array_filter([
+                    Arr::whereNotNull([
                         ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
                         'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                        'generationConfig' => array_filter([
+                        'generationConfig' => Arr::whereNotNull([
                             'temperature' => $request->temperature(),
                             'topP' => $request->topP(),
                             'maxOutputTokens' => $request->maxTokens(),
-                            'thinkingConfig' => array_filter([
+                            'thinkingConfig' => Arr::whereNotNull([
                                 'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            ], fn ($v): bool => $v !== null),
+                            ]),
                         ]),
                         'tools' => $tools !== [] ? $tools : null,
                         'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,

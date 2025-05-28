@@ -41,7 +41,11 @@ trait ValidateResponse
      */
     protected function processRateLimits(Response $response): array
     {
-        $limitHeaders = array_filter($response->getHeaders(), fn ($headerName) => Str::startsWith($headerName, 'x-ratelimit-'), ARRAY_FILTER_USE_KEY);
+        $limitHeaders = array_filter(
+            $response->getHeaders(),
+            fn ($headerName) => Str::startsWith($headerName, 'x-ratelimit-'),
+            ARRAY_FILTER_USE_KEY
+        );
 
         $rateLimits = [];
 

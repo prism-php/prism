@@ -4,6 +4,7 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
@@ -98,7 +99,7 @@ class Structured
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
+                ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => (array) $request->providerOptions('metadata'),
@@ -131,10 +132,10 @@ class Structured
 
         return $this->sendRequest($request, [
             'type' => 'json_schema',
-            'json_schema' => array_filter([
+            'json_schema' => Arr::whereNotNull([
                 'name' => $request->schema()->name(),
                 'schema' => $request->schema()->toArray(),
-                'strict' => (bool) $request->providerOptions('schema.strict'),
+                'strict' => $request->providerOptions('schema.strict') ? true : null,
             ]),
         ]);
     }

@@ -8,8 +8,8 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use InvalidArgumentException;
-use Pest\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
@@ -563,7 +563,7 @@ class Stream
             return $this->client
                 ->withOptions(['stream' => true])
                 ->throw()
-                ->post('messages', array_filter([
+                ->post('messages', Arr::whereNotNull([
                     'stream' => true,
                     ...Text::buildHttpRequestPayload($request),
                 ]));

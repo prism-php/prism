@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
@@ -58,7 +59,7 @@ class Structured
                 'model' => $request->model(),
                 'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                 'max_tokens' => $request->maxTokens(),
-            ], array_filter([
+            ], Arr::whereNotNull([
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
                 'response_format' => ['type' => 'json_object'],

@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -59,7 +60,7 @@ class Embeddings
 
         return $this->client->post(
             "{$request->model()}:embedContent",
-            array_filter([
+            Arr::whereNotNull([
                 'model' => $request->model(),
                 'content' => [
                     'parts' => [

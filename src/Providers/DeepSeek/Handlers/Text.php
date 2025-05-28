@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -109,7 +110,7 @@ class Text
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
+                ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'tools' => ToolMap::map($request->tools()),

@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -48,10 +49,10 @@ class Embeddings
     {
         return $this->client->post(
             'api/embed',
-            array_filter([
+            Arr::whereNotNull([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
-                'options' => array_filter($request->providerOptions()),
+                'options' => Arr::whereNotNull($request->providerOptions()),
             ])
         );
     }

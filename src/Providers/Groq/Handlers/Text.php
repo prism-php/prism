@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -68,7 +69,7 @@ class Text
         try {
             return $this->client->post(
                 'chat/completions',
-                array_filter([
+                Arr::whereNotNull([
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'max_tokens' => $request->maxTokens(),

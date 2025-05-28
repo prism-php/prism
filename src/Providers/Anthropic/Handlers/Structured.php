@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
@@ -76,7 +77,7 @@ class Structured extends AnthropicHandlerAbstract
             throw new \InvalidArgumentException('Request must be an instance of '.StructuredRequest::class);
         }
 
-        return array_filter([
+        return Arr::whereNotNull([
             'model' => $request->model(),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
@@ -115,7 +116,7 @@ class Structured extends AnthropicHandlerAbstract
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
-            additionalContent: array_filter([
+            additionalContent: Arr::whereNotNull([
                 'messagePartsWithCitations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])

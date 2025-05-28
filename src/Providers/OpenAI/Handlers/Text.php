@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -110,7 +111,7 @@ class Text
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
+                ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => (array) $request->providerOptions('metadata'),

@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
@@ -211,7 +212,7 @@ class Stream
                         'model' => $request->model(),
                         'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                         'max_tokens' => $request->maxTokens(),
-                    ], array_filter([
+                    ], Arr::whereNotNull([
                         'temperature' => $request->temperature(),
                         'top_p' => $request->topP(),
                         'tools' => ToolMap::map($request->tools()),

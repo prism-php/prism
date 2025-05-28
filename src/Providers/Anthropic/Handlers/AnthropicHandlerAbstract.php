@@ -60,7 +60,7 @@ abstract class AnthropicHandlerAbstract
      */
     protected function extractCitations(array $data): ?array
     {
-        if (array_filter(data_get($data, 'content.*.citations')) === []) {
+        if (Arr::whereNotNull(data_get($data, 'content.*.citations')) === []) {
             return null;
         }
 

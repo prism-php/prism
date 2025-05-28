@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
@@ -87,7 +88,7 @@ class Structured
                 'messages' => (new MessageMap($request->messages()))->map(),
                 'format' => $request->schema()->toArray(),
                 'stream' => false,
-                'options' => array_filter(array_merge([
+                'options' => Arr::whereNotNull(array_merge([
                     'temperature' => $request->temperature(),
                     'num_predict' => $request->maxTokens() ?? 2048,
                     'top_p' => $request->topP(),

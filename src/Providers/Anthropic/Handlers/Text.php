@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
@@ -81,7 +82,7 @@ class Text extends AnthropicHandlerAbstract
             throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
-        return array_filter([
+        return Arr::whereNotNull([
             'model' => $request->model(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
@@ -170,7 +171,7 @@ class Text extends AnthropicHandlerAbstract
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
-            additionalContent: array_filter([
+            additionalContent: Arr::whereNotNull([
                 'messagePartsWithCitations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])

@@ -4,6 +4,7 @@ namespace Prism\Prism\Providers\VoyageAI;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -47,7 +48,7 @@ class Embeddings
         $providerOptions = $this->request->providerOptions();
 
         try {
-            $this->httpResponse = $this->client->post('embeddings', array_filter([
+            $this->httpResponse = $this->client->post('embeddings', Arr::whereNotNull([
                 'model' => $this->request->model(),
                 'input' => $this->request->inputs(),
                 'input_type' => $providerOptions['inputType'] ?? null,

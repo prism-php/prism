@@ -8,6 +8,7 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
@@ -181,7 +182,7 @@ class Stream
                     'messages' => (new MessageMap($request->messages()))->map(),
                     'tools' => ToolMap::map($request->tools()),
                     'stream' => true,
-                    'options' => array_filter(array_merge([
+                    'options' => Arr::whereNotNull(array_merge([
                         'temperature' => $request->temperature(),
                         'num_predict' => $request->maxTokens() ?? 2048,
                         'top_p' => $request->topP(),

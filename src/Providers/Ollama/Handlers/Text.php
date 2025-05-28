@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -78,7 +79,7 @@ class Text
                     'messages' => (new MessageMap($request->messages()))->map(),
                     'tools' => ToolMap::map($request->tools()),
                     'stream' => false,
-                    'options' => array_filter(array_merge([
+                    'options' => Arr::whereNotNull(array_merge([
                         'temperature' => $request->temperature(),
                         'num_predict' => $request->maxTokens() ?? 2048,
                         'top_p' => $request->topP(),

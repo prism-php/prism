@@ -3,6 +3,7 @@
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
@@ -55,18 +56,18 @@ class Structured
 
             $response = $this->client->post(
                 "{$request->model()}:generateContent",
-                array_filter([
+                Arr::whereNotNull([
                     ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                    'generationConfig' => array_filter([
+                    'generationConfig' => Arr::whereNotNull([
                         'response_mime_type' => 'application/json',
                         'response_schema' => (new SchemaMap($request->schema()))->toArray(),
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
-                        'thinkingConfig' => array_filter([
+                        'thinkingConfig' => Arr::whereNotNull([
                             'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                        ], fn ($v): bool => $v !== null),
+                        ]),
                     ]),
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])
