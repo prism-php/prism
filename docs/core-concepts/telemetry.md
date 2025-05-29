@@ -86,7 +86,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app['telemetry-manager']->extend('opentelemetry', function ($app) {
-            return new TelemetryDriver;
+            return new OpenTelemetryDriver;
         });
     }
 }
