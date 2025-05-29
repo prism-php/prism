@@ -50,6 +50,9 @@ class Text extends AnthropicHandlerAbstract
 
     public function handle(): Response
     {
+        // Set telemetry context for tool calls
+        $this->setParentContextId($this->request->getTelemetryContextId());
+
         $this->sendRequest();
 
         $this->prepareTempResponse();

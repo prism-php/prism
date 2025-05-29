@@ -7,15 +7,16 @@ namespace Prism\Prism\Providers\Anthropic\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use Throwable;
 
 abstract class AnthropicHandlerAbstract
 {
     use HandlesResponse;
+    use TracksHttpRequests;
 
     protected Response $httpResponse;
 
@@ -28,14 +29,21 @@ abstract class AnthropicHandlerAbstract
 
     protected function sendRequest(): void
     {
-        try {
-            $this->httpResponse = $this->client->post(
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($this->request->getTelemetryContextId());
+
+        $this->httpResponse = $this->sendRequestWithTelemetry(
+            requestFunction: fn () => $this->client->post(
                 'messages',
                 static::buildHttpRequestPayload($this->request)
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($this->request->model(), $e);
-        }
+            ),
+            method: 'POST',
+            url: 'messages',
+            provider: 'Anthropic',
+            attributes: [
+                'model' => $this->request->model(),
+            ]
+        );
 
         $this->handleResponseErrors();
     }

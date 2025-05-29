@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Embeddings;
 
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
 
 class PendingRequest
@@ -66,7 +70,41 @@ class PendingRequest
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        $contextId = Str::uuid()->toString();
+
+        Event::dispatch(new PrismRequestStarted(
+            contextId: $contextId,
+            operationName: 'embeddings',
+            attributes: [
+                'provider' => $this->provider::class,
+                'model' => $this->model,
+                'input_count' => count($this->inputs),
+                'total_input_length' => array_sum(array_map('strlen', $this->inputs)),
+            ]
+        ));
+
+        try {
+            $request = $this->toRequest();
+            $request->setTelemetryContextId($contextId);
+            $response = $this->provider->embeddings($request);
+
+            Event::dispatch(new PrismRequestCompleted(
+                contextId: $contextId,
+                attributes: [
+                    'embedding_count' => count($response->embeddings),
+                    'usage_tokens' => $response->usage->tokens,
+                ]
+            ));
+
+            return $response;
+        } catch (\Throwable $e) {
+            Event::dispatch(new PrismRequestCompleted(
+                contextId: $contextId,
+                exception: $e
+            ));
+
+            throw $e;
+        }
     }
 
     protected function toRequest(): Request
