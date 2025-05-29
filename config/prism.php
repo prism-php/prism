@@ -47,5 +47,11 @@ return [
             'api_key' => env('VOYAGEAI_API_KEY', ''),
             'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
         ],
+        'fireworksai' => [
+            'url' => env('FIREWORKS_URL', 'https://api.fireworks.ai/inference/v1'),
+            'api_key' => env('FIREWORKS_API_KEY', ''),
+            'organization' => env('FIREWORKS_ORGANIZATION', null),
+            'project' => env('FIREWORKS_PROJECT', null),
+        ],
     ],
 ];

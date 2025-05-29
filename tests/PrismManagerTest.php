@@ -66,6 +66,13 @@ it('can resolve DeepSeek', function (): void {
     expect($manager->resolve('deepseek'))->toBeInstanceOf(DeepSeek::class);
 });
 
+it('can resolve FireworksAI', function (): void {
+    $manager = new PrismManager($this->app);
+
+    expect($manager->resolve(Provider::FireworksAI))->toBeInstanceOf(\Prism\Prism\Providers\FireworksAI\FireworksAI::class);
+    expect($manager->resolve('fireworksai'))->toBeInstanceOf(\Prism\Prism\Providers\FireworksAI\FireworksAI::class);
+});
+
 it('allows for custom provider configuration', function (): void {
     $manager = new PrismManager($this->app);
 
