@@ -3,12 +3,10 @@
 namespace Prism\Prism;
 
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Prism\Prism\Contracts\TelemetryDriver;
 use Prism\Prism\Listeners\TelemetryEventListener;
-use Prism\Prism\Telemetry\LogTelemetryDriver;
 
 class PrismServiceProvider extends ServiceProvider
 {
@@ -54,18 +52,16 @@ class PrismServiceProvider extends ServiceProvider
 
     protected function registerTelemetry(): void
     {
-        $this->app->singleton(TelemetryDriver::class, function (): \Prism\Prism\Telemetry\LogTelemetryDriver {
-            $driver = config('prism.telemetry.driver', 'log');
+        $this->app->singleton(
+            TelemetryManager::class,
+            fn (): TelemetryManager => new TelemetryManager($this->app)
+        );
 
-            return match ($driver) {
-                'log' => new LogTelemetryDriver(
-                    Log::channel(config('prism.telemetry.drivers.log.channel', 'single'))
-                ),
-                default => throw new \InvalidArgumentException("Unsupported telemetry driver: {$driver}"),
-            };
-        });
+        $this->app->alias(TelemetryManager::class, 'telemetry-manager');
 
-        $this->app->singleton(TelemetryEventListener::class, fn (): \Prism\Prism\Listeners\TelemetryEventListener => new TelemetryEventListener(
+        $this->app->singleton(TelemetryDriver::class, fn (): TelemetryDriver => $this->app->make(TelemetryManager::class)->driver());
+
+        $this->app->singleton(TelemetryEventListener::class, fn (): TelemetryEventListener => new TelemetryEventListener(
             $this->app->make(TelemetryDriver::class),
             config('prism.telemetry.enabled', false)
         ));

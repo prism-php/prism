@@ -93,3 +93,43 @@ $response = Prism::text()
     ->withPrompt('Explain quantum computing.')
     ->asText();
 ```
+
+## Telemetry Configuration
+
+Prism includes built-in telemetry capabilities to help you monitor and debug your AI integrations. You can configure telemetry in your `config/prism.php` file:
+
+```php
+'telemetry' => [
+    'enabled' => env('PRISM_TELEMETRY_ENABLED', false),
+    'driver' => env('PRISM_TELEMETRY_DRIVER', 'log'),
+    'drivers' => [
+        'log' => [
+            'channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'single'),
+        ],
+    ],
+],
+```
+
+### Environment Variables
+
+Configure telemetry using these environment variables:
+
+```env
+# Enable or disable telemetry
+PRISM_TELEMETRY_ENABLED=true
+
+# Choose your telemetry driver (log, custom drivers)
+PRISM_TELEMETRY_DRIVER=log
+
+# For log driver: specify Laravel log channel
+PRISM_TELEMETRY_LOG_CHANNEL=single
+```
+
+### Available Options
+
+- **enabled**: Turn telemetry on or off globally
+- **driver**: Which telemetry driver to use (defaults to 'log')  
+- **drivers**: Configuration for each available telemetry driver
+
+> [!TIP]
+> Learn more about telemetry capabilities, custom drivers, and observability integration in the [Telemetry documentation](/core-concepts/telemetry).

@@ -20,7 +20,7 @@ it('throws exception for unsupported telemetry driver', function (): void {
     Config::set('prism.telemetry.driver', 'unsupported');
 
     expect(fn () => app(TelemetryDriver::class))
-        ->toThrow(\InvalidArgumentException::class, 'Unsupported telemetry driver: unsupported');
+        ->toThrow(\InvalidArgumentException::class, 'Driver [unsupported] not supported.');
 });
 
 it('creates telemetry listener with correct enabled state', function (): void {
