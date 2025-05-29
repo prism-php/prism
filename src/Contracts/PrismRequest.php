@@ -19,4 +19,8 @@ interface PrismRequest
     public function withProviderOptions(array $options = []): self;
 
     public function providerOptions(?string $valuePath = null): mixed;
+
+    public function setTelemetryContextId(string $contextId): self;
+
+    public function getTelemetryContextId(): ?string;
 }
