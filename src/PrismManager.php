@@ -11,6 +11,7 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Providers\Anthropic\Anthropic;
 use Prism\Prism\Providers\DeepSeek\DeepSeek;
+use Prism\Prism\Providers\FireworksAI\FireworksAI;
 use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\Providers\Groq\Groq;
 use Prism\Prism\Providers\Mistral\Mistral;
@@ -193,6 +194,19 @@ class PrismManager
         return new Gemini(
             url: $config['url'],
             apiKey: $config['api_key'],
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createFireworksaiProvider(array $config): FireworksAI
+    {
+        return new FireworksAI(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'],
+            organization: $config['organization'] ?? null,
+            project: $config['project'] ?? null,
         );
     }
 }
