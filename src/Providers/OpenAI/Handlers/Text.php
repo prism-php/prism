@@ -8,6 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
@@ -26,13 +27,13 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
     use CallsTools;
     use MapsFinishReason;
     use ProcessesRateLimits;
+    use TracksHttpRequests;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -44,6 +45,10 @@ class Text
 
     public function handle(Request $request): Response
     {
+        // Set telemetry context for tool calls and HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+        $this->setParentContextId($request->getTelemetryContextId());
+
         $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
@@ -104,8 +109,8 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
+        return $this->sendRequestWithTelemetry(
+            requestFunction: fn () => $this->client->post(
                 'chat/completions',
                 array_merge([
                     'model' => $request->model(),
@@ -118,10 +123,17 @@ class Text
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                 ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+            ),
+            method: 'POST',
+            url: 'chat/completions',
+            provider: 'OpenAI',
+            attributes: [
+                'model' => $request->model(),
+                'has_tools' => $request->tools() !== [],
+                'max_tokens' => $request->maxTokens(),
+                'temperature' => $request->temperature(),
+            ]
+        );
     }
 
     /**

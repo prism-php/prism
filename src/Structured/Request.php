@@ -17,6 +17,8 @@ class Request implements PrismRequest
 {
     use ChecksSelf, HasProviderOptions;
 
+    protected ?string $telemetryContextId = null;
+
     /**
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<int, Message>  $messages
@@ -114,5 +116,17 @@ class Request implements PrismRequest
         $this->messages = array_merge($this->messages, [$message]);
 
         return $this;
+    }
+
+    public function setTelemetryContextId(string $contextId): self
+    {
+        $this->telemetryContextId = $contextId;
+
+        return $this;
+    }
+
+    public function getTelemetryContextId(): ?string
+    {
+        return $this->telemetryContextId;
     }
 }

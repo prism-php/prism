@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -30,7 +31,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessesRateLimits;
+    use CallsTools, ProcessesRateLimits, TracksHttpRequests;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -205,8 +206,41 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
         try {
-            return $this
+            return $this->sendStreamRequestWithTelemetry($request);
+        } catch (Throwable $e) {
+            if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
+                throw new PrismRateLimitedException($this->processRateLimits($e->response));
+            }
+
+            throw PrismException::providerRequestError($request->model(), $e);
+        }
+    }
+
+    /**
+     * Send streaming request with telemetry that doesn't read the response body
+     */
+    protected function sendStreamRequestWithTelemetry(Request $request): Response
+    {
+        $contextId = Str::uuid()->toString();
+
+        \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestStarted(
+            contextId: $contextId,
+            parentContextId: $this->parentContextId,
+            method: 'POST',
+            url: 'chat/completions',
+            provider: 'OpenAI',
+            attributes: [
+                'model' => $request->model(),
+                'stream' => true,
+            ]
+        ));
+
+        try {
+            $response = $this
                 ->client
                 ->withOptions(['stream' => true])
                 ->throw()
@@ -225,12 +259,30 @@ class Stream
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     ]))
                 );
-        } catch (Throwable $e) {
-            if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException($this->processRateLimits($e->response));
-            }
 
-            throw PrismException::providerRequestError($request->model(), $e);
+            \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestCompleted(
+                contextId: $contextId,
+                statusCode: $response->status(),
+                attributes: [
+                    'success' => $response->successful(),
+                    'stream' => true,
+                ]
+            ));
+
+            return $response;
+        } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestCompleted(
+                contextId: $contextId,
+                statusCode: 0,
+                exception: $e,
+                attributes: [
+                    'success' => false,
+                    'error_type' => $e::class,
+                    'stream' => true,
+                ]
+            ));
+
+            throw $e;
         }
     }
 

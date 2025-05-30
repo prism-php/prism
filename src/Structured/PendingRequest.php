@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Structured;
 
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
@@ -12,6 +14,8 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasSchema;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -36,7 +40,43 @@ class PendingRequest
 
     public function asStructured(): Response
     {
-        return $this->provider->structured($this->toRequest());
+        $contextId = Str::uuid()->toString();
+
+        Event::dispatch(new PrismRequestStarted(
+            contextId: $contextId,
+            operationName: 'structured_output',
+            attributes: [
+                'provider' => $this->provider::class,
+                'model' => $this->model,
+                'schema' => $this->schema instanceof \Prism\Prism\Contracts\Schema ? $this->schema::class : null,
+                'message_count' => count($this->messages ?? []),
+                'structured_mode' => $this->structuredMode->name,
+            ]
+        ));
+
+        try {
+            $request = $this->toRequest();
+            $request->setTelemetryContextId($contextId);
+            $response = $this->provider->structured($request);
+
+            Event::dispatch(new PrismRequestCompleted(
+                contextId: $contextId,
+                attributes: [
+                    'finish_reason' => $response->finishReason->name,
+                    'usage_prompt_tokens' => $response->usage->promptTokens,
+                    'usage_completion_tokens' => $response->usage->completionTokens,
+                ]
+            ));
+
+            return $response;
+        } catch (\Throwable $e) {
+            Event::dispatch(new PrismRequestCompleted(
+                contextId: $contextId,
+                exception: $e
+            ));
+
+            throw $e;
+        }
     }
 
     public function toRequest(): Request

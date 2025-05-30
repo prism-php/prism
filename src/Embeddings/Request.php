@@ -13,6 +13,8 @@ class Request implements PrismRequest
 {
     use ChecksSelf, HasProviderOptions;
 
+    protected ?string $telemetryContextId = null;
+
     /**
      * @param  array<string>  $inputs
      * @param  array<string, mixed>  $clientOptions
@@ -57,5 +59,17 @@ class Request implements PrismRequest
     public function model(): string
     {
         return $this->model;
+    }
+
+    public function setTelemetryContextId(string $contextId): self
+    {
+        $this->telemetryContextId = $contextId;
+
+        return $this;
+    }
+
+    public function getTelemetryContextId(): ?string
+    {
+        return $this->telemetryContextId;
     }
 }

@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\DeepSeek\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
@@ -30,6 +31,7 @@ class Text
 {
     use CallsTools;
     use MapsFinishReason;
+    use TracksHttpRequests;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -103,19 +105,30 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
         try {
-            $response = $this->client->post(
-                'chat/completions',
-                array_merge([
+            $response = $this->sendRequestWithTelemetry(
+                requestFunction: fn () => $this->client->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_completion_tokens' => $request->maxTokens(),
+                    ], Arr::whereNotNull([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'tools' => ToolMap::map($request->tools()),
+                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ]))
+                ),
+                method: 'POST',
+                url: 'chat/completions',
+                provider: 'DeepSeek',
+                attributes: [
                     'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
+                ]
             );
 
             return $response->json();
