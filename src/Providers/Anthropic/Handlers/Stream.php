@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -31,7 +32,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, HandlesResponse;
+    use CallsTools, HandlesResponse, TracksHttpRequests;
 
     protected StreamState $state;
 
@@ -559,20 +560,71 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
         try {
-            return $this->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post('messages', Arr::whereNotNull([
-                    'stream' => true,
-                    ...Text::buildHttpRequestPayload($request),
-                ]));
+            return $this->sendStreamRequestWithTelemetry($request);
         } catch (Throwable $e) {
             if ($e instanceof RequestException && in_array($e->response->getStatusCode(), [413, 429, 529])) {
                 $this->handleResponseExceptions($e->response);
             }
 
             throw PrismException::providerRequestError($request->model(), $e);
+        }
+    }
+
+    /**
+     * Send streaming request with telemetry that doesn't read the response body
+     */
+    protected function sendStreamRequestWithTelemetry(Request $request): Response
+    {
+        $contextId = \Illuminate\Support\Str::uuid()->toString();
+
+        \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestStarted(
+            contextId: $contextId,
+            parentContextId: $this->parentContextId,
+            method: 'POST',
+            url: 'messages',
+            provider: 'Anthropic',
+            attributes: [
+                'model' => $request->model(),
+                'stream' => true,
+            ]
+        ));
+
+        try {
+            $response = $this->client
+                ->withOptions(['stream' => true])
+                ->throw()
+                ->post('messages', Arr::whereNotNull([
+                    'stream' => true,
+                    ...Text::buildHttpRequestPayload($request),
+                ]));
+
+            \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestCompleted(
+                contextId: $contextId,
+                statusCode: $response->status(),
+                attributes: [
+                    'success' => $response->successful(),
+                    'stream' => true,
+                ]
+            ));
+
+            return $response;
+        } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestCompleted(
+                contextId: $contextId,
+                statusCode: 0,
+                exception: $e,
+                attributes: [
+                    'success' => false,
+                    'error_type' => $e::class,
+                    'stream' => true,
+                ]
+            ));
+
+            throw $e;
         }
     }
 

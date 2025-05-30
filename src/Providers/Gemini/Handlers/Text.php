@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
@@ -31,7 +32,7 @@ use Throwable;
 
 class Text
 {
-    use CallsTools, ExtractSearchGroundings, ValidatesResponse;
+    use CallsTools, ExtractSearchGroundings, TracksHttpRequests, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -75,6 +76,9 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
         try {
             $providerOptions = $request->providerOptions();
 
@@ -101,16 +105,24 @@ class Text
                 ]
                 : ($request->tools() !== [] ? ['function_declarations' => ToolMap::map($request->tools())] : []);
 
-            return $this->client->post(
-                "{$request->model()}:generateContent",
-                Arr::whereNotNull([
-                    ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                    'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
-                    'tools' => $tools !== [] ? $tools : null,
-                    'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
-                    'safetySettings' => $providerOptions['safetySettings'] ?? null,
-                ])
+            return $this->sendRequestWithTelemetry(
+                requestFunction: fn () => $this->client->post(
+                    "{$request->model()}:generateContent",
+                    Arr::whereNotNull([
+                        ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                        'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
+                        'tools' => $tools !== [] ? $tools : null,
+                        'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                        'safetySettings' => $providerOptions['safetySettings'] ?? null,
+                    ])
+                ),
+                method: 'POST',
+                url: "{$request->model()}:generateContent",
+                provider: 'Gemini',
+                attributes: [
+                    'model' => $request->model(),
+                ]
             );
         } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);

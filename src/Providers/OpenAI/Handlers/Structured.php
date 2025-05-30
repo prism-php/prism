@@ -5,6 +5,7 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
@@ -26,6 +27,7 @@ class Structured
 {
     use MapsFinishReason;
     use ProcessesRateLimits;
+    use TracksHttpRequests;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -92,19 +94,31 @@ class Structured
      */
     protected function sendRequest(Request $request, array $responseFormat): ClientResponse
     {
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
         try {
-            return $this->client->post(
-                'chat/completions',
-                array_merge([
+            return $this->sendRequestWithTelemetry(
+                requestFunction: fn () => $this->client->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_completion_tokens' => $request->maxTokens(),
+                    ], Arr::whereNotNull([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'metadata' => (array) $request->providerOptions('metadata'),
+                        'response_format' => $responseFormat,
+                    ]))
+                ),
+                method: 'POST',
+                url: 'chat/completions',
+                provider: 'OpenAI',
+                attributes: [
                     'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => (array) $request->providerOptions('metadata'),
-                    'response_format' => $responseFormat,
-                ]))
+                    'mode' => $request->mode()->name,
+                ]
             );
         } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);

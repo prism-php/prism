@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -27,7 +28,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools;
+    use CallsTools, TracksHttpRequests;
 
     public function __construct(
         protected PendingRequest $client,
@@ -215,6 +216,32 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
+        try {
+            return $this->sendStreamRequestWithTelemetry($request);
+        } catch (Throwable $e) {
+            throw PrismException::providerRequestError($request->model(), $e);
+        }
+    }
+
+    protected function sendStreamRequestWithTelemetry(Request $request): Response
+    {
+        $contextId = Str::uuid()->toString();
+
+        \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestStarted(
+            contextId: $contextId,
+            parentContextId: $this->parentContextId,
+            method: 'POST',
+            url: "{$request->model()}:streamGenerateContent?alt=sse",
+            provider: 'Gemini',
+            attributes: [
+                'model' => $request->model(),
+                'stream' => true,
+            ]
+        ));
+
         try {
             $providerOptions = $request->providerOptions();
 
@@ -232,7 +259,7 @@ class Stream
                 default => [],
             };
 
-            return $this->client
+            $response = $this->client
                 ->withOptions(['stream' => true])
                 ->post(
                     "{$request->model()}:streamGenerateContent?alt=sse",
@@ -252,8 +279,30 @@ class Stream
                         'safetySettings' => $providerOptions['safetySettings'] ?? null,
                     ])
                 );
+
+            \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestCompleted(
+                contextId: $contextId,
+                statusCode: $response->status(),
+                attributes: [
+                    'success' => $response->successful(),
+                    'stream' => true,
+                ]
+            ));
+
+            return $response;
         } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
+            \Illuminate\Support\Facades\Event::dispatch(new \Prism\Prism\Events\HttpRequestCompleted(
+                contextId: $contextId,
+                statusCode: 0,
+                exception: $e,
+                attributes: [
+                    'success' => false,
+                    'error_type' => $e::class,
+                    'stream' => true,
+                ]
+            ));
+
+            throw $e;
         }
     }
 

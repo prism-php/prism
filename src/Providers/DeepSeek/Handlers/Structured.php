@@ -4,6 +4,7 @@ namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
+use Prism\Prism\Concerns\TracksHttpRequests;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
@@ -22,6 +23,7 @@ use Throwable;
 class Structured
 {
     use MapsFinishReason;
+    use TracksHttpRequests;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -51,17 +53,29 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        $response = $this->client->post(
-            'chat/completions',
-            array_merge([
+        // Set telemetry context for HTTP requests
+        $this->setTelemetryParentContext($request->getTelemetryContextId());
+
+        $response = $this->sendRequestWithTelemetry(
+            requestFunction: fn () => $this->client->post(
+                'chat/completions',
+                array_merge([
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_completion_tokens' => $request->maxTokens(),
+                ], Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'response_format' => ['type' => 'json_object'],
+                ]))
+            ),
+            method: 'POST',
+            url: 'chat/completions',
+            provider: 'DeepSeek',
+            attributes: [
                 'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_completion_tokens' => $request->maxTokens(),
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'response_format' => ['type' => 'json_object'],
-            ]))
+                'structured' => true,
+            ]
         );
 
         return $response->json();
