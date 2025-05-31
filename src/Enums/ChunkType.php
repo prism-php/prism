@@ -9,4 +9,6 @@ enum ChunkType
     case Text;
     case Thinking;
     case Meta;
+    case ToolCall;
+    case ToolResult;
 }

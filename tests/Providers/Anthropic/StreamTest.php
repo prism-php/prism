@@ -152,6 +152,62 @@ describe('tools', function (): void {
         // Verify we made multiple requests for a conversation with tool calls
         Http::assertSentCount(3);
     });
+
+    it('emits individual ToolCall and ToolResult chunks during streaming', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withTools($tools)
+            ->withMaxSteps(3)
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asStream();
+
+        $chunks = [];
+        $toolCallChunks = [];
+        $toolResultChunks = [];
+
+        foreach ($response as $chunk) {
+            $chunks[] = $chunk;
+
+            if ($chunk->chunkType === ChunkType::ToolCall) {
+                $toolCallChunks[] = $chunk;
+            }
+
+            if ($chunk->chunkType === ChunkType::ToolResult) {
+                $toolResultChunks[] = $chunk;
+            }
+        }
+
+        expect($chunks)->not->toBeEmpty();
+        expect($toolCallChunks)->not->toBeEmpty('Expected to find at least one ToolCall chunk');
+        expect($toolResultChunks)->not->toBeEmpty('Expected to find at least one ToolResult chunk');
+
+        // Verify ToolCall chunks have the expected structure
+        $firstToolCallChunk = $toolCallChunks[0];
+        expect($firstToolCallChunk->chunkType)->toBe(ChunkType::ToolCall);
+        expect($firstToolCallChunk->toolCalls)->toHaveCount(1);
+        expect($firstToolCallChunk->toolCalls[0]->name)->not->toBeEmpty();
+        expect($firstToolCallChunk->toolCalls[0]->arguments())->toBeArray();
+
+        // Verify ToolResult chunks have the expected structure
+        $firstToolResultChunk = $toolResultChunks[0];
+        expect($firstToolResultChunk->chunkType)->toBe(ChunkType::ToolResult);
+        expect($firstToolResultChunk->toolResults)->toHaveCount(1);
+        expect($firstToolResultChunk->toolResults[0]->result)->not->toBeEmpty();
+    });
 });
 
 describe('citations', function (): void {
