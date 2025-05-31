@@ -12,6 +12,8 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\Concerns\CanGenerateFakeChunksFromTextResponses;
@@ -20,6 +22,7 @@ use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\RerankUsage;
 use Prism\Prism\ValueObjects\Usage;
 
 class PrismFake implements Provider
@@ -66,6 +69,18 @@ class PrismFake implements Provider
         return $this->nextEmbeddingResponse() ?? new EmbeddingResponse(
             embeddings: [],
             usage: new EmbeddingsUsage(10),
+            meta: new Meta('fake-id', 'fake-model'),
+        );
+    }
+
+    #[\Override]
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        $this->recorded[] = $request;
+
+        return $this->nextRerankResponse() ?? new RerankResponse(
+            reranks: [],
+            usage: new RerankUsage(10),
             meta: new Meta('fake-id', 'fake-model'),
         );
     }
@@ -217,6 +232,25 @@ class PrismFake implements Provider
         }
 
         /** @var EmbeddingResponse[] $responses */
+        $responses = $this->responses;
+        $sequence = $this->responseSequence;
+
+        if (! isset($responses[$sequence])) {
+            throw new Exception('Could not find a response for the request');
+        }
+
+        $this->responseSequence++;
+
+        return $responses[$sequence];
+    }
+
+    protected function nextRerankResponse(): ?RerankResponse
+    {
+        if (! isset($this->responses)) {
+            return null;
+        }
+
+        /** @var RerankResponse[] $responses */
         $responses = $this->responses;
         $sequence = $this->responseSequence;
 

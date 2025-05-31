@@ -10,9 +10,12 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -69,6 +72,12 @@ readonly class Anthropic implements Provider
     public function embeddings(EmbeddingRequest $request): EmbeddingResponse
     {
         throw new \Exception(sprintf('%s does not support embeddings', class_basename($this)));
+    }
+
+    #[\Override]
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     /**

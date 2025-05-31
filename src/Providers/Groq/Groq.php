@@ -13,6 +13,8 @@ use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -43,6 +45,12 @@ readonly class Groq implements Provider
 
     #[\Override]
     public function embeddings(EmbeddingRequest $request): EmbeddingResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    #[\Override]
+    public function rerank(RerankRequest $request): RerankResponse
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }

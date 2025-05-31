@@ -18,6 +18,8 @@ use Prism\Prism\Providers\Gemini\Handlers\Stream;
 use Prism\Prism\Providers\Gemini\Handlers\Structured;
 use Prism\Prism\Providers\Gemini\Handlers\Text;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -62,6 +64,12 @@ readonly class Gemini implements Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     #[\Override]
