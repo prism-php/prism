@@ -18,6 +18,8 @@ use Prism\Prism\Providers\Mistral\Handlers\Stream;
 use Prism\Prism\Providers\Mistral\Handlers\Structured;
 use Prism\Prism\Providers\Mistral\Handlers\Text;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -86,6 +88,12 @@ readonly class Mistral implements Provider
         );
 
         return $handler->handle();
+    }
+
+    #[\Override]
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     #[\Override]

@@ -8,6 +8,7 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
+use Prism\Prism\Rerank\PendingRequest as PendingRerankRequest;
 use Prism\Prism\Structured\PendingRequest as PendingStructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\PrismFake;
@@ -53,6 +54,11 @@ class Prism
     public static function embeddings(): PendingEmbeddingRequest
     {
         return new PendingEmbeddingRequest;
+    }
+
+    public static function rerank(): PendingRerankRequest
+    {
+        return new PendingRerankRequest;
     }
 
     /**

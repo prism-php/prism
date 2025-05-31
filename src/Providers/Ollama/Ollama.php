@@ -14,6 +14,8 @@ use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
 use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;
 use Prism\Prism\Providers\Ollama\Handlers\Text;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -57,6 +59,12 @@ readonly class Ollama implements Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     #[\Override]

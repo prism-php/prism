@@ -1,0 +1,1 @@
+{"object":"list","data":[{"index":0,"relevance_score":0.4375,"document":"Sample document 1"},{"index":1,"relevance_score":0.421875,"document":"Sample document 2"}],"model":"rerank-lite-2","usage":{"total_tokens":26}}

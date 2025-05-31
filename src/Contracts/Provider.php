@@ -7,6 +7,8 @@ namespace Prism\Prism\Contracts;
 use Generator;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Rerank\Request as RerankRequest;
+use Prism\Prism\Rerank\Response as RerankResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Chunk;
@@ -20,6 +22,8 @@ interface Provider
     public function structured(StructuredRequest $request): StructuredResponse;
 
     public function embeddings(EmbeddingsRequest $request): EmbeddingsResponse;
+
+    public function rerank(RerankRequest $request): RerankResponse;
 
     /**
      * @return Generator<Chunk>
