@@ -26,6 +26,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -155,7 +156,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleContentBlockStart(array $chunk): void
+    protected function handleContentBlockStart(array $chunk): null
     {
         $blockType = data_get($chunk, 'content_block.type');
         $blockIndex = (int) data_get($chunk, 'index');
@@ -171,6 +172,8 @@ class Stream
                 'input' => '',
             ]);
         }
+
+        return null;
     }
 
     /**
@@ -315,9 +318,37 @@ class Stream
         return null;
     }
 
-    protected function handleContentBlockStop(): void
+    protected function handleContentBlockStop(): ?Chunk
     {
+        $blockType = $this->state->tempContentBlockType();
+        $blockIndex = $this->state->tempContentBlockIndex();
+
+        $chunk = null;
+
+        if ($blockType === 'tool_use' && $blockIndex !== null && isset($this->state->toolCalls()[$blockIndex])) {
+            $toolCallData = $this->state->toolCalls()[$blockIndex];
+            $input = data_get($toolCallData, 'input');
+
+            if (is_string($input) && $this->isValidJson($input)) {
+                $input = json_decode($input, true);
+            }
+
+            $toolCall = new ToolCall(
+                id: data_get($toolCallData, 'id'),
+                name: data_get($toolCallData, 'name'),
+                arguments: $input
+            );
+
+            $chunk = new Chunk(
+                text: '',
+                toolCalls: [$toolCall],
+                chunkType: ChunkType::ToolCall
+            );
+        }
+
         $this->state->resetContentBlock();
+
+        return $chunk;
     }
 
     /**
@@ -525,14 +556,41 @@ class Stream
      */
     protected function handleToolCalls(Request $request, array $toolCalls, int $depth, ?array $additionalContent = null): Generator
     {
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $toolResults = [];
+
+        foreach ($toolCalls as $toolCall) {
+            $tool = $this->resolveTool($toolCall->name, $request->tools());
+
+            try {
+                $result = call_user_func_array(
+                    $tool->handle(...),
+                    $toolCall->arguments()
+                );
+
+                $toolResult = new ToolResult(
+                    toolCallId: $toolCall->id,
+                    toolName: $toolCall->name,
+                    args: $toolCall->arguments(),
+                    result: $result,
+                );
+
+                $toolResults[] = $toolResult;
+
+                yield new Chunk(
+                    text: '',
+                    toolResults: [$toolResult],
+                    chunkType: ChunkType::ToolResult
+                );
+            } catch (Throwable $e) {
+                if ($e instanceof PrismException) {
+                    throw $e;
+                }
+
+                throw PrismException::toolCallFailed($toolCall, $e);
+            }
+        }
 
         $this->addMessagesToRequest($request, $toolResults, $additionalContent);
-
-        yield new Chunk(
-            text: '',
-            toolResults: $toolResults,
-        );
 
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
