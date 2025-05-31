@@ -60,3 +60,17 @@ Prism::embeddings()
     ->withProviderOptions(['truncation' => false])
     ->asEmbeddings();
 ```
+
+## Rerank
+VoyageAI provides a [reranker endpoint](https://docs.voyageai.com/reference/reranker-api) that receives as input a query, a list of documents, and other arguments such as the model name, and returns a response containing the reranking results.
+This reranker endpoint can be used like this:
+
+```php
+use Prism\Prism\Providers\VoyageAI\VoyageAI;
+
+VoyageAI::reranks(model: 'rerank-2-lite')
+    ->withQuery('Sample query')
+    ->withDocuments(['Sample document 1', 'Sample document 2'])
+    ->withProviderOptions(['return_documents' => true])
+    ->asRerank();
+```
