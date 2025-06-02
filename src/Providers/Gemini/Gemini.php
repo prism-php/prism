@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
@@ -26,6 +25,8 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 readonly class Gemini implements Provider
 {
+    use InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -104,23 +105,12 @@ readonly class Gemini implements Provider
     }
 
     /**
-     * @param  array<string, mixed>  $options
-     * @param  array<mixed>  $retry
+     * @return array<string, string>
      */
-    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
+    protected function getHeaders(): array
     {
-        $baseUrl ??= $this->url;
-
-        $client = Http::withOptions($options)
-            ->withHeaders([
-                'x-goog-api-key' => $this->apiKey,
-            ])
-            ->baseUrl($baseUrl);
-
-        if ($retry !== []) {
-            return $client->retry(...$retry);
-        }
-
-        return $client;
+        return [
+            'x-goog-api-key' => $this->apiKey,
+        ];
     }
 }

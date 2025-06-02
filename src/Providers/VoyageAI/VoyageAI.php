@@ -3,8 +3,7 @@
 namespace Prism\Prism\Providers\VoyageAI;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -16,10 +15,16 @@ use Prism\Prism\Text\Response as TextResponse;
 
 class VoyageAI implements Provider
 {
+    use InitializesClient;
+
+    protected string $url;
+
     public function __construct(
         #[\SensitiveParameter] protected string $apiKey,
         protected string $baseUrl
-    ) {}
+    ) {
+        $this->url = $baseUrl;
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse
@@ -50,15 +55,8 @@ class VoyageAI implements Provider
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
-    /**
-     * @param  array<string, mixed>  $options
-     * @param  array<mixed>  $retry
-     */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function getToken(): string
     {
-        return Http::withToken($this->apiKey)
-            ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->baseUrl);
+        return $this->apiKey;
     }
 }

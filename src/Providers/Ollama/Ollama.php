@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -21,6 +20,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 readonly class Ollama implements Provider
 {
+    use InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -70,17 +71,8 @@ readonly class Ollama implements Provider
         return $handler->handle($request);
     }
 
-    /**
-     * @param  array<string, mixed>  $options
-     * @param  array<mixed>  $retry
-     */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function getToken(): string
     {
-        return Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-        ]))
-            ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->url);
+        return $this->apiKey;
     }
 }
