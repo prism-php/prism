@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\DeepSeek;
 
-use Closure;
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -21,6 +19,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 readonly class DeepSeek implements Provider
 {
+    use InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -60,19 +60,8 @@ readonly class DeepSeek implements Provider
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
-    /**
-     * @param  array<string, mixed>  $options
-     * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $retry
-     */
-    protected function client(array $options, array $retry, ?string $baseUrl = null): PendingRequest
+    protected function getToken(): string
     {
-        $baseUrl ??= $this->url;
-
-        return Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-        ]))
-            ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($baseUrl);
+        return $this->apiKey;
     }
 }
