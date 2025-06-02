@@ -6,7 +6,7 @@ namespace Prism\Prism\Providers\Anthropic;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
@@ -20,6 +20,8 @@ use Prism\Prism\Text\Response;
 
 readonly class Anthropic implements Provider
 {
+    use InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $apiVersion,
@@ -75,15 +77,16 @@ readonly class Anthropic implements Provider
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return Http::withHeaders(array_filter([
-            'x-api-key' => $this->apiKey,
-            'anthropic-version' => $this->apiVersion,
-            'anthropic-beta' => $this->betaFeatures,
-        ]))
+        return $this->baseClient()
+            ->withHeaders(array_filter([
+                'x-api-key' => $this->apiKey,
+                'anthropic-version' => $this->apiVersion,
+                'anthropic-beta' => $this->betaFeatures,
+            ]))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl('https://api.anthropic.com/v1');
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? 'https://api.anthropic.com/v1');
     }
 }
