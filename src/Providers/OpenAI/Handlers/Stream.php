@@ -220,7 +220,7 @@ class Stream
                     ], Arr::whereNotNull([
                         'temperature' => $request->temperature(),
                         'top_p' => $request->topP(),
-                        'metadata' => (array) $request->providerOptions('metadata'),
+                        'metadata' => $request->providerOptions('metadata'),
                         'tools' => ToolMap::map($request->tools()),
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     ]))

@@ -102,7 +102,7 @@ class Structured
                 ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
-                    'metadata' => (array) $request->providerOptions('metadata'),
+                    'metadata' => $request->providerOptions('metadata'),
                     'response_format' => $responseFormat,
                 ]))
             );
