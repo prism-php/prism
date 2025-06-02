@@ -6,7 +6,10 @@ namespace Prism\Prism\Concerns;
 
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
+use Prism\Prism\Events\ToolCallCompleted;
+use Prism\Prism\Events\ToolCallStarted;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Support\Trace;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
@@ -25,11 +28,15 @@ trait CallsTools
             function (ToolCall $toolCall) use ($tools): ToolResult {
                 $tool = $this->resolveTool($toolCall->name, $tools);
 
+                Trace::begin('tool_call', fn () => event(new ToolCallStarted($toolCall->name, $toolCall->arguments())));
+
                 try {
                     $result = call_user_func_array(
                         $tool->handle(...),
                         $toolCall->arguments()
                     );
+
+                    Trace::end(fn () => event(new ToolCallCompleted(attributes: ['result' => $result])));
 
                     return new ToolResult(
                         toolCallId: $toolCall->id,
@@ -39,6 +46,8 @@ trait CallsTools
                         result: $result,
                     );
                 } catch (Throwable $e) {
+                    Trace::end(fn () => event(new ToolCallCompleted(exception: $e)));
+
                     if ($e instanceof PrismException) {
                         throw $e;
                     }

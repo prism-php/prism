@@ -16,7 +16,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text stream with a basic prompt', function (): void {
-    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text');
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text', ['Content-Type' => 'text/event-stream']);
 
     $response = Prism::text()
         ->using(Provider::Gemini, 'gemini-2.0-flash')
@@ -44,7 +44,7 @@ it('can generate text stream with a basic prompt', function (): void {
 });
 
 it('can generate text stream using searchGrounding', function (): void {
-    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools', ['Content-Type' => 'text/event-stream']);
 
     $response = Prism::text()
         ->using(Provider::Gemini, 'gemini-2.0-flash')
@@ -100,7 +100,7 @@ it('can generate text stream using searchGrounding', function (): void {
 });
 
 it('can generate text stream using tools ', function (): void {
-    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools', ['Content-Type' => 'text/event-stream']);
 
     $tools = [
         Tool::as('weather')

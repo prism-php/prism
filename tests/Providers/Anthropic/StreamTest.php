@@ -7,10 +7,15 @@ namespace Tests\Providers\Anthropic;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Events\HttpRequestCompleted;
+use Prism\Prism\Events\HttpRequestStarted;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
@@ -18,12 +23,15 @@ use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\Text\Chunk;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
+    Event::fake();
+
     config()->set('prism.providers.anthropic.api_key', env('ANTHROPIC_API_KEY', 'fake-key'));
 });
 
@@ -86,6 +94,65 @@ it('can return usage with a basic stream', function (): void {
 
         return $request->url() === 'https://api.anthropic.com/v1/messages'
             && $body['stream'] === true;
+    });
+});
+
+it('dispatch events while generating text with a basic stream', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-basic-text');
+
+    $provider = 'anthropic';
+    $model = 'claude-3-7-sonnet-20250219';
+    $prompt = 'Who are you?';
+
+    $response = Prism::text()
+        ->using($provider, $model)
+        ->withPrompt($prompt)
+        ->asStream();
+
+    $text = '';
+    $chunks = [];
+
+    foreach ($response as $chunk) {
+        $chunks[] = $chunk;
+        $text .= $chunk->text;
+    }
+
+    Event::assertDispatched(PrismRequestStarted::class, 1);
+    Event::assertDispatched(function (PrismRequestStarted $event) use ($provider, $model, $prompt): true {
+        $attributes = $event->attributes;
+
+        expect($event->provider)->toBe($provider);
+        expect($attributes['request']->model())->toBe($model);
+        expect($attributes['request']->prompt())->toBe($prompt);
+
+        return true;
+    });
+
+    Event::assertDispatched(HttpRequestStarted::class, 1);
+    Event::assertDispatched(function (HttpRequestStarted $event) use ($model): true {
+        $attributes = $event->attributes;
+
+        expect($attributes['model'])->toBe($model);
+
+        return true;
+    });
+
+    Event::assertDispatched(HttpRequestCompleted::class, 1);
+    Event::assertDispatched(function (HttpRequestCompleted $event): true {
+        expect($event->attributes['chunks'])->toBe(file_get_contents('tests/Fixtures/anthropic/stream-basic-text-1.sse'));
+
+        return true;
+    });
+
+    Event::assertDispatched(PrismRequestCompleted::class, 1);
+    Event::assertDispatched(function (PrismRequestCompleted $event): true {
+        $chunks = $event->attributes['chunks'];
+
+        expect($chunks)->toHaveCount(33);
+        expect($chunks[0])->toBeInstanceOf(Chunk::class);
+        expect(end($chunks)->finishReason)->toBe(FinishReason::Stop);
+
+        return true;
     });
 });
 
