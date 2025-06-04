@@ -98,7 +98,7 @@ it('tracks current span correctly', function (): void {
     $manager = new TelemetryManager(app());
     $span = $manager->startSpan('test-span');
 
-    $result = $manager->withCurrentSpan($span, fn(): ?\Prism\Prism\Telemetry\Contracts\Span => $manager->current());
+    $result = $manager->withCurrentSpan($span, fn (): ?\Prism\Prism\Telemetry\Contracts\Span => $manager->current());
 
     expect($result)->toBe($span);
 });

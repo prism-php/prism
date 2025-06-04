@@ -25,7 +25,7 @@ trait CallsTools
         return Telemetry::span('tools.execute', [
             'tools.count' => count($toolCalls),
             'tools.names' => collect($toolCalls)->pluck('name')->unique()->implode(', '),
-        ], fn(): array => array_map(
+        ], fn (): array => array_map(
             function (ToolCall $toolCall) use ($tools): ToolResult {
                 $tool = $this->resolveTool($toolCall->name, $tools);
 

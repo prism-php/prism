@@ -72,7 +72,7 @@ class PendingRequest
             TelemetryAttribute::RequestType->value => 'embeddings',
             TelemetryAttribute::ProviderName->value => $this->provider::class,
             TelemetryAttribute::ProviderModel->value => $this->model,
-        ], fn(): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($this->toRequest()));
+        ], fn (): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($this->toRequest()));
     }
 
     protected function toRequest(): Request

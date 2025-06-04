@@ -42,7 +42,7 @@ class PendingRequest
             TelemetryAttribute::RequestType->value => 'structured',
             TelemetryAttribute::ProviderName->value => $this->provider::class,
             TelemetryAttribute::ProviderModel->value => $this->model,
-        ], fn(): \Prism\Prism\Structured\Response => $this->provider->structured($this->toRequest()));
+        ], fn (): \Prism\Prism\Structured\Response => $this->provider->structured($this->toRequest()));
     }
 
     public function toRequest(): Request

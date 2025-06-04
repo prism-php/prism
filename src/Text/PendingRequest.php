@@ -45,7 +45,7 @@ class PendingRequest
             TelemetryAttribute::RequestType->value => 'text',
             TelemetryAttribute::ProviderName->value => $this->provider::class,
             TelemetryAttribute::ProviderModel->value => $this->model,
-        ], fn(): \Prism\Prism\Text\Response => $this->provider->text($this->toRequest()));
+        ], fn (): \Prism\Prism\Text\Response => $this->provider->text($this->toRequest()));
     }
 
     /**
@@ -57,7 +57,7 @@ class PendingRequest
             TelemetryAttribute::RequestType->value => 'stream',
             TelemetryAttribute::ProviderName->value => $this->provider::class,
             TelemetryAttribute::ProviderModel->value => $this->model,
-        ], fn(): \Generator => $this->provider->stream($this->toRequest()));
+        ], fn (): \Generator => $this->provider->stream($this->toRequest()));
     }
 
     public function toRequest(): Request

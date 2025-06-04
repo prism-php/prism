@@ -133,7 +133,7 @@ it('has zero performance overhead', function (): void {
     $start = microtime(true);
 
     for ($i = 0; $i < $iterations; $i++) {
-        $driver->span("span-{$i}", ['iteration' => $i], fn(): string => 'result');
+        $driver->span("span-{$i}", ['iteration' => $i], fn (): string => 'result');
     }
 
     $duration = microtime(true) - $start;
@@ -146,7 +146,7 @@ it('maintains callback scope correctly', function (): void {
     $driver = new NullDriver;
     $outerVariable = 'outer-value';
 
-    $result = $driver->span('test-span', [], fn(): string => $outerVariable);
+    $result = $driver->span('test-span', [], fn (): string => $outerVariable);
 
     expect($result)->toBe('outer-value');
 });
@@ -154,14 +154,14 @@ it('maintains callback scope correctly', function (): void {
 it('supports callback with parameters', function (): void {
     $driver = new NullDriver;
 
-    $callback = fn($param1, $param2): string => $param1.'-'.$param2;
+    $callback = fn ($param1, $param2): string => $param1.'-'.$param2;
 
     // Note: The span method doesn't pass parameters to callback in the current implementation
     // This test verifies the callback can still access its closure variables
     $param1 = 'value1';
     $param2 = 'value2';
 
-    $result = $driver->span('test-span', [], fn(): string => $callback($param1, $param2));
+    $result = $driver->span('test-span', [], fn (): string => $callback($param1, $param2));
 
     expect($result)->toBe('value1-value2');
 });
