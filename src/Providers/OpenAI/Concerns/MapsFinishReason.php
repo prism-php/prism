@@ -14,6 +14,9 @@ trait MapsFinishReason
      */
     protected function mapFinishReason(array $data): FinishReason
     {
-        return FinishReasonMap::map(data_get($data, 'choices.0.finish_reason', ''));
+        return FinishReasonMap::map(
+            data_get($data, 'output.{last}.status', ''),
+            data_get($data, 'output.{last}.type', ''),
+        );
     }
 }
