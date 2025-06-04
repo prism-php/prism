@@ -11,49 +11,50 @@ use Psr\Log\LoggerInterface;
 
 class LogFake implements LoggerInterface
 {
+    /** @var array<int, array{level: mixed, message: mixed, context: array<string, mixed>, timestamp: float}> */
     protected array $logs = [];
 
-    public function emergency($message, array $context = []): void
+    public function emergency(mixed $message, array $context = []): void
     {
         $this->log('emergency', $message, $context);
     }
 
-    public function alert($message, array $context = []): void
+    public function alert(mixed $message, array $context = []): void
     {
         $this->log('alert', $message, $context);
     }
 
-    public function critical($message, array $context = []): void
+    public function critical(mixed $message, array $context = []): void
     {
         $this->log('critical', $message, $context);
     }
 
-    public function error($message, array $context = []): void
+    public function error(mixed $message, array $context = []): void
     {
         $this->log('error', $message, $context);
     }
 
-    public function warning($message, array $context = []): void
+    public function warning(mixed $message, array $context = []): void
     {
         $this->log('warning', $message, $context);
     }
 
-    public function notice($message, array $context = []): void
+    public function notice(mixed $message, array $context = []): void
     {
         $this->log('notice', $message, $context);
     }
 
-    public function info($message, array $context = []): void
+    public function info(mixed $message, array $context = []): void
     {
         $this->log('info', $message, $context);
     }
 
-    public function debug($message, array $context = []): void
+    public function debug(mixed $message, array $context = []): void
     {
         $this->log('debug', $message, $context);
     }
 
-    public function log($level, $message, array $context = []): void
+    public function log(mixed $level, mixed $message, array $context = []): void
     {
         $this->logs[] = [
             'level' => $level,
@@ -63,13 +64,15 @@ class LogFake implements LoggerInterface
         ];
     }
 
+    /** @return Collection<int, array{level: mixed, message: mixed, context: array<string, mixed>, timestamp: float}> */
     public function logged(?string $level = null, ?string $message = null): Collection
     {
         return collect($this->logs)->filter(function (array $log) use ($level, $message): bool {
             if ($level && $log['level'] !== $level) {
                 return false;
             }
-            return !($message && !str_contains((string) $log['message'], $message));
+
+            return ! ($message && ! str_contains((string) $log['message'], $message));
         });
     }
 
@@ -110,6 +113,7 @@ class LogFake implements LoggerInterface
         $this->logs = [];
     }
 
+    /** @return array<int, array{level: mixed, message: mixed, context: array<string, mixed>, timestamp: float}> */
     public function getLogs(): array
     {
         return $this->logs;
@@ -122,10 +126,10 @@ class LogFake implements LoggerInterface
 
     public static function swap(?string $channel = null): self
     {
-        $fake = new static;
+        $fake = new self;
 
         if ($channel) {
-            app(LogManager::class)->extend($channel, fn (): static => $fake);
+            app(LogManager::class)->extend($channel, fn (): LogFake => $fake);
         } else {
             app()->instance('log', $fake);
         }
