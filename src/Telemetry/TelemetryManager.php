@@ -41,8 +41,7 @@ class TelemetryManager extends Manager
 
     public function enabled(): bool
     {
-        return $this->config->get('prism.telemetry.enabled', true)
-            && $this->driver()->isEnabled();
+        return $this->config->get('prism.telemetry.enabled', true);
     }
 
     public function current(): ?Span
@@ -85,6 +84,6 @@ class TelemetryManager extends Manager
 
         $span = $this->startSpan($name, $attributes);
 
-        return $this->withCurrentSpan($span, fn() => $this->driver()->span($span->getName(), $attributes, $callback));
+        return $this->withCurrentSpan($span, fn () => $this->driver()->span($span->getName(), $attributes, $callback));
     }
 }

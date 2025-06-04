@@ -56,9 +56,4 @@ class LogDriver implements TelemetryDriver
             $span->end();
         }
     }
-
-    public function isEnabled(): bool
-    {
-        return true;
-    }
 }

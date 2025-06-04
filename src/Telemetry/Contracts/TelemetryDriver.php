@@ -15,6 +15,4 @@ interface TelemetryDriver
      * @param  array<string, mixed>  $attributes
      */
     public function span(string $name, array $attributes, callable $callback): mixed;
-
-    public function isEnabled(): bool;
 }

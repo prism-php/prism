@@ -25,9 +25,4 @@ class NullDriver implements TelemetryDriver
     {
         return $callback();
     }
-
-    public function isEnabled(): bool
-    {
-        return false;
-    }
 }
