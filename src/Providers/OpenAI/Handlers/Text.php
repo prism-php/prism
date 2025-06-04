@@ -17,6 +17,8 @@ use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
+use Prism\Prism\Telemetry\Facades\Telemetry;
+use Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
@@ -104,24 +106,41 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => $request->providerOptions('metadata'),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return Telemetry::span('provider.request', [
+            TelemetryAttribute::ProviderName->value => 'openai',
+            TelemetryAttribute::ProviderModel->value => $request->model(),
+            TelemetryAttribute::RequestType->value => 'text',
+        ], function () use ($request) {
+            try {
+                $response = $this->client->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $request->model(),
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_completion_tokens' => $request->maxTokens(),
+                    ], Arr::whereNotNull([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'metadata' => $request->providerOptions('metadata'),
+                        'tools' => ToolMap::map($request->tools()),
+                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    ]))
+                );
+
+                // Add response metadata to current span
+                $responseData = $response->json();
+                if (isset($responseData['usage'])) {
+                    Telemetry::current()?->setAttributes([
+                        TelemetryAttribute::RequestTokensInput->value => $responseData['usage']['prompt_tokens'] ?? 0,
+                        TelemetryAttribute::RequestTokensOutput->value => $responseData['usage']['completion_tokens'] ?? 0,
+                    ]);
+                }
+
+                return $response;
+            } catch (Throwable $e) {
+                throw PrismException::providerRequestError($request->model(), $e);
+            }
+        });
     }
 
     /**

@@ -89,7 +89,7 @@ it('stores status and description', function (): void {
 it('logs span start on creation', function (): void {
     new LogSpan('test-span', microtime(true), 'default', 'info');
 
-    $this->logFake->assertLogged('info', 'Span started');
+    $this->logFake->assertLogged('info', 'test-span');
 });
 
 it('logs span completion on end', function (): void {
@@ -98,7 +98,7 @@ it('logs span completion on end', function (): void {
 
     $span->end();
 
-    $this->logFake->assertLogged('info', 'Span completed');
+    $this->logFake->assertLogged('info', 'test-span');
 });
 
 it('includes attributes in completion log', function (): void {
@@ -109,15 +109,14 @@ it('includes attributes in completion log', function (): void {
 
     $span->end();
 
-    $logs = $this->logFake->logged('info', 'Span completed');
+    $logs = $this->logFake->logged('info', 'test-span');
     expect($logs)->toHaveCount(1);
 
     $log = $logs->first();
-    expect($log['context'])->toHaveKey('attributes');
-    expect($log['context']['attributes'])->toHaveKey('test.attribute');
-    expect($log['context']['attributes']['test.attribute'])->toBe('test-value');
-    expect($log['context']['attributes'])->toHaveKey(TelemetryAttribute::ProviderName->value);
-    expect($log['context']['attributes'][TelemetryAttribute::ProviderName->value])->toBe('openai');
+    expect($log['context'])->toHaveKey('test.attribute');
+    expect($log['context']['test.attribute'])->toBe('test-value');
+    expect($log['context'])->toHaveKey(TelemetryAttribute::ProviderName->value);
+    expect($log['context'][TelemetryAttribute::ProviderName->value])->toBe('openai');
 });
 
 it('logs error level when status is error', function (): void {
@@ -127,8 +126,8 @@ it('logs error level when status is error', function (): void {
 
     $span->end();
 
-    $this->logFake->assertLogged('error', 'Span completed');
-    $this->logFake->assertNotLogged('info', 'Span completed');
+    $this->logFake->assertLogged('error', 'test-span');
+    $this->logFake->assertNotLogged('info', 'test-span');
 });
 
 it('logs correct level for different statuses', function (SpanStatus $status, string $expectedLevel): void {
@@ -138,7 +137,7 @@ it('logs correct level for different statuses', function (SpanStatus $status, st
 
     $span->end();
 
-    $this->logFake->assertLogged($expectedLevel, 'Span completed');
+    $this->logFake->assertLogged($expectedLevel, 'test-span');
 })->with([
     [SpanStatus::Ok, 'info'],
     [SpanStatus::Error, 'error'],
@@ -153,7 +152,7 @@ it('can only be ended once', function (): void {
     $span->end();
     $span->end(); // Second call should be ignored
 
-    $this->logFake->assertLoggedCount(1, 'info', 'Span completed');
+    $this->logFake->assertLoggedCount(1, 'info', 'test-span');
 });
 
 it('returns self for fluent interface', function (): void {
@@ -190,7 +189,7 @@ it('includes events in completion log', function (): void {
 
     $span->end();
 
-    $logs = $this->logFake->logged('info', 'Span completed');
+    $logs = $this->logFake->logged('info', 'test-span');
     $log = $logs->first();
 
     expect($log['context'])->toHaveKey('span.events');
@@ -209,7 +208,7 @@ it('handles duration conversion to milliseconds', function (): void {
     $endTime = $startTime + 0.001; // 1ms
     $span->end($endTime);
 
-    $logs = $this->logFake->logged('info', 'Span completed');
+    $logs = $this->logFake->logged('info', 'test-span');
     $log = $logs->first();
 
     expect($log['context'])->toHaveKey('span.duration_ms');

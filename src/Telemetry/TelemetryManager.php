@@ -9,6 +9,8 @@ use Prism\Prism\Telemetry\Contracts\Span;
 use Prism\Prism\Telemetry\Contracts\TelemetryDriver;
 use Prism\Prism\Telemetry\Drivers\LogDriver;
 use Prism\Prism\Telemetry\Drivers\NullDriver;
+use Prism\Prism\Telemetry\ValueObjects\SpanStatus;
+use Throwable;
 
 /**
  * @mixin TelemetryDriver
@@ -27,15 +29,12 @@ class TelemetryManager extends Manager
         return new NullDriver;
     }
 
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    public function createLogDriver(array $config = []): LogDriver
+    public function createLogDriver(): LogDriver
     {
         return new LogDriver(
-            logChannel: $config['channel'] ?? 'default',
-            logLevel: $config['level'] ?? 'info',
-            includeAttributes: $config['include_attributes'] ?? true
+            logChannel: config('prism.telemetry.drivers.log.channel'),
+            logLevel: config('prism.telemetry.drivers.log.level'),
+            includeAttributes: config('prism.telemetry.drivers.log.include_attributes')
         );
     }
 
@@ -84,6 +83,18 @@ class TelemetryManager extends Manager
 
         $span = $this->startSpan($name, $attributes);
 
-        return $this->withCurrentSpan($span, fn () => $this->driver()->span($span->getName(), $attributes, $callback));
+        return $this->withCurrentSpan($span, function () use ($span, $callback) {
+            try {
+                $result = $callback();
+                $span->setStatus(SpanStatus::Ok);
+
+                return $result;
+            } catch (Throwable $e) {
+                $span->setStatus(SpanStatus::Error, $e->getMessage());
+                throw $e;
+            } finally {
+                $span->end();
+            }
+        });
     }
 }

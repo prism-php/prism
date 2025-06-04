@@ -32,16 +32,17 @@ class LogSpan implements Span
     ) {
         $this->spanId = Str::uuid()->toString();
 
-        Log::channel($this->logChannel)->log($this->logLevel, 'Span started', [
+        // Log span start with span name as the message
+        Log::channel($this->logChannel)->log($this->logLevel, $this->name, [
             'span.id' => $this->spanId,
-            'span.name' => $this->name,
+            'span.phase' => 'start',
             'span.start_time' => $this->startTime,
         ]);
     }
 
-    public function setAttribute(TelemetryAttribute|string $key, mixed $value): self
+    public function setAttribute(\Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute|string $key, mixed $value): self
     {
-        $keyString = $key instanceof TelemetryAttribute ? $key->value : $key;
+        $keyString = $key instanceof \Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute ? $key->value : $key;
         $this->attributes[$keyString] = $value;
 
         return $this;
@@ -90,25 +91,29 @@ class LogSpan implements Span
         $this->endTime = $endTime ?? microtime(true);
         $duration = ($this->endTime - $this->startTime) * 1000; // Convert to milliseconds
 
-        $logData = [
+        // Build context starting with span metadata
+        $context = [
             'span.id' => $this->spanId,
-            'span.name' => $this->name,
+            'span.phase' => 'end',
             'span.duration_ms' => round($duration, 2),
             'span.status' => $this->status?->value ?? 'ok',
-            'attributes' => $this->attributes,
         ];
 
+        // Add all attributes directly to the context
+        $context = array_merge($context, $this->attributes);
+
         if ($this->statusDescription) {
-            $logData['span.status_description'] = $this->statusDescription;
+            $context['span.status_description'] = $this->statusDescription;
         }
 
         if ($this->events !== []) {
-            $logData['span.events'] = $this->events;
+            $context['span.events'] = $this->events;
         }
 
         $logLevel = $this->status === SpanStatus::Error ? 'error' : $this->logLevel;
 
-        Log::channel($this->logChannel)->log($logLevel, 'Span completed', $logData);
+        // Use span name as the log message, all data as context
+        Log::channel($this->logChannel)->log($logLevel, $this->name, $context);
     }
 
     public function isRecording(): bool

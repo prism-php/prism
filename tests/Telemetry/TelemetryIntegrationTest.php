@@ -44,21 +44,21 @@ describe('Basic end-to-end functionality', function (): void {
         $span->addEvent('processing.completed');
         $span->end();
 
-        // Verify start and completion logs
-        $this->logFake->assertLogged('info', 'Span started');
-        $this->logFake->assertLogged('info', 'Span completed');
+        // Verify start and completion logs use span name as message
+        $this->logFake->assertLogged('info', 'integration-test-span');
 
         // Verify completion log includes all data
-        $completionLogs = $this->logFake->logged('info', 'Span completed');
-        $log = $completionLogs->first();
+        $completionLogs = $this->logFake->logged('info', 'integration-test-span');
+        expect($completionLogs)->toHaveCount(2); // Start and end
+        $log = $completionLogs->last(); // Get the end log
 
-        expect($log['context'])->toHaveKey('span.name', 'integration-test-span');
+        expect($log['context'])->toHaveKey('span.phase', 'end');
         expect($log['context'])->toHaveKey('span.status', SpanStatus::Ok->value);
         expect($log['context'])->toHaveKey('span.status_description', 'Successfully completed');
         expect($log['context'])->toHaveKey('span.duration_ms');
         expect($log['context']['span.duration_ms'])->toBeGreaterThan(1.0);
 
-        expect($log['context']['attributes'])->toHaveKey('test.phase', 'end');
+        expect($log['context'])->toHaveKey('test.phase', 'end');
         expect($log['context']['span.events'])->toHaveCount(3);
         expect($log['context']['span.events'][0]['name'])->toBe('processing.started');
         expect($log['context']['span.events'][1]['name'])->toBe('processing.halfway');
@@ -86,7 +86,9 @@ describe('Basic end-to-end functionality', function (): void {
         expect($contextSpans[1]->getName())->toBe('nested-span');
         expect(Telemetry::current())->toBeNull();
 
-        $this->logFake->assertLoggedCount(2, 'info', 'Span completed');
+        // Check that both spans were logged
+        $this->logFake->assertLogged('info', 'context-test-span');
+        $this->logFake->assertLogged('info', 'nested-span');
     });
 
     it('handles exceptions while preserving telemetry', function (): void {
@@ -99,14 +101,14 @@ describe('Basic end-to-end functionality', function (): void {
             });
         })->toThrow(RuntimeException::class, 'Integration test exception');
 
-        $this->logFake->assertLogged('error', 'Span completed');
+        $this->logFake->assertLogged('error', 'exception-test-span');
 
-        $errorLogs = $this->logFake->logged('error', 'Span completed');
+        $errorLogs = $this->logFake->logged('error', 'exception-test-span');
         $log = $errorLogs->first();
 
         expect($log['context']['span.status'])->toBe(SpanStatus::Error->value);
         expect($log['context']['span.status_description'])->toBe('Integration test exception');
-        expect($log['context']['attributes']['will_fail'])->toBeTrue();
+        expect($log['context']['will_fail'])->toBeTrue();
         if (isset($log['context']['span.events'])) {
             expect($log['context']['span.events'][0]['name'])->toBe('about.to.fail');
         }
@@ -176,6 +178,12 @@ describe('Provider integration (basic)', function (): void {
         config([
             'prism.telemetry.enabled' => true,
             'prism.telemetry.default' => 'log',
+            'prism.telemetry.drivers.log' => [
+                'driver' => 'log',
+                'channel' => 'default',
+                'level' => 'info',
+                'include_attributes' => true,
+            ],
         ]);
     });
 
@@ -200,12 +208,13 @@ describe('Provider integration (basic)', function (): void {
         expect($result['text'])->toBe('Generated response');
         expect($result['tokens']['prompt'])->toBe(100);
 
-        $logs = $this->logFake->logged('info', 'Span completed');
-        $log = $logs->first();
+        $logs = $this->logFake->logged('info', 'provider.request');
+        expect($logs->count())->toBeGreaterThan(0);
+        $log = $logs->last(); // Get the end log
 
-        expect($log['context']['attributes'][TelemetryAttribute::ProviderName->value])->toBe('openai');
-        expect($log['context']['attributes'][TelemetryAttribute::ProviderModel->value])->toBe('gpt-4');
-        expect($log['context']['attributes'][TelemetryAttribute::RequestType->value])->toBe('text_generation');
+        expect($log['context'][TelemetryAttribute::ProviderName->value])->toBe('openai');
+        expect($log['context'][TelemetryAttribute::ProviderModel->value])->toBe('gpt-4');
+        expect($log['context'][TelemetryAttribute::RequestType->value])->toBe('text_generation');
     });
 
     it('handles provider exceptions correctly', function (): void {
@@ -220,12 +229,12 @@ describe('Provider integration (basic)', function (): void {
             });
         })->toThrow(Exception::class, 'Provider API error');
 
-        $logs = $this->logFake->logged('error', 'Span completed');
+        $logs = $this->logFake->logged('error', 'provider.request');
         $log = $logs->first();
 
         expect($log['context']['span.status'])->toBe(SpanStatus::Error->value);
         expect($log['context']['span.status_description'])->toBe('Provider API error');
-        expect($log['context']['attributes'][TelemetryAttribute::ProviderName->value])->toBe('openai');
+        expect($log['context'][TelemetryAttribute::ProviderName->value])->toBe('openai');
         if (isset($log['context']['span.events'])) {
             expect($log['context']['span.events'][0]['name'])->toBe('request.started');
         }
@@ -245,16 +254,16 @@ describe('Tool integration (basic)', function (): void {
 
         $result = Telemetry::span('tool.execution', [
             TelemetryAttribute::ToolName->value => 'calculator',
-        ], fn(): array =>
+        ], fn (): array =>
             // Simulate tool work
             ['result' => 42, 'operation' => 'multiply', 'operands' => [6, 7]]);
 
         expect($result['result'])->toBe(42);
 
-        $logs = $this->logFake->logged('info', 'Span completed');
-        $log = $logs->first();
+        $logs = $this->logFake->logged('info', 'tool.execution');
+        $log = $logs->last(); // Get the end log
 
-        expect($log['context']['attributes'][TelemetryAttribute::ToolName->value])->toBe('calculator');
+        expect($log['context'][TelemetryAttribute::ToolName->value])->toBe('calculator');
     });
 
     it('records tool success and failure', function (): void {
@@ -275,20 +284,20 @@ describe('Tool integration (basic)', function (): void {
             });
         })->toThrow(RuntimeException::class);
 
-        $successLogs = $this->logFake->logged('info', 'Span completed');
-        $failureLogs = $this->logFake->logged('error', 'Span completed');
+        $successLogs = $this->logFake->logged('info', 'tool.success');
+        $failureLogs = $this->logFake->logged('error', 'tool.failure');
 
-        expect($successLogs->count())->toBe(1);
-        expect($failureLogs->count())->toBe(1);
+        expect($successLogs->count())->toBeGreaterThan(0);
+        expect($failureLogs->count())->toBeGreaterThan(0);
 
-        $successLog = $successLogs->first();
-        $failureLog = $failureLogs->first();
+        $successLog = $successLogs->last(); // Get the end log
+        $failureLog = $failureLogs->last(); // Get the end log
 
-        if (isset($successLog['context']['attributes'][TelemetryAttribute::ToolSuccess->value])) {
-            expect($successLog['context']['attributes'][TelemetryAttribute::ToolSuccess->value])->toBeTrue();
+        if (isset($successLog['context'][TelemetryAttribute::ToolSuccess->value])) {
+            expect($successLog['context'][TelemetryAttribute::ToolSuccess->value])->toBeTrue();
         }
-        if (isset($failureLog['context']['attributes'][TelemetryAttribute::ToolSuccess->value])) {
-            expect($failureLog['context']['attributes'][TelemetryAttribute::ToolSuccess->value])->toBeFalse();
+        if (isset($failureLog['context'][TelemetryAttribute::ToolSuccess->value])) {
+            expect($failureLog['context'][TelemetryAttribute::ToolSuccess->value])->toBeFalse();
         }
     });
 });
@@ -315,7 +324,7 @@ describe('Facade integration', function (): void {
         expect($result)->toBe('facade-result');
         expect(Telemetry::current())->toBeNull();
 
-        $this->logFake->assertLogged('info', 'Span completed');
+        $this->logFake->assertLogged('info', 'facade.test');
     });
 
     it('maintains manager state through facade', function (): void {
@@ -334,7 +343,10 @@ describe('Facade integration', function (): void {
         $span1->end();
         $span2->end();
 
-        $this->logFake->assertLoggedCount(3, 'info', 'Span completed');
+        // Check that all spans were logged
+        $this->logFake->assertLogged('info', 'manual-span-1');
+        $this->logFake->assertLogged('info', 'manual-span-2');
+        $this->logFake->assertLogged('info', 'callback-span');
     });
 });
 
@@ -349,14 +361,17 @@ describe('Performance and edge cases', function (): void {
         $start = microtime(true);
 
         for ($i = 0; $i < 100; $i++) {
-            Telemetry::span("rapid-span-{$i}", ['iteration' => $i], fn(): string => "result-{$i}");
+            Telemetry::span("rapid-span-{$i}", ['iteration' => $i], fn (): string => "result-{$i}");
         }
 
         $duration = microtime(true) - $start;
 
         // Should complete reasonably quickly (less than 100ms for 100 spans)
         expect($duration)->toBeLessThan(0.1);
-        $this->logFake->assertLoggedCount(100, 'info', 'Span completed');
+        // Check that all 100 spans were logged (each span has start and end logs)
+        for ($i = 0; $i < 100; $i++) {
+            $this->logFake->assertLogged('info', "rapid-span-{$i}");
+        }
     });
 
     it('handles deeply nested spans correctly', function (): void {
@@ -375,12 +390,16 @@ describe('Performance and edge cases', function (): void {
                 return "depth-{$level}";
             }
 
-            return Telemetry::span("nested-span-{$level}", ['level' => $level], fn(): mixed => $callback($level + 1));
+            return Telemetry::span("nested-span-{$level}", ['level' => $level], fn (): mixed => $callback($level + 1));
         };
 
-        $result = Telemetry::span('root-span', [], fn() => $callback(0));
+        $result = Telemetry::span('root-span', [], fn () => $callback(0));
 
         expect($result)->toBe("depth-{$depth}");
-        $this->logFake->assertLoggedCount($depth + 1, 'info', 'Span completed');
+        // Check that all nested spans plus root span were logged
+        $this->logFake->assertLogged('info', 'root-span');
+        for ($i = 0; $i < $depth; $i++) {
+            $this->logFake->assertLogged('info', "nested-span-{$i}");
+        }
     });
 });

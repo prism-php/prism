@@ -8,6 +8,8 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Facades\Telemetry;
+use Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute;
 
 class PendingRequest
 {
@@ -66,7 +68,11 @@ class PendingRequest
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        return Telemetry::span('prism.embeddings', [
+            TelemetryAttribute::RequestType->value => 'embeddings',
+            TelemetryAttribute::ProviderName->value => $this->provider::class,
+            TelemetryAttribute::ProviderModel->value => $this->model,
+        ], fn(): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($this->toRequest()));
     }
 
     protected function toRequest(): Request

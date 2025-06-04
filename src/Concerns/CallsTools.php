@@ -7,6 +7,7 @@ namespace Prism\Prism\Concerns;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Facades\Telemetry;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
@@ -21,7 +22,10 @@ trait CallsTools
      */
     protected function callTools(array $tools, array $toolCalls): array
     {
-        return array_map(
+        return Telemetry::span('tools.execute', [
+            'tools.count' => count($toolCalls),
+            'tools.names' => collect($toolCalls)->pluck('name')->unique()->implode(', '),
+        ], fn(): array => array_map(
             function (ToolCall $toolCall) use ($tools): ToolResult {
                 $tool = $this->resolveTool($toolCall->name, $tools);
 
@@ -47,7 +51,7 @@ trait CallsTools
 
             },
             $toolCalls
-        );
+        ));
     }
 
     /**

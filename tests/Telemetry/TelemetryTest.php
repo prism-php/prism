@@ -77,10 +77,10 @@ it('proxies startSpan with custom start time to manager', function (): void {
 it('proxies span to manager', function (): void {
     $this->logFake->clear();
 
-    $result = Telemetry::span('test-span', [], fn(): string => 'facade-result');
+    $result = Telemetry::span('test-span', [], fn (): string => 'facade-result');
 
     expect($result)->toBe('facade-result');
-    $this->logFake->assertLogged('info', 'Span completed');
+    $this->logFake->assertLogged('info', 'test-span');
 });
 
 it('proxies span with attributes to manager', function (): void {
@@ -90,14 +90,14 @@ it('proxies span with attributes to manager', function (): void {
     ];
     $this->logFake->clear();
 
-    $result = Telemetry::span('test-span', $attributes, fn(): string => 'result-with-attributes');
+    $result = Telemetry::span('test-span', $attributes, fn (): string => 'result-with-attributes');
 
     expect($result)->toBe('result-with-attributes');
 
-    $logs = $this->logFake->logged('info', 'Span completed');
-    $log = $logs->first();
-    expect($log['context']['attributes'])->toHaveKey('test.attribute');
-    expect($log['context']['attributes']['test.attribute'])->toBe('value');
+    $logs = $this->logFake->logged('info', 'test-span');
+    $log = $logs->last(); // Get the end log
+    expect($log['context'])->toHaveKey('test.attribute');
+    expect($log['context']['test.attribute'])->toBe('value');
 });
 
 it('proxies enabled to manager', function (): void {
@@ -116,7 +116,7 @@ it('proxies current to manager', function (): void {
 
     $span = Telemetry::startSpan('test-span');
 
-    $currentSpan = Telemetry::withCurrentSpan($span, fn() => Telemetry::current());
+    $currentSpan = Telemetry::withCurrentSpan($span, fn () => Telemetry::current());
 
     expect($currentSpan)->toBe($span);
     expect(Telemetry::current())->toBeNull();
@@ -141,7 +141,7 @@ it('handles exceptions through facade span method', function (): void {
         });
     })->toThrow(RuntimeException::class, 'Facade exception');
 
-    $this->logFake->assertLogged('error', 'Span completed');
+    $this->logFake->assertLogged('error', 'test-span');
 });
 
 it('works with different telemetry configurations through facade', function (): void {
@@ -191,7 +191,7 @@ it('supports all manager methods through facade', function (): void {
     expect(Telemetry::current())->toBeNull();
 
     // Test withCurrentSpan
-    $contextResult = Telemetry::withCurrentSpan($span, fn() => Telemetry::current());
+    $contextResult = Telemetry::withCurrentSpan($span, fn () => Telemetry::current());
     expect($contextResult)->toBe($span);
 });
 
@@ -200,11 +200,14 @@ it('handles rapid successive calls through facade', function (): void {
 
     $results = [];
     for ($i = 0; $i < 5; $i++) {
-        $results[] = Telemetry::span("span-{$i}", ['iteration' => $i], fn(): string => "result-{$i}");
+        $results[] = Telemetry::span("span-{$i}", ['iteration' => $i], fn (): string => "result-{$i}");
     }
 
     expect($results)->toBe(['result-0', 'result-1', 'result-2', 'result-3', 'result-4']);
-    $this->logFake->assertLoggedCount(5, 'info', 'Span completed');
+    // Check that all 5 spans were logged (2 logs each = start and end)
+    for ($i = 0; $i < 5; $i++) {
+        $this->logFake->assertLogged('info', "span-{$i}");
+    }
 });
 
 it('preserves facade behavior when telemetry is disabled', function (): void {

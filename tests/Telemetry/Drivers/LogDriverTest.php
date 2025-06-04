@@ -56,7 +56,7 @@ it('executes callback and returns result', function (): void {
     $driver = new LogDriver('default', 'info', true);
     $expectedResult = 'test-result';
 
-    $result = $driver->span('test-span', [], fn(): string => $expectedResult);
+    $result = $driver->span('test-span', [], fn (): string => $expectedResult);
 
     expect($result)->toBe($expectedResult);
 });
@@ -83,12 +83,12 @@ it('sets ok status on successful execution', function (): void {
     $driver = new LogDriver('default', 'info', true);
     $this->logFake->clear();
 
-    $driver->span('test-span', [], fn(): string => 'success');
+    $driver->span('test-span', [], fn (): string => 'success');
 
-    $this->logFake->assertLogged('info', 'Span completed');
+    $this->logFake->assertLogged('info', 'test-span');
 
-    $logs = $this->logFake->logged('info', 'Span completed');
-    $log = $logs->first();
+    $logs = $this->logFake->logged('info', 'test-span');
+    $log = $logs->last(); // Get the end log
     expect($log['context']['span.status'])->toBe(SpanStatus::Ok->value);
 });
 
@@ -104,9 +104,9 @@ it('sets error status on exception', function (): void {
         // Expected
     }
 
-    $this->logFake->assertLogged('error', 'Span completed');
+    $this->logFake->assertLogged('error', 'test-span');
 
-    $logs = $this->logFake->logged('error', 'Span completed');
+    $logs = $this->logFake->logged('error', 'test-span');
     $log = $logs->first();
     expect($log['context']['span.status'])->toBe(SpanStatus::Error->value);
     expect($log['context']['span.status_description'])->toBe('Test exception');
@@ -134,17 +134,17 @@ it('always ends span even when exception occurs', function (): void {
     }
 
     // Should have logged span completion even with exception
-    $this->logFake->assertLogged('error', 'Span completed');
+    $this->logFake->assertLogged('error', 'test-span');
 });
 
 it('logs to correct channel and level', function (): void {
     $driver = new LogDriver('default', 'debug', true);
     $this->logFake->clear();
 
-    $driver->span('test-span', [], fn(): string => 'success');
+    $driver->span('test-span', [], fn (): string => 'success');
 
     // Should log at debug level since that was configured
-    $this->logFake->assertLogged('debug', 'Span completed');
+    $this->logFake->assertLogged('debug', 'test-span');
 });
 
 it('respects include attributes configuration', function (): void {
@@ -153,23 +153,22 @@ it('respects include attributes configuration', function (): void {
 
     $attributes = ['test.attribute' => 'value'];
 
-    // With attributes enabled - attributes should be included
+    // With attributes enabled - attributes should be included directly in context
     $this->logFake->clear();
     $driverWithAttributes->span('test-span', $attributes, fn (): string => 'result');
 
-    $logs = $this->logFake->logged('info', 'Span completed');
-    $log = $logs->first();
-    expect($log['context'])->toHaveKey('attributes');
-    expect($log['context']['attributes'])->toHaveKey('test.attribute');
+    $logs = $this->logFake->logged('info', 'test-span');
+    $log = $logs->last(); // Get the end log
+    expect($log['context'])->toHaveKey('test.attribute');
+    expect($log['context']['test.attribute'])->toBe('value');
 
-    // With attributes disabled - attributes should be empty
+    // With attributes disabled - custom attributes should not be present
     $this->logFake->clear();
     $driverWithoutAttributes->span('test-span', $attributes, fn (): string => 'result');
 
-    $logs = $this->logFake->logged('info', 'Span completed');
+    $logs = $this->logFake->logged('info', 'test-span');
     $log = $logs->first();
-    expect($log['context'])->toHaveKey('attributes');
-    expect($log['context']['attributes'])->toBeEmpty();
+    expect($log['context'])->not->toHaveKey('test.attribute');
 });
 
 it('handles multiple spans correctly', function (): void {
@@ -182,17 +181,20 @@ it('handles multiple spans correctly', function (): void {
     expect($result1)->toBe('result-1');
     expect($result2)->toBe('result-2');
 
-    $this->logFake->assertLoggedCount(2, 'info', 'Span completed');
+    // Should have logged both spans with their respective names
+    $this->logFake->assertLogged('info', 'span-1');
+    $this->logFake->assertLogged('info', 'span-2');
 });
 
 it('handles nested spans through callbacks', function (): void {
     $driver = new LogDriver('default', 'info', true);
     $this->logFake->clear();
 
-    $result = $driver->span('outer-span', [], fn(): mixed => $driver->span('inner-span', [], fn(): string => 'nested-result'));
+    $result = $driver->span('outer-span', [], fn (): mixed => $driver->span('inner-span', [], fn (): string => 'nested-result'));
 
     expect($result)->toBe('nested-result');
-    $this->logFake->assertLoggedCount(2, 'info', 'Span completed');
+    $this->logFake->assertLogged('info', 'outer-span');
+    $this->logFake->assertLogged('info', 'inner-span');
 });
 
 it('preserves exception details in span', function (): void {
@@ -207,7 +209,7 @@ it('preserves exception details in span', function (): void {
         // Expected
     }
 
-    $logs = $this->logFake->logged('error', 'Span completed');
+    $logs = $this->logFake->logged('error', 'test-span');
     $log = $logs->first();
     expect($log['context']['span.status'])->toBe(SpanStatus::Error->value);
     expect($log['context']['span.status_description'])->toBe('Invalid input provided');
@@ -217,7 +219,7 @@ it('maintains callback scope correctly', function (): void {
     $driver = new LogDriver('default', 'info', true);
     $outerVariable = 'outer-value';
 
-    $result = $driver->span('test-span', [], fn(): string => $outerVariable);
+    $result = $driver->span('test-span', [], fn (): string => $outerVariable);
 
     expect($result)->toBe('outer-value');
 });
@@ -229,7 +231,7 @@ it('handles callback that returns false correctly', function (): void {
     $result = $driver->span('test-span', [], fn (): false => false);
 
     expect($result)->toBeFalse();
-    $this->logFake->assertLogged('info', 'Span completed');
+    $this->logFake->assertLogged('info', 'test-span');
 });
 
 it('records timing information accurately', function (): void {
@@ -240,8 +242,8 @@ it('records timing information accurately', function (): void {
         usleep(1000); // 1ms
     });
 
-    $logs = $this->logFake->logged('info', 'Span completed');
-    $log = $logs->first();
+    $logs = $this->logFake->logged('info', 'test-span');
+    $log = $logs->last(); // Get the end log
     expect($log['context'])->toHaveKey('span.duration_ms');
     expect($log['context']['span.duration_ms'])->toBeFloat();
     expect($log['context']['span.duration_ms'])->toBeGreaterThan(0.5); // Should be at least 0.5ms

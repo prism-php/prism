@@ -15,6 +15,8 @@ use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Facades\Telemetry;
+use Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class PendingRequest
@@ -39,7 +41,11 @@ class PendingRequest
 
     public function asText(): Response
     {
-        return $this->provider->text($this->toRequest());
+        return Telemetry::span('prism.text', [
+            TelemetryAttribute::RequestType->value => 'text',
+            TelemetryAttribute::ProviderName->value => $this->provider::class,
+            TelemetryAttribute::ProviderModel->value => $this->model,
+        ], fn(): \Prism\Prism\Text\Response => $this->provider->text($this->toRequest()));
     }
 
     /**
@@ -47,7 +53,11 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
-        return $this->provider->stream($this->toRequest());
+        return Telemetry::span('prism.stream', [
+            TelemetryAttribute::RequestType->value => 'stream',
+            TelemetryAttribute::ProviderName->value => $this->provider::class,
+            TelemetryAttribute::ProviderModel->value => $this->model,
+        ], fn(): \Generator => $this->provider->stream($this->toRequest()));
     }
 
     public function toRequest(): Request

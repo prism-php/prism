@@ -126,6 +126,10 @@ export default defineConfig({
                 text: "Testing",
                 link: "/core-concepts/testing",
               },
+              {
+                text: "Telemetry",
+                link: "/core-concepts/telemetry",
+              },
             ],
           },
           {
