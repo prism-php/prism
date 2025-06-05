@@ -46,11 +46,6 @@ $response = Prism::structured()
     ]) // [!code focus]
 ```
 
-## Limitations
-### Tool Choice
-
-OpenAI does not support `ToolChoice::Any` when using `withToolChoice()`.
-
 ### Caching
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.
