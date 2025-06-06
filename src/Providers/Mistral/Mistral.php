@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Mistral;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
@@ -26,6 +25,8 @@ use Prism\Prism\ValueObjects\Messages\Support\Document;
 
 readonly class Mistral implements Provider
 {
+    use InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -99,22 +100,8 @@ readonly class Mistral implements Provider
         return $handler->handle($request);
     }
 
-    /**
-     * @param  array<string, mixed>  $options
-     * @param  array<mixed>  $retry
-     */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function getToken(): string
     {
-        $client = Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-        ]))
-            ->withOptions($options)
-            ->baseUrl($this->url);
-
-        if ($retry !== []) {
-            return $client->retry(...$retry);
-        }
-
-        return $client;
+        return $this->apiKey;
     }
 }
