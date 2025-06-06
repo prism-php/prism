@@ -67,7 +67,7 @@ class Structured
                         'maxOutputTokens' => $request->maxTokens(),
                         'thinkingConfig' => Arr::whereNotNull([
                             'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                        ]),
+                        ]) ?: null,
                     ]),
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])
