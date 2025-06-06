@@ -232,6 +232,18 @@ class Stream
                 default => [],
             };
 
+            $generationConfig = Arr::whereNotNull([
+                'temperature'      => $request->temperature(),
+                'topP'             => $request->topP(),
+                'maxOutputTokens'  => $request->maxTokens(),
+            ]);
+
+            if (! empty($providerOptions['thinkingBudget'])) {
+                $generationConfig['thinkingConfig'] = [
+                    'thinkingBudget' => $providerOptions['thinkingBudget'],
+                ];
+            }
+
             return $this->client
                 ->withOptions(['stream' => true])
                 ->post(
@@ -239,14 +251,7 @@ class Stream
                     Arr::whereNotNull([
                         ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
                         'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                        'generationConfig' => Arr::whereNotNull([
-                            'temperature' => $request->temperature(),
-                            'topP' => $request->topP(),
-                            'maxOutputTokens' => $request->maxTokens(),
-                            'thinkingConfig' => Arr::whereNotNull([
-                                'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            ]),
-                        ]),
+                        'generationConfig' => $generationConfig,
                         'tools' => $tools !== [] ? $tools : null,
                         'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
                         'safetySettings' => $providerOptions['safetySettings'] ?? null,
