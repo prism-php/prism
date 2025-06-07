@@ -75,6 +75,7 @@ class PendingRequest
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,
+            toolChoiceAutoAfterSteps: $this->toolChoiceAutoAfterSteps,
             providerOptions: $this->providerOptions,
         );
     }
