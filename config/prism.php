@@ -48,4 +48,22 @@ return [
             'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
         ],
     ],
+
+    'telemetry' => [
+        'enabled' => env('PRISM_TELEMETRY_ENABLED', true),
+        'default' => env('PRISM_TELEMETRY_DRIVER', 'null'),
+
+        'drivers' => [
+            'null' => [
+                'driver' => 'null',
+            ],
+
+            'log' => [
+                'driver' => 'log',
+                'channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'default'),
+                'level' => env('PRISM_TELEMETRY_LOG_LEVEL', 'info'),
+                'include_attributes' => true,
+            ],
+        ],
+    ],
 ];

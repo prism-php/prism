@@ -5,6 +5,8 @@ namespace Prism\Prism\Http\Controllers;
 use Illuminate\Support\ItemNotFoundException;
 use Prism\Prism\Exceptions\PrismServerException;
 use Prism\Prism\Facades\PrismServer;
+use Prism\Prism\Telemetry\Facades\Telemetry;
+use Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -17,28 +19,32 @@ class PrismChatController
 {
     public function __invoke(): Response
     {
-        request()->validate([
-            'stream' => 'sometimes|boolean',
-            'model' => 'string|required',
-            'messages' => 'sometimes|array',
-        ]);
+        return Telemetry::span('prism.server.request', [
+            TelemetryAttribute::RequestType->value => 'http',
+        ], function (): \Symfony\Component\HttpFoundation\Response {
+            request()->validate([
+                'stream' => 'sometimes|boolean',
+                'model' => 'string|required',
+                'messages' => 'sometimes|array',
+            ]);
 
-        try {
-            /** @var array<array{role: string, content: string}> $messages */
-            $messages = request('messages');
+            try {
+                /** @var array<array{role: string, content: string}> $messages */
+                $messages = request('messages');
 
-            $prism = $this->resolvePrism(request('model'));
+                $prism = $this->resolvePrism(request('model'));
 
-            $prism->withMessages($this->mapMessages($messages));
+                $prism->withMessages($this->mapMessages($messages));
 
-            if (request('stream')) {
-                return $this->stream($prism);
+                if (request('stream')) {
+                    return $this->stream($prism);
+                }
+
+                return $this->chat($prism);
+            } catch (Throwable $e) {
+                return $this->error($e);
             }
-
-            return $this->chat($prism);
-        } catch (Throwable $e) {
-            return $this->error($e);
-        }
+        });
     }
 
     protected function stream(PendingRequest $generator): Response
