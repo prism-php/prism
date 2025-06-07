@@ -15,5 +15,6 @@ readonly class ToolResult
         public string $toolName,
         public array $args,
         public int|float|string|array|null $result,
+        public ?string $toolCallResultId = null,
     ) {}
 }

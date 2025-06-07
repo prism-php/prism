@@ -26,7 +26,7 @@ it('maps user messages', function (): void {
     expect($messageMap())->toBe([[
         'role' => 'user',
         'content' => [
-            ['type' => 'text', 'text' => 'Who are you?'],
+            ['type' => 'input_text', 'text' => 'Who are you?'],
         ],
     ]]);
 });
@@ -44,10 +44,10 @@ it('maps user messages with images from path', function (): void {
     $mappedMessage = $messageMap();
 
     expect(data_get($mappedMessage, '0.content.1.type'))
-        ->toBe('image_url');
-    expect(data_get($mappedMessage, '0.content.1.image_url.url'))
+        ->toBe('input_image');
+    expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toStartWith('data:image/png;base64,');
-    expect(data_get($mappedMessage, '0.content.1.image_url.url'))
+    expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
 });
 
@@ -64,10 +64,10 @@ it('maps user messages with images from base64', function (): void {
     $mappedMessage = $messageMap();
 
     expect(data_get($mappedMessage, '0.content.1.type'))
-        ->toBe('image_url');
-    expect(data_get($mappedMessage, '0.content.1.image_url.url'))
+        ->toBe('input_image');
+    expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toStartWith('data:image/png;base64,');
-    expect(data_get($mappedMessage, '0.content.1.image_url.url'))
+    expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
 });
 
@@ -84,8 +84,8 @@ it('maps user messages with images from url', function (): void {
     $mappedMessage = $messageMap();
 
     expect(data_get($mappedMessage, '0.content.1.type'))
-        ->toBe('image_url');
-    expect(data_get($mappedMessage, '0.content.1.image_url.url'))
+        ->toBe('input_image');
+    expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toBe('https://prismphp.com/storage/dimond.png');
 });
 
@@ -112,27 +112,29 @@ it('maps assistant message with tool calls', function (): void {
                     'search',
                     [
                         'query' => 'Laravel collection methods',
-                    ]
+                    ],
+                    'call_1234'
                 ),
             ]),
         ],
         systemPrompts: []
     );
 
-    expect($messageMap())->toBe([[
-        'role' => 'assistant',
-        'content' => 'I am Nyx',
-        'tool_calls' => [[
+    expect($messageMap())->toBe([
+        [
+            'role' => 'assistant',
+            'content' => 'I am Nyx',
+        ],
+        [
             'id' => 'tool_1234',
-            'type' => 'function',
-            'function' => [
-                'name' => 'search',
-                'arguments' => json_encode([
-                    'query' => 'Laravel collection methods',
-                ]),
-            ],
-        ]],
-    ]]);
+            'call_id' => 'call_1234',
+            'type' => 'function_call',
+            'name' => 'search',
+            'arguments' => json_encode([
+                'query' => 'Laravel collection methods',
+            ]),
+        ],
+    ]);
 });
 
 it('maps tool result messages', function (): void {
@@ -145,7 +147,8 @@ it('maps tool result messages', function (): void {
                     [
                         'query' => 'Laravel collection methods',
                     ],
-                    '[search results]'
+                    '[search results]',
+                    'call_1234'
                 ),
             ]),
         ],
@@ -153,9 +156,9 @@ it('maps tool result messages', function (): void {
     );
 
     expect($messageMap())->toBe([[
-        'role' => 'tool',
-        'tool_call_id' => 'tool_1234',
-        'content' => '[search results]',
+        'type' => 'function_call_output',
+        'call_id' => 'call_1234',
+        'output' => '[search results]',
     ]]);
 });
 
@@ -180,7 +183,7 @@ it('maps system prompt', function (): void {
         [
             'role' => 'user',
             'content' => [
-                ['type' => 'text', 'text' => 'Who are you?'],
+                ['type' => 'input_text', 'text' => 'Who are you?'],
             ],
         ],
     ]);
@@ -200,8 +203,8 @@ describe('documents', function (): void {
         $mappedMessage = $messageMap();
 
         expect(data_get($mappedMessage, '0.content.1.type'))
-            ->toBe('file')
-            ->and(data_get($mappedMessage, '0.content.1.file.file_data'))
+            ->toBe('input_file')
+            ->and(data_get($mappedMessage, '0.content.1.file_data'))
             ->toContain(base64_encode(file_get_contents('tests/Fixtures/test-pdf.pdf')));
     });
 
@@ -218,8 +221,8 @@ describe('documents', function (): void {
         $mappedMessage = $messageMap();
 
         expect(data_get($mappedMessage, '0.content.1.type'))
-            ->toBe('file')
-            ->and(data_get($mappedMessage, '0.content.1.file.file_id'))
+            ->toBe('input_file')
+            ->and(data_get($mappedMessage, '0.content.1.file_id'))
             ->toBe('previously-uploaded-file-id');
     });
 });

@@ -46,6 +46,26 @@ $response = Prism::structured()
     ]) // [!code focus]
 ```
 
+### Previous Responses
+
+Prism supports OpenAI's [conversation state](https://platform.openai.com/docs/guides/conversation-state#openai-apis-for-conversation-state) with the `previous_response_id` parameter.
+
+```php
+$response = Prism::structured()
+    ->withProviderOptions([ // [!code focus]
+        'previous_response_id' => 'response_id' // [!code focus]
+    ]) // [!code focus]
+```
+
+### Truncation
+
+```php
+$response = Prism::structured()
+    ->withProviderOptions([ // [!code focus]
+        'truncation' => 'auto' // [!code focus]
+    ]) // [!code focus]
+```
+
 ### Caching
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.

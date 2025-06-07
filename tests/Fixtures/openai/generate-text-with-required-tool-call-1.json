@@ -1,45 +1,29 @@
 {
-  "id": "chatcmpl-BB7W9oAuHdViPFBso4YNqG5n48hg6",
-  "object": "chat.completion",
-  "created": 1741990205,
+  "id": "resp_BB7W9oAuHdViPFBso4YNqG5n48hg6",
+  "object": "response",
+  "created_at": 1741990205,
+  "status": "completed",
   "model": "gpt-4o-2024-08-06",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": null,
-        "tool_calls": [
-          {
-            "id": "call_N18ASdB7htRsbPBeJNax6eTm",
-            "type": "function",
-            "function": {
-              "name": "weather",
-              "arguments": "{\"city\":\"do something\"}"
-            }
-          }
-        ],
-        "refusal": null,
-        "annotations": []
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "id": "fc_634f9737a5081a3a684db34818a28b000760294f9ba35d1",
+      "type": "function_call",
+      "status": "completed",
+      "arguments": "{\"city\":\"do something\"}",
+      "call_id": "call_N18ASdB7htRsbPBeJNax6eTm",
+      "name": "weather"
     }
   ],
   "usage": {
-    "prompt_tokens": 95,
-    "completion_tokens": 7,
-    "total_tokens": 102,
-    "prompt_tokens_details": {
-      "cached_tokens": 0,
-      "audio_tokens": 0
+    "input_tokens": 95,
+    "input_tokens_details": {
+      "cached_tokens": 0
     },
-    "completion_tokens_details": {
-      "reasoning_tokens": 0,
-      "audio_tokens": 0,
-      "accepted_prediction_tokens": 0,
-      "rejected_prediction_tokens": 0
-    }
+    "output_tokens": 7,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 102
   },
   "service_tier": "default",
   "system_fingerprint": "fp_f9f4fb6dbf"

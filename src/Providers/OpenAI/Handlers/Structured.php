@@ -48,10 +48,10 @@ class Structured
 
         $data = $response->json();
 
-        $this->handleRefusal(data_get($data, 'choices.0.message', []));
+        $this->handleRefusal(data_get($data, 'output.{last}.content.0', []));
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
+            data_get($data, 'output.{last}.content.0.text') ?? '',
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -69,12 +69,13 @@ class Structured
     protected function addStep(array $data, Request $request, ClientResponse $clientResponse): void
     {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'choices.0.message.content') ?? '',
+            text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
             usage: new Usage(
-                promptTokens: data_get($data, 'usage.prompt_tokens', 0) - data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0),
-                completionTokens: data_get($data, 'usage.completion_tokens'),
-                cacheReadInputTokens: data_get($data, 'usage.prompt_tokens_details.cached_tokens'),
+                promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
+                completionTokens: data_get($data, 'usage.output_tokens'),
+                cacheReadInputTokens: data_get($data, 'usage.input_tokens_details.cached_tokens'),
+                thoughtTokens: data_get($data, 'usage.output_token_details.reasoning_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
@@ -88,22 +89,26 @@ class Structured
     }
 
     /**
-     * @param  array{type: 'json_schema', json_schema: array<string, mixed>}|array{type: 'json_object'}  $responseFormat
+     * @param  array{type: 'json_schema', name: string, schema: array<mixed>, strict?: bool}|array{type: 'json_object'}  $responseFormat
      */
     protected function sendRequest(Request $request, array $responseFormat): ClientResponse
     {
         try {
             return $this->client->post(
-                'chat/completions',
+                'responses',
                 array_merge([
                     'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
+                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_output_tokens' => $request->maxTokens(),
                 ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => $request->providerOptions('metadata'),
-                    'response_format' => $responseFormat,
+                    'previous_response_id' => $request->providerOptions('previous_response_id'),
+                    'truncation' => $request->providerOptions('truncation'),
+                    'text' => [
+                        'format' => $responseFormat,
+                    ],
                 ]))
             );
         } catch (Throwable $e) {
@@ -130,14 +135,15 @@ class Structured
             throw new PrismException(sprintf('%s model does not support structured mode', $request->model()));
         }
 
-        return $this->sendRequest($request, [
+        /** @var array{type: 'json_schema', name: string, schema: array<mixed>, strict?: bool} $responseFormat */
+        $responseFormat = Arr::whereNotNull([
             'type' => 'json_schema',
-            'json_schema' => Arr::whereNotNull([
-                'name' => $request->schema()->name(),
-                'schema' => $request->schema()->toArray(),
-                'strict' => $request->providerOptions('schema.strict') ? true : null,
-            ]),
+            'name' => $request->schema()->name(),
+            'schema' => $request->schema()->toArray(),
+            'strict' => $request->providerOptions('schema.strict') ? true : null,
         ]);
+
+        return $this->sendRequest($request, $responseFormat);
     }
 
     protected function handleJsonMode(Request $request): ClientResponse
@@ -154,8 +160,8 @@ class Structured
      */
     protected function handleRefusal(array $message): void
     {
-        if (! is_null(data_get($message, 'refusal', null))) {
-            throw new PrismException(sprintf('OpenAI Refusal: %s', $message['refusal']));
+        if (data_get($message, 'type') === 'refusal') {
+            throw new PrismException(sprintf('OpenAI Refusal: %s', $message['refusal'] ?? 'Reason unknown.'));
         }
     }
 

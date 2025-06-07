@@ -107,7 +107,7 @@ it('works without rate limit headers', function (): void {
     $this->expectException(PrismRateLimitedException::class);
 
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/insufficient-quota-response',
         status: 429
     );

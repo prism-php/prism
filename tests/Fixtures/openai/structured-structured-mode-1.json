@@ -1,35 +1,35 @@
 {
-  "id": "chatcmpl-BB7Y5pkvxQ7usTVl7HXkxMO3kE9Ef",
-  "object": "chat.completion",
-  "created": 1741990325,
+  "id": "resp_BB7Y5pkvxQ7usTVl7HXkxMO3kE9Ef",
+  "object": "response",
+  "created_at": 1741990325,
+  "status": "completed",
   "model": "gpt-4o-2024-08-06",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "{\"weather\":\"The weather today is cold and breezy with temperatures ranging from 40°F to 50°F (4°C to 10°C) throughout the day.\",\"game_time\":\"The Tigers game is scheduled for 7:05 PM local time.\",\"coat_required\":true}",
-        "refusal": null,
-        "annotations": []
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "id": "msg_123ffa14c134819c9be89e492549ec5106fec0a2053cab1f",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "{\"weather\":\"The weather today is cold and breezy with temperatures ranging from 40°F to 50°F (4°C to 10°C) throughout the day.\",\"game_time\":\"The Tigers game is scheduled for 7:05 PM local time.\",\"coat_required\":true}",
+          "refusal": null
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 94,
-    "completion_tokens": 57,
-    "total_tokens": 151,
-    "prompt_tokens_details": {
-      "cached_tokens": 0,
-      "audio_tokens": 0
+    "input_tokens": 94,
+    "input_tokens_details": {
+      "cached_tokens": 0
     },
-    "completion_tokens_details": {
-      "reasoning_tokens": 0,
-      "audio_tokens": 0,
-      "accepted_prediction_tokens": 0,
-      "rejected_prediction_tokens": 0
-    }
+    "output_tokens": 57,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 151
   },
   "service_tier": "default",
   "system_fingerprint": "fp_eb9dce56a8"

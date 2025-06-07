@@ -51,8 +51,11 @@ class Text
         $data = $response->json();
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            data_get($data, 'output.{last}.content.0.text') ?? '',
+            ToolCallMap::map(
+                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
+                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
+            ),
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -73,7 +76,7 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -106,17 +109,19 @@ class Text
     {
         try {
             return $this->client->post(
-                'chat/completions',
+                'responses',
                 array_merge([
                     'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
+                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_output_tokens' => $request->maxTokens(),
                 ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => $request->providerOptions('metadata'),
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    'previous_response_id' => $request->providerOptions('previous_response_id'),
+                    'truncation' => $request->providerOptions('truncation'),
                 ]))
             );
         } catch (Throwable $e) {
@@ -131,14 +136,15 @@ class Text
     protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
     {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'choices.0.message.content') ?? '',
+            text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
             usage: new Usage(
-                promptTokens: data_get($data, 'usage.prompt_tokens', 0) - data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0),
-                completionTokens: data_get($data, 'usage.completion_tokens'),
-                cacheReadInputTokens: data_get($data, 'usage.prompt_tokens_details.cached_tokens'),
+                promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
+                completionTokens: data_get($data, 'usage.output_tokens'),
+                cacheReadInputTokens: data_get($data, 'usage.input_tokens_details.cached_tokens'),
+                thoughtTokens: data_get($data, 'usage.output_token_details.reasoning_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

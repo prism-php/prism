@@ -1,35 +1,35 @@
 {
-  "id": "chatcmpl-BB7Y6USE9XW8jzspRrxNxEDdWIGWm",
-  "object": "chat.completion",
-  "created": 1741990326,
+  "id": "resp_BB7Y6USE9XW8jzspRrxNxEDdWIGWm",
+  "object": "response",
+  "created_at": 1741990326,
+  "status": "completed",
   "model": "gpt-4-turbo-2024-04-09",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "{\n    \"weather\": \"chilly with a chance of rain\",\n    \"game_time\": \"7:00 PM\",\n    \"coat_required\": true\n}",
-        "refusal": null,
-        "annotations": []
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "id": "msg_123ffa14c134819c9be89e492549ec5106fec0a2053cab1f",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "{\n    \"weather\": \"chilly with a chance of rain\",\n    \"game_time\": \"7:00 PM\",\n    \"coat_required\": true\n}",
+          "refusal": null
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 164,
-    "completion_tokens": 34,
-    "total_tokens": 198,
-    "prompt_tokens_details": {
-      "cached_tokens": 0,
-      "audio_tokens": 0
+    "input_tokens": 164,
+    "input_tokens_details": {
+      "cached_tokens": 0
     },
-    "completion_tokens_details": {
-      "reasoning_tokens": 0,
-      "audio_tokens": 0,
-      "accepted_prediction_tokens": 0,
-      "rejected_prediction_tokens": 0
-    }
+    "output_tokens": 34,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 198
   },
   "service_tier": "default",
   "system_fingerprint": "fp_7c63087da1"
