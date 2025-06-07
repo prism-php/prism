@@ -122,7 +122,7 @@ it('can send images from file', function (): void {
             new UserMessage(
                 'What is this image',
                 additionalContent: [
-                    Image::fromPath('tests/Fixtures/dimond.png'),
+                    Image::fromLocalPath('tests/Fixtures/dimond.png'),
                 ],
             ),
         ])
@@ -246,12 +246,12 @@ describe('Anthropic citations', function (): void {
                 ],
                 [
                     'type' => 'document',
+                    'citations' => ['enabled' => true],
                     'source' => [
                         'type' => 'text',
                         'media_type' => 'text/plain',
                         'data' => 'The grass is green. The sky is blue.',
                     ],
-                    'citations' => ['enabled' => true],
                 ],
             ],
         ]]);
@@ -266,7 +266,7 @@ describe('Anthropic citations', function (): void {
                 (new UserMessage(
                     content: 'What color is the grass and sky?',
                     additionalContent: [
-                        Document::fromPath('tests/Fixtures/test-pdf.pdf'),
+                        Document::fromLocalPath('tests/Fixtures/test-pdf.pdf'),
                     ]
                 )),
             ])

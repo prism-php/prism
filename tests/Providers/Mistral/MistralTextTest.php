@@ -140,7 +140,7 @@ describe('Image support', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
                     ],
                 ),
             ])
@@ -262,7 +262,6 @@ describe('Document support', function (): void {
             expect($message[1])->toBe([
                 'type' => 'document_url',
                 'document_url' => $document,
-                'document_name' => null,
             ]);
 
             return true;

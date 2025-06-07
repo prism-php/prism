@@ -135,12 +135,12 @@ it('applies the citations request level providerOptions to all documents', funct
             ],
             [
                 'type' => 'document',
+                'citations' => ['enabled' => true],
                 'source' => [
                     'type' => 'text',
                     'media_type' => 'text/plain',
                     'data' => 'The grass is green. The sky is blue.',
                 ],
-                'citations' => ['enabled' => true],
             ],
         ],
     ]]);

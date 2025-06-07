@@ -77,14 +77,7 @@ class MessageMap
 
     protected function mapUserMessage(UserMessage $message): void
     {
-        $imageParts = array_map(fn (Image $image): array => [
-            'type' => 'image_url',
-            'image_url' => [
-                'url' => $image->isUrl()
-                    ? $image->image
-                    : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
-            ],
-        ], $message->images());
+        $imageParts = array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $message->images());
 
         $this->mappedMessages[] = [
             'role' => 'user',

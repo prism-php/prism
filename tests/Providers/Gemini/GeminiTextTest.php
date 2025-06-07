@@ -164,7 +164,7 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
                     ],
                 ),
             ])
@@ -232,9 +232,17 @@ describe('Image support with Gemini', function (): void {
     });
 
     it('can send images from url', function (): void {
-        FixtureResponse::fakeResponseSequence('*', 'gemini/image-detection');
+        FixtureResponse::fakeResponseSequence('generateContent', 'gemini/image-detection');
 
         $image = 'https://prismphp.com/storage/dimond.png';
+
+        Http::fake([
+            $image => Http::response(
+                file_get_contents('tests/Fixtures/dimond.png'),
+                200,
+                ['Content-Type' => 'image/png']
+            ),
+        ]);
 
         $response = Prism::text()
             ->using(Provider::Gemini, 'gemini-1.5-flash')
@@ -242,27 +250,30 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromUrl($image, 'image/png'),
+                        Image::fromUrl($image),
                     ],
                 ),
             ])
             ->asText();
 
-        Http::assertSent(function (Request $request) use ($image): bool {
-            $message = $request->data()['contents'][0]['parts'];
+        Http::assertSentInOrder([
+            fn (): true => true,
+            function (Request $request): bool {
+                $message = $request->data()['contents'][0]['parts'];
 
-            expect($message[0])->toBe([
-                'text' => 'What is this image',
-            ]);
+                expect($message[0])->toBe([
+                    'text' => 'What is this image',
+                ]);
 
-            expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
-            expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
-            expect($message[1]['inline_data']['data'])->toBe(
-                base64_encode(file_get_contents($image))
-            );
+                expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
+                expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
+                expect($message[1]['inline_data']['data'])->toBe(
+                    base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                );
 
-            return true;
-        });
+                return true;
+            },
+        ]);
     });
 });
 
@@ -432,7 +443,7 @@ describe('Cache support for Gemini', function (): void {
             model: 'gemini-1.5-flash-002',
             messages: [
                 new UserMessage('', [
-                    Document::fromPath('tests/Fixtures/long-document.pdf'),
+                    Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
                 ]),
             ],
             systemPrompts: [
