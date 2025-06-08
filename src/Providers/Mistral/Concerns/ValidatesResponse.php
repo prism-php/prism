@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Mistral\Concerns;
 
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\Response;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ValidatesResponse
 {
     protected function validateResponse(Response $response): void
     {
-        if ($response->getStatusCode() === 429) {
+        if ($response->status() === 429) {
             throw PrismRateLimitedException::make(
                 rateLimits: $this->processRateLimits($response),
                 retryAfter: null

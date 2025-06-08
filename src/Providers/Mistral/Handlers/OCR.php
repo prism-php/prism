@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Mistral\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;

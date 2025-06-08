@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Mistral;
 
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;

@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Mistral;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
 use Prism\Prism\Providers\Mistral\Handlers\Stream;
@@ -92,7 +92,10 @@ readonly class Mistral implements Provider
     public function stream(TextRequest $request): Generator
     {
         $handler = new Stream(
-            $this->client($request->clientOptions(), $request->clientRetry()),
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry()
+            ),
             $this->apiKey
         );
 

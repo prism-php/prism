@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Mistral;
 
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;

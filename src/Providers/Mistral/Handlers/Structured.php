@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Mistral\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response as ClientResponse;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\FinishReasonMap;
