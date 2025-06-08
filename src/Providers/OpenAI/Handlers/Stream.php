@@ -57,8 +57,14 @@ class Stream
         $text = '';
         $toolCalls = [];
 
-        while (! $response->stream()->eof()) {
-            $data = $this->parseNextDataLine($response->stream());
+        $stream = $response->stream();
+
+        if (!$stream instanceof \Psr\Http\Message\StreamInterface) {
+            return;
+        }
+
+        while (! $stream->eof()) {
+            $data = $this->parseNextDataLine($stream);
 
             // Skip empty data or DONE markers
             if ($data === null) {

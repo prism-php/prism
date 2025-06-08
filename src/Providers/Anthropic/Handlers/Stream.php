@@ -92,8 +92,14 @@ class Stream
      */
     protected function processStreamChunks(Response $response, Request $request, int $depth): Generator
     {
-        while (! $response->stream()->eof()) {
-            $chunk = $this->parseNextChunk($response->stream());
+        $stream = $response->stream();
+
+        if (!$stream instanceof \Psr\Http\Message\StreamInterface) {
+            return;
+        }
+
+        while (! $stream->eof()) {
+            $chunk = $this->parseNextChunk($stream);
 
             if ($chunk === null) {
                 continue;
