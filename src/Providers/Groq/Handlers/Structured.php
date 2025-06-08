@@ -2,10 +2,10 @@
 
 namespace Prism\Prism\Providers\Groq\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response as ClientResponse;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;

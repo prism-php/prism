@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Groq;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -36,7 +36,12 @@ readonly class Groq implements Provider
     #[\Override]
     public function structured(StructuredRequest $request): StructuredResponse
     {
-        $handler = new Structured($this->client($request->clientOptions(), $request->clientRetry()));
+        $handler = new Structured(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry()
+            )
+        );
 
         return $handler->handle($request);
     }

@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Groq\Concerns;
 
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\Response;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ValidateResponse
 {
     protected function validateResponse(Response $response): void
     {
-        if ($response->getStatusCode() === 429) {
+        if ($response->status() === 429) {
             throw PrismRateLimitedException::make(
                 rateLimits: $this->processRateLimits($response),
                 retryAfter: (int) $response->header('retry-after')
@@ -42,7 +42,7 @@ trait ValidateResponse
     protected function processRateLimits(Response $response): array
     {
         $limitHeaders = array_filter(
-            $response->getHeaders(),
+            $response->headers(),
             fn ($headerName) => Str::startsWith($headerName, 'x-ratelimit-'),
             ARRAY_FILTER_USE_KEY
         );
