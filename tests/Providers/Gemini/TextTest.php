@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Gemini;
 
-use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
 use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
@@ -448,8 +448,8 @@ describe('Cache support for Gemini', function (): void {
             ->asText();
 
         Http::assertSentInOrder([
-            fn (Request $request): bool => true,
-            fn (Request $request): bool => $request->data()['cachedContent'] === $object->name,
+            fn (Request $request, $response): bool => true,
+            fn (Request $request, $response): bool => isset($request->data()['cachedContent']) && $request->data()['cachedContent'] === $object->name,
         ]);
 
         expect($response->text)->toBe("That's the Consolidated Version of the Treaty on the Functioning of the European Union (TFEU), adopted on 25 March 1957.  It outlines the principles, competencies, and policies of the European Union.  The TFEU organizes the EU's functioning and details its areas of competence, including exclusive, shared, and supporting competences.  It also covers non-discrimination, citizenship, and various EU policies (e.g., internal market, agriculture, and justice).  Finally, it sets out institutional and financial provisions.\n");

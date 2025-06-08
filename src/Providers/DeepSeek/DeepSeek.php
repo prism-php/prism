@@ -6,12 +6,12 @@ namespace Prism\Prism\Providers\DeepSeek;
 
 use Closure;
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;

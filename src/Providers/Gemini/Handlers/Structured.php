@@ -2,9 +2,9 @@
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Gemini;
 
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 

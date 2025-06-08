@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Exception;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response as ClientResponse;
 use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;

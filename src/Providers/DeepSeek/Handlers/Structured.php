@@ -2,9 +2,9 @@
 
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\FinishReasonMap;

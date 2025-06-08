@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
@@ -57,8 +57,8 @@ class Stream
         $text = '';
         $toolCalls = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! $response->stream()->eof()) {
+            $data = $this->parseNextDataLine($response->stream());
 
             // Skip empty data
             if ($data === null) {

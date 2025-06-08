@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Exception;
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;

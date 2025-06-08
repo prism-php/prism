@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
@@ -25,14 +25,14 @@ class Embeddings
         if (count($request->inputs()) > 1) {
             throw new PrismException('Gemini Error: Prism currently only supports one input at a time with Gemini.');
         }
-
         try {
+
             $response = $this->sendRequest($request);
         } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);
         }
 
-        if ($response->getStatusCode() === 429) {
+        if ($response->status() === 429) {
             throw new PrismRateLimitedException([]);
         }
 

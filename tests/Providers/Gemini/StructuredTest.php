@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
-use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
@@ -112,8 +112,8 @@ it('can use a cache object with a structured request', function (): void {
         ->generate();
 
     Http::assertSentInOrder([
-        fn (Request $request): bool => true,
-        fn (Request $request): bool => $request->data()['cachedContent'] === $object->name,
+        fn (Request $request, $response): bool => true,
+        fn (Request $request, $response): bool => isset($request->data()['cachedContent']) && $request->data()['cachedContent'] === $object->name,
     ]);
 
     expect($response->structured)->toBeArray();

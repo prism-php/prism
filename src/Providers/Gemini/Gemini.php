@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
 use Prism\Prism\Providers\Gemini\Handlers\Stream;
