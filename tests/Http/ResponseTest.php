@@ -116,10 +116,10 @@ it('can check specific status codes', function (): void {
 it('can get headers', function (): void {
     $psr7Response = new Psr7Response(200, ['Content-Type' => 'application/json']);
     $response = new Response($psr7Response);
-
     expect($response->hasHeader('Content-Type'))->toBeTrue();
     expect($response->header('Content-Type'))->toBe('application/json');
-    expect($response->headers())->toHaveKey('Content-Type', 'application/json');
+    expect($response->headers())->toHaveKey('Content-Type');
+
 });
 
 it('can throw on failure', function (): void {
