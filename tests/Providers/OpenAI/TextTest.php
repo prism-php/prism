@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
 
@@ -137,7 +137,7 @@ it('does not send the organization header if one is not given', function (): voi
         ->withPrompt('Who are you?')
         ->asText();
 
-    Http::assertSent(fn (Request $request): bool => empty($request->header('OpenAI-Organization')));
+    Http::assertSent(fn (Request $request): bool => in_array($request->header('OpenAI-Organization'), [null, []], true));
 });
 
 it('sends the api key header when set', function (): void {
@@ -162,7 +162,7 @@ it('does not send the api key header', function (): void {
         ->using('openai', 'gpt-4o')
         ->withPrompt('Who are you?')
         ->asText();
-    Http::assertSent(fn (Request $request): bool => empty($request->header('Authorization')));
+    Http::assertSent(fn (Request $request): bool => in_array($request->header('Authorization'), [null, []], true));
 });
 
 it('sends the project header when set', function (): void {
@@ -188,7 +188,7 @@ it('does not send the project header if one is not given', function (): void {
         ->withPrompt('Who are you?')
         ->asText();
 
-    Http::assertSent(fn (Request $request): bool => empty($request->header('OpenAI-Project')));
+    Http::assertSent(fn (Request $request): bool => in_array($request->header('OpenAI-Project'), [null, []], true));
 });
 
 it('handles specific tool choice', function (): void {

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
-use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
 

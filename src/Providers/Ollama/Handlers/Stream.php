@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
@@ -15,6 +12,9 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\Exceptions\RequestException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
@@ -55,8 +55,8 @@ class Stream
         $text = '';
         $toolCalls = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! $response->stream()->eof()) {
+            $data = $this->parseNextDataLine($response->stream());
 
             if ($data === null) {
                 continue;
@@ -181,10 +181,9 @@ class Stream
         }
 
         try {
-            return $this
+            $response = $this
                 ->client
                 ->withOptions(['stream' => true])
-                ->throw()
                 ->post('api/chat', [
                     'model' => $request->model(),
                     'system' => data_get($request->systemPrompts(), '0.content', ''),
@@ -197,8 +196,19 @@ class Stream
                         'top_p' => $request->topP(),
                     ], $request->providerOptions())),
                 ]);
+
+            if ($response->tooManyRequests()) {
+                throw new PrismRateLimitedException([]);
+            }
+
+            $response->throw();
+
+            return $response;
+        } catch (PrismRateLimitedException $e) {
+            // Re-throw rate limit exceptions as-is
+            throw $e;
         } catch (Throwable $e) {
-            if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
+            if ($e instanceof RequestException && $e->response->status() === 429) {
                 throw new PrismRateLimitedException([]);
             }
 

@@ -25,16 +25,20 @@ class PendingRequest
 
     protected string $baseUrl = '';
 
+    /** @var array<string, mixed> */
     protected array $urlParameters = [];
 
     protected string $bodyFormat = 'json';
 
     protected StreamInterface|string|null $pendingBody = null;
 
+    /** @var array<array<string, mixed>> */
     protected array $pendingFiles = [];
 
+    /** @var array<string, array<string, mixed>> */
     protected array $cookies = [];
 
+    /** @var array<string, mixed> */
     protected array $options = [
         'http_errors' => false,
         'connect_timeout' => 10,
@@ -50,12 +54,9 @@ class PendingRequest
 
     protected bool $retryThrow = true;
 
-    protected ?string $prismProvider = null;
-
-    protected array $prismOptions = [];
-
-    protected ?int $rateLimit = null;
-
+    /**
+     * @param  array<callable>  $middleware
+     */
     public function __construct(?Factory $factory = null, protected array $middleware = [])
     {
         $this->factory = $factory ?: new Factory;
@@ -87,6 +88,9 @@ class PendingRequest
         return $this->bodyFormat('form')->contentType('application/x-www-form-urlencoded');
     }
 
+    /**
+     * @param  array<string, string>  $headers
+     */
     public function attach(string $name, string $contents = '', ?string $filename = null, array $headers = []): static
     {
         $this->asMultipart();
@@ -113,6 +117,9 @@ class PendingRequest
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>  $parameters
+     */
     public function withQueryParameters(array $parameters): static
     {
         return $this->withOptions(['query' => array_merge($this->options['query'] ?? [], $parameters)]);
@@ -133,6 +140,9 @@ class PendingRequest
         return $this->withHeaders(['Accept' => $contentType]);
     }
 
+    /**
+     * @param  array<string, string>  $headers
+     */
     public function withHeaders(array $headers): static
     {
         return $this->withOptions(['headers' => array_merge($this->options['headers'] ?? [], $headers)]);
@@ -143,6 +153,9 @@ class PendingRequest
         return $this->withHeaders([$name => $value]);
     }
 
+    /**
+     * @param  array<string, string>  $headers
+     */
     public function replaceHeaders(array $headers): static
     {
         return $this->withOptions(['headers' => $headers]);
@@ -168,6 +181,9 @@ class PendingRequest
         return $this->withHeaders(['User-Agent' => $userAgent]);
     }
 
+    /**
+     * @param  array<string, mixed>  $parameters
+     */
     public function withUrlParameters(array $parameters = []): static
     {
         $this->urlParameters = array_merge($this->urlParameters, $parameters);
@@ -175,6 +191,9 @@ class PendingRequest
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>  $cookies
+     */
     public function withCookies(array $cookies, string $domain): static
     {
         $this->cookies = array_merge($this->cookies, [$domain => $cookies]);
@@ -212,6 +231,9 @@ class PendingRequest
         return $this->withOptions(['connect_timeout' => $seconds]);
     }
 
+    /**
+     * @param  array<int>|int  $times
+     */
     public function retry(array|int $times, Closure|int $sleepMilliseconds = 0, ?callable $when = null, bool $throw = true): static
     {
         $this->tries = is_array($times) ? count($times) + 1 : $times + 1;
@@ -222,6 +244,9 @@ class PendingRequest
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     */
     public function withOptions(array $options): static
     {
         foreach ($options as $key => $value) {
@@ -252,37 +277,32 @@ class PendingRequest
         return $this->withMiddleware(Middleware::mapResponse($middleware));
     }
 
-    public function withProvider(string $provider): static
+    public function throw(bool $throw = true): static
     {
-        $this->prismProvider = $provider;
+        $this->options['http_errors'] = $throw;
 
         return $this;
     }
 
-    public function withRateLimit(int $requestsPerMinute): static
-    {
-        $this->rateLimit = $requestsPerMinute;
-
-        return $this;
-    }
-
-    public function withPrismOptions(array $options): static
-    {
-        $this->prismOptions = array_merge($this->prismOptions, $options);
-
-        return $this;
-    }
-
+    /**
+     * @param  array<string, mixed>|string|null  $query
+     */
     public function get(string $url, array|string|null $query = null): Response
     {
         return $this->send('GET', $url, func_num_args() === 1 ? [] : ['query' => $query]);
     }
 
+    /**
+     * @param  array<string, mixed>|string|null  $query
+     */
     public function head(string $url, array|string|null $query = null): Response
     {
         return $this->send('HEAD', $url, func_num_args() === 1 ? [] : ['query' => $query]);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     public function post(string $url, array $data = []): Response
     {
         return $this->send('POST', $url, [
@@ -290,6 +310,9 @@ class PendingRequest
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     public function patch(string $url, array $data = []): Response
     {
         return $this->send('PATCH', $url, [
@@ -297,6 +320,9 @@ class PendingRequest
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     public function put(string $url, array $data = []): Response
     {
         return $this->send('PUT', $url, [
@@ -304,6 +330,9 @@ class PendingRequest
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     public function delete(string $url, array $data = []): Response
     {
         return $this->send('DELETE', $url, $data === [] ? [] : [
@@ -311,6 +340,9 @@ class PendingRequest
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     */
     public function send(string $method, string $url, array $options = []): Response
     {
         $url = $this->expandUrl($url);
@@ -324,6 +356,10 @@ class PendingRequest
 
         return $this->makeRequest($method, $url, $options);
     }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function getOptions(): array
     {
         return $this->options;
@@ -342,47 +378,60 @@ class PendingRequest
 
     protected function expandUrlParameters(string $url): string
     {
-        return preg_replace_callback('/\{([^}]+)\}/', fn($matches) => $this->urlParameters[$matches[1]] ?? $matches[0], $url);
+        return preg_replace_callback('/\{([^}]+)\}/', fn ($matches) => $this->urlParameters[$matches[1]] ?? $matches[0], $url) ?? $url;
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     protected function parseRequestData(string $method, string $url, array $options): array
     {
         if ($this->bodyFormat === 'json') {
-            $options['json'] = $options[$this->bodyFormat];
+            // Data is already in the correct format, just keep it as 'json'
+            // No need to unset since it's already the right key
         } elseif ($this->bodyFormat === 'form') {
             $options['form_params'] = $options[$this->bodyFormat];
+            unset($options[$this->bodyFormat]);
         } elseif ($this->bodyFormat === 'multipart') {
             $options['multipart'] = array_merge(
                 $options[$this->bodyFormat] ?? [],
                 $this->pendingFiles
             );
+            unset($options[$this->bodyFormat]);
         } elseif ($this->bodyFormat === 'body') {
             $options['body'] = $this->pendingBody;
+            unset($options[$this->bodyFormat]);
         }
-
-        unset($options[$this->bodyFormat]);
 
         return $options;
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     */
     protected function makeRequest(string $method, string $url, array $options): Response
     {
         return $this->attemptRequest($method, $url, $options);
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     */
     protected function attemptRequest(string $method, string $url, array $options, int $attempt = 1): Response
     {
-        $request = new Request($method, $url, $options);
+        $mergedOptions = $this->mergeOptions($options);
+        $request = new Request($method, $url, $mergedOptions);
 
         // Check for stubbed responses first
         $stubCallbacks = $this->factory->getStubCallbacks();
         if ($stubCallbacks->isNotEmpty()) {
             foreach ($stubCallbacks as $callback) {
-                $stubResponse = $callback($request, $this->mergeOptions($options));
+                $stubResponse = $callback($request, $mergedOptions);
                 if ($stubResponse !== null) {
                     $response = $stubResponse instanceof Response
                         ? $stubResponse
-                        : new Response($stubResponse, $this->prismProvider, $this->prismOptions);
+                        : new Response($stubResponse);
 
                     $this->factory->recordRequestResponsePair($request, $response);
 
@@ -392,7 +441,7 @@ class PendingRequest
         }
 
         try {
-            $guzzleResponse = $this->buildClient()->request($method, $url, $this->mergeOptions($options));
+            $guzzleResponse = $this->buildClient()->request($method, $url, $mergedOptions);
         } catch (ConnectException $e) {
             $exception = new ConnectionException($e->getMessage(), 0, $e);
 
@@ -406,13 +455,14 @@ class PendingRequest
                 throw $exception;
             }
 
-            $guzzleResponse = $e->hasResponse() ? $e->getResponse() : null;
+            $guzzleResponse = null;
         }
 
-        $response = new Response($guzzleResponse, $this->prismProvider, $this->prismOptions);
+        $response = new Response($guzzleResponse);
 
         if ($this->tries > 1 && ! $response->successful() && $this->shouldRetry($response, $attempt) && $attempt < $this->tries) {
             $this->sleep($attempt);
+
             return $this->attemptRequest($method, $url, $options, $attempt + 1);
         }
 
@@ -453,6 +503,10 @@ class PendingRequest
         return new Client(['handler' => $handler]);
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     protected function mergeOptions(array $options): array
     {
         return array_merge_recursive($this->options, $options);

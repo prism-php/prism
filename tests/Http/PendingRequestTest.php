@@ -153,27 +153,3 @@ it('can set url parameters', function (): void {
 
     expect($request)->toBeInstanceOf(PendingRequest::class);
 });
-
-it('can set provider', function (): void {
-    $request = new PendingRequest;
-
-    $request->withProvider('openai');
-
-    expect($request)->toBeInstanceOf(PendingRequest::class);
-});
-
-it('can set rate limit', function (): void {
-    $request = new PendingRequest;
-
-    $request->withRateLimit(60);
-
-    expect($request)->toBeInstanceOf(PendingRequest::class);
-});
-
-it('can set prism options', function (): void {
-    $request = new PendingRequest;
-
-    $request->withPrismOptions(['debug' => true]);
-
-    expect($request)->toBeInstanceOf(PendingRequest::class);
-});

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
 use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;

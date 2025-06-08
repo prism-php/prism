@@ -6,6 +6,9 @@ namespace Prism\Prism\Http;
 
 class Request
 {
+    /**
+     * @param  array<string, mixed>  $options
+     */
     public function __construct(
         protected string $method,
         protected string $url,
@@ -22,16 +25,31 @@ class Request
         return $this->url;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function options(): array
     {
         return $this->options;
     }
 
-    public function header(string $name): ?string
+    /**
+     * @return array<string>|null
+     */
+    public function header(string $name): ?array
     {
-        return $this->options['headers'][$name] ?? null;
+        $header = $this->options['headers'][$name] ?? null;
+
+        if (is_null($header)) {
+            return null;
+        }
+
+        return is_array($header) ? $header : [$header];
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function headers(): array
     {
         return $this->options['headers'] ?? [];
@@ -40,5 +58,25 @@ class Request
     public function data(): mixed
     {
         return $this->options['json'] ?? $this->options['form_params'] ?? $this->options['body'] ?? null;
+    }
+
+    public function body(): string
+    {
+        // If JSON data exists, encode it as a string
+        if (isset($this->options['json'])) {
+            return json_encode($this->options['json']);
+        }
+
+        // If form params exist, encode them as a query string
+        if (isset($this->options['form_params'])) {
+            return http_build_query($this->options['form_params']);
+        }
+
+        // If body exists, return it as a string
+        if (isset($this->options['body'])) {
+            return (string) $this->options['body'];
+        }
+
+        return '';
     }
 }

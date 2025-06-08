@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Prism\Prism\Facades\Http;
 
 class FixtureResponse
 {

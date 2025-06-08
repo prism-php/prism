@@ -9,11 +9,17 @@ use Prism\Prism\Http\ResponseSequence;
 
 class HttpFake extends Factory
 {
+    /**
+     * @param  callable|array<string, mixed>|null  $callback
+     */
     public function fake(callable|array|null $callback = null): static
     {
         return parent::fake($callback);
     }
 
+    /**
+     * @param  array<mixed>  $responses
+     */
     public function sequence(array $responses = []): ResponseSequence
     {
         return parent::sequence($responses);

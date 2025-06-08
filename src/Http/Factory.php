@@ -25,26 +25,39 @@ class Factory
         __call as macroCall;
     }
 
-    protected ?Dispatcher $dispatcher;
-
+    /** @var array<callable> */
     protected array $globalMiddleware = [];
 
+    /** @var Closure|array<string, mixed> */
     protected Closure|array $globalOptions = [];
 
+    /** @var Collection<int, callable> */
     protected Collection $stubCallbacks;
 
     protected bool $recording = false;
 
+    /** @var array<array{Request, Response|null}> */
     protected array $recorded = [];
 
+    /** @var array<ResponseSequence> */
     protected array $responseSequences = [];
 
     protected bool $preventStrayRequests = false;
 
-    public function __construct(?Dispatcher $dispatcher = null)
+    public function __construct(protected ?Dispatcher $dispatcher = null)
     {
-        $this->dispatcher = $dispatcher;
         $this->stubCallbacks = new Collection;
+    }
+    /**
+     * @param  array<mixed>  $parameters
+     */
+    public function __call(string $method, array $parameters): mixed
+    {
+        if (static::hasMacro($method)) {
+            return $this->macroCall($method, $parameters);
+        }
+
+        return $this->createPendingRequest()->{$method}(...$parameters);
     }
 
     public function globalMiddleware(callable $middleware): static
@@ -68,6 +81,9 @@ class Factory
         return $this;
     }
 
+    /**
+     * @param  Closure|array<string, mixed>  $options
+     */
     public function globalOptions(Closure|array $options): static
     {
         $this->globalOptions = $options;
@@ -75,10 +91,14 @@ class Factory
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>|string|null  $body
+     * @param  array<string, string>  $headers
+     */
     public static function response(array|string|null $body = null, int $status = 200, array $headers = []): PromiseInterface
     {
         if (is_array($body)) {
-            $body = json_encode($body);
+            $body = json_encode($body) ?: '{}';
             $headers['Content-Type'] = 'application/json';
         }
 
@@ -89,28 +109,30 @@ class Factory
 
     public static function failedConnection(?string $message = null): Closure
     {
-        return function ($request) use ($message) {
-            return Create::rejectionFor(new ConnectException(
-                $message ?? "cURL error 6: Could not resolve host: {$request->toPsrRequest()->getUri()->getHost()} (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for {$request->toPsrRequest()->getUri()}.",
-                $request->toPsrRequest(),
-            ));
-        };
+        return fn($request): \GuzzleHttp\Promise\PromiseInterface => Create::rejectionFor(new ConnectException(
+            $message ?? "cURL error 6: Could not resolve host: {$request->toPsrRequest()->getUri()->getHost()} (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for {$request->toPsrRequest()->getUri()}.",
+            $request->toPsrRequest(),
+        ));
     }
 
+    /**
+     * @param  array<mixed>  $responses
+     */
     public function sequence(array $responses = []): ResponseSequence
     {
         return $this->responseSequences[] = new ResponseSequence($responses);
     }
 
+    /**
+     * @param  callable|array<string, mixed>|null  $callback
+     */
     public function fake(callable|array|null $callback = null): static
     {
         $this->record();
         $this->recorded = [];
 
         if (is_null($callback)) {
-            $callback = function () {
-                return static::response();
-            };
+            $callback = fn(): \GuzzleHttp\Promise\PromiseInterface => static::response();
         }
 
         if (is_array($callback)) {
@@ -130,7 +152,7 @@ class Factory
                 }
 
                 if ($response instanceof PromiseInterface) {
-                    $response = $response->wait();
+                    return $response->wait();
                 }
 
                 return $response;
@@ -142,11 +164,14 @@ class Factory
 
     public function fakeSequence(string $url = '*'): ResponseSequence
     {
-        return tap($this->sequence(), function ($sequence) use ($url) {
+        return tap($this->sequence(), function ($sequence) use ($url): void {
             $this->fake([$url => $sequence]);
         });
     }
 
+    /**
+     * @param  Response|PromiseInterface|callable|int|string|array<string, mixed>  $callback
+     */
     public function stubUrl(string $url, Response|PromiseInterface|callable|int|string|array $callback): static
     {
         return $this->fake(function ($request, $options) use ($url, $callback) {
@@ -159,7 +184,7 @@ class Factory
             }
 
             if (is_int($callback) || is_string($callback)) {
-                return static::response($callback);
+                return static::response((string) $callback);
             }
 
             if ($callback instanceof Closure || $callback instanceof ResponseSequence) {
@@ -187,13 +212,6 @@ class Factory
         return $this->preventStrayRequests(false);
     }
 
-    protected function record(): static
-    {
-        $this->recording = true;
-
-        return $this;
-    }
-
     public function recordRequestResponsePair(Request $request, ?Response $response): void
     {
         if ($this->recording) {
@@ -209,14 +227,15 @@ class Factory
         );
     }
 
+    /**
+     * @param  array<callable>  $callbacks
+     */
     public function assertSentInOrder(array $callbacks): void
     {
         $this->assertSentCount(count($callbacks));
 
         foreach ($callbacks as $index => $callback) {
-            $this->assertSent(function ($request, $response) use ($callback, $index) {
-                return $callback($request, $response) && $this->recorded()->keys()->search([$request, $response]) === $index;
-            });
+            $this->assertSent(fn($request, $response): bool => $callback($request, $response) && array_search([$request, $response], $this->recorded, true) === $index);
         }
     }
 
@@ -251,32 +270,24 @@ class Factory
         );
     }
 
+    /**
+     * @return Collection<int, array{Request, Response|null}>
+     */
     public function recorded(?callable $callback = null): Collection
     {
-        if (empty($this->recorded)) {
+        if ($this->recorded === []) {
             return collect();
         }
 
-        $callback = $callback ?: function () {
-            return true;
-        };
+        $callback = $callback ?: fn(): true => true;
 
-        return collect($this->recorded)->filter(function ($pair) use ($callback) {
-            return $callback($pair[0], $pair[1]);
-        });
+        return collect($this->recorded)->filter(fn($pair) => $callback($pair[0], $pair[1]));
     }
 
     public function createPendingRequest(): PendingRequest
     {
-        return new PendingRequest($this, $this->globalMiddleware)
+        return (new PendingRequest($this, $this->globalMiddleware))
             ->withOptions($this->resolveGlobalOptions());
-    }
-
-    protected function resolveGlobalOptions(): array
-    {
-        return is_callable($this->globalOptions)
-            ? ($this->globalOptions)()
-            : $this->globalOptions;
     }
 
     public function getDispatcher(): ?Dispatcher
@@ -284,22 +295,34 @@ class Factory
         return $this->dispatcher;
     }
 
+    /**
+     * @return array<callable>
+     */
     public function getGlobalMiddleware(): array
     {
         return $this->globalMiddleware;
     }
 
+    /**
+     * @return Collection<int, callable>
+     */
     public function getStubCallbacks(): Collection
     {
         return $this->stubCallbacks;
     }
-
-    public function __call(string $method, array $parameters): mixed
+    protected function record(): static
     {
-        if (static::hasMacro($method)) {
-            return $this->macroCall($method, $parameters);
-        }
+        $this->recording = true;
 
-        return $this->createPendingRequest()->{$method}(...$parameters);
+        return $this;
+    }
+    /**
+     * @return array<string, mixed>
+     */
+    protected function resolveGlobalOptions(): array
+    {
+        return is_callable($this->globalOptions)
+            ? ($this->globalOptions)()
+            : $this->globalOptions;
     }
 }

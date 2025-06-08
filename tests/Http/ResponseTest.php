@@ -148,12 +148,6 @@ it('can throw on status code', function (): void {
     expect($response->throwIfStatus(200))->toBe($response);
 });
 
-it('can get provider from response', function (): void {
-    $response = new Response(new Psr7Response(200), 'openai');
-
-    expect($response->getProvider())->toBe('openai');
-});
-
 it('can convert to string', function (): void {
     $psr7Response = new Psr7Response(200, [], 'response body');
     $response = new Response($psr7Response);

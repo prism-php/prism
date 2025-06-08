@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;

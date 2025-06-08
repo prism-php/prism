@@ -6,31 +6,26 @@ namespace Prism\Prism\Http;
 
 use Illuminate\Support\Collection;
 use Prism\Prism\Http\Exceptions\RequestException;
-use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\ProviderRateLimit;
-use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
 class Response implements \Stringable
 {
-    public function __construct(protected ResponseInterface $response, protected ?string $prismProvider = null, protected array $prismOptions = [])
-    {
-    }
+    public function __construct(protected ?ResponseInterface $response) {}
+
     public function __toString(): string
     {
         return $this->body();
     }
-
     public function body(): string
     {
-        return (string) $this->response->getBody();
+        return $this->response instanceof \Psr\Http\Message\ResponseInterface ? (string) $this->response->getBody() : '';
     }
 
     public function json(?string $key = null, mixed $default = null): mixed
     {
-        if (! $this->response) {
+        if (!$this->response instanceof \Psr\Http\Message\ResponseInterface) {
             return $default;
         }
 
@@ -52,24 +47,29 @@ class Response implements \Stringable
         return json_decode($this->body(), false);
     }
 
+    /**
+     * @return Collection<int|string, mixed>
+     */
     public function collect(?string $key = null): Collection
     {
-        return collect($this->json($key));
+        $data = $this->json($key) ?? [];
+
+        return new Collection($data);
     }
 
-    public function stream(): StreamInterface
+    public function stream(): ?StreamInterface
     {
-        return $this->response->getBody();
+        return $this->response?->getBody();
     }
 
     public function status(): int
     {
-        return $this->response->getStatusCode();
+        return $this->response?->getStatusCode() ?? 0;
     }
 
     public function reason(): string
     {
-        return $this->response->getReasonPhrase();
+        return $this->response?->getReasonPhrase() ?? '';
     }
 
     public function successful(): bool
@@ -87,6 +87,7 @@ class Response implements \Stringable
         if ($this->serverError()) {
             return true;
         }
+
         return $this->clientError();
     }
 
@@ -147,20 +148,29 @@ class Response implements \Stringable
 
     public function header(string $header): string
     {
-        return $this->response->getHeaderLine($header);
+        return $this->response?->getHeaderLine($header) ?? '';
     }
 
+    /**
+     * @return array<string, array<string>>
+     */
     public function headers(): array
     {
-        return collect($this->response->getHeaders())
-            ->mapWithKeys(fn($v, $k) => [$k => $v[0]])->all();
+        if (!$this->response instanceof \Psr\Http\Message\ResponseInterface) {
+            return [];
+        }
+
+        return $this->response->getHeaders();
     }
 
     public function hasHeader(string $header): bool
     {
-        return $this->response->hasHeader($header);
+        return $this->response?->hasHeader($header) ?? false;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function cookies(): array
     {
         return [];
@@ -219,92 +229,8 @@ class Response implements \Stringable
         return $this->serverError() ? $this->throw($callback) : $this;
     }
 
-    public function getProvider(): ?string
-    {
-        return $this->prismProvider;
-    }
-
-    public function getRateLimit(): ?ProviderRateLimit
-    {
-        $headers = $this->headers();
-
-        if ($this->prismProvider === 'openai') {
-            return $this->parseOpenAIRateLimit($headers);
-        }
-
-        if ($this->prismProvider === 'anthropic') {
-            return $this->parseAnthropicRateLimit($headers);
-        }
-
-        return null;
-    }
-
-    public function getUsage(): ?Usage
-    {
-        $data = $this->json();
-
-        if (! $data || ! isset($data['usage'])) {
-            return null;
-        }
-
-        $usage = $data['usage'];
-
-        return new Usage(
-            (int) ($usage['prompt_tokens'] ?? 0),
-            (int) ($usage['completion_tokens'] ?? 0),
-        );
-    }
-
-    public function getPrismMeta(): ?Meta
-    {
-        $finishReason = null;
-        $data = $this->json();
-
-        if ($data && isset($data['choices'][0]['finish_reason'])) {
-            $finishReason = $data['choices'][0]['finish_reason'];
-        }
-
-        return new Meta(
-            $finishReason,
-            $this->getUsage(),
-            $this->getRateLimit()
-        );
-    }
-
     public function getPsrResponse(): ?ResponseInterface
     {
         return $this->response;
-    }
-    protected function parseOpenAIRateLimit(array $headers): ?ProviderRateLimit
-    {
-        $limit = $headers['x-ratelimit-limit-requests'] ?? null;
-        $remaining = $headers['x-ratelimit-remaining-requests'] ?? null;
-        $reset = $headers['x-ratelimit-reset-requests'] ?? null;
-
-        if (! $limit || ! $remaining || ! $reset) {
-            return null;
-        }
-
-        return new ProviderRateLimit(
-            (int) $limit,
-            (int) $remaining,
-            \DateTimeImmutable::createFromFormat('U', $reset)
-        );
-    }
-    protected function parseAnthropicRateLimit(array $headers): ?ProviderRateLimit
-    {
-        $limit = $headers['anthropic-ratelimit-requests-limit'] ?? null;
-        $remaining = $headers['anthropic-ratelimit-requests-remaining'] ?? null;
-        $reset = $headers['anthropic-ratelimit-requests-reset'] ?? null;
-
-        if (! $limit || ! $remaining || ! $reset) {
-            return null;
-        }
-
-        return new ProviderRateLimit(
-            (int) $limit,
-            (int) $remaining,
-            \DateTimeImmutable::createFromFormat(\DateTimeInterface::ISO8601, $reset)
-        );
     }
 }

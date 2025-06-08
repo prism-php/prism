@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenAI\Concerns;
 
-use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\Response;
 
 trait ValidatesResponse
 {
     protected function validateResponse(Response $response): void
     {
-        if ($response->getStatusCode() === 429) {
+        if ($response->status() === 429) {
             throw PrismRateLimitedException::make(
                 rateLimits: $this->processRateLimits($response),
                 retryAfter: $response->header('retry-after') === '' ? null : (int) $response->header('retry-after'),

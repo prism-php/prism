@@ -2,11 +2,11 @@
 
 namespace Prism\Prism\Providers\OpenAI\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response as ClientResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;

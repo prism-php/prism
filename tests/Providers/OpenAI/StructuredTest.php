@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;

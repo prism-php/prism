@@ -2,10 +2,10 @@
 
 namespace Prism\Prism\Providers\OpenAI\Concerns;
 
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Prism\Prism\Http\Response;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ProcessesRateLimits
@@ -16,7 +16,7 @@ trait ProcessesRateLimits
     protected function processRateLimits(Response $response): array
     {
         $limitHeaders = array_filter(
-            $response->getHeaders(),
+            $response->headers(),
             fn ($headerName) => Str::startsWith($headerName, 'x-ratelimit-'),
             ARRAY_FILTER_USE_KEY
         );
