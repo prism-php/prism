@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Providers\XAI;
 
-use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\Support\Image;

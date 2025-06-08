@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\XAI;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Http;
+use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Providers\XAI\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -27,7 +27,11 @@ readonly class XAI implements Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $handler = new Text($this->client($request->clientOptions(), $request->clientRetry()));
+        $handler = new Text(
+            $this->client($request->clientOptions(),
+                $request->clientRetry()
+            )
+        );
 
         return $handler->handle($request);
     }

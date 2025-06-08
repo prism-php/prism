@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\XAI\Concerns;
 
-use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\Response;
 
 trait ValidatesResponses
 {
     protected function validateResponse(Response $response): void
     {
-        if ($response->getStatusCode() === 429) {
+        if ($response->status() === 429) {
             throw new PrismRateLimitedException([]);
         }
 
