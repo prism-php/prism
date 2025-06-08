@@ -2,13 +2,13 @@
 
 namespace Prism\Prism\Providers\VoyageAI;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
@@ -61,7 +61,7 @@ class Embeddings
 
     protected function validateResponse(): void
     {
-        if ($this->httpResponse->getStatusCode() === 429) {
+        if ($this->httpResponse->status() === 429) {
             throw new PrismRateLimitedException([]);
         }
 
