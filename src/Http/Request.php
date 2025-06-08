@@ -64,7 +64,7 @@ class Request
     {
         // If JSON data exists, encode it as a string
         if (isset($this->options['json'])) {
-            return json_encode($this->options['json']);
+            return json_encode($this->options['json']) ?: '';
         }
 
         // If form params exist, encode them as a query string

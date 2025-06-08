@@ -55,8 +55,14 @@ class Stream
         $text = '';
         $toolCalls = [];
 
-        while (! $response->stream()->eof()) {
-            $data = $this->parseNextDataLine($response->stream());
+        $stream = $response->stream();
+
+        if (!$stream instanceof \Psr\Http\Message\StreamInterface) {
+            throw new PrismException('Response stream is null');
+        }
+
+        while (! $stream->eof()) {
+            $data = $this->parseNextDataLine($stream);
 
             if ($data === null) {
                 continue;
