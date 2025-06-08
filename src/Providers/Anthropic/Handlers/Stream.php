@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
@@ -16,6 +13,9 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
@@ -92,8 +92,8 @@ class Stream
      */
     protected function processStreamChunks(Response $response, Request $request, int $depth): Generator
     {
-        while (! $response->getBody()->eof()) {
-            $chunk = $this->parseNextChunk($response->getBody());
+        while (! $response->stream()->eof()) {
+            $chunk = $this->parseNextChunk($response->stream());
 
             if ($chunk === null) {
                 continue;
@@ -618,18 +618,23 @@ class Stream
     protected function sendRequest(Request $request): Response
     {
         try {
-            return $this->client
+            $response = $this->client
                 ->withOptions(['stream' => true])
-                ->throw()
                 ->post('messages', Arr::whereNotNull([
                     'stream' => true,
                     ...Text::buildHttpRequestPayload($request),
                 ]));
-        } catch (Throwable $e) {
-            if ($e instanceof RequestException && in_array($e->response->getStatusCode(), [413, 429, 529])) {
-                $this->handleResponseExceptions($e->response);
+
+            // Check for error status codes before processing stream
+            if (in_array($response->status(), [413, 429, 529])) {
+                $this->handleResponseExceptions($response);
             }
 
+            return $response;
+        } catch (PrismRateLimitedException|PrismProviderOverloadedException|PrismRequestTooLargeException $e) {
+            // Re-throw specific Prism exceptions without wrapping
+            throw $e;
+        } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);
         }
     }

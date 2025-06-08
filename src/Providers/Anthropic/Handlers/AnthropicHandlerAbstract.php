@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Http\PendingRequest;
+use Prism\Prism\Http\Response;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Throwable;
@@ -64,7 +64,10 @@ abstract class AnthropicHandlerAbstract
             return null;
         }
 
-        return Arr::map(data_get($data, 'content', []), fn ($contentBlock): \Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations => MessagePartWithCitations::fromContentBlock($contentBlock));
+        return Arr::map(
+            data_get($data, 'content', []),
+            fn ($contentBlock): MessagePartWithCitations => MessagePartWithCitations::fromContentBlock($contentBlock)
+        );
     }
 
     protected function handleResponseErrors(): void

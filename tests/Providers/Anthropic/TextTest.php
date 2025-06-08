@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Facades\Http;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Http\Request;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
@@ -462,7 +462,7 @@ it('includes anthropic beta header if set in config', function (): void {
         ->withProviderOptions(['thinking' => ['enabled' => true]])
         ->asText();
 
-    Http::assertSent(fn (Request $request) => $request->hasHeader('anthropic-beta', 'beta1,beta2'));
+    Http::assertSent(fn (Request $request): bool => $request->header('anthropic-beta')[0] === 'beta1,beta2');
 });
 
 describe('exceptions', function (): void {
