@@ -27,5 +27,5 @@ it('can fake requests via facade', function (): void {
 
     expect($response->json('message'))->toBe('success');
 
-    Http::assertSent(fn($request): bool => $request->url() === 'https://example.com/test');
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://example.com/test');
 });

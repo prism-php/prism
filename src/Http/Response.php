@@ -18,6 +18,7 @@ class Response implements \Stringable
     {
         return $this->body();
     }
+
     public function body(): string
     {
         return $this->response instanceof \Psr\Http\Message\ResponseInterface ? (string) $this->response->getBody() : '';
@@ -25,7 +26,7 @@ class Response implements \Stringable
 
     public function json(?string $key = null, mixed $default = null): mixed
     {
-        if (!$this->response instanceof \Psr\Http\Message\ResponseInterface) {
+        if (! $this->response instanceof \Psr\Http\Message\ResponseInterface) {
             return $default;
         }
 
@@ -156,7 +157,7 @@ class Response implements \Stringable
      */
     public function headers(): array
     {
-        if (!$this->response instanceof \Psr\Http\Message\ResponseInterface) {
+        if (! $this->response instanceof \Psr\Http\Message\ResponseInterface) {
             return [];
         }
 

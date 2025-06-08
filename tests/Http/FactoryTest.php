@@ -41,7 +41,7 @@ it('can assert sent requests', function (): void {
 
     $factory->get('https://example.com/test');
 
-    $factory->assertSent(fn($request): bool => $request->url() === 'https://example.com/test');
+    $factory->assertSent(fn ($request): bool => $request->url() === 'https://example.com/test');
 });
 
 it('can assert request count', function (): void {
@@ -97,7 +97,7 @@ it('can prevent stray requests', function (): void {
 it('can add global middleware', function (): void {
     $factory = new Factory;
 
-    $middleware = fn($handler): \Closure => fn($request, $options) => $handler($request, $options);
+    $middleware = fn ($handler): \Closure => fn ($request, $options) => $handler($request, $options);
 
     $factory->globalMiddleware($middleware);
 

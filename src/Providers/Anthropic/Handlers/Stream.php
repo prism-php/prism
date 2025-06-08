@@ -13,7 +13,7 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Http\Exceptions\RequestException;
 use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Http\Response;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
@@ -618,23 +618,18 @@ class Stream
     protected function sendRequest(Request $request): Response
     {
         try {
-            $response = $this->client
+            return $this->client
                 ->withOptions(['stream' => true])
+                ->throw()
                 ->post('messages', Arr::whereNotNull([
                     'stream' => true,
                     ...Text::buildHttpRequestPayload($request),
                 ]));
-
-            // Check for error status codes before processing stream
-            if (in_array($response->status(), [413, 429, 529])) {
-                $this->handleResponseExceptions($response);
+        } catch (Throwable $e) {
+            if ($e instanceof RequestException && in_array($e->response->status(), [413, 429, 529])) {
+                $this->handleResponseExceptions($e->response);
             }
 
-            return $response;
-        } catch (PrismRateLimitedException|PrismProviderOverloadedException|PrismRequestTooLargeException $e) {
-            // Re-throw specific Prism exceptions without wrapping
-            throw $e;
-        } catch (Throwable $e) {
             throw PrismException::providerRequestError($request->model(), $e);
         }
     }

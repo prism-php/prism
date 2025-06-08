@@ -17,7 +17,6 @@ use Prism\Prism\Http\Exceptions\RequestException;
 use Prism\Prism\Http\PendingRequest;
 use Prism\Prism\Http\Response;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
@@ -32,7 +31,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessesRateLimits, ValidatesResponse;
+    use CallsTools, ProcessesRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -58,14 +57,8 @@ class Stream
         $text = '';
         $toolCalls = [];
 
-        $stream = $response->stream();
-
-        if (!$stream instanceof \Psr\Http\Message\StreamInterface) {
-            throw new PrismException('Response stream is null');
-        }
-
-        while (! $stream->eof()) {
-            $data = $this->parseNextDataLine($stream);
+        while (! $response->stream()->eof()) {
+            $data = $this->parseNextDataLine($response->stream());
 
             // Skip empty data or DONE markers
             if ($data === null) {
@@ -216,7 +209,7 @@ class Stream
     protected function sendRequest(Request $request): Response
     {
         try {
-            $response = $this
+            return $this
                 ->client
                 ->withOptions(['stream' => true])
                 ->throw()
@@ -235,39 +228,12 @@ class Stream
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     ]))
                 );
-
-            $this->validateStreamResponse($response);
-
-            return $response;
         } catch (Throwable $e) {
-            // Let PrismRateLimitedException bubble up
-            if ($e instanceof PrismRateLimitedException) {
-                throw $e;
-            }
-
             if ($e instanceof RequestException && $e->response->status() === 429) {
                 throw new PrismRateLimitedException($this->processRateLimits($e->response));
             }
 
             throw PrismException::providerRequestError($request->model(), $e);
-        }
-    }
-
-    protected function validateStreamResponse(Response $response): void
-    {
-        if ($response->status() === 429) {
-            throw PrismRateLimitedException::make(
-                rateLimits: $this->processRateLimits($response),
-                retryAfter: $response->header('retry-after') === '' ? null : (int) $response->header('retry-after'),
-            );
-        }
-
-        // For streaming responses, we don't validate JSON content
-        // since the body is a stream of server-sent events
-        if (! $response->successful()) {
-            throw PrismException::providerResponseError(
-                "OpenAI streaming request failed with status: {$response->status()}"
-            );
         }
     }
 

@@ -48,6 +48,7 @@ class Factory
     {
         $this->stubCallbacks = new Collection;
     }
+
     /**
      * @param  array<mixed>  $parameters
      */
@@ -109,7 +110,7 @@ class Factory
 
     public static function failedConnection(?string $message = null): Closure
     {
-        return fn($request): \GuzzleHttp\Promise\PromiseInterface => Create::rejectionFor(new ConnectException(
+        return fn ($request): \GuzzleHttp\Promise\PromiseInterface => Create::rejectionFor(new ConnectException(
             $message ?? "cURL error 6: Could not resolve host: {$request->toPsrRequest()->getUri()->getHost()} (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for {$request->toPsrRequest()->getUri()}.",
             $request->toPsrRequest(),
         ));
@@ -132,7 +133,7 @@ class Factory
         $this->recorded = [];
 
         if (is_null($callback)) {
-            $callback = fn(): \GuzzleHttp\Promise\PromiseInterface => static::response();
+            $callback = fn (): \GuzzleHttp\Promise\PromiseInterface => static::response();
         }
 
         if (is_array($callback)) {
@@ -235,7 +236,7 @@ class Factory
         $this->assertSentCount(count($callbacks));
 
         foreach ($callbacks as $index => $callback) {
-            $this->assertSent(fn($request, $response): bool => $callback($request, $response) && array_search([$request, $response], $this->recorded, true) === $index);
+            $this->assertSent(fn ($request, $response): bool => $callback($request, $response) && array_search([$request, $response], $this->recorded, true) === $index);
         }
     }
 
@@ -279,9 +280,9 @@ class Factory
             return collect();
         }
 
-        $callback = $callback ?: fn(): true => true;
+        $callback = $callback ?: fn (): true => true;
 
-        return collect($this->recorded)->filter(fn($pair) => $callback($pair[0], $pair[1]));
+        return collect($this->recorded)->filter(fn ($pair) => $callback($pair[0], $pair[1]));
     }
 
     public function createPendingRequest(): PendingRequest
@@ -310,12 +311,14 @@ class Factory
     {
         return $this->stubCallbacks;
     }
+
     protected function record(): static
     {
         $this->recording = true;
 
         return $this;
     }
+
     /**
      * @return array<string, mixed>
      */

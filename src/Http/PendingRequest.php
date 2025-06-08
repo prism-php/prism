@@ -435,6 +435,11 @@ class PendingRequest
 
                     $this->factory->recordRequestResponsePair($request, $response);
 
+                    // Respect http_errors option for stubbed responses
+                    if (($mergedOptions['http_errors'] ?? false) && $response->failed()) {
+                        throw new \Prism\Prism\Http\Exceptions\RequestException($response);
+                    }
+
                     return $response;
                 }
             }
