@@ -57,7 +57,7 @@ class Stream
 
         $stream = $response->stream();
 
-        if (!$stream instanceof \Psr\Http\Message\StreamInterface) {
+        if (! $stream instanceof \Psr\Http\Message\StreamInterface) {
             return;
         }
 
