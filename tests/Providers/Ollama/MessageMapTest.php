@@ -72,9 +72,9 @@ it('maps assistant messages correctly', function (): void {
 it('maps assistant messages with tool calls correctly', function (): void {
     $assistantMessage = new AssistantMessage('Assistant response', [
         new ToolCall(
-            '',
-            'search',
-            [
+            id: '',
+            name: 'search',
+            arguments: [
                 'query' => 'What is Prism?',
             ]
         ),

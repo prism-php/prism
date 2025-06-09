@@ -16,19 +16,19 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\Ollama\Concerns\MapsToolCalls;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, MapsToolCalls;
+    use CallsTools, MapsFinishReason;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -225,5 +225,18 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $toolCalls
+     * @return array<int, ToolCall>
+     */
+    protected function mapToolCalls(array $toolCalls): array
+    {
+        return array_map(fn (array $toolCall): ToolCall => new ToolCall(
+            id: data_get($toolCall, 'id') ?? '',
+            name: data_get($toolCall, 'name') ?? '',
+            arguments: data_get($toolCall, 'arguments'),
+        ), $toolCalls);
     }
 }
