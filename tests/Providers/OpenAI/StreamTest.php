@@ -6,6 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
@@ -67,19 +68,17 @@ it('can generate text using tools with streaming', function (): void {
 
     $text = '';
     $chunks = [];
-    $toolCallFound = false;
+    $toolCalls = [];
     $toolResults = [];
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
 
-        if ($chunk->toolCalls !== []) {
-            $toolCallFound = true;
-            expect($chunk->toolCalls[0]->name)->not->toBeEmpty();
-            expect($chunk->toolCalls[0]->arguments())->toBeArray();
+        if ($chunk->chunkType === ChunkType::ToolCall) {
+            $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
         }
 
-        if ($chunk->toolResults !== []) {
+        if ($chunk->chunkType === ChunkType::ToolResult) {
             $toolResults = array_merge($toolResults, $chunk->toolResults);
         }
 
@@ -87,7 +86,8 @@ it('can generate text using tools with streaming', function (): void {
     }
 
     expect($chunks)->not->toBeEmpty();
-    expect($toolCallFound)->toBeTrue('Expected to find at least one tool call in the stream');
+    expect($toolCalls)->toHaveCount(2);
+    expect($toolResults)->toHaveCount(2);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {

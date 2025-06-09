@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -149,23 +150,25 @@ class Stream
         array $toolCalls,
         int $depth
     ): Generator {
-        // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        // Call the tools and get results
+        yield new Chunk(
+            text: '',
+            toolCalls: $toolCalls,
+            chunkType: ChunkType::ToolCall,
+        );
+
         $toolResults = $this->callTools($request->tools(), $toolCalls);
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            chunkType: ChunkType::ToolResult,
+        );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        // Yield the tool call chunk
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            toolResults: $toolResults,
-        );
-
-        // Continue the conversation with tool results
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
     }
