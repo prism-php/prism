@@ -18,7 +18,7 @@ Mistral provides an OCR endpoint which can be used to extract text from document
 This OCR endpoint can be used like this:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;

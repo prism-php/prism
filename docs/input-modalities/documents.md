@@ -37,7 +37,7 @@ All of these formats should work with Prism.
 To add an image to your message, add a `Document` value object to the `additionalContent` property:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
