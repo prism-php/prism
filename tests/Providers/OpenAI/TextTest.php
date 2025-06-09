@@ -215,6 +215,27 @@ it('handles specific tool choice', function (): void {
     expect($response->toolCalls[0]->name)->toBe('weather');
 });
 
+it('handles tool choice when null', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-null-tool-call');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+        Tool::as('search')
+            ->for('useful for searching curret events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+    ];
+
+    Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Do something')
+        ->withTools($tools)
+        ->asText();
+})->throwsNoExceptions();
+
 it('sets the rate limits on meta', function (): void {
     $this->freezeTime(function (Carbon $time): void {
         $time = $time->toImmutable();

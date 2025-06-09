@@ -9,11 +9,15 @@ use Prism\Prism\ValueObjects\ToolCall;
 class ToolCallMap
 {
     /**
-     * @param  array<int, array<string, mixed>>  $toolCalls
+     * @param  ?array<int, array<string, mixed>>  $toolCalls
      * @return array<int, ToolCall>
      */
-    public static function map(array $toolCalls): array
+    public static function map(?array $toolCalls): array
     {
+        if ($toolCalls === null) {
+            return [];
+        }
+
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
             id: data_get($toolCall, 'id'),
             name: data_get($toolCall, 'function.name'),

@@ -75,7 +75,7 @@ Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     // enable thinking
-    ->withProviderOptions(['thinking' => ['enabled' => true']]) 
+    ->withProviderOptions(['thinking' => ['enabled' => true]]) 
     ->asText();
 ```
 By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
