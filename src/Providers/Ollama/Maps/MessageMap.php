@@ -15,7 +15,7 @@ use Prism\Prism\ValueObjects\ToolCall;
 
 class MessageMap
 {
-    /** @var array<int, array{role: string, content: string}> */
+    /** @var array<int, mixed> */
     protected array $mappedMessages = [];
 
     /**
@@ -88,15 +88,15 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $this->mappedMessages[] = [
+        $this->mappedMessages[] = array_filter([
             'role' => 'assistant',
             'content' => $message->content,
-            'tool_calls' => array_map(fn(ToolCall $toolCall): array => [
+            'tool_calls' => $message->toolCalls ? array_map(fn (ToolCall $toolCall): array => [
                 'function' => [
                     'name' => $toolCall->name,
                     'arguments' => $toolCall->arguments(),
                 ],
-            ], $message->toolCalls),
-        ];
+            ], $message->toolCalls) : null,
+        ]);
     }
 }
