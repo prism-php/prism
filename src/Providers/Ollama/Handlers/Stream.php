@@ -10,6 +10,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -61,13 +62,15 @@ class Stream
                 continue;
             }
 
+            // Accumulate tool calls if present
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 continue;
             }
 
-            if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
+            // Handle tool call completion when stream is done
+            if ((bool) data_get($data, 'done', false) && $toolCalls !== []) {
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
                 return;
@@ -142,16 +145,22 @@ class Stream
 
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
-
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
-
         yield new Chunk(
             text: '',
             toolCalls: $toolCalls,
-            toolResults: $toolResults,
+            chunkType: ChunkType::ToolCall,
         );
+
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            chunkType: ChunkType::ToolResult,
+        );
+
+        $request->addMessage(new AssistantMessage($text, $toolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
 
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);

@@ -11,6 +11,7 @@ use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 
 class MessageMap
 {
@@ -90,6 +91,12 @@ class MessageMap
         $this->mappedMessages[] = [
             'role' => 'assistant',
             'content' => $message->content,
+            'tool_calls' => array_map(fn(ToolCall $toolCall): array => [
+                'function' => [
+                    'name' => $toolCall->name,
+                    'arguments' => $toolCall->arguments(),
+                ],
+            ], $message->toolCalls),
         ];
     }
 }

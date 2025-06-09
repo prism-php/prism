@@ -1,0 +1,2 @@
+{"model":"qwen3:14b","created_at":"2025-06-09T17:59:08.696694Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"weather","arguments":{"city":"Detroit"}}}]},"done":false}
+{"model":"qwen3:14b","created_at":"2025-06-09T17:59:08.84624Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":11625957583,"load_duration":9550375,"prompt_eval_count":263,"prompt_eval_duration":392967209,"eval_count":152,"eval_duration":11221520708}
