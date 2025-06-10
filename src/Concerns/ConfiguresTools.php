@@ -11,11 +11,15 @@ trait ConfiguresTools
 {
     protected string|ToolChoice|null $toolChoice = null;
 
-    public function withToolChoice(string|ToolChoice|Tool $toolChoice): self
+    protected ?int $toolChoiceAutoAfterSteps = null;
+
+    public function withToolChoice(string|ToolChoice|Tool $toolChoice, ?int $toolChoiceAutoAfterSteps = null): self
     {
         $this->toolChoice = $toolChoice instanceof Tool
             ? $toolChoice->name()
             : $toolChoice;
+
+        $this->toolChoiceAutoAfterSteps = $toolChoiceAutoAfterSteps;
 
         return $this;
     }
