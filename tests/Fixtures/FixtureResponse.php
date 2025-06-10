@@ -182,11 +182,6 @@ class FixtureResponse
                     mkdir(dirname($path), recursive: true);
                 }
 
-                // Get content type or default to application/json
-                $contentType = $request->hasHeader('Content-Type')
-                    ? $request->header('Content-Type')[0]
-                    : 'application/json';
-
                 // Forward the request to the real API with stream option
                 $client = new \GuzzleHttp\Client(['stream' => true]);
                 $options = [

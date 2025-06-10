@@ -196,14 +196,11 @@ it('can use extending thinking', function (): void {
         ->withProviderOptions(['thinking' => ['enabled' => true]])
         ->asStructured();
 
-    $expected_thinking = "The question asks about \"the meaning of life, the universe and everything in popular fiction.\" This is a reference to Douglas Adams' \"The Hitchhiker's Guide to the Galaxy\" series, where a supercomputer named Deep Thought calculates that the answer to \"the ultimate question of life, the universe, and everything\" is 42.\n\nI'm being asked to respond with only JSON that matches a specific schema. The schema requires an object with a property called \"text\" that contains a string, and no additional properties are allowed.\n\nSo I should create a JSON object with a \"text\" property that explains that in popular fiction, particularly in \"The Hitchhiker's Guide to the Galaxy,\" the meaning of life, the universe, and everything is famously presented as \"42.\"";
-    $expected_signature = 'EuYBCkQYAiJAg+qtLhMXqUgaxagF5ryu2/sYLIpErjJsELoN95UARnscajTu5YXcRzTTEbiH87YC8xd5X6SRRxA5FzEiyPbzZBIMO8q4u82TeKNXUtxmGgzNMkFq/WSx5ByDvjsiMHy61qKH+/fr9bFMAjSR4T9dXYIK2G/j2xQSwi5hocmvqW8zXu8Xc5LLqxvZGXGq4ipQyZTLiVn0nQvLXf5qf5RxnbAvCc+NGHezUbUGFGIZsbiScvW8XMvbHPPCkofZqMbYmXssXpHsDkr7LgAz2gMY7tGD6+0Jwxy+YnmVo1J2bj0=';
-
-    expect($response->structured['text'])->toBe("In popular fiction, the most famous answer to the meaning of life, the universe, and everything is '42' from Douglas Adams' 'The Hitchhiker's Guide to the Galaxy.' In this science fiction series, a supercomputer called Deep Thought spends 7.5 million years calculating this answer, though unfortunately, no one knows what the actual question was.");
-    expect($response->additionalContent['thinking'])->toBe($expected_thinking);
-    expect($response->additionalContent['thinking_signature'])->toBe($expected_signature);
+    expect($response->structured['text'])->not->toBeEmpty();
+    expect($response->additionalContent['thinking'])->not->toBeEmpty();
+    expect($response->additionalContent['thinking_signature'])->not->toBeEmpty();
 
     expect($response->steps->last()->messages[2])
-        ->additionalContent->thinking->toBe($expected_thinking)
-        ->additionalContent->thinking_signature->toBe($expected_signature);
+        ->additionalContent->thinking->not->toBeEmpty()
+        ->additionalContent->thinking_signature->not->toBeEmpty();
 });

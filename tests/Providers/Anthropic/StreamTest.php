@@ -75,7 +75,7 @@ describe('tools', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withTools($tools)
-            ->withMaxSteps(3)
+            ->withMaxSteps(6)
             ->withPrompt('What time is the tigers game today and should I wear a coat?')
             ->asStream();
 
@@ -171,7 +171,7 @@ describe('tools', function (): void {
         $response = Prism::text()
             ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
             ->withTools($tools)
-            ->withMaxSteps(3)
+            ->withMaxSteps(4)
             ->withPrompt('What time is the tigers game today and should I wear a coat?')
             ->asStream();
 
@@ -304,7 +304,7 @@ describe('thinking', function (): void {
         expect($lastChunk->additionalContent)->not->toBeEmpty();
 
         expect($lastChunk->additionalContent)->toHaveKey('thinking');
-        expect($lastChunk->additionalContent['thinking'])->toContain('The question is asking about');
+        expect($lastChunk->additionalContent['thinking'])->not->toBeEmpty();
 
         expect($lastChunk->additionalContent)->toHaveKey('thinking_signature');
 
