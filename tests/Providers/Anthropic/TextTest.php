@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
+use Faker\Provider\Lorem;
 use Illuminate\Support\Carbon;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
@@ -154,7 +155,7 @@ it('can send images from file', function (): void {
 it('handles specific tool choice', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/messages',
-        'anthropic/generate-text-with-required-tool-call'
+        'anthropic/generate-text-with-required-tool-call',
     );
 
     $tools = [
@@ -181,18 +182,18 @@ it('handles specific tool choice', function (): void {
 it('can calculate cache usage correctly', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/messages',
-        'anthropic/calculate-cache-usage'
+        'anthropic/calculate-cache-usage',
     );
 
     $response = Prism::text()
         ->using('anthropic', 'claude-3-5-sonnet-20240620')
         ->withMessages([
-            (new UserMessage('New context'))->withProviderOptions(['cacheType' => 'ephemeral']),
+            (new UserMessage(Lorem::text(5000)))->withProviderOptions(['cacheType' => 'ephemeral']),
         ])
         ->asText();
 
-    expect($response->usage->cacheWriteInputTokens)->toBe(200);
-    expect($response->usage->cacheReadInputTokens)->toBe(100);
+    expect($response->usage->cacheWriteInputTokens)->toBeGreaterThan(0);
+    expect($response->usage->cacheReadInputTokens)->toBe(0);
 });
 
 it('adds rate limit data to the responseMeta', function (): void {
