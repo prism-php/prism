@@ -10,24 +10,25 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\Ollama\Concerns\MapsToolCalls;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, MapsToolCalls;
+    use CallsTools, MapsFinishReason;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -61,13 +62,15 @@ class Stream
                 continue;
             }
 
+            // Accumulate tool calls if present
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 continue;
             }
 
-            if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
+            // Handle tool call completion when stream is done
+            if ((bool) data_get($data, 'done', false) && $toolCalls !== []) {
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
                 return;
@@ -142,16 +145,22 @@ class Stream
 
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
-
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
-
         yield new Chunk(
             text: '',
             toolCalls: $toolCalls,
-            toolResults: $toolResults,
+            chunkType: ChunkType::ToolCall,
         );
+
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            chunkType: ChunkType::ToolResult,
+        );
+
+        $request->addMessage(new AssistantMessage($text, $toolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
 
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
@@ -216,5 +225,18 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $toolCalls
+     * @return array<int, ToolCall>
+     */
+    protected function mapToolCalls(array $toolCalls): array
+    {
+        return array_map(fn (array $toolCall): ToolCall => new ToolCall(
+            id: data_get($toolCall, 'id') ?? '',
+            name: data_get($toolCall, 'name') ?? '',
+            arguments: data_get($toolCall, 'arguments'),
+        ), $toolCalls);
     }
 }

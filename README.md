@@ -1,4 +1,6 @@
-![](assets/prism-banner.webp)
+<p align="center">
+  <img src="assets/prism-logo.webp" />
+</p>
 
 <p align="center">
     <a href="https://packagist.org/packages/prism-php/prism">

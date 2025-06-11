@@ -24,7 +24,7 @@ We support Anthropic prompt caching on:
 The API for enabling prompt caching is the same for all, enabled via the `withProviderOptions()` method. Where a UserMessage contains both text and an image or document, both will be cached.
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -49,7 +49,7 @@ Prism::text()
 If you prefer, you can use the `AnthropicCacheType` Enum like so:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -68,7 +68,7 @@ Claude Sonnet 3.7 supports an optional extended thinking mode, where it will rea
 Prism supports thinking mode for text and structured with the same API:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 
 Prism::text()
@@ -83,7 +83,7 @@ By default Prism will set the thinking budget to the value set in config, or whe
 You can overide the config (or its default) using `withProviderOptions`:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 
 Prism::text()
@@ -110,7 +110,7 @@ You can access it via the additionalContent property on either the Response or t
 On the Response (easiest if not using tools):
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 
 Prism::text()
@@ -157,7 +157,7 @@ Anthropic also supports "custom content documents", separately documented below,
 Custom content documents are primarily for use with citations (see below), if you need citations to reference your own chunking strategy.
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -186,7 +186,7 @@ Please note however that due to Anthropic not supporting "native" structured out
 Anthropic require citations to be enabled on all documents in a request. To enable them, using the `withProviderOptions()` method when building your request:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Document;

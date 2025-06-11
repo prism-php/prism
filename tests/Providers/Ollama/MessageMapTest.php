@@ -8,6 +8,7 @@ use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 
 it('maps system messages correctly', function (): void {
@@ -64,6 +65,36 @@ it('maps assistant messages correctly', function (): void {
         [
             'role' => 'assistant',
             'content' => 'Assistant response',
+        ],
+    ]);
+});
+
+it('maps assistant messages with tool calls correctly', function (): void {
+    $assistantMessage = new AssistantMessage('Assistant response', [
+        new ToolCall(
+            id: '',
+            name: 'search',
+            arguments: [
+                'query' => 'What is Prism?',
+            ]
+        ),
+    ]);
+
+    $messageMap = new MessageMap([$assistantMessage]);
+    $result = $messageMap->map();
+
+    expect($result)->toBe([
+        [
+            'role' => 'assistant',
+            'content' => 'Assistant response',
+            'tool_calls' => [[
+                'function' => [
+                    'name' => 'search',
+                    'arguments' => [
+                        'query' => 'What is Prism?',
+                    ],
+                ],
+            ]],
         ],
     ]);
 });

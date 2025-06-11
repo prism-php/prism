@@ -67,14 +67,14 @@ foreach ($response as $chunk) {
     $fullResponse .= $chunk->text;
 
     // Check for tool calls
-    if ($chunk->toolCalls) {
+    if ($chunk->chunkType === ChunkType::ToolCall) {
         foreach ($chunk->toolCalls as $call) {
             echo "Tool called: " . $call->name;
         }
     }
 
     // Check for tool results
-    if ($chunk->toolResults) {
+    if ($chunk->chunkType === ChunkType::ToolResult) {
         foreach ($chunk->toolResults as $result) {
             echo "Tool result: " . $result->result;
         }

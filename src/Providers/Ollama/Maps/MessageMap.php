@@ -11,10 +11,11 @@ use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 
 class MessageMap
 {
-    /** @var array<int, array{role: string, content: string}> */
+    /** @var array<int, mixed> */
     protected array $mappedMessages = [];
 
     /**
@@ -87,9 +88,15 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $this->mappedMessages[] = [
+        $this->mappedMessages[] = array_filter([
             'role' => 'assistant',
             'content' => $message->content,
-        ];
+            'tool_calls' => $message->toolCalls ? array_map(fn (ToolCall $toolCall): array => [
+                'function' => [
+                    'name' => $toolCall->name,
+                    'arguments' => $toolCall->arguments(),
+                ],
+            ], $message->toolCalls) : null,
+        ]);
     }
 }
