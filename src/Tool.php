@@ -18,6 +18,8 @@ use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Telemetry\Facades\Telemetry;
+use Prism\Prism\Telemetry\ValueObjects\TelemetryAttribute;
 use Throwable;
 use TypeError;
 
@@ -186,20 +188,32 @@ class Tool
      */
     public function handle(...$args): string
     {
-        try {
-            $value = call_user_func($this->fn, ...$args);
+        return Telemetry::span('tool.call', [
+            TelemetryAttribute::ToolName->value => $this->name,
+        ], function () use ($args): string {
+            try {
+                $value = call_user_func($this->fn, ...$args);
 
-            if (! is_string($value)) {
-                throw PrismException::invalidReturnTypeInTool($this->name, new TypeError('Return value must be of type string'));
+                if (! is_string($value)) {
+                    throw PrismException::invalidReturnTypeInTool($this->name, new TypeError('Return value must be of type string'));
+                }
+
+                Telemetry::current()?->setAttribute(TelemetryAttribute::ToolSuccess, true);
+
+                return $value;
+            } catch (ArgumentCountError|Error|InvalidArgumentException|TypeError $e) {
+                Telemetry::current()?->setAttributes([
+                    TelemetryAttribute::ToolSuccess->value => false,
+                    TelemetryAttribute::ErrorType->value => $e::class,
+                    TelemetryAttribute::ErrorMessage->value => $e->getMessage(),
+                ]);
+
+                if ($e::class === Error::class && ! str_starts_with($e->getMessage(), 'Unknown named parameter')) {
+                    throw $e;
+                }
+
+                throw PrismException::invalidParameterInTool($this->name, $e);
             }
-
-            return $value;
-        } catch (ArgumentCountError|Error|InvalidArgumentException|TypeError $e) {
-            if ($e::class === Error::class && ! str_starts_with($e->getMessage(), 'Unknown named parameter')) {
-                throw $e;
-            }
-
-            throw PrismException::invalidParameterInTool($this->name, $e);
-        }
+        });
     }
 }
