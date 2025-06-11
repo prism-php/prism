@@ -217,7 +217,7 @@ it('handles specific tool choice', function (): void {
 });
 
 it('handles tool choice when null', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-null-tool-call');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-null-tool-call');
 
     $tools = [
         Tool::as('weather')
