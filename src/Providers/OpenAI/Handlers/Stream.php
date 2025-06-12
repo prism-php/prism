@@ -329,6 +329,7 @@ class Stream
             return $this
                 ->client
                 ->withOptions(['stream' => true])
+                ->throw()
                 ->post(
                     'responses',
                     array_merge([
