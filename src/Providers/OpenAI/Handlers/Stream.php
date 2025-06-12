@@ -17,8 +17,7 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
-use Prism\Prism\Providers\OpenAI\Maps\ChatMessageMap;
-use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
+use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
@@ -32,6 +31,14 @@ use Throwable;
 class Stream
 {
     use CallsTools, ProcessesRateLimits;
+
+    /**
+     * Temporarily stores the ID of the last reasoning item streamed. The ID
+     * must be attached to the next function_call item so we can include the
+     * required reasoning object when we send the follow-up request with tool
+     * results.
+     */
+    protected ?string $pendingReasoningId = null;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -65,22 +72,48 @@ class Stream
                 continue;
             }
 
+            // Track reasoning items so we can pair them with subsequent function calls
+            if (Str::startsWith(data_get($data, 'type', ''), 'response.reasoning')) {
+                $this->pendingReasoningId = data_get($data, 'id')
+                    ?? data_get($data, 'reasoning.id');
+
+                // We don't yield anything for reasoning events themselves.
+                continue;
+            }
+
             // Process tool calls
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
+                // We defer execution of the tools until the model signals its turn is fully
+                // completed (handled below).
                 continue;
             }
 
-            // Handle tool call completion
-            if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+            // If the model turn is finished we can now act on any accumulated tool calls or
+            // simply yield the final chunk.
+            if ($this->isFinalEvent($data)) {
+                if ($toolCalls !== []) {
+                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+
+                    return;
+                }
+
+                // No tool calls – just emit an empty chunk with the stop reason.
+                yield new Chunk(
+                    text: '',
+                    finishReason: FinishReason::Stop,
+                );
 
                 return;
             }
 
-            // Process regular content
-            $content = data_get($data, 'choices.0.delta.content', '') ?? '';
+            $content = $this->extractContent($data);
+
+            if ($content === '') {
+                continue;
+            }
+
             $text .= $content;
 
             $finishReason = $this->mapFinishReason($data);
@@ -123,17 +156,55 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'choices.0.delta.tool_calls', []) as $index => $toolCall) {
-            if ($name = data_get($toolCall, 'function.name')) {
-                $toolCalls[$index]['name'] = $name;
-                $toolCalls[$index]['arguments'] = '';
-                $toolCalls[$index]['id'] = data_get($toolCall, 'id');
+        $type = data_get($data, 'type', '');
+
+        // 1. New function call gets added
+        if ($type === 'response.output_item.added' && data_get($data, 'item.type') === 'function_call') {
+            $index = (int) data_get($data, 'output_index', count($toolCalls));
+
+            $toolCalls[$index]['id'] = data_get($data, 'item.id');
+            $toolCalls[$index]['call_id'] = data_get($data, 'item.call_id');
+            $toolCalls[$index]['name'] = data_get($data, 'item.name');
+            $toolCalls[$index]['arguments'] = '';
+
+            // Attach the reasoning id captured just before this function call, if any
+            if ($this->pendingReasoningId !== null) {
+                $toolCalls[$index]['reasoning_id'] = $this->pendingReasoningId;
+                // Reset for the next potential function call
+                $this->pendingReasoningId = null;
             }
 
-            $arguments = data_get($toolCall, 'function.arguments');
+            return $toolCalls;
+        }
 
-            if (! is_null($arguments)) {
-                $toolCalls[$index]['arguments'] .= $arguments;
+        // 2. Streaming function call arguments
+        if ($type === 'response.function_call_arguments.delta') {
+            $callId = data_get($data, 'item_id');
+            $delta = data_get($data, 'delta', '');
+
+            foreach ($toolCalls as &$call) {
+                if (($call['id'] ?? null) === $callId) {
+                    $call['arguments'] .= $delta;
+                    break;
+                }
+            }
+
+            return $toolCalls;
+        }
+
+        // 3. Final function call arguments (done)
+        if ($type === 'response.function_call_arguments.done') {
+            $callId = data_get($data, 'item_id');
+            $arguments = data_get($data, 'arguments', '');
+
+            foreach ($toolCalls as &$call) {
+                if (($call['id'] ?? null) === $callId) {
+                    // Prefer the completed arguments payload if provided
+                    if ($arguments !== '') {
+                        $call['arguments'] = $arguments;
+                    }
+                    break;
+                }
             }
         }
 
@@ -183,9 +254,12 @@ class Stream
     {
         return collect($toolCalls)
             ->map(fn ($toolCall): ToolCall => new ToolCall(
-                data_get($toolCall, 'id'),
-                data_get($toolCall, 'name'),
-                data_get($toolCall, 'arguments'),
+                id: data_get($toolCall, 'id'),
+                name: data_get($toolCall, 'name'),
+                arguments: data_get($toolCall, 'arguments'),
+                resultId: data_get($toolCall, 'call_id') ?? data_get($toolCall, 'id'),
+                reasoningId: data_get($toolCall, 'reasoning_id'),
+                reasoningSummary: data_get($toolCall, 'reasoning_summary'),
             ))
             ->toArray();
     }
@@ -195,7 +269,18 @@ class Stream
      */
     protected function hasToolCalls(array $data): bool
     {
-        return (bool) data_get($data, 'choices.0.delta.tool_calls');
+        $type = data_get($data, 'type', '');
+
+        if (data_get($data, 'item.type') === 'function_call') {
+            return true;
+        }
+
+        return in_array($type, [
+            'response.output_item.added.function_call',
+            'response.function_call_arguments.delta',
+            'response.function_call_arguments.done',
+            'response.output_item.done.function_call',
+        ]);
     }
 
     /**
@@ -203,7 +288,39 @@ class Stream
      */
     protected function mapFinishReason(array $data): FinishReason
     {
-        return FinishReasonMap::map(data_get($data, 'choices.0.finish_reason') ?? '');
+        // New responses stream sends finish information via dedicated event types
+        $eventType = data_get($data, 'type');
+
+        if ($eventType === 'response.text.done' || $eventType === 'text.done' || $eventType === 'response.completed') {
+            return FinishReason::Stop;
+        }
+
+        // Fallback to legacy chat/completions mapping
+        return FinishReason::Unknown;
+    }
+
+    /**
+     * Determine if the current event signals that the model has fully finished its turn.
+     *
+     * @param  array<string,mixed>  $data
+     */
+    protected function isFinalEvent(array $data): bool
+    {
+        return in_array(data_get($data, 'type'), [
+            'response.completed',
+            'response.done',
+            'response.text.done',
+            'text.done',
+        ], true);
+    }
+
+    protected function extractContent(array $data): string
+    {
+        if (Str::contains(data_get($data, 'type', ''), 'text.delta')) {
+            return (string) data_get($data, 'delta', '');
+        }
+
+        return '';
     }
 
     protected function sendRequest(Request $request): Response
@@ -212,20 +329,21 @@ class Stream
             return $this
                 ->client
                 ->withOptions(['stream' => true])
-                ->throw()
                 ->post(
-                    'chat/completions',
+                    'responses',
                     array_merge([
                         'stream' => true,
                         'model' => $request->model(),
-                        'messages' => (new ChatMessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_completion_tokens' => $request->maxTokens(),
+                        'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'max_output_tokens' => $request->maxTokens(),
                     ], Arr::whereNotNull([
                         'temperature' => $request->temperature(),
                         'top_p' => $request->topP(),
                         'metadata' => $request->providerOptions('metadata'),
                         'tools' => ToolMap::map($request->tools()),
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                        'previous_response_id' => $request->providerOptions('previous_response_id'),
+                        'truncation' => $request->providerOptions('truncation'),
                     ]))
                 );
         } catch (Throwable $e) {
