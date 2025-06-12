@@ -2,7 +2,6 @@
 
 namespace Prism\Prism\Providers\OpenAI\Maps;
 
-use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
@@ -18,11 +17,9 @@ class DocumentMapper extends ProviderMediaMapper
     public function toPayload(): array
     {
         return [
-            'type' => 'file',
-            'file' => Arr::whereNotNull([
-                'file_data' => sprintf('data:%s;base64,%s', $this->media->mimeType(), $this->media->base64()),
-                'filename' => $this->media->documentTitle(),
-            ]),
+            'type' => 'input_file',
+            'filename' => $this->media->documentTitle(),
+            'file_data' => sprintf('data:%s;base64,%s', $this->media->mimeType(), $this->media->base64()),
         ];
     }
 

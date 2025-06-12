@@ -17,12 +17,10 @@ class ImageMapper extends ProviderMediaMapper
     public function toPayload(): array
     {
         return [
-            'type' => 'image_url',
-            'image_url' => [
-                'url' => $this->media->isUrl()
-                    ? $this->media->url()
-                    : sprintf('data:%s;base64,%s', $this->media->mimeType(), $this->media->base64()),
-            ],
+            'type' => 'input_image',
+            'image_url' => $this->media->isUrl()
+                ? $this->media->url()
+                : sprintf('data:%s;base64,%s', $this->media->mimeType(), $this->media->base64()),
         ];
     }
 
