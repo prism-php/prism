@@ -17,8 +17,8 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Maps\ChatMessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
-use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
@@ -218,7 +218,7 @@ class Stream
                     array_merge([
                         'stream' => true,
                         'model' => $request->model(),
-                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        'messages' => (new ChatMessageMap($request->messages(), $request->systemPrompts()))(),
                         'max_completion_tokens' => $request->maxTokens(),
                     ], Arr::whereNotNull([
                         'temperature' => $request->temperature(),
