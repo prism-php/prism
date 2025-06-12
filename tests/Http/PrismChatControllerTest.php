@@ -343,7 +343,7 @@ it('handles mixed simple and multimodal messages', function (): void {
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
-        ->withArgs(fn($messages): bool => count($messages) === 2
+        ->withArgs(fn ($messages): bool => count($messages) === 2
             && $messages[0] instanceof UserMessage
             && $messages[0]->text() === 'Hello!'
             && $messages[0]->images() === []

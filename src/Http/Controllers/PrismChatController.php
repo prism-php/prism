@@ -139,6 +139,9 @@ class PrismChatController
             ->toArray();
     }
 
+    /**
+     * @param  array{role: string, content: mixed}  $message
+     */
     protected function mapUserMessage(array $message): UserMessage
     {
         $content = $message['content'];
@@ -160,6 +163,9 @@ class PrismChatController
                 if (! isset($part['type'])) {
                     continue;
                 }
+                if (! is_string($part['type'])) {
+                    continue;
+                }
                 match ($part['type']) {
                     'text' => $textContent .= $part['text'] ?? '',
                     'image_url' => $additionalContent[] = $this->mapImageUrl($part),
@@ -170,10 +176,13 @@ class PrismChatController
             return new UserMessage($textContent, $additionalContent);
         }
 
-        // Fallback pour les autres types
-        return new UserMessage((string) $content);
+        // This line should never be reached due to the type guards above
+        throw new PrismServerException('Invalid message content type');
     }
 
+    /**
+     * @param  array<string, mixed>  $imagePart
+     */
     protected function mapImageUrl(array $imagePart): Image
     {
         $imageUrl = $imagePart['image_url'] ?? [];
@@ -199,6 +208,9 @@ class PrismChatController
         return Image::fromUrl($url);
     }
 
+    /**
+     * @param  string|array<int, mixed>  $content
+     */
     protected function extractTextContent(string|array $content): string
     {
         if (is_string($content)) {
@@ -206,10 +218,11 @@ class PrismChatController
         }
         $text = '';
         foreach ($content as $part) {
-            if (is_array($part) && ($part['type'] ?? '') === 'text') {
+            if (is_array($part) && isset($part['type']) && $part['type'] === 'text') {
                 $text .= $part['text'] ?? '';
             }
         }
+
         return $text;
     }
 
