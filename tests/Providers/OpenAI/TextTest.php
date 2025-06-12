@@ -7,6 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Tests\Fixtures\FixtureResponse;
@@ -17,7 +18,7 @@ beforeEach(function (): void {
 
 it('can generate text with a prompt', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/generate-text-with-a-prompt'
     );
 
@@ -32,14 +33,14 @@ it('can generate text with a prompt', function (): void {
     expect($response->usage->completionTokens)
         ->toBeNumeric()
         ->toBeGreaterThan(0);
-    expect($response->meta->id)->toContain('chatcmpl-');
+    expect($response->meta->id)->toContain('resp_');
     expect($response->meta->model)->toContain('gpt-4o');
     expect($response->text)->toBeString();
 });
 
 it('can generate text with a system prompt', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/generate-text-with-system-prompt'
     );
 
@@ -55,7 +56,7 @@ it('can generate text with a system prompt', function (): void {
     expect($response->usage->completionTokens)
         ->toBeNumeric()
         ->toBeGreaterThan(20);
-    expect($response->meta->id)->toContain('chatcmpl-');
+    expect($response->meta->id)->toContain('resp_');
     expect($response->meta->model)->toContain('gpt-4o');
     expect($response->text)
         ->toBeString()
@@ -64,7 +65,7 @@ it('can generate text with a system prompt', function (): void {
 
 it('can generate text using multiple tools and multiple steps', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/generate-text-with-multiple-tools'
     );
 
@@ -105,7 +106,7 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($response->usage->completionTokens)->toBeNumeric();
 
     // Assert response
-    expect($response->meta->id)->toContain('chatcmpl-');
+    expect($response->meta->id)->toContain('resp_');
     expect($response->meta->model)->toContain('gpt-4o');
 
     // Assert final text content
@@ -117,7 +118,7 @@ it('can generate text using multiple tools and multiple steps', function (): voi
 it('sends the organization header when set', function (): void {
     config()->set('prism.providers.openai.organization', 'echolabs');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -130,7 +131,7 @@ it('sends the organization header when set', function (): void {
 it('does not send the organization header if one is not given', function (): void {
     config()->offsetUnset('prism.providers.openai.organization');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -143,7 +144,7 @@ it('does not send the organization header if one is not given', function (): voi
 it('sends the api key header when set', function (): void {
     config()->set('prism.providers.openai.api_key', 'sk-1234');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -156,7 +157,7 @@ it('sends the api key header when set', function (): void {
 it('does not send the api key header', function (): void {
     config()->offsetUnset('prism.providers.openai.api_key');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -168,7 +169,7 @@ it('does not send the api key header', function (): void {
 it('sends the project header when set', function (): void {
     config()->set('prism.providers.openai.project', 'echolabs');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -181,7 +182,7 @@ it('sends the project header when set', function (): void {
 it('does not send the project header if one is not given', function (): void {
     config()->offsetUnset('prism.providers.openai.project');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -192,7 +193,7 @@ it('does not send the project header if one is not given', function (): void {
 });
 
 it('handles specific tool choice', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-required-tool-call');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call');
 
     $tools = [
         Tool::as('weather')
@@ -216,7 +217,7 @@ it('handles specific tool choice', function (): void {
 });
 
 it('handles tool choice when null', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-null-tool-call');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-null-tool-call');
 
     $tools = [
         Tool::as('weather')
@@ -240,7 +241,7 @@ it('sets the rate limits on meta', function (): void {
     $this->freezeTime(function (Carbon $time): void {
         $time = $time->toImmutable();
 
-        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt', [
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt', [
             'x-ratelimit-limit-requests' => 60,
             'x-ratelimit-limit-tokens' => 150000,
             'x-ratelimit-remaining-requests' => 0,
@@ -268,7 +269,7 @@ it('sets the rate limits on meta', function (): void {
 
 it('sets usage correctly with automatic caching', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/cache-usage-automatic-caching'
     );
 
@@ -289,4 +290,50 @@ it('sets usage correctly with automatic caching', function (): void {
         ->completionTokens->toEqual(109)
         ->cacheWriteInputTokens->toEqual(null)
         ->cacheReadInputTokens->toEqual(1024);
+});
+
+it('uses meta to provide previous response id', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What have we talked about?')
+        ->withProviderOptions([
+            'previous_response_id' => 'resp_foo',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'previous_response_id'))->toBe('resp_foo');
+
+        return true;
+    });
+});
+
+it('uses meta to set auto truncation', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What have we talked about?')
+        ->withProviderOptions([
+            'truncation' => 'auto',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'truncation'))->toBe('auto');
+
+        return true;
+    });
 });

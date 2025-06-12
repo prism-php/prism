@@ -70,9 +70,9 @@ class MessageMap
     {
         foreach ($message->toolResults as $toolResult) {
             $this->mappedMessages[] = [
-                'role' => 'tool',
-                'tool_call_id' => $toolResult->toolCallId,
-                'content' => $toolResult->result,
+                'type' => 'function_call_output',
+                'call_id' => $toolResult->toolCallResultId,
+                'output' => $toolResult->result,
             ];
         }
     }
@@ -82,7 +82,7 @@ class MessageMap
         $this->mappedMessages[] = [
             'role' => 'user',
             'content' => [
-                ['type' => 'text', 'text' => $message->text()],
+                ['type' => 'input_text', 'text' => $message->text()],
                 ...self::mapImageParts($message->images()),
                 ...self::mapDocumentParts($message->documents()),
                 ...self::mapFileParts($message->files()),
@@ -97,12 +97,10 @@ class MessageMap
     protected static function mapImageParts(array $images): array
     {
         return array_map(fn (Image $image): array => [
-            'type' => 'image_url',
-            'image_url' => [
-                'url' => $image->isUrl()
-                    ? $image->image
-                    : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
-            ],
+            'type' => 'input_image',
+            'image_url' => $image->isUrl()
+                ? $image->image
+                : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
         ], $images);
     }
 
@@ -118,11 +116,9 @@ class MessageMap
             }
 
             return [
-                'type' => 'file',
-                'file' => [
-                    'file_data' => sprintf('data:%s;base64,%s', $document->mimeType, $document->document), // @phpstan-ignore argument.type
-                    'filename' => $document->documentTitle,
-                ],
+                'type' => 'input_file',
+                'filename' => $document->documentTitle,
+                'file_data' => sprintf('data:%s;base64,%s', $document->mimeType, $document->document), // @phpstan-ignore argument.type
             ];
         }, $documents);
     }
@@ -134,28 +130,38 @@ class MessageMap
     protected static function mapFileParts(array $files): array
     {
         return array_map(fn (OpenAIFile $file): array => [
-            'type' => 'file',
-            'file' => [
-                'file_id' => $file->fileId,
-            ],
+            'type' => 'input_file',
+            'file_id' => $file->fileId,
         ], $files);
     }
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $toolCalls = array_map(fn (ToolCall $toolCall): array => [
-            'id' => $toolCall->id,
-            'type' => 'function',
-            'function' => [
-                'name' => $toolCall->name,
-                'arguments' => json_encode($toolCall->arguments()),
-            ],
-        ], $message->toolCalls);
+        if ($message->content !== '' && $message->content !== '0') {
+            $this->mappedMessages[] = [
+                'role' => 'assistant',
+                'content' => $message->content,
+            ];
+        }
 
-        $this->mappedMessages[] = array_filter([
-            'role' => 'assistant',
-            'content' => $message->content,
-            'tool_calls' => $toolCalls,
-        ]);
+        if ($message->toolCalls !== []) {
+            array_push(
+                $this->mappedMessages,
+                ...array_filter(
+                    array_map(fn (ToolCall $toolCall): ?array => is_null($toolCall->reasoningId) ? null : [
+                        'type' => 'reasoning',
+                        'id' => $toolCall->reasoningId,
+                        'summary' => $toolCall->reasoningSummary,
+                    ], $message->toolCalls)
+                ),
+                ...array_map(fn (ToolCall $toolCall): array => [
+                    'id' => $toolCall->id,
+                    'call_id' => $toolCall->resultId,
+                    'type' => 'function_call',
+                    'name' => $toolCall->name,
+                    'arguments' => json_encode($toolCall->arguments()),
+                ], $message->toolCalls)
+            );
+        }
     }
 }

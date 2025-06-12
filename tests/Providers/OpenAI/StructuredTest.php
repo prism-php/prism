@@ -17,7 +17,7 @@ use Prism\Prism\Schema\StringSchema;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/structured-structured-mode');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-structured-mode');
 
     $schema = new ObjectSchema(
         'output',
@@ -48,7 +48,7 @@ it('returns structured output', function (): void {
 });
 
 it('returns structured output using json mode', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/structured-json-mode');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-json-mode');
 
     $schema = new ObjectSchema(
         'output',
@@ -79,7 +79,7 @@ it('returns structured output using json mode', function (): void {
 });
 
 it('schema strict defaults to null', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/strict-schema-defaults');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/strict-schema-defaults');
 
     $schema = new ObjectSchema(
         'output',
@@ -101,7 +101,7 @@ it('schema strict defaults to null', function (): void {
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
 
-        expect(array_keys(data_get($body, 'response_format.json_schema')))->not->toContain('strict');
+        expect(array_keys(data_get($body, 'text.format')))->not->toContain('strict');
 
         return true;
     });
@@ -109,7 +109,7 @@ it('schema strict defaults to null', function (): void {
 
 it('uses meta to define strict mode', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/strict-schema-setting-set'
     );
 
@@ -136,7 +136,7 @@ it('uses meta to define strict mode', function (): void {
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
 
-        expect(data_get($body, 'response_format.json_schema.strict'))->toBeTrue();
+        expect(data_get($body, 'text.format.strict'))->toBeTrue();
 
         return true;
     });
@@ -147,11 +147,12 @@ it('throws an exception when there is a refusal', function (): void {
     $this->expectExceptionMessage('OpenAI Refusal: Could not process your request');
 
     Http::fake([
-        'v1/chat/completions' => Http::response([
-            'choices' => [[
-                'message' => [
+        'v1/responses' => Http::response([
+            'output' => [[
+                'content' => [[
+                    'type' => 'refusal',
                     'refusal' => 'Could not process your request',
-                ],
+                ]],
             ]],
         ]),
     ]);
@@ -178,7 +179,7 @@ it('throws an exception when there is a refusal', function (): void {
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
 
-        expect(data_get($body, 'response_format.json_schema.strict'))->toBeTrue();
+        expect(data_get($body, 'text.format.strict'))->toBeTrue();
 
         return true;
     });
@@ -214,7 +215,7 @@ it('sets the rate limits on meta', function (): void {
     $this->freezeTime(function (Carbon $time): void {
         $time = $time->toImmutable();
 
-        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/structured-structured-mode', [
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-structured-mode', [
             'x-ratelimit-limit-requests' => 60,
             'x-ratelimit-limit-tokens' => 150000,
             'x-ratelimit-remaining-requests' => 0,
@@ -254,7 +255,7 @@ it('sets the rate limits on meta', function (): void {
 
 it('sets usage correctly with automatic caching', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/structured-cache-usage-automatic-caching',
     );
 
@@ -288,4 +289,74 @@ it('sets usage correctly with automatic caching', function (): void {
         ->completionTokens->toEqual(583)
         ->cacheWriteInputTokens->toEqual(null)
         ->cacheReadInputTokens->toEqual(1408);
+});
+
+it('uses meta to provide previous response id', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What time is the game we talked about and should I wear a coat?')
+        ->withProviderOptions([
+            'previous_response_id' => 'resp_foo',
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'previous_response_id'))->toBe('resp_foo');
+
+        return true;
+    });
+});
+
+it('uses meta to set auto truncation', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What time is the game we talked about and should I wear a coat?')
+        ->withProviderOptions([
+            'truncation' => 'auto',
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'truncation'))->toBe('auto');
+
+        return true;
+    });
 });

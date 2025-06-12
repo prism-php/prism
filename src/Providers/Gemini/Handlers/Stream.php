@@ -81,7 +81,7 @@ class Stream
             $content = data_get($data, 'candidates.0.content.parts.0.text') ?? '';
             $text .= $content;
 
-            $finishReason = data_get($data, 'done', false) ? FinishReason::Stop : FinishReason::Unknown;
+            $finishReason = $this->mapFinishReason($data);
 
             yield new Chunk(
                 text: $content,
