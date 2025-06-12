@@ -82,7 +82,7 @@ class MessageMap
         $this->mappedMessages[] = [
             'role' => 'user',
             'content' => [
-                ['type' => 'input_text', 'text' => $message->text()],
+                ['type' => 'text', 'text' => $message->text()],
                 ...self::mapImageParts($message->images()),
                 ...self::mapDocumentParts($message->documents()),
                 ...self::mapFileParts($message->files()),

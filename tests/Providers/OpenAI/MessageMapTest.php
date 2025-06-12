@@ -26,7 +26,7 @@ it('maps user messages', function (): void {
     expect($messageMap())->toBe([[
         'role' => 'user',
         'content' => [
-            ['type' => 'input_text', 'text' => 'Who are you?'],
+            ['type' => 'text', 'text' => 'Who are you?'],
         ],
     ]]);
 });
@@ -183,7 +183,7 @@ it('maps system prompt', function (): void {
         [
             'role' => 'user',
             'content' => [
-                ['type' => 'input_text', 'text' => 'Who are you?'],
+                ['type' => 'text', 'text' => 'Who are you?'],
             ],
         ],
     ]);
