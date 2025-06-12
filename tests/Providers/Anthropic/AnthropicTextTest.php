@@ -19,6 +19,7 @@ use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -62,55 +63,98 @@ it('can generate text with a system prompt', function (): void {
     );
 });
 
-it('can generate text using multiple tools and multiple steps', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-multiple-tools');
+describe('tools', function (): void {
+    it('can generate text using multiple tools and multiple steps', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-multiple-tools');
 
-    $tools = [
-        Tool::as('weather')
-            ->for('useful when you need to search for current weather conditions')
-            ->withStringParameter('city', 'the city you want the weather for')
-            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
-        Tool::as('search')
-            ->for('useful for searching curret events or data')
-            ->withStringParameter('query', 'The detailed search query')
-            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
-    ];
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'the city you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
 
-    $response = Prism::text()
-        ->using('anthropic', 'claude-3-5-sonnet-20240620')
-        ->withTools($tools)
-        ->withMaxSteps(3)
-        ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->asText();
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools($tools)
+            ->withMaxSteps(3)
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asText();
 
-    // Assert tool calls in the first step
-    $firstStep = $response->steps[0];
-    expect($firstStep->toolCalls)->toHaveCount(1);
-    expect($firstStep->toolCalls[0]->name)->toBe('search');
-    expect($firstStep->toolCalls[0]->arguments())->toBe([
-        'query' => 'Detroit Tigers baseball game time today',
-    ]);
+        // Assert tool calls in the first step
+        $firstStep = $response->steps[0];
+        expect($firstStep->toolCalls)->toHaveCount(1);
+        expect($firstStep->toolCalls[0]->name)->toBe('search');
+        expect($firstStep->toolCalls[0]->arguments())->toBe([
+            'query' => 'Detroit Tigers baseball game time today',
+        ]);
 
-    // Assert tool calls in the second step
-    $secondStep = $response->steps[1];
-    expect($secondStep->toolCalls)->toHaveCount(1);
-    expect($secondStep->toolCalls[0]->name)->toBe('weather');
-    expect($secondStep->toolCalls[0]->arguments())->toBe([
-        'city' => 'Detroit',
-    ]);
+        // Assert tool calls in the second step
+        $secondStep = $response->steps[1];
+        expect($secondStep->toolCalls)->toHaveCount(1);
+        expect($secondStep->toolCalls[0]->name)->toBe('weather');
+        expect($secondStep->toolCalls[0]->arguments())->toBe([
+            'city' => 'Detroit',
+        ]);
 
-    // Assert usage
-    expect($response->usage->promptTokens)->toBe(1650);
-    expect($response->usage->completionTokens)->toBe(307);
+        // Assert usage
+        expect($response->usage->promptTokens)->toBe(1650);
+        expect($response->usage->completionTokens)->toBe(307);
 
-    // Assert response
-    expect($response->meta->id)->toBe('msg_011fBqNVVh5AwC3uyiq78qrj');
-    expect($response->meta->model)->toBe('claude-3-5-sonnet-20240620');
+        // Assert response
+        expect($response->meta->id)->toBe('msg_011fBqNVVh5AwC3uyiq78qrj');
+        expect($response->meta->model)->toBe('claude-3-5-sonnet-20240620');
 
-    // Assert final text content
-    expect($response->text)->toContain('The Tigers game is scheduled for 3:00 PM today in Detroit');
-    expect($response->text)->toContain('it will be 75°F (about 24°C) and sunny');
-    expect($response->text)->toContain("you likely won't need a coat");
+        // Assert final text content
+        expect($response->text)->toContain('The Tigers game is scheduled for 3:00 PM today in Detroit');
+        expect($response->text)->toContain('it will be 75°F (about 24°C) and sunny');
+        expect($response->text)->toContain("you likely won't need a coat");
+    });
+
+    it('it handles a provider tool', function (): void {
+        config()->set('prism.providers.anthropic.anthropic_beta', 'code-execution-2025-05-22');
+
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-provider-tool');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-haiku-latest')
+            ->withPrompt('Solve the equation 3x + 10 = 14.')
+            ->withProviderTools([new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')])
+            ->asText();
+
+        expect($response->text)->toContain('4/3');
+    });
+
+    it('handles a provider tool with a user defined tool', function (): void {
+        config()->set('prism.providers.anthropic.anthropic_beta', 'code-execution-2025-05-22');
+
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-provider-tool-and-user-tool');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-haiku-latest')
+            ->withPrompt('If the current temperature in Detroit is X, what is Y in the following equation: 3x + 10 = Y?')
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')])
+            ->withMaxSteps(3)
+            ->asText();
+
+        expect($response->text)->toContain('235');
+    });
 });
 
 it('can send images from file', function (): void {

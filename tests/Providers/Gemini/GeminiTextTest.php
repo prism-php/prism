@@ -16,11 +16,14 @@ use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Testing\TextStepFake;
+use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -351,14 +354,36 @@ describe('Document support for Gemini', function (): void {
     });
 });
 
-describe('search grounding', function (): void {
-    it('adds the google_search empty tool if searchGrounding is set to true', function (): void {
+describe('provider tools', function (): void {
+    it('adds a provider tool to the request', function (): void {
+        $fake = Prism::fake([
+            (new ResponseBuilder)
+                ->addStep(
+                    TextStepFake::make()
+                )
+                ->toResponse(),
+        ]);
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withPrompt('What is the stock price of Google right now?')
+            ->withProviderTools([new ProviderTool('google_search')])
+            ->asText();
+
+        $fake->assertRequest(function (array $requests): void {
+            expect($requests[0]->providerTools())->toHaveCount(1);
+            expect($requests[0]->providerTools()[0])->toBeInstanceOf(ProviderTool::class);
+            expect($requests[0]->providerTools()[0]->type)->toBe('google_search');
+        });
+    });
+
+    it('adds provider tools if set', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         Prism::text()
             ->using(Provider::Gemini, 'gemini-2.0-flash')
             ->withPrompt('What is the stock price of Google right now?')
-            ->withProviderOptions(['searchGrounding' => true])
+            ->withProviderTools([new ProviderTool('google_search')])
             ->asText();
 
         Http::assertSent(function (Request $request): true {
@@ -371,8 +396,8 @@ describe('search grounding', function (): void {
         });
     });
 
-    it('throws an exception of searchGrounding is enabled with other tools', function (): void {
-        Http::fake()->preventStrayRequests();
+    it('throws an exception if provider tools are enabled with other tools', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         $tools = [
             (new Tool)
@@ -386,22 +411,10 @@ describe('search grounding', function (): void {
             ->using(Provider::Gemini, 'gemini-2.0-flash')
             ->withMaxSteps(3)
             ->withTools($tools)
+            ->withProviderTools([new ProviderTool('google_search')])
             ->withPrompt('What sport fixtures are on today, and will I need a coat based on today\'s weather forecast?')
-            ->withProviderOptions(['searchGrounding' => true])
             ->asText();
-    })->throws(PrismException::class, 'Use of search grounding with custom tools is not currently supported by Prism.');
-
-    it('uses search grounding where searchGrounding is true on provider meta', function (): void {
-        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
-
-        $response = Prism::text()
-            ->using(Provider::Gemini, 'gemini-2.0-flash')
-            ->withPrompt('What is the stock price of Google right now?')
-            ->withProviderOptions(['searchGrounding' => true])
-            ->asText();
-
-        expect($response->text)->toContain('Alphabet Inc.');
-    });
+    })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
 
     it('maps search groundings into additional content', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');

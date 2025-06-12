@@ -24,6 +24,7 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Throwable;
@@ -118,7 +119,7 @@ class Text
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => $request->providerOptions('metadata'),
-                    'tools' => ToolMap::map($request->tools()),
+                    'tools' => $this->buildTools($request),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     'previous_response_id' => $request->providerOptions('previous_response_id'),
                     'truncation' => $request->providerOptions('truncation'),
@@ -155,5 +156,27 @@ class Text
             additionalContent: [],
             systemPrompts: $request->systemPrompts(),
         ));
+    }
+
+    /**
+     * @return array<int|string,mixed>
+     */
+    protected function buildTools(Request $request): array
+    {
+        $tools = ToolMap::map($request->tools());
+
+        if ($request->providerTools() === []) {
+            return $tools;
+        }
+
+        $providerTools = array_map(
+            fn (ProviderTool $tool): array => [
+                'type' => $tool->type,
+                ...$tool->options,
+            ],
+            $request->providerTools()
+        );
+
+        return array_merge($providerTools, $tools);
     }
 }

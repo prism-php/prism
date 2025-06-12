@@ -13,6 +13,7 @@ use Prism\Prism\Concerns\ConfiguresTools;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -27,6 +28,7 @@ class PendingRequest
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
+    use HasProviderTools;
     use HasTools;
 
     /**
@@ -76,6 +78,7 @@ class PendingRequest
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,
             providerOptions: $this->providerOptions,
+            providerTools: $this->providerTools,
         );
     }
 }

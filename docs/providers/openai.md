@@ -69,3 +69,18 @@ $response = Prism::structured()
 ### Caching
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.
+
+### Code interpreter
+
+You can use the OpenAI code interpreter as follows:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+
+Prism::text()
+    ->using('openai', 'gpt-4.1')
+    ->withPrompt('Solve the equation 3x + 10 = 14.')
+    ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+    ->asText();
+```

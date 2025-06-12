@@ -1,0 +1,96 @@
+{
+  "id": "resp_684b07f6c674819ea2c9f1d2368a0fb9059e6f6c83649905",
+  "object": "response",
+  "created_at": 1749747702,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "model": "gpt-4.1-2025-04-14",
+  "output": [
+    {
+      "id": "fc_684b07f9d20c819e8ddb697bfeb7ae50059e6f6c83649905",
+      "type": "function_call",
+      "status": "completed",
+      "arguments": "{\"city\":\"Detroit\"}",
+      "call_id": "call_YzbhDicRsZKscu0Xzob27Tdu",
+      "name": "weather"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "code_interpreter",
+      "container": {
+        "type": "auto"
+      }
+    },
+    {
+      "type": "function",
+      "description": "useful when you need to search for current weather conditions",
+      "name": "weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "description": "The city that you want the weather for",
+            "type": "string"
+          }
+        },
+        "required": [
+          "city"
+        ]
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "description": "useful for searching curret events or data",
+      "name": "search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "The detailed search query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "strict": true
+    }
+  ],
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 200,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 14,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 214
+  },
+  "user": null,
+  "metadata": {}
+}
