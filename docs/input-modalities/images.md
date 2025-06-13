@@ -50,7 +50,7 @@ $message = new UserMessage(
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withMessages([$message])
-    ->generate();
+    ->asText();
 ```
 
 ## Transfer mediums 

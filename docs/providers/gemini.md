@@ -21,7 +21,7 @@ $response = Prism::text()
     ->withPrompt('What is the stock price of Google right now?')
     // Enable search grounding
     ->withProviderTools(['google_search'])
-    ->generate();
+    ->asText();
 ```
 
 If you use search groundings, Google require you meet certain [display requirements](https://ai.google.dev/gemini-api/docs/grounding/search-suggestions).
@@ -137,7 +137,7 @@ $response = Prism::text()
     ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
     // Set thinking budget
     ->withProviderOptions(['thinkingBudget' => 300])
-    ->generate();
+    ->asText();
 ```
 > [!NOTE]
 > Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.

@@ -70,5 +70,5 @@ use Prism\Prism\Facades\Prism;
 $response = Prism::text()
     ->using('my-custom-provider', 'model-name')
     ->withPrompt('Hello, custom AI!')
-    ->generate();
+    ->asText();
 ```
