@@ -84,3 +84,16 @@ Prism::text()
     ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
     ->asText();
 ```
+
+### Additional Message Attributes
+
+Adding optional parameters to a `UserMessage` like the `name` field can be done through the `additionalAttributes` parameter.
+
+```php
+Prism::text()
+    ->using('openai', 'gpt-4.1')
+    ->withMessages([
+        new UserMessage('Who are you?', additionalAttributes: ['name' => 'TJ']),
+    ])
+    ->asText()
+```
