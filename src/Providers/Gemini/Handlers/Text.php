@@ -25,6 +25,7 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Throwable;
@@ -89,17 +90,24 @@ class Text
                 'thinkingConfig' => $thinkingConfig !== [] ? $thinkingConfig : null,
             ]);
 
-            if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
-                throw new Exception('Use of search grounding with custom tools is not currently supported by Prism.');
+            if ($request->tools() !== [] && $request->providerTools() != []) {
+                throw new Exception('Use of provider tools with custom tools is not currently supported by Gemini.');
             }
 
-            $tools = $providerOptions['searchGrounding'] ?? false
-                ? [
-                    [
-                        'google_search' => (object) [],
-                    ],
-                ]
-                : ($request->tools() !== [] ? ['function_declarations' => ToolMap::map($request->tools())] : []);
+            $tools = [];
+
+            if ($request->providerTools() !== []) {
+                $tools = [
+                    Arr::mapWithKeys(
+                        $request->providerTools(),
+                        fn (ProviderTool $providerTool): array => [$providerTool->type => (object) []]
+                    ),
+                ];
+            }
+
+            if ($request->tools() !== []) {
+                $tools['function_declarations'] = ToolMap::map($request->tools());
+            }
 
             return $this->client->post(
                 "{$request->model()}:generateContent",

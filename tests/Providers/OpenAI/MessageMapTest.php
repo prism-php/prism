@@ -31,11 +31,28 @@ it('maps user messages', function (): void {
     ]]);
 });
 
+it('maps user messages with additional attributes', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new UserMessage('Who are you?', additionalAttributes: ['name' => 'TJ']),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([[
+        'role' => 'user',
+        'content' => [
+            ['type' => 'input_text', 'text' => 'Who are you?'],
+        ],
+        'name' => 'TJ',
+    ]]);
+});
+
 it('maps user messages with images from path', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/dimond.png'),
             ]),
         ],
         systemPrompts: []

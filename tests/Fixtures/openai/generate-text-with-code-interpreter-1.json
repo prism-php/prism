@@ -1,0 +1,65 @@
+{
+  "id": "resp_684b06dab43c819c84f623fec58aa55d029bfe449563c425",
+  "object": "response",
+  "created_at": 1749747418,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "model": "gpt-4.1-2025-04-14",
+  "output": [
+    {
+      "id": "msg_684b06dcce74819c819ffe9b836d7ff8029bfe449563c425",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "Let's solve the equation step by step:\n\nGiven equation:\n\\[ 3x + 10 = 14 \\]\n\n**Step 1:** Subtract 10 from both sides to isolate the term with \\( x \\):\n\\[\n3x + 10 - 10 = 14 - 10\n\\]\n\\[\n3x = 4\n\\]\n\n**Step 2:** Divide both sides by 3 to solve for \\( x \\):\n\\[\nx = \\frac{4}{3}\n\\]\n\n**Final Answer:**\n\\[\n\\boxed{x = \\frac{4}{3}}\n\\]"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "code_interpreter",
+      "container": {
+        "type": "auto"
+      }
+    }
+  ],
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 117,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 126,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 243
+  },
+  "user": null,
+  "metadata": {}
+}

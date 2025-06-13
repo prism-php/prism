@@ -38,7 +38,7 @@ try {
     Prism::text()
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
         ->withPrompt('Hello world!')
-        ->generate();
+        ->asText();
 }
 catch (PrismRateLimitedException $e) {
     /** @var ProviderRateLimit $rate_limit */ 
@@ -110,7 +110,7 @@ use Prism\Prism\ValueObjects\ProviderRateLimit;
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withPrompt('Hello world!')
-    ->generate();
+    ->asText();
     
 /** @var ProviderRateLimit $rate_limit */ 
 foreach ($response->meta->rateLimits as $rate_limit) {

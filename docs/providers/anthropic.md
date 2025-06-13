@@ -181,6 +181,40 @@ Prism supports [Anthropic's citations feature](https://docs.anthropic.com/en/doc
 
 Please note however that due to Anthropic not supporting "native" structured output, and Prism's workaround for this, the output can be unreliable. You should therefore ensure you implement proper error handling for the scenario where Anthropic does not return a valid decodable schema.
 
+## Code execution
+
+To enable code execution, you will first need to enable the beta feature.
+
+Either in prism/config.php:
+
+```php
+        'anthropic' => [
+            ...
+            'anthropic_beta' => 'code-execution-2025-05-22',
+        ],
+
+```
+
+Or in your env file (assuming config/prism.php reflects the default prism setup):
+
+```
+ANTHROPIC_BETA="code-execution-2025-05-22"
+```
+
+You may then use code execution as follows:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+
+Prism::text()
+    ->using('anthropic', 'claude-3-5-haiku-latest')
+    ->withPrompt('Solve the equation 3x + 10 = 14.')
+    ->withProviderTools([new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')])
+    ->asText();
+
+```
+
 ### Enabling citations
 
 Anthropic require citations to be enabled on all documents in a request. To enable them, using the `withProviderOptions()` method when building your request:

@@ -16,11 +16,14 @@ use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Testing\TextStepFake;
+use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -164,7 +167,7 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
                     ],
                 ),
             ])
@@ -232,9 +235,17 @@ describe('Image support with Gemini', function (): void {
     });
 
     it('can send images from url', function (): void {
-        FixtureResponse::fakeResponseSequence('*', 'gemini/image-detection');
+        FixtureResponse::fakeResponseSequence('generateContent', 'gemini/image-detection');
 
         $image = 'https://prismphp.com/storage/dimond.png';
+
+        Http::fake([
+            $image => Http::response(
+                file_get_contents('tests/Fixtures/dimond.png'),
+                200,
+                ['Content-Type' => 'image/png']
+            ),
+        ]);
 
         $response = Prism::text()
             ->using(Provider::Gemini, 'gemini-1.5-flash')
@@ -242,27 +253,30 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromUrl($image, 'image/png'),
+                        Image::fromUrl($image),
                     ],
                 ),
             ])
             ->asText();
 
-        Http::assertSent(function (Request $request) use ($image): bool {
-            $message = $request->data()['contents'][0]['parts'];
+        Http::assertSentInOrder([
+            fn (): true => true,
+            function (Request $request): bool {
+                $message = $request->data()['contents'][0]['parts'];
 
-            expect($message[0])->toBe([
-                'text' => 'What is this image',
-            ]);
+                expect($message[0])->toBe([
+                    'text' => 'What is this image',
+                ]);
 
-            expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
-            expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
-            expect($message[1]['inline_data']['data'])->toBe(
-                base64_encode(file_get_contents($image))
-            );
+                expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
+                expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
+                expect($message[1]['inline_data']['data'])->toBe(
+                    base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                );
 
-            return true;
-        });
+                return true;
+            },
+        ]);
     });
 });
 
@@ -340,14 +354,36 @@ describe('Document support for Gemini', function (): void {
     });
 });
 
-describe('search grounding', function (): void {
-    it('adds the google_search empty tool if searchGrounding is set to true', function (): void {
+describe('provider tools', function (): void {
+    it('adds a provider tool to the request', function (): void {
+        $fake = Prism::fake([
+            (new ResponseBuilder)
+                ->addStep(
+                    TextStepFake::make()
+                )
+                ->toResponse(),
+        ]);
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withPrompt('What is the stock price of Google right now?')
+            ->withProviderTools([new ProviderTool('google_search')])
+            ->asText();
+
+        $fake->assertRequest(function (array $requests): void {
+            expect($requests[0]->providerTools())->toHaveCount(1);
+            expect($requests[0]->providerTools()[0])->toBeInstanceOf(ProviderTool::class);
+            expect($requests[0]->providerTools()[0]->type)->toBe('google_search');
+        });
+    });
+
+    it('adds provider tools if set', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         Prism::text()
             ->using(Provider::Gemini, 'gemini-2.0-flash')
             ->withPrompt('What is the stock price of Google right now?')
-            ->withProviderOptions(['searchGrounding' => true])
+            ->withProviderTools([new ProviderTool('google_search')])
             ->asText();
 
         Http::assertSent(function (Request $request): true {
@@ -360,8 +396,8 @@ describe('search grounding', function (): void {
         });
     });
 
-    it('throws an exception of searchGrounding is enabled with other tools', function (): void {
-        Http::fake()->preventStrayRequests();
+    it('throws an exception if provider tools are enabled with other tools', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         $tools = [
             (new Tool)
@@ -375,22 +411,10 @@ describe('search grounding', function (): void {
             ->using(Provider::Gemini, 'gemini-2.0-flash')
             ->withMaxSteps(3)
             ->withTools($tools)
+            ->withProviderTools([new ProviderTool('google_search')])
             ->withPrompt('What sport fixtures are on today, and will I need a coat based on today\'s weather forecast?')
-            ->withProviderOptions(['searchGrounding' => true])
             ->asText();
-    })->throws(PrismException::class, 'Use of search grounding with custom tools is not currently supported by Prism.');
-
-    it('uses search grounding where searchGrounding is true on provider meta', function (): void {
-        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
-
-        $response = Prism::text()
-            ->using(Provider::Gemini, 'gemini-2.0-flash')
-            ->withPrompt('What is the stock price of Google right now?')
-            ->withProviderOptions(['searchGrounding' => true])
-            ->asText();
-
-        expect($response->text)->toContain('Alphabet Inc.');
-    });
+    })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
 
     it('maps search groundings into additional content', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
@@ -432,7 +456,7 @@ describe('Cache support for Gemini', function (): void {
             model: 'gemini-1.5-flash-002',
             messages: [
                 new UserMessage('', [
-                    Document::fromPath('tests/Fixtures/long-document.pdf'),
+                    Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
                 ]),
             ],
             systemPrompts: [
