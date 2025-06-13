@@ -26,7 +26,6 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
-use Prism\Prism\ValueObjects\ToolResult;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -556,38 +555,16 @@ class Stream
      */
     protected function handleToolCalls(Request $request, array $toolCalls, int $depth, ?array $additionalContent = null): Generator
     {
-        $toolResults = [];
+        // Use the CallsTools trait method which includes telemetry
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
-        foreach ($toolCalls as $toolCall) {
-            $tool = $this->resolveTool($toolCall->name, $request->tools());
-
-            try {
-                $result = call_user_func_array(
-                    $tool->handle(...),
-                    $toolCall->arguments()
-                );
-
-                $toolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: $result,
-                );
-
-                $toolResults[] = $toolResult;
-
-                yield new Chunk(
-                    text: '',
-                    toolResults: [$toolResult],
-                    chunkType: ChunkType::ToolResult
-                );
-            } catch (Throwable $e) {
-                if ($e instanceof PrismException) {
-                    throw $e;
-                }
-
-                throw PrismException::toolCallFailed($toolCall, $e);
-            }
+        // Yield tool results as chunks
+        foreach ($toolResults as $toolResult) {
+            yield new Chunk(
+                text: '',
+                toolResults: [$toolResult],
+                chunkType: ChunkType::ToolResult
+            );
         }
 
         $this->addMessagesToRequest($request, $toolResults, $additionalContent);

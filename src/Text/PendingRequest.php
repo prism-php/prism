@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Text;
 
 use Generator;
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresGeneration;
 use Prism\Prism\Concerns\ConfiguresModels;
@@ -16,6 +19,10 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Events\StreamingCompleted;
+use Prism\Prism\Telemetry\Events\StreamingStarted;
+use Prism\Prism\Telemetry\Events\TextGenerationCompleted;
+use Prism\Prism\Telemetry\Events\TextGenerationStarted;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class PendingRequest
@@ -41,7 +48,45 @@ class PendingRequest
 
     public function asText(): Response
     {
-        return $this->provider->text($this->toRequest());
+        $request = $this->toRequest();
+
+        if (config('prism.telemetry.enabled', false)) {
+            $spanId = Str::uuid()->toString();
+            $parentSpanId = Context::get('prism.telemetry.current_span_id');
+            $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
+
+            Context::add('prism.telemetry.current_span_id', $spanId);
+            Context::add('prism.telemetry.root_span_id', $rootSpanId);
+
+            Event::dispatch(new TextGenerationStarted(
+                spanId: $spanId,
+                request: $request,
+                context: [
+                    'parent_span_id' => $parentSpanId,
+                    'root_span_id' => $rootSpanId,
+                ]
+            ));
+
+            try {
+                $response = $this->provider->text($request);
+
+                Event::dispatch(new TextGenerationCompleted(
+                    spanId: $spanId,
+                    request: $request,
+                    response: $response,
+                    context: [
+                        'parent_span_id' => $parentSpanId,
+                        'root_span_id' => $rootSpanId,
+                    ]
+                ));
+
+                return $response;
+            } finally {
+                Context::add('prism.telemetry.current_span_id', $parentSpanId);
+            }
+        }
+
+        return $this->provider->text($request);
     }
 
     /**
@@ -49,7 +94,46 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
-        return $this->provider->stream($this->toRequest());
+        $request = $this->toRequest();
+
+        if (config('prism.telemetry.enabled', false)) {
+            $spanId = Str::uuid()->toString();
+            $parentSpanId = Context::get('prism.telemetry.current_span_id');
+            $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
+
+            Context::add('prism.telemetry.current_span_id', $spanId);
+            Context::add('prism.telemetry.root_span_id', $rootSpanId);
+
+            Event::dispatch(new StreamingStarted(
+                spanId: $spanId,
+                request: $request,
+                context: [
+                    'parent_span_id' => $parentSpanId,
+                    'root_span_id' => $rootSpanId,
+                ]
+            ));
+
+            try {
+                foreach ($this->provider->stream($request) as $chunk) {
+                    yield $chunk;
+                }
+
+                Event::dispatch(new StreamingCompleted(
+                    spanId: $spanId,
+                    request: $request,
+                    context: [
+                        'parent_span_id' => $parentSpanId,
+                        'root_span_id' => $rootSpanId,
+                    ]
+                ));
+            } finally {
+                Context::add('prism.telemetry.current_span_id', $parentSpanId);
+            }
+
+            return;
+        }
+
+        yield from $this->provider->stream($request);
     }
 
     public function toRequest(): Request

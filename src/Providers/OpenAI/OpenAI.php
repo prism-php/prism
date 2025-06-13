@@ -7,7 +7,7 @@ namespace Prism\Prism\Providers\OpenAI;
 use Closure;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\HasHttpClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -22,6 +22,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 readonly class OpenAI implements Provider
 {
+    use HasHttpClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -79,13 +81,14 @@ readonly class OpenAI implements Provider
      */
     protected function client(array $options, array $retry): PendingRequest
     {
-        return Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-            'OpenAI-Organization' => $this->organization,
-            'OpenAI-Project' => $this->project,
-        ]))
-            ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->url);
+        return $this->createHttpClient(
+            headers: array_filter([
+                'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
+                'OpenAI-Organization' => $this->organization,
+                'OpenAI-Project' => $this->project,
+            ]),
+            options: $options,
+            retry: $retry
+        )->baseUrl($this->url);
     }
 }

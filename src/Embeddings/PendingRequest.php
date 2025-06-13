@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Embeddings;
 
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted;
+use Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted;
 
 class PendingRequest
 {
@@ -66,7 +71,45 @@ class PendingRequest
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        $request = $this->toRequest();
+
+        if (config('prism.telemetry.enabled', false)) {
+            $spanId = Str::uuid()->toString();
+            $parentSpanId = Context::get('prism.telemetry.current_span_id');
+            $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
+
+            Context::add('prism.telemetry.current_span_id', $spanId);
+            Context::add('prism.telemetry.root_span_id', $rootSpanId);
+
+            Event::dispatch(new EmbeddingGenerationStarted(
+                spanId: $spanId,
+                request: $request,
+                context: [
+                    'parent_span_id' => $parentSpanId,
+                    'root_span_id' => $rootSpanId,
+                ]
+            ));
+
+            try {
+                $response = $this->provider->embeddings($request);
+
+                Event::dispatch(new EmbeddingGenerationCompleted(
+                    spanId: $spanId,
+                    request: $request,
+                    response: $response,
+                    context: [
+                        'parent_span_id' => $parentSpanId,
+                        'root_span_id' => $rootSpanId,
+                    ]
+                ));
+
+                return $response;
+            } finally {
+                Context::add('prism.telemetry.current_span_id', $parentSpanId);
+            }
+        }
+
+        return $this->provider->embeddings($request);
     }
 
     protected function toRequest(): Request

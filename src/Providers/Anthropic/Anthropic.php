@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic;
 
+use Closure;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\HasHttpClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
@@ -20,6 +21,8 @@ use Prism\Prism\Text\Response;
 
 readonly class Anthropic implements Provider
 {
+    use HasHttpClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $apiVersion,
@@ -73,17 +76,18 @@ readonly class Anthropic implements Provider
 
     /**
      * @param  array<string, mixed>  $options
-     * @param  array<mixed>  $retry
+     * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}|array{}  $retry
      */
     protected function client(array $options = [], array $retry = []): PendingRequest
     {
-        return Http::withHeaders(array_filter([
-            'x-api-key' => $this->apiKey,
-            'anthropic-version' => $this->apiVersion,
-            'anthropic-beta' => $this->betaFeatures,
-        ]))
-            ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl('https://api.anthropic.com/v1');
+        return $this->createHttpClient(
+            headers: array_filter([
+                'x-api-key' => $this->apiKey,
+                'anthropic-version' => $this->apiVersion,
+                'anthropic-beta' => $this->betaFeatures,
+            ]),
+            options: $options,
+            retry: $retry
+        )->baseUrl('https://api.anthropic.com/v1');
     }
 }
