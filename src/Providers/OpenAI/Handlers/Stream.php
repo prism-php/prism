@@ -57,41 +57,29 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
-        // Prevent infinite recursion with tool calls
-        if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
-        }
         $text = '';
         $toolCalls = [];
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
 
-            // Skip empty data or DONE markers
             if ($data === null) {
                 continue;
             }
 
-            // Track reasoning items so we can pair them with subsequent function calls
             if (Str::startsWith(data_get($data, 'type', ''), 'response.reasoning')) {
                 $this->pendingReasoningId = data_get($data, 'id')
                     ?? data_get($data, 'reasoning.id');
 
-                // We don't yield anything for reasoning events themselves.
                 continue;
             }
 
-            // Process tool calls
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
-                // We defer execution of the tools until the model signals its turn is fully
-                // completed (handled below).
                 continue;
             }
 
-            // If the model turn is finished we can now act on any accumulated tool calls or
-            // simply yield the final chunk.
             if ($this->isFinalEvent($data)) {
                 if ($toolCalls !== []) {
                     yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
@@ -99,7 +87,6 @@ class Stream
                     return;
                 }
 
-                // No tool calls – just emit an empty chunk with the stop reason.
                 yield new Chunk(
                     text: '',
                     finishReason: FinishReason::Stop,
@@ -123,10 +110,14 @@ class Stream
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
         }
+
+        if ($toolCalls !== []) {
+            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+        }
     }
 
     /**
-     * @return array<string, mixed>|null Parsed JSON data or null if line should be skipped
+     * @return array<string, mixed>|null
      */
     protected function parseNextDataLine(StreamInterface $stream): ?array
     {
@@ -158,7 +149,6 @@ class Stream
     {
         $type = data_get($data, 'type', '');
 
-        // 1. New function call gets added
         if ($type === 'response.output_item.added' && data_get($data, 'item.type') === 'function_call') {
             $index = (int) data_get($data, 'output_index', count($toolCalls));
 
@@ -167,17 +157,14 @@ class Stream
             $toolCalls[$index]['name'] = data_get($data, 'item.name');
             $toolCalls[$index]['arguments'] = '';
 
-            // Attach the reasoning id captured just before this function call, if any
             if ($this->pendingReasoningId !== null) {
                 $toolCalls[$index]['reasoning_id'] = $this->pendingReasoningId;
-                // Reset for the next potential function call
                 $this->pendingReasoningId = null;
             }
 
             return $toolCalls;
         }
 
-        // 2. Streaming function call arguments
         if ($type === 'response.function_call_arguments.delta') {
             $callId = data_get($data, 'item_id');
             $delta = data_get($data, 'delta', '');
@@ -192,14 +179,12 @@ class Stream
             return $toolCalls;
         }
 
-        // 3. Final function call arguments (done)
         if ($type === 'response.function_call_arguments.done') {
             $callId = data_get($data, 'item_id');
             $arguments = data_get($data, 'arguments', '');
 
             foreach ($toolCalls as &$call) {
                 if (($call['id'] ?? null) === $callId) {
-                    // Prefer the completed arguments payload if provided
                     if ($arguments !== '') {
                         $call['arguments'] = $arguments;
                     }
@@ -240,8 +225,13 @@ class Stream
         $request->addMessage(new AssistantMessage($text, $toolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $depth++;
+
+        if ($depth < $request->maxSteps()) {
+            $nextResponse = $this->sendRequest($request);
+
+            yield from $this->processStream($nextResponse, $request, $depth);
+        }
     }
 
     /**
@@ -288,20 +278,16 @@ class Stream
      */
     protected function mapFinishReason(array $data): FinishReason
     {
-        // New responses stream sends finish information via dedicated event types
         $eventType = data_get($data, 'type');
 
         if ($eventType === 'response.text.done' || $eventType === 'text.done' || $eventType === 'response.completed') {
             return FinishReason::Stop;
         }
 
-        // Fallback to legacy chat/completions mapping
         return FinishReason::Unknown;
     }
 
     /**
-     * Determine if the current event signals that the model has fully finished its turn.
-     *
      * @param  array<string,mixed>  $data
      */
     protected function isFinalEvent(array $data): bool
