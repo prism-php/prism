@@ -4,6 +4,7 @@ namespace Prism\Prism;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Prism\Prism\Telemetry\TelemetryServiceProvider;
 
 class PrismServiceProvider extends ServiceProvider
 {
@@ -48,5 +49,7 @@ class PrismServiceProvider extends ServiceProvider
             'prism-server',
             fn (): PrismServer => new PrismServer
         );
+
+        $this->app->register(TelemetryServiceProvider::class);
     }
 }

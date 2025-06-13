@@ -61,4 +61,14 @@ return [
             ],
         ],
     ],
+    'telemetry' => [
+        'enabled' => env('PRISM_TELEMETRY_ENABLED', false),
+        'driver' => env('PRISM_TELEMETRY_DRIVER', 'null'),
+        'drivers' => [
+            'null' => [],
+            'log' => [
+                'channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'prism-telemetry'),
+            ],
+        ],
+    ],
 ];
