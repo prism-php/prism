@@ -314,6 +314,9 @@ class Stream
         ], true);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function extractContent(array $data): string
     {
         if (Str::contains(data_get($data, 'type', ''), 'text.delta')) {
