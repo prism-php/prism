@@ -126,16 +126,16 @@ it('can process a complete conversation with multiple tool calls', function (): 
 
     foreach ($response as $chunk) {
         if ($chunk->toolCalls !== []) {
-            $toolCallCount++;
+            $toolCallCount += count($chunk->toolCalls);
         }
         $fullResponse .= $chunk->text;
     }
 
-    expect($toolCallCount)->toBeGreaterThanOrEqual(1);
+    expect($toolCallCount)->toBe(2);
     expect($fullResponse)->not->toBeEmpty();
 
     // Verify we made multiple requests for a conversation with tool calls
-    Http::assertSentCount(3);
+    Http::assertSentCount(2);
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
