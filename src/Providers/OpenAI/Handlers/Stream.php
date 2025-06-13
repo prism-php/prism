@@ -306,12 +306,7 @@ class Stream
      */
     protected function isFinalEvent(array $data): bool
     {
-        return in_array(data_get($data, 'type'), [
-            'response.completed',
-            'response.done',
-            'response.text.done',
-            'text.done',
-        ], true);
+        return data_get($data, 'type') === 'response.completed';
     }
 
     /**
