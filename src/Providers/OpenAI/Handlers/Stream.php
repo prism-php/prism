@@ -17,6 +17,7 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
@@ -276,13 +277,10 @@ class Stream
      */
     protected function mapFinishReason(array $data): FinishReason
     {
-        $eventType = data_get($data, 'type');
+        $eventType = Str::after(data_get($data, 'type'), 'response.');
+        $lastOutputType = data_get($data, 'response.output.{last}.type');
 
-        if ($eventType === 'response.text.done' || $eventType === 'text.done' || $eventType === 'response.completed') {
-            return FinishReason::Stop;
-        }
-
-        return FinishReason::Unknown;
+        return FinishReasonMap::map($eventType, $lastOutputType);
     }
 
     /**
