@@ -176,6 +176,50 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     Http::assertSentCount(3);
 });
 
+it('can process a complete conversation with multiple tool calls for reasoning models that require past reasoning', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning-past-reasoning');
+    $tools = [
+        Tool::as('weather')
+            ->for('Get weather information')
+            ->withStringParameter('city', 'City name')
+            ->using(fn (string $city): string => "The weather in {$city} is 75° and sunny."),
+
+        Tool::as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => 'Tigers game is at 3pm in Detroit today.'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'o4-mini')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+                'summary' => 'detailed',
+            ],
+        ])
+        ->withTools($tools)
+        ->withMaxSteps(5) // Allow multiple tool call rounds
+        ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
+        ->asStream();
+
+    $fullResponse = '';
+    $toolCallCount = 0;
+
+    foreach ($response as $chunk) {
+        if ($chunk->toolCalls !== []) {
+            $toolCallCount += count($chunk->toolCalls);
+        }
+        $fullResponse .= $chunk->text;
+    }
+
+    expect($toolCallCount)->toBe(2);
+    expect($fullResponse)->not->toBeEmpty();
+
+    // Verify we made multiple requests for a conversation with tool calls
+    Http::assertSentCount(3);
+});
+
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
     Http::fake([
         '*' => Http::response(
