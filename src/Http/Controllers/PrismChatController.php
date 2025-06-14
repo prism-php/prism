@@ -8,6 +8,7 @@ use Prism\Prism\Facades\PrismServer;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Symfony\Component\HttpFoundation\Response;
@@ -130,12 +131,99 @@ class PrismChatController
     {
         return collect($messages)
             ->map(fn ($message): UserMessage|AssistantMessage|SystemMessage => match ($message['role']) {
-                'user' => new UserMessage($message['content']),
-                'assistant' => new AssistantMessage($message['content']),
-                'system' => new SystemMessage($message['content']),
+                'user' => $this->mapUserMessage($message),
+                'assistant' => new AssistantMessage($this->extractTextContent($message['content'])),
+                'system' => new SystemMessage($this->extractTextContent($message['content'])),
                 default => throw new PrismServerException("Couldn't map messages to Prism messages")
             })
             ->toArray();
+    }
+
+    /**
+     * @param  array{role: string, content: mixed}  $message
+     */
+    protected function mapUserMessage(array $message): UserMessage
+    {
+        $content = $message['content'];
+
+        // Si le contenu est une string simple, retourner un UserMessage classique
+        if (is_string($content)) {
+            return new UserMessage($content);
+        }
+
+        // Si le contenu est un array (format multimodal OpenAI)
+        if (is_array($content)) {
+            $textContent = '';
+            $additionalContent = [];
+
+            foreach ($content as $part) {
+                if (! is_array($part)) {
+                    continue;
+                }
+                if (! isset($part['type'])) {
+                    continue;
+                }
+                if (! is_string($part['type'])) {
+                    continue;
+                }
+                match ($part['type']) {
+                    'text' => $textContent .= $part['text'] ?? '',
+                    'image_url' => $additionalContent[] = $this->mapImageUrl($part),
+                    default => null // Ignore unknown types
+                };
+            }
+
+            return new UserMessage($textContent, $additionalContent);
+        }
+
+        // This line should never be reached due to the type guards above
+        throw new PrismServerException('Invalid message content type');
+    }
+
+    /**
+     * @param  array<string, mixed>  $imagePart
+     */
+    protected function mapImageUrl(array $imagePart): Image
+    {
+        $imageUrl = $imagePart['image_url'] ?? [];
+        $url = $imageUrl['url'] ?? '';
+
+        // Détecter si c'est une image base64 ou une URL
+        if (str_starts_with((string) $url, 'data:')) {
+            // Format: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+            $parts = explode(',', (string) $url, 2);
+            if (count($parts) === 2) {
+                $metadata = $parts[0]; // data:image/png;base64
+                $base64Data = $parts[1];
+
+                // Extraire le mime type
+                preg_match('/data:([^;]+)/', $metadata, $matches);
+                $mimeType = $matches[1] ?? 'image/jpeg';
+
+                return Image::fromBase64($base64Data, $mimeType);
+            }
+        }
+
+        // C'est une URL
+        return Image::fromUrl($url);
+    }
+
+    /**
+     * @param  string|array<int, mixed>  $content
+     */
+    protected function extractTextContent(string|array $content): string
+    {
+        if (is_string($content)) {
+            return $content;
+        }
+        $text = '';
+        foreach ($content as $part) {
+            if (is_array($part) && isset($part['type']) && $part['type'] === 'text') {
+                $text .= $part['text'] ?? '';
+            }
+        }
+
+        return $text;
     }
 
     protected function resolvePrism(string $model): PendingRequest
