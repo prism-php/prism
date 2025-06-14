@@ -87,6 +87,7 @@ class MessageMap
                 ...self::mapDocumentParts($message->documents()),
                 ...self::mapFileParts($message->files()),
             ],
+            ...$message->additionalAttributes,
         ];
     }
 

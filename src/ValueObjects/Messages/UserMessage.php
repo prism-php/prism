@@ -17,10 +17,12 @@ class UserMessage implements Message
 
     /**
      * @param  array<int, Text|Image|Document|OpenAIFile>  $additionalContent
+     * @param  array<string, mixed>  $additionalAttributes
      */
     public function __construct(
         public readonly string $content,
-        public array $additionalContent = []
+        public array $additionalContent = [],
+        public readonly array $additionalAttributes = [],
     ) {
         $this->additionalContent[] = new Text($content);
     }
