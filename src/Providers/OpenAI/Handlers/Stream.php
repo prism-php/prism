@@ -33,14 +33,6 @@ class Stream
 {
     use CallsTools, ProcessesRateLimits;
 
-    /**
-     * Temporarily stores the ID of the last reasoning item streamed. The ID
-     * must be attached to the next function_call item so we can include the
-     * required reasoning object when we send the follow-up request with tool
-     * results.
-     */
-    protected ?string $pendingReasoningId = null;
-
     public function __construct(protected PendingRequest $client) {}
 
     /**
@@ -65,13 +57,6 @@ class Stream
             $data = $this->parseNextDataLine($response->getBody());
 
             if ($data === null) {
-                continue;
-            }
-
-            if (Str::startsWith(data_get($data, 'type', ''), 'response.reasoning')) {
-                $this->pendingReasoningId = data_get($data, 'id')
-                    ?? data_get($data, 'reasoning.id');
-
                 continue;
             }
 
@@ -138,11 +123,6 @@ class Stream
             $toolCalls[$index]['call_id'] = data_get($data, 'item.call_id');
             $toolCalls[$index]['name'] = data_get($data, 'item.name');
             $toolCalls[$index]['arguments'] = '';
-
-            if ($this->pendingReasoningId !== null) {
-                $toolCalls[$index]['reasoning_id'] = $this->pendingReasoningId;
-                $this->pendingReasoningId = null;
-            }
 
             return $toolCalls;
         }
@@ -229,9 +209,7 @@ class Stream
                 id: data_get($toolCall, 'id'),
                 name: data_get($toolCall, 'name'),
                 arguments: data_get($toolCall, 'arguments'),
-                resultId: data_get($toolCall, 'call_id') ?? data_get($toolCall, 'id'),
-                reasoningId: data_get($toolCall, 'reasoning_id'),
-                reasoningSummary: data_get($toolCall, 'reasoning_summary'),
+                resultId: data_get($toolCall, 'call_id'),
             ))
             ->toArray();
     }
