@@ -52,6 +52,7 @@ class Stream
     {
         $text = '';
         $toolCalls = [];
+        $reasoningItems = [];
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -60,8 +61,14 @@ class Stream
                 continue;
             }
 
+            if ($this->hasReasoningItems($data)) {
+                $reasoningItems = $this->extractReasoningItems($data, $reasoningItems);
+
+                continue;
+            }
+
             if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
+                $toolCalls = $this->extractToolCalls($data, $toolCalls, $reasoningItems);
 
                 continue;
             }
@@ -110,9 +117,10 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      * @param  array<int, array<string, mixed>>  $toolCalls
+     * @param  array<int, array<string, mixed>>  $reasoningItems
      * @return array<int, array<string, mixed>>
      */
-    protected function extractToolCalls(array $data, array $toolCalls): array
+    protected function extractToolCalls(array $data, array $toolCalls, array $reasoningItems = []): array
     {
         $type = data_get($data, 'type', '');
 
@@ -123,6 +131,13 @@ class Stream
             $toolCalls[$index]['call_id'] = data_get($data, 'item.call_id');
             $toolCalls[$index]['name'] = data_get($data, 'item.name');
             $toolCalls[$index]['arguments'] = '';
+
+            // Associate with the most recent reasoning item if available
+            if ($reasoningItems !== []) {
+                $latestReasoning = end($reasoningItems);
+                $toolCalls[$index]['reasoning_id'] = $latestReasoning['id'];
+                $toolCalls[$index]['reasoning_summary'] = $latestReasoning['summary'] ?? [];
+            }
 
             return $toolCalls;
         }
@@ -200,6 +215,8 @@ class Stream
                 name: data_get($toolCall, 'name'),
                 arguments: data_get($toolCall, 'arguments'),
                 resultId: data_get($toolCall, 'call_id'),
+                reasoningId: data_get($toolCall, 'reasoning_id'),
+                reasoningSummary: data_get($toolCall, 'reasoning_summary', []),
             ))
             ->toArray();
     }
@@ -219,6 +236,35 @@ class Stream
             'response.function_call_arguments.delta',
             'response.function_call_arguments.done',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasReasoningItems(array $data): bool
+    {
+        $type = data_get($data, 'type', '');
+
+        return $type === 'response.output_item.added' && data_get($data, 'item.type') === 'reasoning';
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<int, array<string, mixed>>  $reasoningItems
+     * @return array<int, array<string, mixed>>
+     */
+    protected function extractReasoningItems(array $data, array $reasoningItems): array
+    {
+        if (data_get($data, 'type') === 'response.output_item.added' && data_get($data, 'item.type') === 'reasoning') {
+            $index = (int) data_get($data, 'output_index', count($reasoningItems));
+
+            $reasoningItems[$index] = [
+                'id' => data_get($data, 'item.id'),
+                'summary' => data_get($data, 'item.summary', []),
+            ];
+        }
+
+        return $reasoningItems;
     }
 
     /**
