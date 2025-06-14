@@ -266,10 +266,8 @@ class Stream
         }
 
         return in_array($type, [
-            'response.output_item.added.function_call',
             'response.function_call_arguments.delta',
             'response.function_call_arguments.done',
-            'response.output_item.done.function_call',
         ]);
     }
 
