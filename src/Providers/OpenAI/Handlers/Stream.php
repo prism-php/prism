@@ -81,26 +81,7 @@ class Stream
                 continue;
             }
 
-            if ($this->isFinalEvent($data)) {
-                if ($toolCalls !== []) {
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                    return;
-                }
-
-                yield new Chunk(
-                    text: '',
-                    finishReason: FinishReason::Stop,
-                );
-
-                return;
-            }
-
             $content = $this->extractContent($data);
-
-            if ($content === '') {
-                continue;
-            }
 
             $text .= $content;
 
