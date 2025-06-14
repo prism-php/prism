@@ -128,17 +128,7 @@ class Stream
         }
 
         if ($type === 'response.function_call_arguments.delta') {
-            $callId = data_get($data, 'item_id');
-            $delta = data_get($data, 'delta', '');
-
-            foreach ($toolCalls as &$call) {
-                if (($call['id'] ?? null) === $callId) {
-                    $call['arguments'] .= $delta;
-                    break;
-                }
-            }
-
-            return $toolCalls;
+            // continue for now, only needed if we want to support streaming argument chunks
         }
 
         if ($type === 'response.function_call_arguments.done') {
