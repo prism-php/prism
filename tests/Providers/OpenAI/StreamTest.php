@@ -17,7 +17,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-basic-text');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -39,13 +39,13 @@ it('can generate text with a basic stream', function (): void {
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
 
-        return $request->url() === 'https://api.openai.com/v1/chat/completions'
+        return $request->url() === 'https://api.openai.com/v1/responses'
             && $body['stream'] === true;
     });
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-tools-responses');
 
     $tools = [
         Tool::as('weather')
@@ -93,14 +93,14 @@ it('can generate text using tools with streaming', function (): void {
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
 
-        return $request->url() === 'https://api.openai.com/v1/chat/completions'
+        return $request->url() === 'https://api.openai.com/v1/responses'
             && isset($body['tools'])
             && $body['stream'] === true;
     });
 });
 
 it('can process a complete conversation with multiple tool calls', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-multi-tool-conversation');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses');
 
     $tools = [
         Tool::as('weather')
@@ -126,12 +126,94 @@ it('can process a complete conversation with multiple tool calls', function (): 
 
     foreach ($response as $chunk) {
         if ($chunk->toolCalls !== []) {
-            $toolCallCount++;
+            $toolCallCount += count($chunk->toolCalls);
         }
         $fullResponse .= $chunk->text;
     }
 
-    expect($toolCallCount)->toBeGreaterThanOrEqual(1);
+    expect($toolCallCount)->toBe(2);
+    expect($fullResponse)->not->toBeEmpty();
+
+    // Verify we made multiple requests for a conversation with tool calls
+    Http::assertSentCount(2);
+});
+
+it('can process a complete conversation with multiple tool calls for reasoning models', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning');
+    $tools = [
+        Tool::as('weather')
+            ->for('Get weather information')
+            ->withStringParameter('city', 'City name')
+            ->using(fn (string $city): string => "The weather in {$city} is 75° and sunny."),
+
+        Tool::as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => 'Tigers game is at 3pm in Detroit today.'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'o3-mini')
+        ->withTools($tools)
+        ->withMaxSteps(5) // Allow multiple tool call rounds
+        ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
+        ->asStream();
+
+    $fullResponse = '';
+    $toolCallCount = 0;
+
+    foreach ($response as $chunk) {
+        if ($chunk->toolCalls !== []) {
+            $toolCallCount += count($chunk->toolCalls);
+        }
+        $fullResponse .= $chunk->text;
+    }
+
+    expect($toolCallCount)->toBe(2);
+    expect($fullResponse)->not->toBeEmpty();
+
+    // Verify we made multiple requests for a conversation with tool calls
+    Http::assertSentCount(3);
+});
+
+it('can process a complete conversation with multiple tool calls for reasoning models that require past reasoning', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning-past-reasoning');
+    $tools = [
+        Tool::as('weather')
+            ->for('Get weather information')
+            ->withStringParameter('city', 'City name')
+            ->using(fn (string $city): string => "The weather in {$city} is 75° and sunny."),
+
+        Tool::as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => 'Tigers game is at 3pm in Detroit today.'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'o4-mini')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+                'summary' => 'detailed',
+            ],
+        ])
+        ->withTools($tools)
+        ->withMaxSteps(5) // Allow multiple tool call rounds
+        ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
+        ->asStream();
+
+    $fullResponse = '';
+    $toolCallCount = 0;
+
+    foreach ($response as $chunk) {
+        if ($chunk->toolCalls !== []) {
+            $toolCallCount += count($chunk->toolCalls);
+        }
+        $fullResponse .= $chunk->text;
+    }
+
+    expect($toolCallCount)->toBe(2);
     expect($fullResponse)->not->toBeEmpty();
 
     // Verify we made multiple requests for a conversation with tool calls
@@ -156,7 +238,7 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
 })->throws(PrismRateLimitedException::class);
 
 it('can accept falsy parameters', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-falsy-argument-conversation');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-falsy-argument-conversation-responses');
 
     $modelTool = Tool::as('get_models')
         ->for('Returns info about of available models')
