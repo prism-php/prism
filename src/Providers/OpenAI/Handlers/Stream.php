@@ -245,7 +245,7 @@ class Stream
     {
         $type = data_get($data, 'type', '');
 
-        return $type === 'response.output_item.added' && data_get($data, 'item.type') === 'reasoning';
+        return $type === 'response.output_item.done' && data_get($data, 'item.type') === 'reasoning';
     }
 
     /**
@@ -255,7 +255,7 @@ class Stream
      */
     protected function extractReasoningItems(array $data, array $reasoningItems): array
     {
-        if (data_get($data, 'type') === 'response.output_item.added' && data_get($data, 'item.type') === 'reasoning') {
+        if (data_get($data, 'type') === 'response.output_item.done' && data_get($data, 'item.type') === 'reasoning') {
             $index = (int) data_get($data, 'output_index', count($reasoningItems));
 
             $reasoningItems[$index] = [
