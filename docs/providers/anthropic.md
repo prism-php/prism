@@ -293,10 +293,47 @@ Note that when using streaming, Anthropic does not stream citations in the same 
 
 ### Structured Output
 
-While Anthropic models don't have native JSON mode or structured output like some providers, Prism implements a robust workaround for structured output:
+While Anthropic models don't have native JSON mode or structured output like some providers, Prism implements two approaches for structured output:
 
+#### Default JSON Mode (Prompt-based)
 - We automatically append instructions to your prompt that guide the model to output valid JSON matching your schema
 - If the response isn't valid JSON, Prism will raise a PrismException
+- This method can sometimes struggle with complex JSON containing quotes, especially in non-English languages
+
+#### Tool Calling Mode (Recommended)
+For more reliable structured output, especially when dealing with complex content or non-English text that may contain quotes, you can enable tool calling mode:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$response = Prism::structured()
+    ->withSchema(new ObjectSchema(
+        'weather_report',
+        'Weather forecast with recommendations',
+        [
+            new StringSchema('forecast', 'The weather forecast'),
+            new StringSchema('recommendation', 'Clothing recommendation')
+        ],
+        ['forecast', 'recommendation']
+    ))
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+    ->withPrompt('What\'s the weather like and what should I wear?')
+    ->withProviderOptions(['useToolCalling' => true])
+    ->asStructured();
+```
+
+**Benefits of tool calling mode:**
+- More reliable JSON parsing, especially with quotes and special characters
+- Better handling of non-English content (Chinese, Japanese, etc.)
+- Reduced risk of malformed JSON responses
+- Compatible with thinking mode
+
+**Limitations:**
+- Cannot be used with citations (citations are not supported in tool calling mode)
+- Slightly more complex under the hood but identical API usage
 
 ## Limitations
 ### Messages

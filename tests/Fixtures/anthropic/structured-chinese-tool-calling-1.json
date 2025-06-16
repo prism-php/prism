@@ -1,0 +1,28 @@
+{
+  "id": "msg_01ChineseWeatherToolCall",
+  "type": "message", 
+  "role": "assistant",
+  "model": "claude-3-5-sonnet-20241022",
+  "content": [
+    {
+      "type": "text",
+      "text": "我來為您提供今天的天氣預報和穿衣建議。"
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_chinese_weather_001",
+      "name": "output_structured_data",
+      "input": {
+        "weather": "今天天氣：\"15°C\"，多雲轉晴，微風。適合戶外活動，\"溫度\"比較適中。",
+        "recommendation": "建議穿著：\"長袖襯衫\"配\"薄外套\"，下身可穿\"長褲\"。由於\"溫度\"適中，不需要厚重衣物。",
+        "coat_required": true
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 156,
+    "output_tokens": 98
+  }
+}
