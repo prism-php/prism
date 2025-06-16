@@ -279,14 +279,6 @@ class Stream
     }
 
     /**
-     * @param  array<string,mixed>  $data
-     */
-    protected function isFinalEvent(array $data): bool
-    {
-        return data_get($data, 'type') === 'response.completed';
-    }
-
-    /**
      * @param  array<string, mixed>  $data
      */
     protected function extractContent(array $data): string
