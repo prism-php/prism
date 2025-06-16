@@ -6,7 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Maps;
 
 use Prism\Prism\ValueObjects\ToolCall;
 
-class ToolCallMap
+class ChatToolCallMap
 {
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
