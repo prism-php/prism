@@ -104,12 +104,7 @@ class Structured extends AnthropicHandlerAbstract
         }
 
         // Validate options
-        if ($request->providerOptions('citations') === true && $request->providerOptions('useToolCalling') === true) {
-            throw new InvalidArgumentException(
-                'Citations are not supported with tool calling mode. '.
-                'Please set useToolCalling to false in provider options to use citations.'
-            );
-        }
+        $this->validateIncompatibleProviderOptions();
 
         if ($request->providerOptions('useToolCalling') === true) {
             return static::buildToolCallingPayload($request);
