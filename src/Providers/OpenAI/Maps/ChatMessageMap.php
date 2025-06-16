@@ -70,9 +70,9 @@ class ChatMessageMap
     {
         foreach ($message->toolResults as $toolResult) {
             $this->mappedMessages[] = [
-                'type' => 'function_call_output',
-                'call_id' => $toolResult->toolCallResultId,
-                'output' => $toolResult->result,
+                'role' => 'tool',
+                'tool_call_id' => $toolResult->toolCallId,
+                'content' => $toolResult->result,
             ];
         }
     }
@@ -122,31 +122,19 @@ class ChatMessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        if ($message->content !== '' && $message->content !== '0') {
-            $this->mappedMessages[] = [
-                'role' => 'assistant',
-                'content' => $message->content,
-            ];
-        }
+        $toolCalls = array_map(fn (ToolCall $toolCall): array => [
+            'id' => $toolCall->id,
+            'type' => 'function',
+            'function' => [
+                'name' => $toolCall->name,
+                'arguments' => json_encode($toolCall->arguments()),
+            ],
+        ], $message->toolCalls);
 
-        if ($message->toolCalls !== []) {
-            array_push(
-                $this->mappedMessages,
-                ...array_filter(
-                    array_map(fn (ToolCall $toolCall): ?array => is_null($toolCall->reasoningId) ? null : [
-                        'type' => 'reasoning',
-                        'id' => $toolCall->reasoningId,
-                        'summary' => $toolCall->reasoningSummary,
-                    ], $message->toolCalls)
-                ),
-                ...array_map(fn (ToolCall $toolCall): array => [
-                    'id' => $toolCall->id,
-                    'call_id' => $toolCall->resultId,
-                    'type' => 'function_call',
-                    'name' => $toolCall->name,
-                    'arguments' => json_encode($toolCall->arguments()),
-                ], $message->toolCalls)
-            );
-        }
+        $this->mappedMessages[] = array_filter([
+            'role' => 'assistant',
+            'content' => $message->content,
+            'tool_calls' => $toolCalls,
+        ]);
     }
 }

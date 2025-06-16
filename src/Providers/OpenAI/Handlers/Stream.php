@@ -18,9 +18,9 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\ChatMessageMap;
+use Prism\Prism\Providers\OpenAI\Maps\ChatToolChoiceMap;
+use Prism\Prism\Providers\OpenAI\Maps\ChatToolMap;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -224,8 +224,8 @@ class Stream
                         'temperature' => $request->temperature(),
                         'top_p' => $request->topP(),
                         'metadata' => $request->providerOptions('metadata'),
-                        'tools' => ToolMap::map($request->tools()),
-                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                        'tools' => ChatToolMap::map($request->tools()),
+                        'tool_choice' => ChatToolChoiceMap::map($request->toolChoice()),
                     ]))
                 );
         } catch (Throwable $e) {
