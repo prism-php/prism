@@ -73,7 +73,7 @@ class Stream
                 continue;
             }
 
-            $content = $this->extractContent($data);
+            $content = $this->extractOutputTextDelta($data);
 
             $text .= $content;
 
@@ -281,9 +281,9 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      */
-    protected function extractContent(array $data): string
+    protected function extractOutputTextDelta(array $data): string
     {
-        if (Str::contains(data_get($data, 'type', ''), 'text.delta')) {
+        if (data_get($data, 'type') === 'response.output_text.delta') {
             return (string) data_get($data, 'delta', '');
         }
 
