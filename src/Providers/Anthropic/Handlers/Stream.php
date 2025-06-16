@@ -12,6 +12,11 @@ use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
+use Prism\Prism\Events\ToolCallCompleted;
+use Prism\Prism\Events\ToolCallStarted;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
@@ -20,6 +25,7 @@ use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Providers\Anthropic\ValueObjects\StreamState;
+use Prism\Prism\Support\Trace;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -35,6 +41,8 @@ class Stream
     use CallsTools, HandlesResponse;
 
     protected StreamState $state;
+
+    protected int $step = 0;
 
     public function __construct(protected PendingRequest $client)
     {
@@ -61,27 +69,24 @@ class Stream
      * @throws PrismChunkDecodeException
      * @throws PrismException
      */
-    protected function processStream(Response $response, Request $request, int $depth = 0): Generator
+    protected function processStream(Response $response, Request $request): Generator
     {
         $this->state->reset();
 
-        $this->validateToolCallDepth($request, $depth);
-
-        yield from $this->processStreamChunks($response, $request, $depth);
+        foreach ($this->processStreamChunks($response, $request) as $chunk) {
+            yield $chunk;
+        }
 
         if ($this->state->hasToolCalls()) {
-            yield from $this->handleToolUseFinish($request, $depth);
+            Trace::end(fn () => event(new PrismRequestCompleted(Provider::Anthropic->value, ['chunk' => $chunk ?? ''])));
+
+            yield from $this->handleToolCalls($request, $this->mapToolCalls(), $this->state->buildAdditionalContent());
         }
     }
 
-    /**
-     * @throws PrismException
-     */
-    protected function validateToolCallDepth(Request $request, int $depth): void
+    protected function shouldContinue(Request $request): bool
     {
-        if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
-        }
+        return $this->step < $request->maxSteps();
     }
 
     /**
@@ -90,7 +95,7 @@ class Stream
      * @throws PrismChunkDecodeException
      * @throws PrismException
      */
-    protected function processStreamChunks(Response $response, Request $request, int $depth): Generator
+    protected function processStreamChunks(Response $response, Request $request): Generator
     {
         while (! $response->getBody()->eof()) {
             $chunk = $this->parseNextChunk($response->getBody());
@@ -99,7 +104,7 @@ class Stream
                 continue;
             }
 
-            $outcome = $this->processChunk($chunk, $response, $request, $depth);
+            $outcome = $this->processChunk($chunk, $response, $request);
 
             if ($outcome instanceof Generator) {
                 yield from $outcome;
@@ -118,15 +123,15 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function processChunk(array $chunk, Response $response, Request $request, int $depth): Generator|Chunk|null
+    protected function processChunk(array $chunk, Response $response, Request $request): Generator|Chunk|null
     {
         return match ($chunk['type'] ?? null) {
             'message_start' => $this->handleMessageStart($response, $chunk),
             'content_block_start' => $this->handleContentBlockStart($chunk),
             'content_block_delta' => $this->handleContentBlockDelta($chunk),
             'content_block_stop' => $this->handleContentBlockStop(),
-            'message_delta' => $this->handleMessageDelta($chunk, $request, $depth),
-            'message_stop' => $this->handleMessageStop($response, $request, $depth),
+            'message_delta' => $this->handleMessageDelta($chunk, $request),
+            'message_stop' => $this->handleMessageStop($response, $request),
             'error' => $this->handleError($chunk),
             default => null,
         };
@@ -354,7 +359,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleMessageDelta(array $chunk, Request $request, int $depth): ?Generator
+    protected function handleMessageDelta(array $chunk, Request $request): ?Generator
     {
         $stopReason = data_get($chunk, 'delta.stop_reason', '');
 
@@ -363,7 +368,7 @@ class Stream
         }
 
         if ($this->state->isToolUseFinish()) {
-            return $this->handleToolUseFinish($request, $depth);
+            return $this->handleToolUseFinish($request);
         }
 
         return null;
@@ -374,12 +379,8 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function handleMessageStop(Response $response, Request $request, int $depth): Generator|Chunk
+    protected function handleMessageStop(Response $response, Request $request): Chunk
     {
-        if ($this->state->isToolUseFinish()) {
-            return $this->handleToolUseFinish($request, $depth);
-        }
-
         return new Chunk(
             text: $this->state->text(),
             finishReason: FinishReasonMap::map($this->state->stopReason()),
@@ -400,7 +401,7 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function handleToolUseFinish(Request $request, int $depth): Generator
+    protected function handleToolUseFinish(Request $request): Generator
     {
         $mappedToolCalls = $this->mapToolCalls();
         $additionalContent = $this->state->buildAdditionalContent();
@@ -411,8 +412,6 @@ class Stream
             finishReason: null,
             additionalContent: $additionalContent
         );
-
-        yield from $this->handleToolCalls($request, $mappedToolCalls, $depth, $additionalContent);
     }
 
     /**
@@ -554,12 +553,14 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function handleToolCalls(Request $request, array $toolCalls, int $depth, ?array $additionalContent = null): Generator
+    protected function handleToolCalls(Request $request, array $toolCalls, ?array $additionalContent = null): Generator
     {
         $toolResults = [];
 
         foreach ($toolCalls as $toolCall) {
             $tool = $this->resolveTool($toolCall->name, $request->tools());
+
+            Trace::begin('tool_call', fn () => event(new ToolCallStarted($toolCall->name, $toolCall->arguments())));
 
             try {
                 $result = call_user_func_array(
@@ -574,6 +575,8 @@ class Stream
                     result: $result,
                 );
 
+                Trace::end(fn () => event(new ToolCallCompleted(['result' => $toolResult])));
+
                 $toolResults[] = $toolResult;
 
                 yield new Chunk(
@@ -582,6 +585,8 @@ class Stream
                     chunkType: ChunkType::ToolResult
                 );
             } catch (Throwable $e) {
+                Trace::end(fn () => event(new ToolCallCompleted(exception: $e)));
+
                 if ($e instanceof PrismException) {
                     throw $e;
                 }
@@ -592,8 +597,14 @@ class Stream
 
         $this->addMessagesToRequest($request, $toolResults, $additionalContent);
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $this->step++;
+
+        if ($this->shouldContinue($request)) {
+            Trace::begin('stream', fn () => event(new PrismRequestStarted(Provider::Anthropic->value, ['request' => $request])));
+
+            $nextResponse = $this->sendRequest($request);
+            yield from $this->processStream($nextResponse, $request);
+        }
     }
 
     /**

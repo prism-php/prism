@@ -17,7 +17,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-basic-text');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-basic-text', ['Content-Type' => 'text/event-stream']);
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -45,7 +45,7 @@ it('can generate text with a basic stream', function (): void {
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-with-tools', ['Content-Type' => 'text/event-stream']);
 
     $tools = [
         Tool::as('weather')
@@ -100,7 +100,7 @@ it('can generate text using tools with streaming', function (): void {
 });
 
 it('can process a complete conversation with multiple tool calls', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-multi-tool-conversation');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-multi-tool-conversation', ['Content-Type' => 'text/event-stream']);
 
     $tools = [
         Tool::as('weather')
@@ -156,7 +156,7 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
 })->throws(PrismRateLimitedException::class);
 
 it('can accept falsy parameters', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-falsy-argument-conversation');
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/stream-falsy-argument-conversation', ['Content-Type' => 'text/event-stream']);
 
     $modelTool = Tool::as('get_models')
         ->for('Returns info about of available models')
