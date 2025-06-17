@@ -133,6 +133,9 @@ class Structured extends AnthropicHandlerAbstract
         ]);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected static function buildToolCallingPayload(StructuredRequest $request): array
     {
         // Use the schema directly for tool input_schema instead of converting to Tool parameters
@@ -197,7 +200,9 @@ class Structured extends AnthropicHandlerAbstract
         if ($this->shouldUseToolCalling()) {
             // Extract structured data from tool calls
             $structuredData = [];
-            $toolCalls = collect(data_get($data, 'content', []))
+            /** @var array<int, array<string, mixed>> $contentArray */
+            $contentArray = data_get($data, 'content', []);
+            $toolCalls = collect($contentArray)
                 ->filter(fn ($content): bool => data_get($content, 'type') === 'tool_use')
                 ->filter(fn ($toolUse): bool => data_get($toolUse, 'name') === 'output_structured_data');
 
