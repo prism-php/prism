@@ -56,6 +56,39 @@ it('can generate text with a basic stream', function (): void {
     });
 });
 
+it('can return usage with a basic stream', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-basic-text');
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-3-7-sonnet-20250219')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $text = '';
+    $chunks = [];
+
+    foreach ($response as $chunk) {
+        $chunks[] = $chunk;
+        $text .= $chunk->text;
+    }
+
+    expect((array) end($chunks)->usage)->toBe([
+        'promptTokens' => 11,
+        'completionTokens' => 107,
+        'cacheWriteInputTokens' => 0,
+        'cacheReadInputTokens' => 0,
+        'thoughtTokens' => 0,
+    ]);
+
+    // Verify the HTTP request
+    Http::assertSent(function (Request $request): bool {
+        $body = json_decode($request->body(), true);
+
+        return $request->url() === 'https://api.anthropic.com/v1/messages'
+            && $body['stream'] === true;
+    });
+});
+
 describe('tools', function (): void {
     it('can generate text using tools with streaming', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
