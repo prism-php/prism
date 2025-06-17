@@ -75,7 +75,7 @@ $response = Prism::text()
         'toolResultCacheType' => 'ephemeral'
     ])
     ->withPrompt('Check the weather in New York, London, Tokyo, Paris, and Sydney')
-    ->generate();
+    ->asText();
 ```
 
 When multiple tool results are returned, Prism automatically applies caching to only the last result, which caches all preceding results as well. This avoids Anthropic's 4-cache-breakpoint limitation.
