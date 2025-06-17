@@ -58,6 +58,28 @@ use Prism\Prism\ValueObjects\Messages\Support\Document;
 ```
 Note that you must use the `withMessages()` method in order to enable prompt caching, rather than `withPrompt()` or `withSystemPrompt()`.
 
+### Tool result caching
+
+In addition to caching prompts and tool definitions, Prism supports caching tool results. This is particularly useful when making multiple tool calls where results might be referenced repeatedly.
+
+To enable tool result caching, use the `toolResultCacheType` provider option on your request:
+
+```php
+use Prism\Prism\Prism;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-20241022')
+    ->withMaxSteps(30)
+    ->withTools([new WeatherTool()])
+    ->withProviderOptions([
+        'toolResultCacheType' => 'ephemeral'
+    ])
+    ->withPrompt('Check the weather in New York, London, Tokyo, Paris, and Sydney')
+    ->generate();
+```
+
+When multiple tool results are returned, Prism automatically applies caching to only the last result, which caches all preceding results as well. This avoids Anthropic's 4-cache-breakpoint limitation.
+
 Please ensure you read Anthropic's [prompt caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), which covers some important information on e.g. minimum cacheable tokens and message order consistency.
 
 ## Extended thinking
