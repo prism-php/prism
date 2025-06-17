@@ -280,6 +280,83 @@ it('maps tool result messages', function (): void {
     ]);
 });
 
+it('sets the cache type on ToolResultMessage if cacheType providerOptions is set', function (mixed $cacheType): void {
+    expect(MessageMap::map([
+        (new ToolResultMessage([
+            new ToolResult(
+                'tool_1234',
+                'weather',
+                [
+                    'city' => 'Dallas',
+                ],
+                'It is 72°F and sunny in Dallas'
+            ),
+        ]))->withProviderOptions(['cacheType' => $cacheType]),
+    ]))->toBe([
+        [
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_1234',
+                    'content' => 'It is 72°F and sunny in Dallas',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+    ]);
+})->with([
+    'ephemeral',
+    AnthropicCacheType::Ephemeral,
+]);
+
+it('only sets cache_control on the last tool result when multiple results exist', function (): void {
+    expect(MessageMap::map([
+        (new ToolResultMessage([
+            new ToolResult(
+                'tool_1',
+                'weather',
+                ['city' => 'New York'],
+                'It is 65°F and cloudy in New York'
+            ),
+            new ToolResult(
+                'tool_2',
+                'weather',
+                ['city' => 'London'],
+                'It is 55°F and rainy in London'
+            ),
+            new ToolResult(
+                'tool_3',
+                'weather',
+                ['city' => 'Tokyo'],
+                'It is 70°F and sunny in Tokyo'
+            ),
+        ]))->withProviderOptions(['cacheType' => 'ephemeral']),
+    ]))->toBe([
+        [
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_1',
+                    'content' => 'It is 65°F and cloudy in New York',
+                ],
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_2',
+                    'content' => 'It is 55°F and rainy in London',
+                ],
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_3',
+                    'content' => 'It is 70°F and sunny in Tokyo',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+    ]);
+});
+
 it('maps system messages', function (): void {
     expect(MessageMap::mapSystemMessages([
         new SystemMessage('I am Thanos.'),

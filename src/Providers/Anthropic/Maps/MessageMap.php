@@ -81,13 +81,25 @@ class MessageMap
      */
     protected static function mapToolResultMessage(ToolResultMessage $message): array
     {
+        $cacheType = $message->providerOptions('cacheType');
+        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+
+        $toolResults = $message->toolResults;
+        $totalResults = count($toolResults);
+
         return [
             'role' => 'user',
-            'content' => array_map(fn (ToolResult $toolResult): array => [
-                'type' => 'tool_result',
-                'tool_use_id' => $toolResult->toolCallId,
-                'content' => $toolResult->result,
-            ], $message->toolResults),
+            'content' => array_map(function (ToolResult $toolResult, int $index) use ($cacheControl, $totalResults): array {
+                // Only add cache_control to the last tool result
+                $isLastResult = $index === $totalResults - 1;
+
+                return array_filter([
+                    'type' => 'tool_result',
+                    'tool_use_id' => $toolResult->toolCallId,
+                    'content' => $toolResult->result,
+                    'cache_control' => $isLastResult ? $cacheControl : null,
+                ]);
+            }, $toolResults, array_keys($toolResults)),
         ];
     }
 

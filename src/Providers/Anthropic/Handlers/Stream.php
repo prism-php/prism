@@ -608,7 +608,15 @@ class Stream
             $additionalContent ?? []
         ));
 
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $message = new ToolResultMessage($toolResults);
+
+        // Apply tool result caching if configured
+        $toolResultCacheType = $request->providerOptions('toolResultCacheType');
+        if ($toolResultCacheType) {
+            $message->withProviderOptions(['cacheType' => $toolResultCacheType]);
+        }
+
+        $request->addMessage($message);
     }
 
     /**
