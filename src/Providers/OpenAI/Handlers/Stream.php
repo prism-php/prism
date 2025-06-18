@@ -25,6 +25,7 @@ use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
@@ -58,6 +59,20 @@ class Stream
             $data = $this->parseNextDataLine($response->getBody());
 
             if ($data === null) {
+                continue;
+            }
+
+            if ($data['type'] === 'response.created') {
+                yield new Chunk(
+                    text: '',
+                    finishReason: null,
+                    meta: new Meta(
+                        id: $data['response']['id'] ?? null,
+                        model: $data['response']['model'] ?? null,
+                    ),
+                    chunkType: ChunkType::Meta,
+                );
+
                 continue;
             }
 

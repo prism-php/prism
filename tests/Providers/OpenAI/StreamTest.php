@@ -27,13 +27,25 @@ it('can generate text with a basic stream', function (): void {
     $text = '';
     $chunks = [];
 
+    $responseId = null;
+    $model = null;
+
     foreach ($response as $chunk) {
+        if ($chunk->chunkType === ChunkType::Meta) {
+            $responseId = $chunk->meta?->id;
+            $model = $chunk->meta?->model;
+        }
+
         $chunks[] = $chunk;
         $text .= $chunk->text;
     }
 
     expect($chunks)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
+    expect($responseId)
+        ->not->toBeNull()
+        ->toStartWith('resp_');
+    expect($model)->not->toBeNull();
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
