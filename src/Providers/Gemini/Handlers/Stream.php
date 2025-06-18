@@ -245,7 +245,7 @@ class Stream
                             'maxOutputTokens' => $request->maxTokens(),
                             'thinkingConfig' => Arr::whereNotNull([
                                 'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            ]),
+                            ]) ?: null,
                         ]),
                         'tools' => $tools !== [] ? $tools : null,
                         'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
