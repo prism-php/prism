@@ -62,7 +62,7 @@ Note that you must use the `withMessages()` method in order to enable prompt cac
 
 In addition to caching prompts and tool definitions, Prism supports caching tool results. This is particularly useful when making multiple tool calls where results might be referenced repeatedly.
 
-To enable tool result caching, use the `toolResultCacheType` provider option on your request:
+To enable tool result caching, use the `tool_result_cache_type` provider option on your request:
 
 ```php
 use Prism\Prism\Prism;
@@ -72,7 +72,7 @@ $response = Prism::text()
     ->withMaxSteps(30)
     ->withTools([new WeatherTool()])
     ->withProviderOptions([
-        'toolResultCacheType' => 'ephemeral'
+        'tool_result_cache_type' => 'ephemeral'
     ])
     ->withPrompt('Check the weather in New York, London, Tokyo, Paris, and Sydney')
     ->asText();

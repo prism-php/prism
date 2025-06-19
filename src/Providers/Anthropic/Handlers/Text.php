@@ -109,9 +109,9 @@ class Text extends AnthropicHandlerAbstract
         $message = new ToolResultMessage($toolResults);
 
         // Apply tool result caching if configured
-        $toolResultCacheType = $this->request->providerOptions('toolResultCacheType');
-        if ($toolResultCacheType) {
-            $message->withProviderOptions(['cacheType' => $toolResultCacheType]);
+        $tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type');
+        if ($tool_result_cache_type) {
+            $message->withProviderOptions(['cacheType' => $tool_result_cache_type]);
         }
 
         $this->request->addMessage($message);
