@@ -32,7 +32,7 @@ it('can generate text with a basic stream', function (): void {
     $model = null;
 
     foreach ($response as $chunk) {
-        if ($chunk->chunkType === ChunkType::Meta) {
+        if ($chunk->meta) {
             $responseId = $chunk->meta?->id;
             $model = $chunk->meta?->model;
         }
