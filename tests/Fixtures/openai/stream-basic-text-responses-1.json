@@ -1,0 +1,141 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_685070dda6b481998e37b5a984e473560a6afa8f21d5d887","object":"response","created_at":1750102237,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4-0613","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_685070dda6b481998e37b5a984e473560a6afa8f21d5d887","object":"response","created_at":1750102237,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4-0613","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","type":"message","status":"in_progress","content":[],"role":"assistant"}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":""}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"I"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" am"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" Open"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"AI"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"'s"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" artificial"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" intelligence"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":","}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" specifically"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" a"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" model"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" called"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" G"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"PT"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":18,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"-"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":19,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"3"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":20,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"."}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":21,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" I"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":22,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"'m"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":23,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" designed"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":24,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" to"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":25,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" understand"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":26,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" and"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":27,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" generate"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":28,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" human"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":29,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"-like"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":30,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" text"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":31,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" by"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":32,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" processing"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":33,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" and"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":34,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" learning"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":35,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" from"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":36,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" a"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":37,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" vast"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":38,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" amount"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":39,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" of"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":40,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" online"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":41,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":" data"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":42,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"delta":"."}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":43,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"text":"I am OpenAI's artificial intelligence, specifically a model called GPT-3. I'm designed to understand and generate human-like text by processing and learning from a vast amount of online data."}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":44,"item_id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":"I am OpenAI's artificial intelligence, specifically a model called GPT-3. I'm designed to understand and generate human-like text by processing and learning from a vast amount of online data."}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":45,"output_index":0,"item":{"id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"text":"I am OpenAI's artificial intelligence, specifically a model called GPT-3. I'm designed to understand and generate human-like text by processing and learning from a vast amount of online data."}],"role":"assistant"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":46,"response":{"id":"resp_685070dda6b481998e37b5a984e473560a6afa8f21d5d887","object":"response","created_at":1750102237,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4-0613","output":[{"id":"msg_685070df2ca48199b61a2d9dd524baec0a6afa8f21d5d887","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"text":"I am OpenAI's artificial intelligence, specifically a model called GPT-3. I'm designed to understand and generate human-like text by processing and learning from a vast amount of online data."}],"role":"assistant"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[],"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":0},"output_tokens":41,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":51},"user":null,"metadata":{}}}
+
