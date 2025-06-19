@@ -40,9 +40,6 @@ foreach ($response as $chunk) {
     // Check if this is the final chunk
     if ($chunk->finishReason === FinishReason::Stop) {
         echo "Generation complete: " . $chunk->finishReason->name;
-        // Only available for Anthropic in each chunk with finishReason
-        echo "Prompt tokens: " . $chunk->usage->promptTokens;
-        echo "Completion tokens: " . $chunk->usage->completionTokens;
     }
 }
 ```
