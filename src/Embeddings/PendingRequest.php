@@ -7,7 +7,11 @@ namespace Prism\Prism\Embeddings;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Support\Trace;
+use Throwable;
 
 class PendingRequest
 {
@@ -66,7 +70,22 @@ class PendingRequest
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        $request = $this->toRequest();
+
+        Trace::begin('embeddings', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
+        try {
+            $response = $this->provider->embeddings($request);
+
+            Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['response' => $response]))
+            );
+        } catch (Throwable $e) {
+            Trace::end(fn () => event(new PrismRequestCompleted(exception: $e)));
+
+            throw $e;
+        }
+
+        return $response;
     }
 
     protected function toRequest(): Request

@@ -15,8 +15,12 @@ use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Support\Trace;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Throwable;
 
 class PendingRequest
 {
@@ -41,7 +45,26 @@ class PendingRequest
 
     public function asText(): Response
     {
-        return $this->provider->text($this->toRequest());
+        $request = $this->toRequest();
+
+        $trace = Trace::begin('text', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
+        try {
+            $response = $this->provider->text($request);
+
+            // Trace might already be ended if tool is called, end only if same type
+            if (Trace::isSameType($trace)) {
+                Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['response' => $response])));
+            }
+        } catch (Throwable $e) {
+            if (Trace::isSameType($trace)) {
+                Trace::end(callback: fn () => event(new PrismRequestCompleted(exception: $e)));
+            }
+
+            throw $e;
+        }
+
+        return $response;
     }
 
     /**
@@ -49,7 +72,31 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
-        return $this->provider->stream($this->toRequest());
+        $request = $this->toRequest();
+
+        $trace = Trace::begin('stream', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
+        try {
+            $chunks = $this->provider->stream($request);
+
+            $result = [];
+
+            foreach ($chunks as $chunk) {
+                $result[] = $chunk;
+
+                yield $chunk;
+            }
+
+            if (Trace::isSameType($trace)) {
+                Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['chunks' => $result])));
+            }
+        } catch (Throwable $e) {
+            if (Trace::isSameType($trace)) {
+                Trace::end(callback: fn () => event(new PrismRequestCompleted(exception: $e)));
+            }
+
+            throw $e;
+        }
     }
 
     public function toRequest(): Request
