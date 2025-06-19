@@ -80,7 +80,7 @@ $response = Prism::structured()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
     ->withSchema($schema)
     ->withPrompt('天氣怎麼樣？應該穿什麼？') // Chinese text with potential quotes
-    ->withProviderOptions(['useToolCalling' => true])
+    ->withProviderOptions(['use_tool_calling' => true])
     ->asStructured();
 ```
 

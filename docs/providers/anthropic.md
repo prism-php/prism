@@ -321,7 +321,7 @@ $response = Prism::structured()
     ))
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
     ->withPrompt('What\'s the weather like and what should I wear?')
-    ->withProviderOptions(['useToolCalling' => true])
+    ->withProviderOptions(['use_tool_calling' => true])
     ->asStructured();
 ```
 

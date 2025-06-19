@@ -104,14 +104,14 @@ class Structured extends AnthropicHandlerAbstract
         }
 
         // Validate options
-        if ($request->providerOptions('citations') === true && $request->providerOptions('useToolCalling') === true) {
+        if ($request->providerOptions('citations') === true && $request->providerOptions('use_tool_calling') === true) {
             throw new InvalidArgumentException(
                 'Citations are not supported with tool calling mode. '.
-                'Please set useToolCalling to false in provider options to use citations.'
+                'Please set use_tool_calling to false in provider options to use citations.'
             );
         }
 
-        if ($request->providerOptions('useToolCalling') === true) {
+        if ($request->providerOptions('use_tool_calling') === true) {
             return static::buildToolCallingPayload($request);
         }
 
@@ -294,7 +294,7 @@ class Structured extends AnthropicHandlerAbstract
 
     protected function shouldUseToolCalling(): bool
     {
-        return $this->request->providerOptions('useToolCalling') === true;
+        return $this->request->providerOptions('use_tool_calling') === true;
     }
 
     protected function validateProviderOptions(): void
@@ -302,7 +302,7 @@ class Structured extends AnthropicHandlerAbstract
         if ($this->request->providerOptions('citations') === true && $this->shouldUseToolCalling()) {
             throw new InvalidArgumentException(
                 'Citations are not supported with tool calling mode. '.
-                'Please set useToolCalling to false in provider options to use citations.'
+                'Please set use_tool_calling to false in provider options to use citations.'
             );
         }
     }

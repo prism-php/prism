@@ -218,12 +218,17 @@ it('throws error when citations and tool calling are used together', function ()
         ->withSchema($schema)
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withPrompt('What is the answer?')
-        ->withProviderOptions(['citations' => true, 'useToolCalling' => true])
+        ->withProviderOptions(['citations' => true, 'use_tool_calling' => true])
         ->asStructured()
     )->toThrow(InvalidArgumentException::class, 'Citations are not supported with tool calling mode');
 });
 
 it('returns structured output with default JSON mode', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/messages',
+        'anthropic/structured-with-default-json'
+    );
+
     $schema = new ObjectSchema('output', 'the output object', [
         new StringSchema('answer', 'A simple answer'),
     ], ['answer']);
@@ -237,9 +242,14 @@ it('returns structured output with default JSON mode', function (): void {
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKey('answer');
     expect($response->structured['answer'])->toBeString();
-})->skip(fn (): bool => ! env('ANTHROPIC_API_KEY'), 'Skipping live test - ANTHROPIC_API_KEY environment variable is not configured. Set your API key to run this test.');
+});
 
-it('works with thinking mode when useToolCalling is true', function (): void {
+it('works with thinking mode when use_tool_calling is true', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/messages',
+        'anthropic/structured-with-use-tool-calling'
+    );
+
     $schema = new ObjectSchema('output', 'the output object', [
         new StringSchema('answer', 'The answer about life, universe and everything'),
     ], ['answer']);
@@ -249,7 +259,7 @@ it('works with thinking mode when useToolCalling is true', function (): void {
         ->using(Provider::Anthropic, 'claude-3-7-sonnet-latest')
         ->withSystemPrompt('You are a helpful assistant.')
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-        ->withProviderOptions(['thinking' => ['enabled' => true], 'useToolCalling' => true])
+        ->withProviderOptions(['thinking' => ['enabled' => true], 'use_tool_calling' => true])
         ->asStructured();
 
     expect($response->structured)->toBeArray();
@@ -262,7 +272,7 @@ it('works with thinking mode when useToolCalling is true', function (): void {
 
     // Check that __thinking is not in structured data (it should be moved to additionalContent)
     expect($response->structured)->not->toHaveKey('__thinking');
-})->skip(fn (): bool => ! env('ANTHROPIC_API_KEY'), 'Skipping live test - ANTHROPIC_API_KEY environment variable is not configured. Set your API key to run this test.');
+});
 
 it('handles Chinese output with double quotes using tool calling', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-chinese-tool-calling');
@@ -283,7 +293,7 @@ it('handles Chinese output with double quotes using tool calling', function (): 
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withSystemPrompt('Respond in Chinese. Use double quotes around temperature values and clothing items.')
         ->withPrompt('What is the weather like today and what should I wear? The temperature is 15°C.')
-        ->withProviderOptions(['useToolCalling' => true])
+        ->withProviderOptions(['use_tool_calling' => true])
         ->asStructured();
 
     expect($response->structured)->toBeArray();
@@ -302,38 +312,3 @@ it('handles Chinese output with double quotes using tool calling', function (): 
     expect($response->structured['recommendation'])->toContain('建議');
     expect($response->structured['coat_required'])->toBe(true);
 });
-
-it('handles Chinese output with double quotes using tool calling (live test)', function (): void {
-    $schema = new ObjectSchema(
-        'output',
-        'the output object',
-        [
-            new StringSchema('weather', 'The weather forecast in Chinese with double quotes for temperature'),
-            new StringSchema('recommendation', 'Clothing recommendation in Chinese with quoted items'),
-            new BooleanSchema('coat_required', 'whether a coat is required'),
-        ],
-        ['weather', 'recommendation', 'coat_required']
-    );
-
-    $response = Prism::structured()
-        ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
-        ->withSystemPrompt('Respond in Chinese. Use double quotes around temperature values and clothing items.')
-        ->withPrompt('What is the weather like today and what should I wear? The temperature is 15°C.')
-        ->withProviderOptions(['useToolCalling' => true])
-        ->asStructured();
-
-    expect($response->structured)->toBeArray();
-    expect($response->structured)->toHaveKeys([
-        'weather',
-        'recommendation',
-        'coat_required',
-    ]);
-    expect($response->structured['weather'])->toBeString();
-    expect($response->structured['recommendation'])->toBeString();
-    expect($response->structured['coat_required'])->toBeBool();
-
-    // Verify that Chinese text with quotes is properly handled
-    expect($response->structured['weather'])->toContain('°C');
-    expect($response->structured['recommendation'])->toBeString();
-})->skip(fn (): bool => ! env('ANTHROPIC_API_KEY'), 'Skipping live test - ANTHROPIC_API_KEY environment variable is not configured. Set your API key to run this test.');
