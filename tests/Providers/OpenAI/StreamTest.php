@@ -10,6 +10,7 @@ use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Usage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -217,19 +218,44 @@ it('can process a complete conversation with multiple tool calls for reasoning m
 
     $fullResponse = '';
     $toolCallCount = 0;
+    /** @var Usage[] $usage */
+    $usage = [];
 
     foreach ($response as $chunk) {
         if ($chunk->toolCalls !== []) {
             $toolCallCount += count($chunk->toolCalls);
         }
         $fullResponse .= $chunk->text;
+
+        if ($chunk->usage) {
+            $usage[] = $chunk->usage;
+        }
     }
 
     expect($toolCallCount)->toBe(2);
     expect($fullResponse)->not->toBeEmpty();
 
+    // Verify reasoning usage
+    expect($usage[0]->thoughtTokens)->toBeGreaterThan(0);
+
     // Verify we made multiple requests for a conversation with tool calls
     Http::assertSentCount(3);
+});
+
+it('emits usage information', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    foreach ($response as $chunk) {
+        if ($chunk->usage) {
+            expect($chunk->usage->promptTokens)->toBeGreaterThan(0);
+            expect($chunk->usage->completionTokens)->toBeGreaterThan(0);
+        }
+    }
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {

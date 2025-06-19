@@ -9,6 +9,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 
 readonly class Chunk
 {
@@ -23,6 +24,7 @@ readonly class Chunk
         public array $toolResults = [],
         public ?FinishReason $finishReason = null,
         public ?Meta $meta = null,
+        public ?Usage $usage = null,
         public array $additionalContent = [],
         public ChunkType $chunkType = ChunkType::Text
     ) {}
