@@ -12,6 +12,7 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\Concerns\CanGenerateFakeChunksFromTextResponses;
@@ -21,6 +22,7 @@ use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
+use Throwable;
 
 class PrismFake implements Provider
 {
@@ -121,6 +123,11 @@ class PrismFake implements Provider
         );
 
         yield from $this->chunksFromTextResponse($fixture);
+    }
+
+    public function handleRequestExceptions(string $model, Throwable $e): never
+    {
+        throw PrismException::providerRequestError($model, $e);
     }
 
     /**

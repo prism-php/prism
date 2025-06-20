@@ -6,12 +6,17 @@ namespace Prism\Prism\Providers\Mistral;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
 use Prism\Prism\Providers\Mistral\Handlers\Stream;
@@ -23,10 +28,11 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Throwable;
 
 readonly class Mistral implements Provider
 {
-    use InitializesClient;
+    use InitializesClient, ProcessRateLimits;
 
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
@@ -99,6 +105,27 @@ readonly class Mistral implements Provider
         );
 
         return $handler->handle($request);
+    }
+
+    public function handleRequestExceptions(string $model, Throwable $e): never
+    {
+        if ($e instanceof PrismException) {
+            throw $e;
+        }
+
+        if (! $e instanceof RequestException) {
+            throw PrismException::providerRequestError($model, $e);
+        }
+
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make(
+                rateLimits: $this->processRateLimits($e->response),
+                retryAfter: null
+            ),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
     }
 
     /**

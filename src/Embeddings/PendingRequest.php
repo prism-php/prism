@@ -8,6 +8,7 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Exceptions\PrismException;
+use Throwable;
 
 class PendingRequest
 {
@@ -60,13 +61,19 @@ class PendingRequest
         return $this->asEmbeddings();
     }
 
-    public function asEmbeddings(): \Prism\Prism\Embeddings\Response
+    public function asEmbeddings(): Response
     {
         if ($this->inputs === []) {
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->embeddings($request);
+        } catch (Throwable $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     protected function toRequest(): Request

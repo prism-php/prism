@@ -27,7 +27,6 @@ use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
@@ -108,26 +107,22 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'responses',
-                array_merge([
-                    'model' => $request->model(),
-                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_output_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => $request->providerOptions('metadata'),
-                    'tools' => $this->buildTools($request),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    'previous_response_id' => $request->providerOptions('previous_response_id'),
-                    'truncation' => $request->providerOptions('truncation'),
-                ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->client->post(
+            'responses',
+            array_merge([
+                'model' => $request->model(),
+                'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                'max_output_tokens' => $request->maxTokens(),
+            ], Arr::whereNotNull([
+                'temperature' => $request->temperature(),
+                'top_p' => $request->topP(),
+                'metadata' => $request->providerOptions('metadata'),
+                'tools' => $this->buildTools($request),
+                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'previous_response_id' => $request->providerOptions('previous_response_id'),
+                'truncation' => $request->providerOptions('truncation'),
+            ]))
+        );
     }
 
     /**

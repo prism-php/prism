@@ -6,7 +6,6 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -14,8 +13,6 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
@@ -321,35 +318,26 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        try {
-            return $this
-                ->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post(
-                    'responses',
-                    array_merge([
-                        'stream' => true,
-                        'model' => $request->model(),
-                        'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_output_tokens' => $request->maxTokens(),
-                    ], Arr::whereNotNull([
-                        'temperature' => $request->temperature(),
-                        'top_p' => $request->topP(),
-                        'metadata' => $request->providerOptions('metadata'),
-                        'tools' => ToolMap::map($request->tools()),
-                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                        'previous_response_id' => $request->providerOptions('previous_response_id'),
-                        'truncation' => $request->providerOptions('truncation'),
-                    ]))
-                );
-        } catch (Throwable $e) {
-            if ($e instanceof RequestException && $e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException($this->processRateLimits($e->response));
-            }
-
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this
+            ->client
+            ->withOptions(['stream' => true])
+            ->post(
+                'responses',
+                array_merge([
+                    'stream' => true,
+                    'model' => $request->model(),
+                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_output_tokens' => $request->maxTokens(),
+                ], Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'metadata' => $request->providerOptions('metadata'),
+                    'tools' => ToolMap::map($request->tools()),
+                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                    'previous_response_id' => $request->providerOptions('previous_response_id'),
+                    'truncation' => $request->providerOptions('truncation'),
+                ]))
+            );
     }
 
     protected function readLine(StreamInterface $stream): string

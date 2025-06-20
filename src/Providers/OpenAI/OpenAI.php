@@ -6,10 +6,17 @@ namespace Prism\Prism\Providers\OpenAI;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Enums\Provider as ProviderName;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
 use Prism\Prism\Providers\OpenAI\Handlers\Structured;
@@ -18,10 +25,11 @@ use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Throwable;
 
 readonly class OpenAI implements Provider
 {
-    use InitializesClient;
+    use InitializesClient, ProcessesRateLimits;
 
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
@@ -72,6 +80,29 @@ readonly class OpenAI implements Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    public function handleRequestExceptions(string $model, Throwable $e): never
+    {
+        if ($e instanceof PrismException) {
+            throw $e;
+        }
+
+        if (! $e instanceof RequestException) {
+            throw PrismException::providerRequestError($model, $e);
+        }
+
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make(
+                rateLimits: $this->processRateLimits($e->response),
+                retryAfter: $e->response->header('retry-after') === ''
+                    ? null
+                    : (int) $e->response->header('retry-after'),
+            ),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
     }
 
     /**

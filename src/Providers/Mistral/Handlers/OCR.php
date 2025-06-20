@@ -9,17 +9,18 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\DocumentMapper;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Throwable;
 
 class OCR
 {
     use CallsTools;
     use MapsFinishReason;
+    use ProcessRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -50,15 +51,11 @@ class OCR
      */
     protected function sendRequest(): array
     {
-        try {
-            $response = $this->client->post('/ocr', [
-                'model' => $this->model,
-                'document' => (new DocumentMapper($this->document))->toPayload(),
-            ]);
+        $response = $this->client->post('/ocr', [
+            'model' => $this->model,
+            'document' => (new DocumentMapper($this->document))->toPayload(),
+        ]);
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($this->model, $e);
-        }
+        return $response->json();
     }
 }

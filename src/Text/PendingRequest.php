@@ -17,6 +17,7 @@ use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Throwable;
 
 class PendingRequest
 {
@@ -41,7 +42,13 @@ class PendingRequest
 
     public function asText(): Response
     {
-        return $this->provider->text($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->text($request);
+        } catch (Throwable $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     /**
@@ -49,7 +56,17 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
-        return $this->provider->stream($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            $chunks = $this->provider->stream($request);
+
+            foreach ($chunks as $chunk) {
+                yield $chunk;
+            }
+        } catch (Throwable $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     public function toRequest(): Request

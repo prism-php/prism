@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\XAI;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Concerns\HandlesRequestExceptions;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
@@ -19,7 +20,7 @@ use Prism\Prism\Text\Response as TextResponse;
 
 readonly class XAI implements Provider
 {
-    use InitializesClient;
+    use HandlesRequestExceptions, InitializesClient;
 
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,

@@ -143,19 +143,11 @@ it('handles invalid stream data correctly', function (): void {
         ->withPrompt('This will trigger invalid JSON')
         ->asStream();
 
-    $exception = null;
-
-    try {
-        // Consume the generator to trigger the exception
-        foreach ($response as $chunk) {
-            // The test should throw before completing
-        }
-    } catch (PrismChunkDecodeException $e) {
-        $exception = $e;
+    // Consume the generator to trigger the exception
+    foreach ($response as $chunk) {
+        // The test should throw before completing
     }
-
-    expect($exception)->toBeInstanceOf(PrismChunkDecodeException::class);
-});
+})->throws(PrismChunkDecodeException::class);
 
 it('respects system prompts in the requests', function (): void {
     Http::fake([

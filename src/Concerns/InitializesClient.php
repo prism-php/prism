@@ -14,6 +14,7 @@ trait InitializesClient
     protected function baseClient(): PendingRequest
     {
         return Http::withRequestMiddleware(fn (RequestInterface $request): RequestInterface => $request)
-            ->withResponseMiddleware(fn (ResponseInterface $response): ResponseInterface => $response);
+            ->withResponseMiddleware(fn (ResponseInterface $response): ResponseInterface => $response)
+            ->throw();
     }
 }

@@ -9,13 +9,12 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\Anthropic\Concerns\HandlesResponse;
+use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use Throwable;
 
 abstract class AnthropicHandlerAbstract
 {
-    use HandlesResponse;
+    use ProcessesRateLimits;
 
     protected Response $httpResponse;
 
@@ -28,14 +27,10 @@ abstract class AnthropicHandlerAbstract
 
     protected function sendRequest(): void
     {
-        try {
-            $this->httpResponse = $this->client->post(
-                'messages',
-                static::buildHttpRequestPayload($this->request)
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($this->request->model(), $e);
-        }
+        $this->httpResponse = $this->client->post(
+            'messages',
+            static::buildHttpRequestPayload($this->request)
+        );
 
         $this->handleResponseErrors();
     }
@@ -69,8 +64,6 @@ abstract class AnthropicHandlerAbstract
 
     protected function handleResponseErrors(): void
     {
-        $this->handleResponseExceptions($this->httpResponse);
-
         $data = $this->httpResponse->json();
 
         if (data_get($data, 'type') === 'error') {

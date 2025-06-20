@@ -8,7 +8,6 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
@@ -47,24 +46,16 @@ class Embeddings
     {
         $providerOptions = $this->request->providerOptions();
 
-        try {
-            $this->httpResponse = $this->client->post('embeddings', Arr::whereNotNull([
-                'model' => $this->request->model(),
-                'input' => $this->request->inputs(),
-                'input_type' => $providerOptions['inputType'] ?? null,
-                'truncation' => $providerOptions['truncation'] ?? null,
-            ]));
-        } catch (\Exception $e) {
-            throw PrismException::providerRequestError($this->request->model(), $e);
-        }
+        $this->httpResponse = $this->client->post('embeddings', Arr::whereNotNull([
+            'model' => $this->request->model(),
+            'input' => $this->request->inputs(),
+            'input_type' => $providerOptions['inputType'] ?? null,
+            'truncation' => $providerOptions['truncation'] ?? null,
+        ]));
     }
 
     protected function validateResponse(): void
     {
-        if ($this->httpResponse->getStatusCode() === 429) {
-            throw new PrismRateLimitedException([]);
-        }
-
         $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'detail')) {

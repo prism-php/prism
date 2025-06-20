@@ -215,46 +215,42 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        try {
-            $providerOptions = $request->providerOptions();
+        $providerOptions = $request->providerOptions();
 
-            if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
-                throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
-            }
-
-            $tools = match (true) {
-                $providerOptions['searchGrounding'] ?? false => [
-                    [
-                        'google_search' => (object) [],
-                    ],
-                ],
-                $request->tools() !== [] => ['function_declarations' => ToolMap::map($request->tools())],
-                default => [],
-            };
-
-            return $this->client
-                ->withOptions(['stream' => true])
-                ->post(
-                    "{$request->model()}:streamGenerateContent?alt=sse",
-                    Arr::whereNotNull([
-                        ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                        'generationConfig' => Arr::whereNotNull([
-                            'temperature' => $request->temperature(),
-                            'topP' => $request->topP(),
-                            'maxOutputTokens' => $request->maxTokens(),
-                            'thinkingConfig' => Arr::whereNotNull([
-                                'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            ]) ?: null,
-                        ]),
-                        'tools' => $tools !== [] ? $tools : null,
-                        'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
-                        'safetySettings' => $providerOptions['safetySettings'] ?? null,
-                    ])
-                );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
+        if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
+            throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
         }
+
+        $tools = match (true) {
+            $providerOptions['searchGrounding'] ?? false => [
+                [
+                    'google_search' => (object) [],
+                ],
+            ],
+            $request->tools() !== [] => ['function_declarations' => ToolMap::map($request->tools())],
+            default => [],
+        };
+
+        return $this->client
+            ->withOptions(['stream' => true])
+            ->post(
+                "{$request->model()}:streamGenerateContent?alt=sse",
+                Arr::whereNotNull([
+                    ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                    'generationConfig' => Arr::whereNotNull([
+                        'temperature' => $request->temperature(),
+                        'topP' => $request->topP(),
+                        'maxOutputTokens' => $request->maxTokens(),
+                        'thinkingConfig' => Arr::whereNotNull([
+                            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+                        ]) ?: null,
+                    ]),
+                    'tools' => $tools !== [] ? $tools : null,
+                    'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                    'safetySettings' => $providerOptions['safetySettings'] ?? null,
+                ])
+            );
     }
 
     protected function readLine(StreamInterface $stream): string

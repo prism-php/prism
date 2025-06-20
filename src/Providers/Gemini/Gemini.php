@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Concerns\HandlesRequestExceptions;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\Provider;
@@ -26,7 +27,7 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 readonly class Gemini implements Provider
 {
-    use InitializesClient;
+    use HandlesRequestExceptions, InitializesClient;
 
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,

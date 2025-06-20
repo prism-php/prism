@@ -10,11 +10,9 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
-use Throwable;
 
 class Embeddings
 {
@@ -26,15 +24,7 @@ class Embeddings
             throw new PrismException('Gemini Error: Prism currently only supports one input at a time with Gemini.');
         }
 
-        try {
-            $response = $this->sendRequest($request);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
-
-        if ($response->getStatusCode() === 429) {
-            throw new PrismRateLimitedException([]);
-        }
+        $response = $this->sendRequest($request);
 
         $data = $response->json();
 

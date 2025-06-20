@@ -17,7 +17,6 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
@@ -81,23 +80,19 @@ class Structured
             throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
         }
 
-        try {
-            $response = $this->client->post('api/chat', [
-                'model' => $request->model(),
-                'system' => data_get($request->systemPrompts(), '0.content', ''),
-                'messages' => (new MessageMap($request->messages()))->map(),
-                'format' => $request->schema()->toArray(),
-                'stream' => false,
-                'options' => Arr::whereNotNull(array_merge([
-                    'temperature' => $request->temperature(),
-                    'num_predict' => $request->maxTokens() ?? 2048,
-                    'top_p' => $request->topP(),
-                ], $request->providerOptions())),
-            ]);
+        $response = $this->client->post('api/chat', [
+            'model' => $request->model(),
+            'system' => data_get($request->systemPrompts(), '0.content', ''),
+            'messages' => (new MessageMap($request->messages()))->map(),
+            'format' => $request->schema()->toArray(),
+            'stream' => false,
+            'options' => Arr::whereNotNull(array_merge([
+                'temperature' => $request->temperature(),
+                'num_predict' => $request->maxTokens() ?? 2048,
+                'top_p' => $request->topP(),
+            ], $request->providerOptions())),
+        ]);
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $response->json();
     }
 }

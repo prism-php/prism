@@ -12,6 +12,7 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Throwable;
 
 interface Provider
 {
@@ -25,4 +26,6 @@ interface Provider
      * @return Generator<Chunk>
      */
     public function stream(TextRequest $request): Generator;
+
+    public function handleRequestExceptions(string $model, Throwable $e): never;
 }

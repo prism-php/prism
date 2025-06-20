@@ -18,6 +18,7 @@ use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderResponse;
 use Prism\Prism\ValueObjects\Usage;
+use Throwable;
 
 class TestProvider implements Provider
 {
@@ -89,6 +90,11 @@ class TestProvider implements Provider
     public function stream(TextRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    public function handleRequestExceptions(string $model, Throwable $e): never
+    {
+        throw PrismException::providerRequestError($model, $e);
     }
 
     public function withResponse(StructuredResponse|TextResponse $response): Provider

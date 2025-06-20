@@ -7,8 +7,8 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
@@ -20,11 +20,11 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
     use MapsFinishReason;
+    use ProcessRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -36,19 +36,15 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
-        try {
-            $request = $this->appendMessageForJsonMode($request);
+        $request = $this->appendMessageForJsonMode($request);
 
-            $response = $this->sendRequest($request);
+        $response = $this->sendRequest($request);
 
-            $this->validateResponse($response);
+        $this->validateResponse($response);
 
-            $data = $response->json();
+        $data = $response->json();
 
-            return $this->createResponse($request, $data);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->createResponse($request, $data);
     }
 
     protected function sendRequest(Request $request): ClientResponse

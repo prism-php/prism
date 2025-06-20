@@ -8,34 +8,10 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismProviderOverloadedException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
-trait HandlesResponse
+trait ProcessesRateLimits
 {
-    protected function handleResponseExceptions(Response $response): void
-    {
-        if ($response->getStatusCode() === 429) {
-            throw PrismRateLimitedException::make(
-                rateLimits: $this->processRateLimits($response),
-                retryAfter: $response->hasHeader('retry-after')
-                    ? (int) $response->getHeader('retry-after')[0]
-                    : null
-            );
-        }
-
-        if ($response->getStatusCode() === 529) {
-            throw PrismProviderOverloadedException::make(Provider::Anthropic);
-        }
-
-        if ($response->getStatusCode() === 413) {
-            throw PrismRequestTooLargeException::make(Provider::Anthropic);
-        }
-    }
-
     /**
      * @return array<int, ProviderRateLimit>
      */

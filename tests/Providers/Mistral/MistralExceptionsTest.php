@@ -28,7 +28,7 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
     Prism::text()
         ->using(Provider::Mistral, 'fake-model')
         ->withPrompt('Hello world!')
-        ->generate();
+        ->asText();
 
 })->throws(PrismRateLimitedException::class);
 
@@ -50,7 +50,7 @@ it('sets the correct data on the PrismRateLimitedException', function (): void {
             Prism::text()
                 ->using(Provider::Mistral, 'fake-model')
                 ->withPrompt('Hello world!')
-                ->generate();
+                ->asText();
         } catch (PrismRateLimitedException $e) {
             expect($e->retryAfter)->toEqual(null);
             expect($e->rateLimits)->toHaveCount(1);

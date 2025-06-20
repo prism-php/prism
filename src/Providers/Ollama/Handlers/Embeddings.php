@@ -13,7 +13,6 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
-use Throwable;
 
 class Embeddings
 {
@@ -21,12 +20,8 @@ class Embeddings
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        try {
-            $response = $this->sendRequest($request);
-            $data = $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        $response = $this->sendRequest($request);
+        $data = $response->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(sprintf(
