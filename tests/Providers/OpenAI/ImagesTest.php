@@ -37,7 +37,6 @@ it('can generate an image with dall-e-3', function (): void {
     expect($response->firstImage())->not->toBeNull();
     expect($response->firstImage()->url)->toBe('https://example.com/generated-image.png');
     expect($response->firstImage()->hasUrl())->toBeTrue();
-    expect($response->firstImage()->hasB64Json())->toBeFalse();
     expect($response->firstImage()->hasRevisedPrompt())->toBeTrue();
     expect($response->firstImage()->revisedPrompt)->toBe('A cute baby sea otter floating on its back in calm blue water');
     expect($response->usage->promptTokens)->toBe(15);
@@ -82,40 +81,6 @@ it('can generate an image with dall-e-2', function (): void {
 
         return $data['model'] === 'dall-e-2' &&
                $data['prompt'] === 'A mountain landscape';
-    });
-});
-
-it('can generate an image with gpt-image-1', function (): void {
-    Http::fake([
-        'api.openai.com/v1/images/generations' => Http::response([
-            'created' => 1713833628,
-            'data' => [
-                [
-                    'b64_json' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-                ],
-            ],
-            'usage' => [
-                'prompt_tokens' => 20,
-                'completion_tokens' => 0,
-            ],
-        ], 200),
-    ]);
-
-    $response = Prism::image()
-        ->using('openai', 'gpt-image-1')
-        ->prompt('A futuristic cityscape')
-        ->generate();
-
-    expect($response->firstImage())->not->toBeNull();
-    expect($response->firstImage()->hasB64Json())->toBeTrue();
-    expect($response->firstImage()->hasUrl())->toBeFalse();
-    expect($response->firstImage()->b64Json)->toBe('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==');
-
-    Http::assertSent(function (Request $request): bool {
-        $data = $request->data();
-
-        return $data['model'] === 'gpt-image-1' &&
-               $data['prompt'] === 'A futuristic cityscape';
     });
 });
 
@@ -200,88 +165,6 @@ it('can generate an image with all dall-e-3 provider options', function (): void
                $data['quality'] === 'hd' &&
                $data['style'] === 'vivid' &&
                $data['response_format'] === 'url';
-    });
-});
-
-it('can generate an image with gpt-image-1 provider options', function (): void {
-    Http::fake([
-        'api.openai.com/v1/images/generations' => Http::response([
-            'created' => 1713833628,
-            'data' => [
-                [
-                    'b64_json' => 'base64ImageData==',
-                ],
-            ],
-            'usage' => [
-                'prompt_tokens' => 25,
-                'completion_tokens' => 0,
-            ],
-        ], 200),
-    ]);
-
-    $response = Prism::image()
-        ->using('openai', 'gpt-image-1')
-        ->prompt('A detailed portrait')
-        ->withProviderOptions([
-            'size' => '1536x1024',
-            'quality' => 'high',
-            'output_format' => 'webp',
-            'output_compression' => 85,
-            'background' => 'transparent',
-        ])
-        ->generate();
-
-    expect($response->firstImage()->b64Json)->toBe('base64ImageData==');
-
-    Http::assertSent(function (Request $request): bool {
-        $data = $request->data();
-
-        return $data['model'] === 'gpt-image-1' &&
-               $data['prompt'] === 'A detailed portrait' &&
-               $data['size'] === '1536x1024' &&
-               $data['quality'] === 'high' &&
-               $data['output_format'] === 'webp' &&
-               $data['output_compression'] === 85 &&
-               $data['background'] === 'transparent';
-    });
-});
-
-it('can handle image editing with provider options', function (): void {
-    Http::fake([
-        'api.openai.com/v1/images/generations' => Http::response([
-            'created' => 1713833628,
-            'data' => [
-                [
-                    'b64_json' => 'editedImageData==',
-                ],
-            ],
-            'usage' => [
-                'prompt_tokens' => 30,
-                'completion_tokens' => 0,
-            ],
-        ], 200),
-    ]);
-
-    $response = Prism::image()
-        ->using('openai', 'gpt-image-1')
-        ->prompt('Add a rainbow to the sky')
-        ->withProviderOptions([
-            'image' => 'base64OriginalImage==',
-            'mask' => 'base64MaskImage==',
-            'size' => '1024x1024',
-        ])
-        ->generate();
-
-    expect($response->firstImage()->b64Json)->toBe('editedImageData==');
-
-    Http::assertSent(function (Request $request): bool {
-        $data = $request->data();
-
-        return $data['model'] === 'gpt-image-1' &&
-               $data['prompt'] === 'Add a rainbow to the sky' &&
-               $data['image'] === 'base64OriginalImage==' &&
-               $data['mask'] === 'base64MaskImage==' &&
-               $data['size'] === '1024x1024';
     });
 });
 

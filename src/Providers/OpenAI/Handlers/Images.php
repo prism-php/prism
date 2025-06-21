@@ -71,7 +71,6 @@ class Images
         foreach (data_get($data, 'data', []) as $imageData) {
             $images[] = new GeneratedImage(
                 url: data_get($imageData, 'url'),
-                b64Json: data_get($imageData, 'b64_json'),
                 revisedPrompt: data_get($imageData, 'revised_prompt'),
             );
         }

@@ -101,7 +101,6 @@ class PrismFake implements Provider
             images: [
                 new GeneratedImage(
                     url: 'https://example.com/fake-image.png',
-                    b64Json: null,
                     revisedPrompt: null,
                 ),
             ],

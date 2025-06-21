@@ -100,7 +100,6 @@ class TestProvider implements Provider
             images: [
                 new GeneratedImage(
                     url: 'https://example.com/test-image.png',
-                    b64Json: null,
                     revisedPrompt: null,
                 ),
             ],

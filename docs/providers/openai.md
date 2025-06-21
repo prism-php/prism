@@ -104,11 +104,11 @@ OpenAI provides powerful image generation capabilities through multiple models. 
 
 ### Supported Models
 
-| Model | Description | Key Features |
-|-------|-------------|--------------|
-| `dall-e-3` | Latest DALL-E model | High quality, prompt rewriting, HD option |
-| `dall-e-2` | Previous generation | Multiple images, cost-effective |
-| `gpt-image-1` | GPT-based image model | Advanced editing, format options, transparency |
+| Model | Description |
+|-------|-------------|
+| `dall-e-3` | Latest DALL-E model |
+| `dall-e-2` | Previous generation |
+| `gpt-image-1` | GPT-based image model |
 
 ### Basic Usage
 
@@ -134,7 +134,7 @@ $response = Prism::image()
         'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
         'quality' => 'hd',              // standard, hd
         'style' => 'vivid',             // vivid, natural
-        'response_format' => 'url',     // url, b64_json
+        'response_format' => 'url',     // url only
     ])
     ->generate();
 
@@ -155,7 +155,7 @@ $response = Prism::image()
     ->withProviderOptions([
         'n' => 4,                       // Number of images (1-10)
         'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
-        'response_format' => 'url',     // url, b64_json
+        'response_format' => 'url',     // url only
         'user' => 'user-123',           // Optional user identifier
     ])
     ->generate();
@@ -207,33 +207,18 @@ $response = Prism::image()
     ->generate();
 ```
 
-### Response Formats
+### Response Format
 
-Choose between URL and base64 responses based on your needs:
+Generated images are returned as URLs:
 
 ```php
-// URL response (default) - good for immediate display
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
     ->prompt('Digital artwork')
-    ->withProviderOptions(['response_format' => 'url'])
     ->generate();
 
 $image = $response->firstImage();
 if ($image->hasUrl()) {
     echo "<img src='{$image->url}' alt='Generated image'>";
-}
-
-// Base64 response - good for storage/processing
-$response = Prism::image()
-    ->using('openai', 'dall-e-3')
-    ->prompt('Digital artwork')
-    ->withProviderOptions(['response_format' => 'b64_json'])
-    ->generate();
-
-$image = $response->firstImage();
-if ($image->hasB64Json()) {
-    $imageData = base64_decode($image->b64Json);
-    file_put_contents('/path/to/save/image.png', $imageData);
 }
 ```

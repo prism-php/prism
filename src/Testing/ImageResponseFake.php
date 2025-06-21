@@ -26,7 +26,6 @@ readonly class ImageResponseFake extends Response
             images: [
                 new GeneratedImage(
                     url: 'https://example.com/fake-image.png',
-                    b64Json: null,
                     revisedPrompt: null,
                 ),
             ],
