@@ -25,9 +25,9 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
@@ -75,46 +75,49 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            $providerOptions = $request->providerOptions();
+        $providerOptions = $request->providerOptions();
 
-            $thinkingConfig = Arr::whereNotNull([
-                'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-            ]);
+        $thinkingConfig = Arr::whereNotNull([
+            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+        ]);
 
-            $generationConfig = Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'topP' => $request->topP(),
-                'maxOutputTokens' => $request->maxTokens(),
-                'thinkingConfig' => $thinkingConfig !== [] ? $thinkingConfig : null,
-            ]);
+        $generationConfig = Arr::whereNotNull([
+            'temperature' => $request->temperature(),
+            'topP' => $request->topP(),
+            'maxOutputTokens' => $request->maxTokens(),
+            'thinkingConfig' => $thinkingConfig !== [] ? $thinkingConfig : null,
+        ]);
 
-            if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
-                throw new Exception('Use of search grounding with custom tools is not currently supported by Prism.');
-            }
-
-            $tools = $providerOptions['searchGrounding'] ?? false
-                ? [
-                    [
-                        'google_search' => (object) [],
-                    ],
-                ]
-                : ($request->tools() !== [] ? ['function_declarations' => ToolMap::map($request->tools())] : []);
-
-            return $this->client->post(
-                "{$request->model()}:generateContent",
-                Arr::whereNotNull([
-                    ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                    'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
-                    'tools' => $tools !== [] ? $tools : null,
-                    'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
-                    'safetySettings' => $providerOptions['safetySettings'] ?? null,
-                ])
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
+        if ($request->tools() !== [] && $request->providerTools() != []) {
+            throw new Exception('Use of provider tools with custom tools is not currently supported by Gemini.');
         }
+
+        $tools = [];
+
+        if ($request->providerTools() !== []) {
+            $tools = [
+                Arr::mapWithKeys(
+                    $request->providerTools(),
+                    fn (ProviderTool $providerTool): array => [$providerTool->type => (object) []]
+                ),
+            ];
+        }
+
+        if ($request->tools() !== []) {
+            $tools['function_declarations'] = ToolMap::map($request->tools());
+        }
+
+        return $this->client->post(
+            "{$request->model()}:generateContent",
+            Arr::whereNotNull([
+                ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
+                'tools' => $tools !== [] ? $tools : null,
+                'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                'safetySettings' => $providerOptions['safetySettings'] ?? null,
+            ])
+        );
     }
 
     /**

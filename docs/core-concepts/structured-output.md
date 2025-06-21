@@ -51,7 +51,10 @@ Different AI providers handle structured output in two main ways:
 
 ## Provider-Specific Options
 
-Providers may offer additional options for structured output. For example, OpenAI supports a "strict mode" for even tighter schema validation:
+Providers may offer additional options for structured output:
+
+### OpenAI: Strict Mode
+OpenAI supports a "strict mode" for even tighter schema validation:
 
 ```php
 use Prism\Prism\Prism;
@@ -65,6 +68,29 @@ $response = Prism::structured()
     ])
     // ... rest of your configuration
 ```
+
+### Anthropic: Tool Calling Mode
+Anthropic doesn't have native structured output, but Prism provides two approaches. For more reliable JSON parsing, especially with complex content or non-English text, use tool calling mode:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::structured()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+    ->withSchema($schema)
+    ->withPrompt('天氣怎麼樣？應該穿什麼？') // Chinese text with potential quotes
+    ->withProviderOptions(['use_tool_calling' => true])
+    ->asStructured();
+```
+
+**When to use tool calling mode with Anthropic:**
+- Working with non-English content that may contain quotes
+- Complex JSON structures that might confuse prompt-based parsing
+- When you need the most reliable structured output possible
+
+> [!NOTE]
+> Tool calling mode cannot be used with Anthropic's citations feature.
 
 > [!TIP]
 > Check the provider-specific documentation pages for additional options and features that might be available for structured output.

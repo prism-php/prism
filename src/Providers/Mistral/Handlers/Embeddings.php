@@ -8,26 +8,21 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
-use Throwable;
 
 class Embeddings
 {
-    use ValidatesResponse;
+    use ProcessRateLimits, ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        try {
-            $response = $this->sendRequest($request);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
 

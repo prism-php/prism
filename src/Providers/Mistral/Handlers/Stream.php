@@ -14,6 +14,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
@@ -28,7 +29,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, ValidatesResponse;
+    use CallsTools, MapsFinishReason, ProcessRateLimits, ValidatesResponse;
 
     public function __construct(
         protected PendingRequest $client,
@@ -201,28 +202,22 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        try {
-            return $this
-                ->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post('chat/completions',
-                    array_merge([
-                        'stream' => true,
-                        'model' => $request->model(),
-                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_tokens' => $request->maxTokens(),
-                    ], Arr::whereNotNull([
-                        'temperature' => $request->temperature(),
-                        'top_p' => $request->topP(),
-                        'tools' => ToolMap::map($request->tools()),
-                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    ]))
-                );
-        } catch (Throwable $e) {
-            logger()->error('Mistral API error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this
+            ->client
+            ->withOptions(['stream' => true])
+            ->post('chat/completions',
+                array_merge([
+                    'stream' => true,
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_tokens' => $request->maxTokens(),
+                ], Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'tools' => ToolMap::map($request->tools()),
+                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                ]))
+            );
     }
 
     protected function readLine(StreamInterface $stream): string

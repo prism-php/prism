@@ -91,7 +91,7 @@ it('can use a cache object with a structured request', function (): void {
         model: 'gemini-1.5-flash-002',
         messages: [
             new UserMessage('', [
-                Document::fromPath('tests/Fixtures/long-document.pdf'),
+                Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
             ]),
         ],
         systemPrompts: [
@@ -109,10 +109,10 @@ it('can use a cache object with a structured request', function (): void {
         ]))
         ->withProviderOptions(['cachedContentName' => $object->name])
         ->withPrompt('Summarise this document using the properties and descriptions defined in the schema.')
-        ->generate();
+        ->asStructured();
 
     Http::assertSentInOrder([
-        fn (Request $request): bool => true,
+        fn (Request $request): bool => $request->url() == 'https://generativelanguage.googleapis.com/v1beta/cachedContents',
         fn (Request $request): bool => $request->data()['cachedContent'] === $object->name,
     ]);
 
@@ -123,6 +123,7 @@ it('can use a cache object with a structured request', function (): void {
         'article_count',
     ]);
 
+    expect($response->usage->cacheReadInputTokens)->toBe(88759);
     expect($response->structured['article_count'])->toBe(358);
     expect($response->structured['legal_jurisdiction'])->toBe('European Union');
     expect($response->structured['legislation_type'])->toBe('Treaty');

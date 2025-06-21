@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Exception;
-use InvalidArgumentException;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -141,24 +140,7 @@ class MessageMap
      */
     protected function mapImages(array $images): array
     {
-        return array_map(fn (Image $image): array => [
-            'inline_data' => [
-                'mime_type' => $image->mimeType,
-                'data' => $this->getImageData($image),
-            ],
-        ], $images);
-    }
-
-    protected function getImageData(Image $image): string
-    {
-        if ($image->isUrl()) {
-            /** @var string $response */
-            $response = file_get_contents($image->image);
-
-            return base64_encode($response);
-        }
-
-        return $image->image;
+        return array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $images);
     }
 
     /**
@@ -167,22 +149,6 @@ class MessageMap
      */
     protected function mapDocuments(array $documents): array
     {
-        return array_map(function (Document $document): array {
-
-            if ($document->dataFormat === 'content') {
-                throw new PrismException('Gemini does not support custom content documents.');
-            }
-
-            if ($document->isUrl()) {
-                throw new InvalidArgumentException('URL document type is not supported by Gemini');
-            }
-
-            return [
-                'inline_data' => [
-                    'mime_type' => $document->mimeType,
-                    'data' => $document->dataFormat === 'base64' ? $document->document : base64_encode($document->document), // @phpstan-ignore argument.type
-                ],
-            ];
-        }, $documents);
+        return array_map(fn (Document $document): array => (new DocumentMapper($document))->toPayload(), $documents);
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
@@ -25,11 +26,10 @@ use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
-    use CallsTools, ValidateResponse;
+    use CallsTools, ProcessRateLimits,  ValidateResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -66,22 +66,18 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                Arr::whereNotNull([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_tokens' => $request->maxTokens(),
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ])
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->client->post(
+            'chat/completions',
+            Arr::whereNotNull([
+                'model' => $request->model(),
+                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                'max_tokens' => $request->maxTokens(),
+                'temperature' => $request->temperature(),
+                'top_p' => $request->topP(),
+                'tools' => ToolMap::map($request->tools()),
+                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            ])
+        );
     }
 
     /**

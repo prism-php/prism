@@ -13,9 +13,11 @@ use Prism\Prism\Concerns\ConfiguresTools;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Throwable;
 
 class PendingRequest
 {
@@ -27,6 +29,7 @@ class PendingRequest
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
+    use HasProviderTools;
     use HasTools;
 
     /**
@@ -39,7 +42,13 @@ class PendingRequest
 
     public function asText(): Response
     {
-        return $this->provider->text($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->text($request);
+        } catch (Throwable $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     /**
@@ -47,7 +56,17 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
-        return $this->provider->stream($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            $chunks = $this->provider->stream($request);
+
+            foreach ($chunks as $chunk) {
+                yield $chunk;
+            }
+        } catch (Throwable $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     public function toRequest(): Request
@@ -76,6 +95,7 @@ class PendingRequest
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,
             providerOptions: $this->providerOptions,
+            providerTools: $this->providerTools,
         );
     }
 }

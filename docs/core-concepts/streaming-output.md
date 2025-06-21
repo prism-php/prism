@@ -32,8 +32,13 @@ foreach ($response as $chunk) {
     // The text fragment in this chunk
     echo $chunk->text;
 
+    if ($chunk->usage) {
+        echo "Prompt tokens: " . $chunk->usage->promptTokens;
+        echo "Completion tokens: " . $chunk->usage->completionTokens;
+    }
+
     // Check if this is the final chunk
-    if ($chunk->finishReason) {
+    if ($chunk->finishReason === FinishReason::Stop) {
         echo "Generation complete: " . $chunk->finishReason->name;
     }
 }

@@ -6,10 +6,14 @@ namespace Prism\Prism\Providers\Ollama;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\HandlesRequestExceptions;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
 use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;
@@ -21,6 +25,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 readonly class Ollama implements Provider
 {
+    use HandlesRequestExceptions, InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -60,6 +66,12 @@ readonly class Ollama implements Provider
     }
 
     #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
         $handler = new Stream($this->client(
@@ -74,13 +86,12 @@ readonly class Ollama implements Provider
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-        ]))
+        return $this->baseClient()
+            ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->url);
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
@@ -135,12 +136,12 @@ it('applies the citations request level providerOptions to all documents', funct
             ],
             [
                 'type' => 'document',
+                'citations' => ['enabled' => true],
                 'source' => [
                     'type' => 'text',
                     'media_type' => 'text/plain',
                     'data' => 'The grass is green. The sky is blue.',
                 ],
-                'citations' => ['enabled' => true],
             ],
         ],
     ]]);
@@ -206,4 +207,108 @@ it('can use extending thinking', function (): void {
     expect($response->steps->last()->messages[2])
         ->additionalContent->thinking->toBe($expected_thinking)
         ->additionalContent->thinking_signature->toBe($expected_signature);
+});
+
+it('throws error when citations and tool calling are used together', function (): void {
+    $schema = new ObjectSchema('output', 'the output object', [
+        new StringSchema('answer', 'The answer'),
+    ], ['answer']);
+
+    expect(fn (): \Prism\Prism\Structured\Response => Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withPrompt('What is the answer?')
+        ->withProviderOptions(['citations' => true, 'use_tool_calling' => true])
+        ->asStructured()
+    )->toThrow(InvalidArgumentException::class, 'Citations are not supported with tool calling mode');
+});
+
+it('returns structured output with default JSON mode', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/messages',
+        'anthropic/structured-with-default-json'
+    );
+
+    $schema = new ObjectSchema('output', 'the output object', [
+        new StringSchema('answer', 'A simple answer'),
+    ], ['answer']);
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withPrompt('What is 2+2?')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('answer');
+    expect($response->structured['answer'])->toBeString();
+});
+
+it('works with thinking mode when use_tool_calling is true', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/messages',
+        'anthropic/structured-with-use-tool-calling'
+    );
+
+    $schema = new ObjectSchema('output', 'the output object', [
+        new StringSchema('answer', 'The answer about life, universe and everything'),
+    ], ['answer']);
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Anthropic, 'claude-3-7-sonnet-latest')
+        ->withSystemPrompt('You are a helpful assistant.')
+        ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
+        ->withProviderOptions(['thinking' => ['enabled' => true], 'use_tool_calling' => true])
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('answer');
+    expect($response->structured['answer'])->toBeString();
+
+    // Check that thinking data is available in additionalContent for backward compatibility
+    expect($response->additionalContent)->toHaveKey('thinking');
+    expect($response->additionalContent['thinking'])->toBeString();
+
+    // Check that __thinking is not in structured data (it should be moved to additionalContent)
+    expect($response->structured)->not->toHaveKey('__thinking');
+});
+
+it('handles Chinese output with double quotes using tool calling', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-chinese-tool-calling');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast in Chinese with double quotes for temperature'),
+            new StringSchema('recommendation', 'Clothing recommendation in Chinese with quoted items'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'recommendation', 'coat_required']
+    );
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withSystemPrompt('Respond in Chinese. Use double quotes around temperature values and clothing items.')
+        ->withPrompt('What is the weather like today and what should I wear? The temperature is 15°C.')
+        ->withProviderOptions(['use_tool_calling' => true])
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKeys([
+        'weather',
+        'recommendation',
+        'coat_required',
+    ]);
+    expect($response->structured['weather'])->toBeString();
+    expect($response->structured['recommendation'])->toBeString();
+    expect($response->structured['coat_required'])->toBeBool();
+
+    // Verify that Chinese text with quotes is properly handled
+    expect($response->structured['weather'])->toContain('今天天氣');
+    expect($response->structured['weather'])->toContain('15°C');
+    expect($response->structured['recommendation'])->toContain('建議');
+    expect($response->structured['coat_required'])->toBe(true);
 });

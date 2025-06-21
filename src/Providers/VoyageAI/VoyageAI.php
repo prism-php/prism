@@ -4,11 +4,14 @@ namespace Prism\Prism\Providers\VoyageAI;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\HandlesRequestExceptions;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -16,6 +19,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 class VoyageAI implements Provider
 {
+    use HandlesRequestExceptions, InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] protected string $apiKey,
         protected string $baseUrl
@@ -45,6 +50,12 @@ class VoyageAI implements Provider
     }
 
     #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
@@ -54,11 +65,12 @@ class VoyageAI implements Provider
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return Http::withToken($this->apiKey)
+        return $this->baseClient()
+            ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->baseUrl);
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->baseUrl);
     }
 }

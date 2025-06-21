@@ -5,7 +5,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
@@ -17,11 +17,10 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
-    use ValidateResponse;
+    use ProcessRateLimits, ValidateResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -32,19 +31,15 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
-        try {
-            $request = $this->appendMessageForJsonMode($request);
+        $request = $this->appendMessageForJsonMode($request);
 
-            $response = $this->sendRequest($request);
+        $response = $this->sendRequest($request);
 
-            $this->validateResponse($response);
+        $this->validateResponse($response);
 
-            $data = $response->json();
+        $data = $response->json();
 
-            return $this->createResponse($request, $data, $response);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->createResponse($request, $data, $response);
     }
 
     protected function sendRequest(Request $request): ClientResponse

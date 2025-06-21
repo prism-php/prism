@@ -17,7 +17,6 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
@@ -33,17 +32,13 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
-        try {
-            $request = $this->appendMessageForJsonMode($request);
+        $request = $this->appendMessageForJsonMode($request);
 
-            $data = $this->sendRequest($request);
+        $data = $this->sendRequest($request);
 
-            $this->validateResponse($data);
+        $this->validateResponse($data);
 
-            return $this->createResponse($request, $data);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->createResponse($request, $data);
     }
 
     /**

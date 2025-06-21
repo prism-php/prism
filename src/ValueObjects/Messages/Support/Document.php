@@ -4,138 +4,90 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects\Messages\Support;
 
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
-use InvalidArgumentException;
-use Prism\Prism\Concerns\HasProviderOptions;
-
 /**
  * Note: Prism currently only supports Documents with Anthropic.
  */
-class Document
+class Document extends Media
 {
-    use HasProviderOptions;
-
-    public readonly string $dataFormat;
+    protected ?string $documentTitle = null;
 
     /**
-     * @param  string|array<string>  $document
+     * @var null|array<string>
      */
-    public function __construct(
-        public readonly string|array $document,
-        public readonly ?string $mimeType,
-        ?string $dataFormat = null,
-        public readonly ?string $documentTitle = null,
-        public readonly ?string $documentContext = null,
-    ) {
-        // Done this way to avoid assigning a readonly property twice.
-        if ($dataFormat !== null) {
-            $this->dataFormat = $dataFormat;
+    protected ?array $chunks = null;
 
-            return;
-        }
-
-        if (is_array($document)) {
-            $this->dataFormat = 'content';
-
-            return;
-        }
-
-        if ($this->mimeType === null) {
-            throw new InvalidArgumentException('mimeType is required when document is not an array.');
-        }
-
-        $this->dataFormat = Str::startsWith($this->mimeType, 'text/') ? 'text' : 'base64';
+    /**
+     * @deprecated Use `fromLocalPath()` instead.
+     */
+    public static function fromPath(string $path, ?string $title = null): static
+    {
+        return self::fromLocalPath($path, $title);
     }
 
-    public static function fromPath(string $path, ?string $title = null, ?string $context = null): self
+    public static function fromLocalPath(string $path, ?string $title = null): static
     {
-        if (! is_file($path)) {
-            throw new InvalidArgumentException("{$path} is not a file");
-        }
-
-        $content = file_get_contents($path);
-
-        if ($content === '' || $content === '0' || $content === false) {
-            throw new InvalidArgumentException("{$path} is empty");
-        }
-
-        $mimeType = File::mimeType($path);
-
-        if ($mimeType === false) {
-            throw new InvalidArgumentException("Could not determine mime type for {$path}");
-        }
-
-        $isText = Str::startsWith($mimeType, 'text/');
-
-        return new self(
-            document: $isText ? $content : base64_encode($content),
-            mimeType: $mimeType,
-            dataFormat: $isText ? 'text' : 'base64',
-            documentTitle: $title,
-            documentContext: $context
-        );
+        return parent::fromLocalPath($path)->setDocumentTitle($title);
     }
 
-    public static function fromBase64(string $document, string $mimeType, ?string $title = null, ?string $context = null): self
+    public static function fromStoragePath(string $path, ?string $diskName = null, ?string $title = null): static
     {
-        return new self(
-            document: $document,
-            mimeType: $mimeType,
-            dataFormat: 'base64',
-            documentTitle: $title,
-            documentContext: $context
-        );
+        return parent::fromStoragePath($path, $diskName)->setDocumentTitle($title);
     }
 
-    public static function fromText(string $text, ?string $title = null, ?string $context = null): self
+    public static function fromUrl(string $url, ?string $title = null): static
     {
-        return new self(
-            document: $text,
-            mimeType: 'text/plain',
-            dataFormat: 'text',
-            documentTitle: $title,
-            documentContext: $context
-        );
+        return parent::fromUrl($url)->setDocumentTitle($title);
+    }
+
+    public static function fromRawContent(string $rawContent, ?string $mimeType = null, ?string $title = null): static
+    {
+        return parent::fromRawContent($rawContent, $mimeType)->setDocumentTitle($title);
+    }
+
+    public static function fromBase64(string $document, ?string $mimeType = null, ?string $title = null): static
+    {
+        return parent::fromBase64($document, $mimeType)->setDocumentTitle($title);
+    }
+
+    public static function fromText(string $text, ?string $title = null): static
+    {
+        return self::fromRawContent($text, 'text/plain', $title);
     }
 
     /**
      * @param  array<string>  $chunks
      */
-    public static function fromChunks(array $chunks, ?string $title = null, ?string $context = null): self
+    public static function fromChunks(array $chunks, ?string $title = null): self
     {
-        return new self(
-            document: $chunks,
-            mimeType: null,
-            dataFormat: 'content',
-            documentTitle: $title,
-            documentContext: $context
-        );
+        $document = new self;
+        $document->chunks = $chunks;
+        $document->documentTitle = $title;
+
+        return $document;
     }
 
-    public static function fromUrl(string $url, ?string $title = null, ?string $context = null): self
+    public function isChunks(): bool
     {
-        $mimeType = get_headers($url, true)['Content-Type'] ?? null;
-
-        if (is_array($mimeType)) {
-            $mimeType = $mimeType[count($mimeType) - 1] ?? null;
-        }
-
-        if (is_null($mimeType)) {
-            throw new InvalidArgumentException("Could not determine mime type for {$url}");
-        }
-
-        return new self(
-            document: $url,
-            mimeType: $mimeType,
-            dataFormat: 'url',
-            documentTitle: $title,
-            documentContext: $context
-        );
+        return $this->chunks !== null;
     }
 
-    public function isUrl(): bool
+    public function setDocumentTitle(?string $title): static
     {
-        return $this->dataFormat === 'url';
+        $this->documentTitle = $title;
+
+        return $this;
+    }
+
+    public function documentTitle(): ?string
+    {
+        return $this->documentTitle;
+    }
+
+    /**
+     * @return null|array<mixed>
+     */
+    public function chunks(): ?array
+    {
+        return $this->chunks;
     }
 }

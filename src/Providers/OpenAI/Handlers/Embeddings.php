@@ -8,13 +8,11 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
-use Throwable;
 
 class Embeddings
 {
@@ -24,11 +22,7 @@ class Embeddings
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        try {
-            $response = $this->sendRequest($request);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
 

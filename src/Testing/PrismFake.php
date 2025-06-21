@@ -12,6 +12,9 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImageRequest;
+use Prism\Prism\Images\Response as ImageResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\Concerns\CanGenerateFakeChunksFromTextResponses;
@@ -19,8 +22,10 @@ use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
+use Throwable;
 
 class PrismFake implements Provider
 {
@@ -28,14 +33,14 @@ class PrismFake implements Provider
 
     protected int $responseSequence = 0;
 
-    /** @var array<int, StructuredRequest|TextRequest|EmbeddingRequest> */
+    /** @var array<int, StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest> */
     protected array $recorded = [];
 
     /** @var array<string, mixed> */
     protected array $providerConfig = [];
 
     /**
-     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse>  $responses
+     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse>  $responses
      */
     public function __construct(protected array $responses = []) {}
 
@@ -87,6 +92,24 @@ class PrismFake implements Provider
         );
     }
 
+    #[\Override]
+    public function images(ImageRequest $request): ImageResponse
+    {
+        $this->recorded[] = $request;
+
+        return $this->nextImageResponse() ?? new ImageResponse(
+            images: [
+                new GeneratedImage(
+                    url: 'https://example.com/fake-image.png',
+                    revisedPrompt: null,
+                ),
+            ],
+            usage: new Usage(0, 0),
+            meta: new Meta('fake', 'fake'),
+            additionalContent: [],
+        );
+    }
+
     /**
      * Fake implementation of the streaming endpoint.
      *
@@ -123,6 +146,11 @@ class PrismFake implements Provider
         yield from $this->chunksFromTextResponse($fixture);
     }
 
+    public function handleRequestExceptions(string $model, Throwable $e): never
+    {
+        throw PrismException::providerRequestError($model, $e);
+    }
+
     /**
      * @param  array<string, mixed>  $config
      */
@@ -132,7 +160,7 @@ class PrismFake implements Provider
     }
 
     /**
-     * @param  Closure(array<int, StructuredRequest|TextRequest|EmbeddingRequest>):void  $fn
+     * @param  Closure(array<int, StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest>):void  $fn
      */
     public function assertRequest(Closure $fn): void
     {
@@ -217,6 +245,25 @@ class PrismFake implements Provider
         }
 
         /** @var EmbeddingResponse[] $responses */
+        $responses = $this->responses;
+        $sequence = $this->responseSequence;
+
+        if (! isset($responses[$sequence])) {
+            throw new Exception('Could not find a response for the request');
+        }
+
+        $this->responseSequence++;
+
+        return $responses[$sequence];
+    }
+
+    protected function nextImageResponse(): ?ImageResponse
+    {
+        if (! isset($this->responses)) {
+            return null;
+        }
+
+        /** @var ImageResponse[] $responses */
         $responses = $this->responses;
         $sequence = $this->responseSequence;
 

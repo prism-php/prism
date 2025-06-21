@@ -7,8 +7,10 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -17,7 +19,7 @@ beforeEach(function (): void {
 
 it('can generate text with a prompt', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/generate-text-with-a-prompt'
     );
 
@@ -32,14 +34,14 @@ it('can generate text with a prompt', function (): void {
     expect($response->usage->completionTokens)
         ->toBeNumeric()
         ->toBeGreaterThan(0);
-    expect($response->meta->id)->toContain('chatcmpl-');
+    expect($response->meta->id)->toContain('resp_');
     expect($response->meta->model)->toContain('gpt-4o');
     expect($response->text)->toBeString();
 });
 
 it('can generate text with a system prompt', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/generate-text-with-system-prompt'
     );
 
@@ -55,69 +57,17 @@ it('can generate text with a system prompt', function (): void {
     expect($response->usage->completionTokens)
         ->toBeNumeric()
         ->toBeGreaterThan(20);
-    expect($response->meta->id)->toContain('chatcmpl-');
+    expect($response->meta->id)->toContain('resp_');
     expect($response->meta->model)->toContain('gpt-4o');
     expect($response->text)
         ->toBeString()
         ->toContain('Nyx');
 });
 
-it('can generate text using multiple tools and multiple steps', function (): void {
-    FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
-        'openai/generate-text-with-multiple-tools'
-    );
-
-    $tools = [
-        Tool::as('weather')
-            ->for('useful when you need to search for current weather conditions')
-            ->withStringParameter('city', 'The city that you want the weather for')
-            ->using(fn (string $city): string => "The weather in {$city} will be 75° and sunny"),
-        Tool::as('search')
-            ->for('useful for searching curret events or data')
-            ->withStringParameter('query', 'The detailed search query')
-            ->using(fn (string $query): string => 'The tigers game is today at 3pm in detroit'),
-    ];
-
-    $response = Prism::text()
-        ->using('openai', 'gpt-4o')
-        ->withTools($tools)
-        ->usingTemperature(0)
-        ->withMaxSteps(3)
-        ->withSystemPrompt('Current Date: '.now()->toDateString())
-        ->withPrompt('What time is the tigers game today and should I wear a coat?')
-        ->asText();
-
-    // Assert tool calls in the first step
-    $firstStep = $response->steps[0];
-    expect($firstStep->toolCalls)->toHaveCount(2);
-    expect($firstStep->toolCalls[0]->name)->toBe('search');
-    expect($firstStep->toolCalls[0]->arguments())->toBe([
-        'query' => 'Detroit Tigers game March 14 2025 time',
-    ]);
-
-    expect($firstStep->toolCalls[1]->name)->toBe('weather');
-    expect($firstStep->toolCalls[1]->arguments())->toBe([
-        'city' => 'Detroit',
-    ]);
-
-    expect($response->usage->promptTokens)->toBeNumeric();
-    expect($response->usage->completionTokens)->toBeNumeric();
-
-    // Assert response
-    expect($response->meta->id)->toContain('chatcmpl-');
-    expect($response->meta->model)->toContain('gpt-4o');
-
-    // Assert final text content
-    expect($response->text)->toBe(
-        "The Detroit Tigers game is today at 3 PM in Detroit. The weather in Detroit will be 75°F and sunny, so you won't need a coat!"
-    );
-});
-
 it('sends the organization header when set', function (): void {
     config()->set('prism.providers.openai.organization', 'echolabs');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -130,7 +80,7 @@ it('sends the organization header when set', function (): void {
 it('does not send the organization header if one is not given', function (): void {
     config()->offsetUnset('prism.providers.openai.organization');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -143,7 +93,7 @@ it('does not send the organization header if one is not given', function (): voi
 it('sends the api key header when set', function (): void {
     config()->set('prism.providers.openai.api_key', 'sk-1234');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -156,7 +106,7 @@ it('sends the api key header when set', function (): void {
 it('does not send the api key header', function (): void {
     config()->offsetUnset('prism.providers.openai.api_key');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -168,7 +118,7 @@ it('does not send the api key header', function (): void {
 it('sends the project header when set', function (): void {
     config()->set('prism.providers.openai.project', 'echolabs');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -181,7 +131,7 @@ it('sends the project header when set', function (): void {
 it('does not send the project header if one is not given', function (): void {
     config()->offsetUnset('prism.providers.openai.project');
 
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt');
 
     Prism::text()
         ->using('openai', 'gpt-4o')
@@ -191,56 +141,147 @@ it('does not send the project header if one is not given', function (): void {
     Http::assertSent(fn (Request $request): bool => empty($request->header('OpenAI-Project')));
 });
 
-it('handles specific tool choice', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-required-tool-call');
+describe('tools', function (): void {
+    it('can generate text using multiple tools and multiple steps', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/responses',
+            'openai/generate-text-with-multiple-tools',
+        );
 
-    $tools = [
-        Tool::as('weather')
-            ->for('useful when you need to search for current weather conditions')
-            ->withStringParameter('city', 'The city that you want the weather for')
-            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
-        Tool::as('search')
-            ->for('useful for searching curret events or data')
-            ->withStringParameter('query', 'The detailed search query')
-            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
-    ];
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather in {$city} will be 75° and sunny"),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is today at 3pm in detroit'),
+        ];
 
-    $response = Prism::text()
-        ->using('openai', 'gpt-4o')
-        ->withPrompt('Do something')
-        ->withTools($tools)
-        ->withToolChoice('weather')
-        ->asText();
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools($tools)
+            ->usingTemperature(0)
+            ->withMaxSteps(3)
+            ->withSystemPrompt('Current Date: '.now()->toDateString())
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asText();
 
-    expect($response->toolCalls[0]->name)->toBe('weather');
+        // Assert tool calls in the first step
+        $firstStep = $response->steps[0];
+        expect($firstStep->toolCalls)->toHaveCount(2);
+        expect($firstStep->toolCalls[0]->name)->toBe('search');
+        expect($firstStep->toolCalls[0]->arguments())->toBe([
+            'query' => 'Detroit Tigers game March 14 2025 time',
+        ]);
+
+        expect($firstStep->toolCalls[1]->name)->toBe('weather');
+        expect($firstStep->toolCalls[1]->arguments())->toBe([
+            'city' => 'Detroit',
+        ]);
+
+        expect($response->usage->promptTokens)->toBeNumeric();
+        expect($response->usage->completionTokens)->toBeNumeric();
+
+        // Assert response
+        expect($response->meta->id)->toContain('resp_');
+        expect($response->meta->model)->toContain('gpt-4o');
+
+        // Assert final text content
+        expect($response->text)->toBe(
+            "The Detroit Tigers game is today at 3 PM in Detroit. The weather in Detroit will be 75°F and sunny, so you won't need a coat!"
+        );
+    });
+
+    it('handles specific tool choice', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withPrompt('Do something')
+            ->withTools($tools)
+            ->withToolChoice('weather')
+            ->asText();
+
+        expect($response->toolCalls[0]->name)->toBe('weather');
+    });
+
+    it('handles tool choice when null', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-null-tool-call');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withPrompt('Do something')
+            ->withTools($tools)
+            ->asText();
+    })->throwsNoExceptions();
+
+    it('it handles a provider tool', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-code-interpreter');
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4.1')
+            ->withPrompt('Solve the equation 3x + 10 = 14.')
+            ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+            ->asText();
+
+        expect($response->text)->toContain('frac{4}{3}');
+    });
+
+    it('handles a provider tool with a user defined tool', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call-and-provider-tool');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4.1')
+            ->withPrompt('If the current temperature in Detroit is X, what is Y in the following equation: 3x + 10 = Y?')
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+            ->withMaxSteps(3)
+            ->asText();
+
+        expect($response->text)->toContain('235');
+    });
 });
-
-it('handles tool choice when null', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-null-tool-call');
-
-    $tools = [
-        Tool::as('weather')
-            ->for('useful when you need to search for current weather conditions')
-            ->withStringParameter('city', 'The city that you want the weather for')
-            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
-        Tool::as('search')
-            ->for('useful for searching curret events or data')
-            ->withStringParameter('query', 'The detailed search query')
-            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
-    ];
-
-    Prism::text()
-        ->using('openai', 'gpt-4o')
-        ->withPrompt('Do something')
-        ->withTools($tools)
-        ->asText();
-})->throwsNoExceptions();
 
 it('sets the rate limits on meta', function (): void {
     $this->freezeTime(function (Carbon $time): void {
         $time = $time->toImmutable();
 
-        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openai/generate-text-with-a-prompt', [
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt', [
             'x-ratelimit-limit-requests' => 60,
             'x-ratelimit-limit-tokens' => 150000,
             'x-ratelimit-remaining-requests' => 0,
@@ -268,7 +309,7 @@ it('sets the rate limits on meta', function (): void {
 
 it('sets usage correctly with automatic caching', function (): void {
     FixtureResponse::fakeResponseSequence(
-        'v1/chat/completions',
+        'v1/responses',
         'openai/cache-usage-automatic-caching'
     );
 
@@ -289,4 +330,50 @@ it('sets usage correctly with automatic caching', function (): void {
         ->completionTokens->toEqual(109)
         ->cacheWriteInputTokens->toEqual(null)
         ->cacheReadInputTokens->toEqual(1024);
+});
+
+it('uses meta to provide previous response id', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What have we talked about?')
+        ->withProviderOptions([
+            'previous_response_id' => 'resp_foo',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'previous_response_id'))->toBe('resp_foo');
+
+        return true;
+    });
+});
+
+it('uses meta to set auto truncation', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What have we talked about?')
+        ->withProviderOptions([
+            'truncation' => 'auto',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'truncation'))->toBe('auto');
+
+        return true;
+    });
 });

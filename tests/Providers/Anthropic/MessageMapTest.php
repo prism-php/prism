@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use InvalidArgumentException;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
@@ -33,7 +32,7 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with images from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Who are you?', [
-                Image::fromPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/dimond.png'),
             ]),
         ]);
 
@@ -64,19 +63,40 @@ describe('Anthropic user message mapping', function (): void {
             ->toBe('image/png');
     });
 
-    it('does not maps user messages with images from url', function (): void {
-        $this->expectException(InvalidArgumentException::class);
-        MessageMap::map([
-            new UserMessage('Who are you?', [
+    it('maps user messages with images from url', function (): void {
+        $mappedMessage = MessageMap::map([
+            new UserMessage('Here is the document', [
                 Image::fromUrl('https://prismphp.com/storage/dimond.png'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content.1.type'))
+            ->toBe('image');
+        expect(data_get($mappedMessage, '0.content.1.source.type'))
+            ->toBe('url');
+        expect(data_get($mappedMessage, '0.content.1.source.url'))
+            ->toBe('https://prismphp.com/storage/dimond.png');
+    });
+
+    it('maps user messages with PDF documents from url', function (): void {
+        $mappedMessage = MessageMap::map([
+            new UserMessage('Here is the document', [
+                Document::fromUrl('https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf'),
+            ]),
+        ]);
+
+        expect(data_get($mappedMessage, '0.content.1.type'))
+            ->toBe('document');
+        expect(data_get($mappedMessage, '0.content.1.source.type'))
+            ->toBe('url');
+        expect(data_get($mappedMessage, '0.content.1.source.url'))
+            ->toBe('https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf');
     });
 
     it('maps user messages with PDF documents from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
-                Document::fromPath('tests/Fixtures/test-pdf.pdf'),
+                Document::fromLocalPath('tests/Fixtures/test-pdf.pdf'),
             ]),
         ]);
 
@@ -110,7 +130,7 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with txt documents from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
-                Document::fromPath('tests/Fixtures/test-text.txt'),
+                Document::fromLocalPath('tests/Fixtures/test-text.txt'),
             ]),
         ]);
 
@@ -127,7 +147,7 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with md documents from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
-                Document::fromPath('tests/Fixtures/test-text.md'),
+                Document::fromLocalPath('tests/Fixtures/test-text.md'),
             ]),
         ]);
 
@@ -260,6 +280,83 @@ it('maps tool result messages', function (): void {
     ]);
 });
 
+it('sets the cache type on ToolResultMessage if cacheType providerOptions is set', function (mixed $cacheType): void {
+    expect(MessageMap::map([
+        (new ToolResultMessage([
+            new ToolResult(
+                'tool_1234',
+                'weather',
+                [
+                    'city' => 'Dallas',
+                ],
+                'It is 72°F and sunny in Dallas'
+            ),
+        ]))->withProviderOptions(['cacheType' => $cacheType]),
+    ]))->toBe([
+        [
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_1234',
+                    'content' => 'It is 72°F and sunny in Dallas',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+    ]);
+})->with([
+    'ephemeral',
+    AnthropicCacheType::Ephemeral,
+]);
+
+it('only sets cache_control on the last tool result when multiple results exist', function (): void {
+    expect(MessageMap::map([
+        (new ToolResultMessage([
+            new ToolResult(
+                'tool_1',
+                'weather',
+                ['city' => 'New York'],
+                'It is 65°F and cloudy in New York'
+            ),
+            new ToolResult(
+                'tool_2',
+                'weather',
+                ['city' => 'London'],
+                'It is 55°F and rainy in London'
+            ),
+            new ToolResult(
+                'tool_3',
+                'weather',
+                ['city' => 'Tokyo'],
+                'It is 70°F and sunny in Tokyo'
+            ),
+        ]))->withProviderOptions(['cacheType' => 'ephemeral']),
+    ]))->toBe([
+        [
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_1',
+                    'content' => 'It is 65°F and cloudy in New York',
+                ],
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_2',
+                    'content' => 'It is 55°F and rainy in London',
+                ],
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_3',
+                    'content' => 'It is 70°F and sunny in Tokyo',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+    ]);
+});
+
 it('maps system messages', function (): void {
     expect(MessageMap::mapSystemMessages([
         new SystemMessage('I am Thanos.'),
@@ -299,7 +396,7 @@ describe('Anthropic cache mapping', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'Who are you?',
-                additionalContent: [Image::fromPath('tests/Fixtures/dimond.png')]
+                additionalContent: [Image::fromLocalPath('tests/Fixtures/dimond.png')]
             ))->withProviderOptions(['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
@@ -311,12 +408,12 @@ describe('Anthropic cache mapping', function (): void {
                 ],
                 [
                     'type' => 'image',
+                    'cache_control' => ['type' => 'ephemeral'],
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'image/png',
                         'data' => base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
                     ],
-                    'cache_control' => ['type' => 'ephemeral'],
                 ],
             ],
         ]]);
@@ -326,7 +423,7 @@ describe('Anthropic cache mapping', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'Who are you?',
-                additionalContent: [Document::fromPath('tests/Fixtures/test-pdf.pdf')]
+                additionalContent: [Document::fromLocalPath('tests/Fixtures/test-pdf.pdf')]
             ))->withProviderOptions(['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
@@ -338,12 +435,12 @@ describe('Anthropic cache mapping', function (): void {
                 ],
                 [
                     'type' => 'document',
+                    'cache_control' => ['type' => 'ephemeral'],
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'application/pdf',
                         'data' => base64_encode(file_get_contents('tests/Fixtures/test-pdf.pdf')),
                     ],
-                    'cache_control' => ['type' => 'ephemeral'],
                 ],
             ],
         ]]);
@@ -401,23 +498,25 @@ describe('Anthropic citation mapping', function (): void {
                 ],
                 [
                     'type' => 'document',
+                    'citations' => ['enabled' => true],
                     'source' => [
                         'type' => 'text',
                         'media_type' => 'text/plain',
                         'data' => 'The grass is green. The sky is blue.',
                     ],
-                    'citations' => ['enabled' => true],
                 ],
             ],
         ]]);
     });
 
-    test('MessageMap applies citations to all documents if requestProviderMeta has citations true', function (): void {
+    test('MessageMap applies citations to all documents if requestProviderOptions has citations true', function (): void {
         $messages = [
             (new UserMessage(
                 content: 'What color is the grass and sky?',
                 additionalContent: [
-                    Document::fromText('The grass is green.', 'All aboout the grass.', 'A novel look into the colour of grass.'),
+                    Document::fromText('The grass is green.', 'All about the grass.')->withProviderOptions([
+                        'context' => 'A novel look into the colour of grass.',
+                    ]),
                     Document::fromText('The sky is blue.'),
                 ]
             )),
@@ -440,23 +539,23 @@ describe('Anthropic citation mapping', function (): void {
                     ],
                     [
                         'type' => 'document',
+                        'title' => 'All about the grass.',
+                        'context' => 'A novel look into the colour of grass.',
+                        'citations' => ['enabled' => true],
                         'source' => [
                             'type' => 'text',
                             'media_type' => 'text/plain',
                             'data' => 'The grass is green.',
                         ],
-                        'title' => 'All aboout the grass.',
-                        'context' => 'A novel look into the colour of grass.',
-                        'citations' => ['enabled' => true],
                     ],
                     [
                         'type' => 'document',
+                        'citations' => ['enabled' => true],
                         'source' => [
                             'type' => 'text',
                             'media_type' => 'text/plain',
                             'data' => 'The sky is blue.',
                         ],
-                        'citations' => ['enabled' => true],
                     ],
                 ],
             ],
@@ -469,21 +568,21 @@ describe('Anthropic citation mapping', function (): void {
                     ],
                     [
                         'type' => 'document',
+                        'citations' => ['enabled' => true],
                         'source' => [
                             'type' => 'text',
                             'media_type' => 'text/plain',
                             'data' => 'The sea is blue',
                         ],
-                        'citations' => ['enabled' => true],
                     ],
                     [
                         'type' => 'document',
+                        'citations' => ['enabled' => true],
                         'source' => [
                             'type' => 'text',
                             'media_type' => 'text/plain',
                             'data' => 'The earth is brown.',
                         ],
-                        'citations' => ['enabled' => true],
                     ],
                 ],
             ],
@@ -507,14 +606,15 @@ describe('Anthropic citation mapping', function (): void {
                 ],
                 [
                     'type' => 'document',
+                    'citations' => ['enabled' => true],
                     'source' => [
                         'type' => 'content',
+
                         'content' => [
                             ['type' => 'text', 'text' => 'chunk1'],
                             ['type' => 'text', 'text' => 'chunk2'],
                         ],
                     ],
-                    'citations' => ['enabled' => true],
                 ],
             ],
         ]]);

@@ -1,35 +1,35 @@
 {
-  "id": "chatcmpl-BB7W5yrFhtybzOkWObDxfYqV7ozGO",
-  "object": "chat.completion",
-  "created": 1741990201,
+  "id": "resp_BB7W5yrFhtybzOkWObDxfYqV7ozGO",
+  "object": "response",
+  "created_at": 1741990201,
+  "status": "completed",
   "model": "gpt-4o-2024-08-06",
-  "choices": [
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "I am ChatGPT, an AI language model developed by OpenAI. I'm designed to understand and generate human-like text based on the input I receive. I'm here to help answer questions, provide explanations, and assist with a variety of topics. How can I assist you today?",
-        "refusal": null,
-        "annotations": []
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
+      "id": "msg_123ffa14c134819c9be89e492549ec5106fec0a2053cab1f",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "I am ChatGPT, an AI language model developed by OpenAI. I'm designed to understand and generate human-like text based on the input I receive. I'm here to help answer questions, provide explanations, and assist with a variety of topics. How can I assist you today?",
+          "refusal": null
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 11,
-    "completion_tokens": 56,
-    "total_tokens": 67,
-    "prompt_tokens_details": {
-      "cached_tokens": 0,
-      "audio_tokens": 0
+    "input_tokens": 11,
+    "input_tokens_details": {
+      "cached_tokens": 0
     },
-    "completion_tokens_details": {
-      "reasoning_tokens": 0,
-      "audio_tokens": 0,
-      "accepted_prediction_tokens": 0,
-      "rejected_prediction_tokens": 0
-    }
+    "output_tokens": 56,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 67
   },
   "service_tier": "default",
   "system_fingerprint": "fp_f9f4fb6dbf"

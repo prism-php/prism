@@ -115,6 +115,10 @@ export default defineConfig({
                 link: "/core-concepts/embeddings",
               },
               {
+                text: "Image Generation",
+                link: "/core-concepts/image-generation",
+              },
+              {
                 text: "Schemas",
                 link: "/core-concepts/schemas",
               },

@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects\Messages;
 
+use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\ToolResult;
 
-readonly class ToolResultMessage implements Message
+class ToolResultMessage implements Message
 {
+    use HasProviderOptions;
+
     /**
      * @param  ToolResult[]  $toolResults
      */
     public function __construct(
-        public array $toolResults
+        public readonly array $toolResults
     ) {}
 }

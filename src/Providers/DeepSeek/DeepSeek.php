@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\DeepSeek;
 
-use Closure;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Prism\Prism\Concerns\HandlesRequestExceptions;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -21,6 +23,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 readonly class DeepSeek implements Provider
 {
+    use HandlesRequestExceptions, InitializesClient;
+
     public function __construct(
         #[\SensitiveParameter] public string $apiKey,
         public string $url,
@@ -55,6 +59,12 @@ readonly class DeepSeek implements Provider
     }
 
     #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
@@ -62,17 +72,14 @@ readonly class DeepSeek implements Provider
 
     /**
      * @param  array<string, mixed>  $options
-     * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $retry
+     * @param  array<mixed>  $retry
      */
-    protected function client(array $options, array $retry, ?string $baseUrl = null): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        $baseUrl ??= $this->url;
-
-        return Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-        ]))
+        return $this->baseClient()
+            ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($baseUrl);
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

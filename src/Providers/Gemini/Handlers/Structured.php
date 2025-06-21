@@ -16,7 +16,6 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
@@ -51,32 +50,28 @@ class Structured
      */
     public function sendRequest(Request $request): array
     {
-        try {
-            $providerOptions = $request->providerOptions();
+        $providerOptions = $request->providerOptions();
 
-            $response = $this->client->post(
-                "{$request->model()}:generateContent",
-                Arr::whereNotNull([
-                    ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                    'generationConfig' => Arr::whereNotNull([
-                        'response_mime_type' => 'application/json',
-                        'response_schema' => (new SchemaMap($request->schema()))->toArray(),
-                        'temperature' => $request->temperature(),
-                        'topP' => $request->topP(),
-                        'maxOutputTokens' => $request->maxTokens(),
-                        'thinkingConfig' => Arr::whereNotNull([
-                            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                        ]) ?: null,
-                    ]),
-                    'safetySettings' => $providerOptions['safetySettings'] ?? null,
-                ])
-            );
+        $response = $this->client->post(
+            "{$request->model()}:generateContent",
+            Arr::whereNotNull([
+                ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+                'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                'generationConfig' => Arr::whereNotNull([
+                    'response_mime_type' => 'application/json',
+                    'response_schema' => (new SchemaMap($request->schema()))->toArray(),
+                    'temperature' => $request->temperature(),
+                    'topP' => $request->topP(),
+                    'maxOutputTokens' => $request->maxTokens(),
+                    'thinkingConfig' => Arr::whereNotNull([
+                        'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+                    ]) ?: null,
+                ]),
+                'safetySettings' => $providerOptions['safetySettings'] ?? null,
+            ])
+        );
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $response->json();
     }
 
     /**
@@ -110,6 +105,7 @@ class Structured
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
                     completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
                     thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+                    cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

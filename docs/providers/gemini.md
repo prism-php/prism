@@ -10,18 +10,21 @@
 
 ## Search grounding
 
-You may enable Google search grounding on text requests using providerOptions:
+You may enable Google search grounding on text requests using withProviderTools:
 
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\ProviderTool;
 
 $response = Prism::text()
     ->using(Provider::Gemini, 'gemini-2.0-flash')
     ->withPrompt('What is the stock price of Google right now?')
     // Enable search grounding
-    ->withProviderOptions(['searchGrounding' => true])
-    ->generate();
+    ->withProviderTools([
+            new ProviderTool('google_search')
+        ])
+    ->asText();
 ```
 
 If you use search groundings, Google require you meet certain [display requirements](https://ai.google.dev/gemini-api/docs/grounding/search-suggestions).
@@ -137,7 +140,7 @@ $response = Prism::text()
     ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
     // Set thinking budget
     ->withProviderOptions(['thinkingBudget' => 300])
-    ->generate();
+    ->asText();
 ```
 > [!NOTE]
 > Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.

@@ -8,6 +8,8 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
+use Prism\Prism\Images\PendingRequest as PendingImageRequest;
+use Prism\Prism\Images\Response as ImageResponse;
 use Prism\Prism\Structured\PendingRequest as PendingStructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\PrismFake;
@@ -17,7 +19,7 @@ use Prism\Prism\Text\Response as TextResponse;
 class Prism
 {
     /**
-     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse>  $responses
+     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse>  $responses
      */
     public static function fake(array $responses = []): PrismFake
     {
@@ -53,6 +55,11 @@ class Prism
     public static function embeddings(): PendingEmbeddingRequest
     {
         return new PendingEmbeddingRequest;
+    }
+
+    public static function image(): PendingImageRequest
+    {
+        return new PendingImageRequest;
     }
 
     /**

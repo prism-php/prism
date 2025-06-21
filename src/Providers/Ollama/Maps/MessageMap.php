@@ -78,7 +78,7 @@ class MessageMap
 
         if ($images = $message->images()) {
             $mapped['images'] = array_map(
-                fn (Image $image): string => $image->image,
+                fn (Image $image): string => (new ImageMapper($image))->toPayload(),
                 $images
             );
         }
