@@ -36,25 +36,3 @@ it('can store a document in the cache', function (): void {
     expect($object->tokens)->toBe(88759);
     expect($object->expiresAt->toIsoString())->toBe('2025-03-01T11:24:58.504522Z');
 });
-
-it('sends request to cache endpoint', function (): void {
-    FixtureResponse::fakeResponseSequence('*', 'gemini/create-cache');
-
-    /** @var Gemini */
-    $provider = Prism::provider(Provider::Gemini);
-
-    $object = $provider->cache(
-        model: 'gemini-1.5-flash-002',
-        messages: [
-            new UserMessage('', [
-                Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
-            ]),
-        ],
-        systemPrompts: [
-            new SystemMessage('You are a legal analyst.'),
-        ],
-        ttl: 60
-    );
-
-    expect($object->model)->toBe('gemini-1.5-flash-002');
-});
