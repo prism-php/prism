@@ -25,6 +25,10 @@ class ToolCall
     public function arguments(): array
     {
         if (is_string($this->arguments)) {
+            if ($this->arguments === '' || $this->arguments === '0') {
+                return [];
+            }
+
             /** @var string $arguments */
             $arguments = $this->arguments;
 
