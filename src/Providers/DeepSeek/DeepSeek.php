@@ -12,6 +12,8 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -54,6 +56,12 @@ readonly class DeepSeek implements Provider
     public function embeddings(EmbeddingsRequest $request): EmbeddingsResponse
     {
         throw PrismException::unsupportedProviderAction(__FUNCTION__, class_basename($this));
+    }
+
+    #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     #[\Override]

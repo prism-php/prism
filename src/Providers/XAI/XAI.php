@@ -12,6 +12,8 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\XAI\Handlers\Text;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -43,6 +45,12 @@ readonly class XAI implements Provider
 
     #[\Override]
     public function embeddings(EmbeddingRequest $request): EmbeddingResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }

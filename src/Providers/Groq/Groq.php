@@ -16,6 +16,8 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
@@ -52,6 +54,12 @@ readonly class Groq implements Provider
 
     #[\Override]
     public function embeddings(EmbeddingRequest $request): EmbeddingResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+    }
+
+    #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }

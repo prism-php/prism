@@ -16,8 +16,11 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
+use Prism\Prism\Providers\OpenAI\Handlers\Images;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
 use Prism\Prism\Providers\OpenAI\Handlers\Structured;
 use Prism\Prism\Providers\OpenAI\Handlers\Text;
@@ -64,6 +67,17 @@ readonly class OpenAI implements Provider
     public function embeddings(EmbeddingsRequest $request): EmbeddingsResponse
     {
         $handler = new Embeddings($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        $handler = new Images($this->client(
             $request->clientOptions(),
             $request->clientRetry()
         ));

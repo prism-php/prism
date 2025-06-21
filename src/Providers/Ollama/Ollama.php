@@ -11,6 +11,9 @@ use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
 use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;
@@ -60,6 +63,12 @@ readonly class Ollama implements Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     #[\Override]

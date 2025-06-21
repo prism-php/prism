@@ -13,6 +13,8 @@ use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
 use Prism\Prism\Providers\Gemini\Handlers\Stream;
@@ -65,6 +67,12 @@ readonly class Gemini implements Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     #[\Override]

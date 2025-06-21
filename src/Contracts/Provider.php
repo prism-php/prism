@@ -7,6 +7,8 @@ namespace Prism\Prism\Contracts;
 use Generator;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Chunk;
@@ -21,6 +23,8 @@ interface Provider
     public function structured(StructuredRequest $request): StructuredResponse;
 
     public function embeddings(EmbeddingsRequest $request): EmbeddingsResponse;
+
+    public function images(ImagesRequest $request): ImagesResponse;
 
     /**
      * @return Generator<Chunk>

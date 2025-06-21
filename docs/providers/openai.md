@@ -97,3 +97,143 @@ Prism::text()
     ])
     ->asText()
 ```
+
+## Image Generation
+
+OpenAI provides powerful image generation capabilities through multiple models. Prism supports all of OpenAI's image generation models with their full feature sets.
+
+### Supported Models
+
+| Model | Description | Key Features |
+|-------|-------------|--------------|
+| `dall-e-3` | Latest DALL-E model | High quality, prompt rewriting, HD option |
+| `dall-e-2` | Previous generation | Multiple images, cost-effective |
+| `gpt-image-1` | GPT-based image model | Advanced editing, format options, transparency |
+
+### Basic Usage
+
+```php
+$response = Prism::image()
+    ->using('openai', 'dall-e-3')
+    ->prompt('A serene mountain landscape at sunset')
+    ->generate();
+
+$image = $response->firstImage();
+echo $image->url; // Generated image URL
+```
+
+### DALL-E 3 Options
+
+DALL-E 3 is the most advanced model with the highest quality output:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'dall-e-3')
+    ->prompt('A futuristic cityscape with flying cars')
+    ->withProviderOptions([
+        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
+        'quality' => 'hd',              // standard, hd
+        'style' => 'vivid',             // vivid, natural
+        'response_format' => 'url',     // url, b64_json
+    ])
+    ->generate();
+
+// DALL-E 3 automatically revises prompts for better results
+if ($response->firstImage()->hasRevisedPrompt()) {
+    echo "Revised prompt: " . $response->firstImage()->revisedPrompt;
+}
+```
+
+### DALL-E 2 Options
+
+DALL-E 2 supports generating multiple images and is more cost-effective:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'dall-e-2')
+    ->prompt('Abstract geometric patterns')
+    ->withProviderOptions([
+        'n' => 4,                       // Number of images (1-10)
+        'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
+        'response_format' => 'url',     // url, b64_json
+        'user' => 'user-123',           // Optional user identifier
+    ])
+    ->generate();
+
+// Process multiple images
+foreach ($response->images as $image) {
+    echo "Image: {$image->url}\n";
+}
+```
+
+### GPT-Image-1 Options
+
+GPT-Image-1 offers advanced features including image editing and format control:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->prompt('A detailed architectural rendering of a modern house')
+    ->withProviderOptions([
+        'size' => '1536x1024',              // Various sizes supported
+        'quality' => 'high',                // standard, high
+        'output_format' => 'webp',          // png, webp, jpeg
+        'output_compression' => 85,         // Compression level (0-100)
+        'background' => 'transparent',      // transparent, white, black
+        'moderation' => true,               // Enable content moderation
+    ])
+    ->generate();
+```
+
+### Image Editing with GPT-Image-1
+
+GPT-Image-1 supports sophisticated image editing operations:
+
+```php
+// Load your source image and mask
+$originalImage = base64_encode(file_get_contents('/path/to/photo.jpg'));
+$maskImage = base64_encode(file_get_contents('/path/to/mask.png'));
+
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->prompt('Replace the sky with a dramatic sunset')
+    ->withProviderOptions([
+        'image' => $originalImage,          // Base64 encoded original image
+        'mask' => $maskImage,               // Base64 encoded mask (optional)
+        'size' => '1024x1024',
+        'output_format' => 'png',
+        'quality' => 'high',
+    ])
+    ->generate();
+```
+
+### Response Formats
+
+Choose between URL and base64 responses based on your needs:
+
+```php
+// URL response (default) - good for immediate display
+$response = Prism::image()
+    ->using('openai', 'dall-e-3')
+    ->prompt('Digital artwork')
+    ->withProviderOptions(['response_format' => 'url'])
+    ->generate();
+
+$image = $response->firstImage();
+if ($image->hasUrl()) {
+    echo "<img src='{$image->url}' alt='Generated image'>";
+}
+
+// Base64 response - good for storage/processing
+$response = Prism::image()
+    ->using('openai', 'dall-e-3')
+    ->prompt('Digital artwork')
+    ->withProviderOptions(['response_format' => 'b64_json'])
+    ->generate();
+
+$image = $response->firstImage();
+if ($image->hasB64Json()) {
+    $imageData = base64_decode($image->b64Json);
+    file_put_contents('/path/to/save/image.png', $imageData);
+}
+```
