@@ -37,8 +37,8 @@ class Images
 
         $responseBuilder = new ResponseBuilder(
             usage: new Usage(
-                promptTokens: data_get($data, 'usage.prompt_tokens', 0),
-                completionTokens: data_get($data, 'usage.completion_tokens', 0),
+                promptTokens: data_get($data, 'usage.input_tokens', data_get($data, 'usage.prompt_tokens', 0)),
+                completionTokens: data_get($data, 'usage.output_tokens', data_get($data, 'usage.completion_tokens', 0)),
             ),
             meta: new Meta(
                 id: data_get($data, 'id', 'img_'.bin2hex(random_bytes(8))),
@@ -71,6 +71,7 @@ class Images
         foreach (data_get($data, 'data', []) as $imageData) {
             $images[] = new GeneratedImage(
                 url: data_get($imageData, 'url'),
+                base64: data_get($imageData, 'b64_json'),
                 revisedPrompt: data_get($imageData, 'revised_prompt'),
             );
         }

@@ -43,6 +43,9 @@ $image = $response->firstImage();
 if ($image->hasUrl()) {
     echo "Image URL: " . $image->url;
 }
+if ($image->hasBase64()) {
+    echo "Base64 Image Data: " . $image->base64;
+}
 ```
 
 ### Working with Responses
@@ -64,8 +67,12 @@ if ($response->hasImages()) {
         if ($image->hasUrl()) {
             echo "Image: {$image->url}\n";
         }
+        
+        if ($image->hasBase64()) {
+            echo "Base64 Image: " . substr($image->base64, 0, 50) . "...\n";
+        }
 
-        if ($image->hasRevisedwithPrompt()) {
+        if ($image->hasRevisedPrompt()) {
             echo "Revised prompt: {$image->revisedPrompt}\n";
         }
     }
@@ -100,6 +107,54 @@ $response = Prism::image()
         'response_format' => 'url',     // url, b64_json
     ])
     ->generate();
+```
+
+#### GPT-Image-1 (Base64 Only)
+
+The GPT-Image-1 model always returns base64-encoded images, regardless of the `response_format` setting:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->withPrompt('A cute baby sea otter floating on its back')
+    ->withProviderOptions([
+        'size' => '1024x1024',              // 1024x1024, 1536x1024, 1024x1536, auto
+        'quality' => 'high',                // auto, high, medium, low
+        'background' => 'transparent',      // transparent, opaque, auto
+        'output_format' => 'png',           // png, jpeg, webp
+        'output_compression' => 90,         // 0-100 (for jpeg/webp)
+    ])
+    ->generate();
+
+$image = $response->firstImage();
+if ($image->hasBase64()) {
+    // Save the base64 image to a file
+    file_put_contents('generated-image.png', base64_decode($image->base64));
+    echo "Base64 image saved to generated-image.png";
+}
+```
+
+#### Base64 vs URL Responses
+
+Different models return images in different formats:
+
+- **GPT-Image-1**: Always returns base64-encoded images in the `base64` property
+- **DALL-E 2 & 3**: Return URLs by default, but can return base64 when `response_format` is set to `'b64_json'`
+
+```php
+// Request base64 format from DALL-E 3
+$response = Prism::image()
+    ->using('openai', 'dall-e-3')
+    ->withPrompt('Abstract art')
+    ->withProviderOptions([
+        'response_format' => 'b64_json',
+    ])
+    ->generate();
+
+$image = $response->firstImage();
+if ($image->hasBase64()) {
+    echo "Received base64 image data";
+}
 ```
 
 ## Testing

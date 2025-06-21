@@ -223,3 +223,127 @@ it('includes meta information in response', function (): void {
     expect($response->meta->model)->toBe('dall-e-3');
     expect($response->meta->rateLimits)->not->toBeEmpty();
 });
+
+it('can generate an image with gpt-image-1 returning base64', function (): void {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'created' => 1713833628,
+            'data' => [
+                [
+                    'b64_json' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                ],
+            ],
+            'usage' => [
+                'total_tokens' => 100,
+                'input_tokens' => 50,
+                'output_tokens' => 50,
+                'input_tokens_details' => [
+                    'text_tokens' => 10,
+                    'image_tokens' => 40,
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('A cute baby sea otter')
+        ->generate();
+
+    expect($response->firstImage())->not->toBeNull();
+    expect($response->firstImage()->base64)->toBe('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    expect($response->firstImage()->hasBase64())->toBeTrue();
+    expect($response->firstImage()->hasUrl())->toBeFalse();
+    expect($response->firstImage()->url)->toBeNull();
+    expect($response->usage->promptTokens)->toBe(50);
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        return $request->url() === 'https://api.openai.com/v1/images/generations' &&
+               $data['model'] === 'gpt-image-1' &&
+               $data['prompt'] === 'A cute baby sea otter';
+    });
+});
+
+it('can generate an image with dall-e-3 requesting base64 format', function (): void {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'created' => 1713833628,
+            'data' => [
+                [
+                    'b64_json' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                    'revised_prompt' => 'A highly detailed mountain sunset scene',
+                ],
+            ],
+            'usage' => [
+                'prompt_tokens' => 20,
+                'completion_tokens' => 0,
+            ],
+        ], 200),
+    ]);
+
+    $response = Prism::image()
+        ->using('openai', 'dall-e-3')
+        ->withPrompt('A mountain sunset')
+        ->withProviderOptions([
+            'response_format' => 'b64_json',
+        ])
+        ->generate();
+
+    expect($response->firstImage())->not->toBeNull();
+    expect($response->firstImage()->base64)->toBe('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    expect($response->firstImage()->hasBase64())->toBeTrue();
+    expect($response->firstImage()->hasUrl())->toBeFalse();
+    expect($response->firstImage()->hasRevisedPrompt())->toBeTrue();
+    expect($response->firstImage()->revisedPrompt)->toBe('A highly detailed mountain sunset scene');
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        return $data['model'] === 'dall-e-3' &&
+               $data['prompt'] === 'A mountain sunset' &&
+               $data['response_format'] === 'b64_json';
+    });
+});
+
+it('can generate an image with dall-e-2 requesting base64 format', function (): void {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'created' => 1713833628,
+            'data' => [
+                [
+                    'b64_json' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                ],
+            ],
+            'usage' => [
+                'prompt_tokens' => 12,
+                'completion_tokens' => 0,
+            ],
+        ], 200),
+    ]);
+
+    $response = Prism::image()
+        ->using('openai', 'dall-e-2')
+        ->withPrompt('Abstract geometric patterns')
+        ->withProviderOptions([
+            'response_format' => 'b64_json',
+            'size' => '256x256',
+        ])
+        ->generate();
+
+    expect($response->firstImage())->not->toBeNull();
+    expect($response->firstImage()->base64)->toBe('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    expect($response->firstImage()->hasBase64())->toBeTrue();
+    expect($response->firstImage()->hasUrl())->toBeFalse();
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        return $data['model'] === 'dall-e-2' &&
+               $data['prompt'] === 'Abstract geometric patterns' &&
+               $data['response_format'] === 'b64_json' &&
+               $data['size'] === '256x256';
+    });
+});
