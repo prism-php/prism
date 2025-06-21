@@ -11,7 +11,7 @@ use Prism\Prism\Prism;
 
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
-    ->prompt('A cute baby sea otter floating on its back in calm blue water')
+    ->withPrompt('A cute baby sea otter floating on its back in calm blue water')
     ->generate();
 
 $image = $response->firstImage();
@@ -35,7 +35,7 @@ The most straightforward way to generate an image:
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
-    ->prompt('A serene mountain landscape at sunset')
+    ->withPrompt('A serene mountain landscape at sunset')
     ->generate();
 
 // Access the generated image
@@ -52,7 +52,7 @@ The response object provides helpful methods for accessing generated content:
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-2')
-    ->prompt('Abstract geometric patterns in vibrant colors')
+    ->withPrompt('Abstract geometric patterns in vibrant colors')
     ->generate();
 
 // Check if images were generated
@@ -65,7 +65,7 @@ if ($response->hasImages()) {
             echo "Image: {$image->url}\n";
         }
 
-        if ($image->hasRevisedPrompt()) {
+        if ($image->hasRevisedwithPrompt()) {
             echo "Revised prompt: {$image->revisedPrompt}\n";
         }
     }
@@ -92,7 +92,7 @@ OpenAI offers various customization options depending on the model:
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
-    ->prompt('A beautiful sunset over mountains')
+    ->withPrompt('A beautiful sunset over mountains')
     ->withProviderOptions([
         'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
         'quality' => 'hd',              // standard, hd
@@ -116,12 +116,12 @@ test('can generate images', function () {
 
     $response = Prism::image()
         ->using('openai', 'dall-e-3')
-        ->prompt('Test image')
+        ->withPrompt('Test image')
         ->generate();
 
     expect($response->hasImages())->toBeTrue();
     expect($response->firstImage()->url)->toContain('fake-image-url');
 });
-``` 
+```
 
 Need help with a specific provider or use case? Check the [provider documentation](/providers/openai) for detailed configuration options and examples.

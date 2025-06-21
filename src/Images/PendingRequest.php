@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Images;
 
+use Illuminate\Contracts\View\View;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
@@ -18,9 +19,9 @@ class PendingRequest
 
     protected string $prompt = '';
 
-    public function prompt(string $prompt): self
+    public function withPrompt(string|View $prompt): self
     {
-        $this->prompt = $prompt;
+        $this->prompt = is_string($prompt) ? $prompt : $prompt->render();
 
         return $this;
     }

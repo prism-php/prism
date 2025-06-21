@@ -31,7 +31,7 @@ it('can generate an image with dall-e-3', function (): void {
 
     $response = Prism::image()
         ->using('openai', 'dall-e-3')
-        ->prompt('A cute baby sea otter')
+        ->withPrompt('A cute baby sea otter')
         ->generate();
 
     expect($response->firstImage())->not->toBeNull();
@@ -69,7 +69,7 @@ it('can generate an image with dall-e-2', function (): void {
 
     $response = Prism::image()
         ->using('openai', 'dall-e-2')
-        ->prompt('A mountain landscape')
+        ->withPrompt('A mountain landscape')
         ->generate();
 
     expect($response->firstImage())->not->toBeNull();
@@ -105,7 +105,7 @@ it('can generate multiple images with dall-e-2', function (): void {
 
     $response = Prism::image()
         ->using('openai', 'dall-e-2')
-        ->prompt('Abstract art')
+        ->withPrompt('Abstract art')
         ->withProviderOptions([
             'n' => 2,
             'size' => '512x512',
@@ -145,7 +145,7 @@ it('can generate an image with all dall-e-3 provider options', function (): void
 
     $response = Prism::image()
         ->using('openai', 'dall-e-3')
-        ->prompt('A sunset over mountains')
+        ->withPrompt('A sunset over mountains')
         ->withProviderOptions([
             'size' => '1792x1024',
             'quality' => 'hd',
@@ -186,7 +186,7 @@ it('includes usage information in response', function (): void {
 
     $response = Prism::image()
         ->using('openai', 'dall-e-3')
-        ->prompt('Test usage tracking')
+        ->withPrompt('Test usage tracking')
         ->generate();
 
     expect($response->usage->promptTokens)->toBe(22);
@@ -216,7 +216,7 @@ it('includes meta information in response', function (): void {
 
     $response = Prism::image()
         ->using('openai', 'dall-e-3')
-        ->prompt('Test meta information')
+        ->withPrompt('Test meta information')
         ->generate();
 
     expect($response->meta->id)->toBe('img_abc123');

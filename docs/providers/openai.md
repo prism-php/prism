@@ -115,7 +115,7 @@ OpenAI provides powerful image generation capabilities through multiple models. 
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
-    ->prompt('A serene mountain landscape at sunset')
+    ->withPrompt('A serene mountain landscape at sunset')
     ->generate();
 
 $image = $response->firstImage();
@@ -129,12 +129,11 @@ DALL-E 3 is the most advanced model with the highest quality output:
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
-    ->prompt('A futuristic cityscape with flying cars')
+    ->withPrompt('A futuristic cityscape with flying cars')
     ->withProviderOptions([
         'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
         'quality' => 'hd',              // standard, hd
         'style' => 'vivid',             // vivid, natural
-        'response_format' => 'url',     // url only
     ])
     ->generate();
 
@@ -151,7 +150,7 @@ DALL-E 2 supports generating multiple images and is more cost-effective:
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-2')
-    ->prompt('Abstract geometric patterns')
+    ->withPrompt('Abstract geometric patterns')
     ->withProviderOptions([
         'n' => 4,                       // Number of images (1-10)
         'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
@@ -173,7 +172,7 @@ GPT-Image-1 offers advanced features including image editing and format control:
 ```php
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
-    ->prompt('A detailed architectural rendering of a modern house')
+    ->withPrompt('A detailed architectural rendering of a modern house')
     ->withProviderOptions([
         'size' => '1536x1024',              // Various sizes supported
         'quality' => 'high',                // standard, high
@@ -196,7 +195,7 @@ $maskImage = base64_encode(file_get_contents('/path/to/mask.png'));
 
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
-    ->prompt('Replace the sky with a dramatic sunset')
+    ->withPrompt('Replace the sky with a dramatic sunset')
     ->withProviderOptions([
         'image' => $originalImage,          // Base64 encoded original image
         'mask' => $maskImage,               // Base64 encoded mask (optional)
@@ -214,7 +213,7 @@ Generated images are returned as URLs:
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
-    ->prompt('Digital artwork')
+    ->withPrompt('Digital artwork')
     ->generate();
 
 $image = $response->firstImage();
