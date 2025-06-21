@@ -183,7 +183,7 @@ it('handles multimodal messages with image URL', function (): void {
             return $message instanceof UserMessage
                 && $message->text() === 'What is in this image?'
                 && count($message->images()) === 1
-                && $message->images()[0]->image === 'https://example.com/test.jpg'
+                && $message->images()[0]->url() === 'https://example.com/test.jpg'
                 && $message->images()[0]->isUrl();
         })
         ->andReturnSelf();
@@ -239,8 +239,8 @@ it('handles multimodal messages with base64 image', function (): void {
             return $message instanceof UserMessage
                 && $message->text() === 'Analyze this screenshot'
                 && count($message->images()) === 1
-                && $message->images()[0]->image === $base64Image
-                && $message->images()[0]->mimeType === 'image/png'
+                && $message->images()[0]->base64() === $base64Image
+                && $message->images()[0]->mimeType() === 'image/png'
                 && ! $message->images()[0]->isUrl();
         })
         ->andReturnSelf();
@@ -294,8 +294,8 @@ it('handles multimodal messages with multiple images', function (): void {
             return $message instanceof UserMessage
                 && $message->text() === 'Compare these two images'
                 && count($message->images()) === 2
-                && $message->images()[0]->image === 'https://example.com/image1.jpg'
-                && $message->images()[1]->image === 'https://example.com/image2.jpg';
+                && $message->images()[0]->url() === 'https://example.com/image1.jpg'
+                && $message->images()[1]->url() === 'https://example.com/image2.jpg';
         })
         ->andReturnSelf();
 
