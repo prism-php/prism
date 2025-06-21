@@ -110,6 +110,7 @@ class Structured
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
                     completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
                     thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+                    cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

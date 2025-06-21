@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Gemini;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Uri;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
@@ -92,7 +93,7 @@ readonly class Gemini implements Provider
 
         $handler = new Cache(
             client: $this->client(
-                baseUrl: 'https://generativelanguage.googleapis.com/v1beta'
+                baseUrl: Uri::of($this->url)->withPath('/v1beta')->value()
             ),
             model: $model,
             messages: $messages,
