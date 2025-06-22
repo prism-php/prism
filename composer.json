@@ -39,7 +39,7 @@
     "phpstan/phpstan-deprecation-rules": "^1.2",
     "rector/rector": "^1.1",
     "projektgopher/whisky": "^0.7.0",
-    "orchestra/testbench": "^9.4",
+    "orchestra/testbench": "^10",
     "mockery/mockery": "^1.6",
     "symplify/rule-doc-generator-contracts": "^11.2",
     "phpstan/phpdoc-parser": "^1.24",
