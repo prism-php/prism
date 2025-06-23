@@ -6,7 +6,6 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 use Prism\Prism\Images\ResponseBuilder;
@@ -16,7 +15,6 @@ use Prism\Prism\Providers\OpenAI\Maps\ImageRequestMap;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Images
 {
@@ -53,11 +51,7 @@ class Images
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post('images/generations', ImageRequestMap::map($request));
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->client->post('images/generations', ImageRequestMap::map($request));
     }
 
     /**

@@ -16,7 +16,6 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
-use Throwable;
 
 abstract class Provider
 {
@@ -48,16 +47,8 @@ abstract class Provider
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
-    public function handleRequestExceptions(string $model, Throwable $e): never
+    public function handleRequestExceptions(string $model, RequestException $e): never
     {
-        if ($e instanceof PrismException) {
-            throw $e;
-        }
-
-        if (! $e instanceof RequestException) {
-            throw PrismException::providerRequestError($model, $e);
-        }
-
         throw PrismException::providerRequestError($model, $e);
     }
 }

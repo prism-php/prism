@@ -21,7 +21,6 @@ use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderResponse;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class TestProvider extends Provider
 {
@@ -86,6 +85,10 @@ class TestProvider extends Provider
         return $this->responses[$this->callCount - 1] ?? new EmbeddingResponse(
             embeddings: [],
             usage: new EmbeddingsUsage(10),
+            meta: new Meta(
+                id: '123',
+                model: 'your-model',
+            )
         );
     }
 
@@ -112,11 +115,6 @@ class TestProvider extends Provider
     public function stream(TextRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
-    }
-
-    public function handleRequestExceptions(string $model, Throwable $e): never
-    {
-        throw PrismException::providerRequestError($model, $e);
     }
 
     public function withResponse(StructuredResponse|TextResponse $response): Provider

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
-use Exception;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
@@ -89,7 +88,7 @@ class Text
         ]);
 
         if ($request->tools() !== [] && $request->providerTools() != []) {
-            throw new Exception('Use of provider tools with custom tools is not currently supported by Gemini.');
+            throw new PrismException('Use of provider tools with custom tools is not currently supported by Gemini.');
         }
 
         $tools = [];

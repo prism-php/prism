@@ -28,7 +28,6 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Throwable;
 
 class Mistral extends Provider
 {
@@ -107,16 +106,8 @@ class Mistral extends Provider
         return $handler->handle($request);
     }
 
-    public function handleRequestExceptions(string $model, Throwable $e): never
+    public function handleRequestExceptions(string $model, RequestException $e): never
     {
-        if ($e instanceof PrismException) {
-            throw $e;
-        }
-
-        if (! $e instanceof RequestException) {
-            throw PrismException::providerRequestError($model, $e);
-        }
-
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make(
                 rateLimits: $this->processRateLimits($e->response),

@@ -142,7 +142,7 @@ describe('Text generation for Groq', function (): void {
             ->using('groq', 'gpt-4')
             ->withPrompt('Who are you?')
             ->withToolChoice(ToolChoice::Any)
-            ->generate();
+            ->asText();
     });
 });
 

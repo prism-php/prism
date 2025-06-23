@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Embeddings;
 
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Exceptions\PrismException;
-use Throwable;
 
 class PendingRequest
 {
@@ -71,7 +71,7 @@ class PendingRequest
 
         try {
             return $this->provider->embeddings($request);
-        } catch (Throwable $e) {
+        } catch (RequestException $e) {
             $this->provider->handleRequestExceptions($request->model(), $e);
         }
     }

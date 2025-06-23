@@ -11,7 +11,6 @@ use PHPUnit\Framework\Assert as PHPUnit;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Images\Request as ImageRequest;
 use Prism\Prism\Images\Response as ImageResponse;
 use Prism\Prism\Providers\Provider;
@@ -25,7 +24,6 @@ use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class PrismFake extends Provider
 {
@@ -144,11 +142,6 @@ class PrismFake extends Provider
         );
 
         yield from $this->chunksFromTextResponse($fixture);
-    }
-
-    public function handleRequestExceptions(string $model, Throwable $e): never
-    {
-        throw PrismException::providerRequestError($model, $e);
     }
 
     /**

@@ -28,7 +28,6 @@ use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
-use Throwable;
 
 class OpenAI extends Provider
 {
@@ -96,16 +95,8 @@ class OpenAI extends Provider
         return $handler->handle($request);
     }
 
-    public function handleRequestExceptions(string $model, Throwable $e): never
+    public function handleRequestExceptions(string $model, RequestException $e): never
     {
-        if ($e instanceof PrismException) {
-            throw $e;
-        }
-
-        if (! $e instanceof RequestException) {
-            throw PrismException::providerRequestError($model, $e);
-        }
-
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make(
                 rateLimits: $this->processRateLimits($e->response),

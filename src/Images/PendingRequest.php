@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Images;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
@@ -28,7 +29,13 @@ class PendingRequest
 
     public function generate(): Response
     {
-        return $this->provider->images($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->images($this->toRequest());
+        } catch (RequestException $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     public function toRequest(): Request
