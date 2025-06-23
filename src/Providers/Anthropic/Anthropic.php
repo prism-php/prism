@@ -9,15 +9,11 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Provider;
-use Prism\Prism\Embeddings\Request as EmbeddingRequest;
-use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
-use Prism\Prism\Images\Request as ImagesRequest;
-use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
@@ -28,14 +24,14 @@ use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Throwable;
 
-readonly class Anthropic implements Provider
+class Anthropic extends Provider
 {
     use InitializesClient, ProcessesRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] public string $apiKey,
-        public string $apiVersion,
-        public ?string $betaFeatures = null
+        #[\SensitiveParameter] readonly public string $apiKey,
+        readonly public string $apiVersion,
+        readonly public ?string $betaFeatures = null
     ) {}
 
     #[\Override]
@@ -75,18 +71,6 @@ readonly class Anthropic implements Provider
         ));
 
         return $handler->handle($request);
-    }
-
-    #[\Override]
-    public function embeddings(EmbeddingRequest $request): EmbeddingResponse
-    {
-        throw new \Exception(sprintf('%s does not support embeddings', class_basename($this)));
-    }
-
-    #[\Override]
-    public function images(ImagesRequest $request): ImagesResponse
-    {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     public function handleRequestExceptions(string $model, Throwable $e): never

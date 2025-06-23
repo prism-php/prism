@@ -23,7 +23,7 @@ use Prism\Prism\ValueObjects\ProviderResponse;
 use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
-class TestProvider implements Provider
+class TestProvider extends Provider
 {
     public StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest $request;
 

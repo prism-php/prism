@@ -27,7 +27,7 @@ use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 use Throwable;
 
-class PrismFake implements Provider
+class PrismFake extends Provider
 {
     use CanGenerateFakeChunksFromTextResponses;
 

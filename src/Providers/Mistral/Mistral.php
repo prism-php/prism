@@ -16,8 +16,6 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
-use Prism\Prism\Images\Request as ImagesRequest;
-use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
@@ -32,13 +30,13 @@ use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Throwable;
 
-readonly class Mistral implements Provider
+class Mistral extends Provider
 {
     use InitializesClient, ProcessRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] public string $apiKey,
-        public string $url,
+        #[\SensitiveParameter] readonly public string $apiKey,
+        readonly public string $url,
     ) {}
 
     #[\Override]
@@ -75,12 +73,6 @@ readonly class Mistral implements Provider
         ));
 
         return $handler->handle($request);
-    }
-
-    #[\Override]
-    public function images(ImagesRequest $request): ImagesResponse
-    {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
     /**

@@ -30,15 +30,15 @@ use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Throwable;
 
-readonly class OpenAI implements Provider
+class OpenAI extends Provider
 {
     use InitializesClient, ProcessesRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] public string $apiKey,
-        public string $url,
-        public ?string $organization,
-        public ?string $project,
+        #[\SensitiveParameter] readonly public string $apiKey,
+        readonly public string $url,
+        readonly public ?string $organization,
+        readonly public ?string $project,
     ) {}
 
     #[\Override]
