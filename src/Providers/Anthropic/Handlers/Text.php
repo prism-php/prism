@@ -9,11 +9,15 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
+use Prism\Prism\Support\Trace;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
@@ -105,6 +109,8 @@ class Text extends AnthropicHandlerAbstract
 
     protected function handleToolCalls(): Response
     {
+        Trace::end(fn () => event(new PrismRequestCompleted(Provider::Anthropic->value, ['response' => $this->tempResponse])));
+
         $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls);
         $message = new ToolResultMessage($toolResults);
 
@@ -119,6 +125,10 @@ class Text extends AnthropicHandlerAbstract
         $this->addStep($toolResults);
 
         if ($this->shouldContinue()) {
+            $request = static::buildHttpRequestPayload($this->request);
+
+            Trace::begin('text', fn () => event(new PrismRequestStarted(Provider::Anthropic->value, ['request' => $request])));
+
             return $this->handle();
         }
 

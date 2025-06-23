@@ -15,7 +15,10 @@ use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Support\Trace;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Throwable;
 
@@ -44,9 +47,22 @@ class PendingRequest
     {
         $request = $this->toRequest();
 
+        $trace = Trace::begin('text', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
         try {
-            return $this->provider->text($request);
+            $response = $this->provider->text($request);
+
+            // Trace might already be ended if tool is called, end only if same type
+            if (Trace::isSameType($trace)) {
+                Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['response' => $response])));
+            }
+
+            return $response;
         } catch (Throwable $e) {
+            if (Trace::isSameType($trace)) {
+                Trace::end(callback: fn () => event(new PrismRequestCompleted(exception: $e)));
+            }
+
             $this->provider->handleRequestExceptions($request->model(), $e);
         }
     }
@@ -58,13 +74,27 @@ class PendingRequest
     {
         $request = $this->toRequest();
 
+        $trace = Trace::begin('stream', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
         try {
             $chunks = $this->provider->stream($request);
 
+            $result = [];
+
             foreach ($chunks as $chunk) {
+                $result[] = $chunk;
+
                 yield $chunk;
             }
+
+            if (Trace::isSameType($trace)) {
+                Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['chunks' => $result])));
+            }
         } catch (Throwable $e) {
+            if (Trace::isSameType($trace)) {
+                Trace::end(callback: fn () => event(new PrismRequestCompleted(exception: $e)));
+            }
+
             $this->provider->handleRequestExceptions($request->model(), $e);
         }
     }

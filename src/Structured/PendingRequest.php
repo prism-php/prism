@@ -12,8 +12,12 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasSchema;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Support\Trace;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Throwable;
 
 class PendingRequest
 {
@@ -36,7 +40,22 @@ class PendingRequest
 
     public function asStructured(): Response
     {
-        return $this->provider->structured($this->toRequest());
+        $request = $this->toRequest();
+
+        Trace::begin('structured', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
+        try {
+            $response = $this->provider->structured($request);
+
+            Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['response' => $response]))
+            );
+        } catch (Throwable $e) {
+            Trace::end(fn () => event(new PrismRequestCompleted(exception: $e)));
+
+            throw $e;
+        }
+
+        return $response;
     }
 
     public function toRequest(): Request

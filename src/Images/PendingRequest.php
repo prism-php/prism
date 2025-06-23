@@ -9,6 +9,10 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
+use Prism\Prism\Support\Trace;
+use Throwable;
 
 class PendingRequest
 {
@@ -28,7 +32,21 @@ class PendingRequest
 
     public function generate(): Response
     {
-        return $this->provider->images($this->toRequest());
+        $request = $this->toRequest();
+
+        Trace::begin('images', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
+        try {
+            $response = $this->provider->images($request);
+
+            Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['response' => $response])));
+
+            return $response;
+        } catch (Throwable $e) {
+            Trace::end(fn () => event(new PrismRequestCompleted(exception: $e)));
+
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     public function toRequest(): Request
