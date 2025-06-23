@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use Illuminate\Support\Carbon;
-use InvalidArgumentException;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
@@ -220,7 +220,7 @@ it('throws error when citations and tool calling are used together', function ()
         ->withPrompt('What is the answer?')
         ->withProviderOptions(['citations' => true, 'use_tool_calling' => true])
         ->asStructured()
-    )->toThrow(InvalidArgumentException::class, 'Citations are not supported with tool calling mode');
+    )->toThrow(PrismException::class, 'Citations are not supported with tool calling mode');
 });
 
 it('returns structured output with default JSON mode', function (): void {

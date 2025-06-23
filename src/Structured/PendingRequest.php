@@ -14,6 +14,7 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasSchema;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Throwable;
 
 class PendingRequest
 {
@@ -36,7 +37,13 @@ class PendingRequest
 
     public function asStructured(): Response
     {
-        return $this->provider->structured($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->structured($request);
+        } catch (Throwable $e) {
+            $this->provider->handleRequestExceptions($request->model(), $e);
+        }
     }
 
     public function toRequest(): Request
