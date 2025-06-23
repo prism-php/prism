@@ -77,6 +77,48 @@ foreach ($response->additionalContent['groundingSupports'] as $part) {
 // Pass $text and $footnotes to your frontend.
 ```
 
+## Caching
+
+Prism supports Gemini prompt caching, though due to Gemini requiring you first upload the cached content, it works a little differently to other providers. 
+
+To store content in the cache, use the Gemini provider cache method as follows:
+
+```php
+
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\Providers\Gemini\Gemini;
+use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+
+/** @var Gemini */
+$provider = Prism::provider(Provider::Gemini);
+
+$object = $provider->cache(
+    model: 'gemini-1.5-flash-002',
+    messages: [
+        new UserMessage('', [
+            Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
+        ]),
+    ],
+    systemPrompts: [
+        new SystemMessage('You are a legal analyst.'),
+    ],
+    ttl: 60
+);
+```
+
+Then reference that object's name in your request using withProviderOptions:
+
+```php
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+    ->withProviderOptions(['cachedContentName' => $object->name])
+    ->withPrompt('In no more than 100 words, what is the document about?')
+    ->asText();
+```
+
 ## Embeddings
 
 You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
