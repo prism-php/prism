@@ -49,7 +49,7 @@ class Cache
         try {
             $response = $this->client->post('/cachedContents', $request);
         } catch (Throwable $e) {
-            $this->handleRequestExceptions($this->model, $e);
+            $this->handleRequestException($this->model, $e);
         }
 
         return $response->json();

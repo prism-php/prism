@@ -95,7 +95,7 @@ class OpenAI extends Provider
         return $handler->handle($request);
     }
 
-    public function handleRequestExceptions(string $model, RequestException $e): never
+    public function handleRequestException(string $model, RequestException $e): never
     {
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make(

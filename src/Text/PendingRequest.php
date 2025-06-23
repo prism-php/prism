@@ -47,7 +47,7 @@ class PendingRequest
         try {
             return $this->provider->text($request);
         } catch (RequestException $e) {
-            $this->provider->handleRequestExceptions($request->model(), $e);
+            $this->provider->handleRequestException($request->model(), $e);
         }
     }
 
@@ -65,7 +65,7 @@ class PendingRequest
                 yield $chunk;
             }
         } catch (RequestException $e) {
-            $this->provider->handleRequestExceptions($request->model(), $e);
+            $this->provider->handleRequestException($request->model(), $e);
         }
     }
 

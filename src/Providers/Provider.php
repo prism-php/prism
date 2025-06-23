@@ -47,7 +47,7 @@ abstract class Provider
         throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
     }
 
-    public function handleRequestExceptions(string $model, RequestException $e): never
+    public function handleRequestException(string $model, RequestException $e): never
     {
         throw PrismException::providerRequestError($model, $e);
     }

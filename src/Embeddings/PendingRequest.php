@@ -72,7 +72,7 @@ class PendingRequest
         try {
             return $this->provider->embeddings($request);
         } catch (RequestException $e) {
-            $this->provider->handleRequestExceptions($request->model(), $e);
+            $this->provider->handleRequestException($request->model(), $e);
         }
     }
 

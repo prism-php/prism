@@ -13,7 +13,7 @@ use Throwable;
 
 trait HandlesRequestExceptions
 {
-    public function handleRequestExceptions(string $model, Throwable $e): never
+    public function handleRequestException(string $model, Throwable $e): never
     {
         // Keep already raised PrismException
         if ($e instanceof PrismException) {
