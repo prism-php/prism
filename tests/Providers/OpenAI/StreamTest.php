@@ -216,8 +216,9 @@ it('can process a complete conversation with multiple tool calls for reasoning m
         ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
         ->asStream();
 
-    $fullResponse = '';
+    $answerText = '';
     $toolCallCount = 0;
+    $reasoningText = '';
     /** @var Usage[] $usage */
     $usage = [];
 
@@ -225,7 +226,12 @@ it('can process a complete conversation with multiple tool calls for reasoning m
         if ($chunk->toolCalls !== []) {
             $toolCallCount += count($chunk->toolCalls);
         }
-        $fullResponse .= $chunk->text;
+
+        if ($chunk->chunkType === ChunkType::Thinking) {
+            $reasoningText .= $chunk->text;
+        } else {
+            $answerText .= $chunk->text;
+        }
 
         if ($chunk->usage) {
             $usage[] = $chunk->usage;
@@ -233,7 +239,8 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     }
 
     expect($toolCallCount)->toBe(2);
-    expect($fullResponse)->not->toBeEmpty();
+    expect($answerText)->not->toBeEmpty();
+    expect($reasoningText)->not->toBeEmpty();
 
     // Verify reasoning usage
     expect($usage[0]->thoughtTokens)->toBeGreaterThan(0);
