@@ -8,6 +8,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -105,7 +106,7 @@ class Structured extends AnthropicHandlerAbstract
 
         // Validate options
         if ($request->providerOptions('citations') === true && $request->providerOptions('use_tool_calling') === true) {
-            throw new InvalidArgumentException(
+            throw new PrismException(
                 'Citations are not supported with tool calling mode. '.
                 'Please set use_tool_calling to false in provider options to use citations.'
             );
@@ -300,7 +301,7 @@ class Structured extends AnthropicHandlerAbstract
     protected function validateProviderOptions(): void
     {
         if ($this->request->providerOptions('citations') === true && $this->shouldUseToolCalling()) {
-            throw new InvalidArgumentException(
+            throw new PrismException(
                 'Citations are not supported with tool calling mode. '.
                 'Please set use_tool_calling to false in provider options to use citations.'
             );
