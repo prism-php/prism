@@ -16,7 +16,9 @@ class ImageMapper extends ProviderMediaMapper
     public function __construct(
         public readonly Media $media,
         public ?array $cacheControl = null,
-    ) {}
+    ) {
+        $this->runValidation();
+    }
 
     /**
      * @return array<string,mixed>

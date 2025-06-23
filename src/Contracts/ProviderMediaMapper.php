@@ -10,6 +10,17 @@ abstract class ProviderMediaMapper
 {
     public function __construct(public readonly Media $media)
     {
+        $this->runValidation();
+    }
+
+    abstract public function toPayload(): mixed;
+
+    abstract protected function provider(): string|Provider;
+
+    abstract protected function validateMedia(): bool;
+
+    protected function runValidation(): void
+    {
         if ($this->validateMedia() === false) {
             $providerName = $this->provider() instanceof Provider ? $this->provider()->value : $this->provider();
 
@@ -18,10 +29,4 @@ abstract class ProviderMediaMapper
             throw new PrismException("The $providerName provider does not support the mediums available in the provided `$calledClass`. Pleae consult the Prism documentation for more information on which mediums the $providerName provider supports.");
         }
     }
-
-    abstract public function toPayload(): mixed;
-
-    abstract protected function provider(): string|Provider;
-
-    abstract protected function validateMedia(): bool;
 }

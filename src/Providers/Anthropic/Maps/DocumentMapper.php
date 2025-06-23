@@ -19,7 +19,9 @@ class DocumentMapper extends ProviderMediaMapper
         public readonly Media $media,
         public ?array $cacheControl = null,
         public array $requestProviderOptions = [],
-    ) {}
+    ) {
+        $this->runValidation();
+    }
 
     /**
      * @return array<string,mixed>
