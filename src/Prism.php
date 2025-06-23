@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism;
 
-use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Images\PendingRequest as PendingImageRequest;
 use Prism\Prism\Images\Response as ImageResponse;
+use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\PendingRequest as PendingStructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\PrismFake;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\Contracts;
+namespace Prism\Prism\Providers;
 
 use Generator;
 use Illuminate\Http\Client\RequestException;

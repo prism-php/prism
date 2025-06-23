@@ -6,7 +6,6 @@ namespace Tests;
 
 use Illuminate\Contracts\Foundation\Application;
 use Mockery;
-use Prism\Prism\Contracts\Provider as ContractsProvider;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\PrismManager;
 use Prism\Prism\Providers\Anthropic\Anthropic;
@@ -15,6 +14,7 @@ use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
+use Prism\Prism\Providers\Provider as ContractsProvider;
 use Prism\Prism\Providers\XAI\XAI;
 
 it('can resolve Anthropic', function (): void {

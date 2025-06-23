@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use Illuminate\Contracts\View\View;
-use Prism\Prism\Contracts\Provider as ProviderContract;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Providers\Provider as ProviderContract;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;

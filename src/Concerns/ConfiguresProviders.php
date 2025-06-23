@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Concerns;
 
-use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\PrismManager;
+use Prism\Prism\Providers\Provider;
 
 trait ConfiguresProviders
 {
