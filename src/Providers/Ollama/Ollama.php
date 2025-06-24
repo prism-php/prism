@@ -6,7 +6,6 @@ namespace Prism\Prism\Providers\Ollama;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Prism\Prism\Concerns\HandlesRequestExceptions;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -22,7 +21,7 @@ use Prism\Prism\Text\Response as TextResponse;
 
 class Ollama extends Provider
 {
-    use HandlesRequestExceptions, InitializesClient;
+    use InitializesClient;
 
     public function __construct(
         #[\SensitiveParameter] readonly public string $apiKey,

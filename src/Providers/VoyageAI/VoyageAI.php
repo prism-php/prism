@@ -3,7 +3,6 @@
 namespace Prism\Prism\Providers\VoyageAI;
 
 use Illuminate\Http\Client\PendingRequest;
-use Prism\Prism\Concerns\HandlesRequestExceptions;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -11,7 +10,7 @@ use Prism\Prism\Providers\Provider;
 
 class VoyageAI extends Provider
 {
-    use HandlesRequestExceptions, InitializesClient;
+    use InitializesClient;
 
     public function __construct(
         #[\SensitiveParameter] readonly protected string $apiKey,

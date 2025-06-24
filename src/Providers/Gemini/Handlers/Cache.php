@@ -6,17 +6,13 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
-use Prism\Prism\Concerns\HandlesRequestExceptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
-use Throwable;
 
 class Cache
 {
-    use HandlesRequestExceptions;
-
     /**
      * @param  Message[]  $messages
      * @param  SystemMessage[]  $systemPrompts
@@ -46,11 +42,7 @@ class Cache
             'ttl' => $this->ttl.'s',
         ]);
 
-        try {
-            $response = $this->client->post('/cachedContents', $request);
-        } catch (Throwable $e) {
-            $this->handleRequestException($this->model, $e);
-        }
+        $response = $this->client->post('/cachedContents', $request);
 
         return $response->json();
     }

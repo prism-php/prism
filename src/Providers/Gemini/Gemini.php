@@ -6,7 +6,7 @@ namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Prism\Prism\Concerns\HandlesRequestExceptions;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
@@ -27,7 +27,7 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 class Gemini extends Provider
 {
-    use HandlesRequestExceptions, InitializesClient;
+    use InitializesClient;
 
     public function __construct(
         #[\SensitiveParameter] readonly public string $apiKey,
@@ -103,7 +103,11 @@ class Gemini extends Provider
             ttl: $ttl
         );
 
-        return $handler->handle();
+        try {
+            return $handler->handle();
+        } catch (RequestException $e) {
+            $this->handleRequestException($model, $e);
+        }
     }
 
     /**

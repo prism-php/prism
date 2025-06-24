@@ -9,6 +9,9 @@ use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -49,6 +52,11 @@ abstract class Provider
 
     public function handleRequestException(string $model, RequestException $e): never
     {
-        throw PrismException::providerRequestError($model, $e);
+        match ($e->response->getStatusCode()) {
+            413 => throw PrismRequestTooLargeException::make(class_basename($this)),
+            429 => throw PrismRateLimitedException::make([]),
+            529 => throw PrismProviderOverloadedException::make(class_basename($this)),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
     }
 }
