@@ -24,7 +24,7 @@ it('can generate text and assert provider', function (): void {
     // Make assertions
     expect($response->text)->toBe('Hello, I am Claude!');
 
-    $fake->assertRequest(function ($requests): void {
+    $fake->assertRequest(function (array $requests): void {
         expect($requests[0]->provider())->toBe('anthropic');
         expect($requests[0]->model())->toBe('claude-3-5-sonnet-latest');
     });
@@ -47,7 +47,7 @@ it('can generate text and assert provider with different providers', function ()
     // Make assertions
     expect($response->text)->toBe('Hello from OpenAI!');
 
-    $fake->assertRequest(function ($requests): void {
+    $fake->assertRequest(function (array $requests): void {
         expect($requests[0]->provider())->toBe('openai');
         expect($requests[0]->model())->toBe('gpt-4');
     });
