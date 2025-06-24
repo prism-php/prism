@@ -2,19 +2,45 @@
 
 Want to add support for a new AI provider in Prism? This guide will walk you through creating and registering your own custom provider implementation.
 
-## Provider Interface
+## Building Your Provider
 
-All providers must extend the `Prism\Prism\Providers\Provider` class.
+All providers must extend the `Prism\Prism\Providers\Provider` abstract class. This base class provides default implementations for all required methods, throwing exceptions for unsupported actions.
 
-The abstract class has a default method for all current required methods, though this may change.
+When creating your provider, you'll only need to override the methods for the features you want to support:
+- `text()` - For text generation
+- `structured()` - For structured output generation
+- `embeddings()` - For creating embeddings
+- `images()` - For image generation
+- `stream()` - For streaming text responses
 
-Each provider should:
-- Overwrite the methods for the actions it supports. 
-- Overwrite the `handleRequestExceptions` method if supports advanced request exceptions.
+Here's what that looks like in practice:
+
+```php
+namespace App\Prism\Providers;
+
+use Prism\Prism\Providers\Provider;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
+
+class MyCustomProvider extends Provider
+{
+    public function __construct(
+        protected string $apiKey,
+    ) {}
+
+    public function text(TextRequest $request): TextResponse
+    {
+        // Your text generation logic here
+        // Make API calls, process the response, and return a TextResponse
+    }
+
+    // Only override the methods you need!
+}
+```
 
 ## Registration Process
 
-Once you've created your provider, register it with Prism in a service provider:
+Once you've created your provider, you'll need to register it with Prism. Let's add it to a service provider:
 
 ```php
 namespace App\Providers;
@@ -35,7 +61,7 @@ class AppServiceProvider extends ServiceProvider
 }
 ```
 
-Then add your provider configuration to `config/prism.php`:
+Next, add your provider configuration to `config/prism.php`:
 
 ```php
 return [
@@ -48,7 +74,7 @@ return [
 ];
 ```
 
-Now you can use your custom provider:
+That's it! You're ready to use your custom provider:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -58,3 +84,13 @@ $response = Prism::text()
     ->withPrompt('Hello, custom AI!')
     ->asText();
 ```
+
+## Best Practices
+
+- **Start small**: Begin by implementing just the methods you need. You don't have to support every feature right away.
+- **Handle errors gracefully**: Your provider will inherit the base class's error handling, but you can customize it for provider-specific errors.
+- **Test thoroughly**: Make sure to test your provider with various inputs and edge cases.
+- **Document your models**: Let users know which models your provider supports and any special parameters they can use.
+
+> [!TIP]
+> Looking at existing provider implementations in Prism's source code can give you great insights into best practices and patterns to follow.
