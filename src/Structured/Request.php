@@ -27,6 +27,7 @@ class Request implements PrismRequest
     public function __construct(
         protected array $systemPrompts,
         protected string $model,
+        protected string $providerKey,
         protected ?string $prompt,
         protected array $messages,
         protected ?int $maxTokens,
@@ -53,6 +54,11 @@ class Request implements PrismRequest
     public function model(): string
     {
         return $this->model;
+    }
+
+    public function provider(): string
+    {
+        return $this->providerKey;
     }
 
     public function prompt(): ?string

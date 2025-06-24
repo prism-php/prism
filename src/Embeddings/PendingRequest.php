@@ -80,6 +80,7 @@ class PendingRequest
     {
         return new Request(
             model: $this->model,
+            providerKey: $this->providerKey(),
             inputs: $this->inputs,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,

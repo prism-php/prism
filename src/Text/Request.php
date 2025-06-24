@@ -29,6 +29,7 @@ class Request implements PrismRequest
      */
     public function __construct(
         protected string $model,
+        protected string $providerKey,
         protected array $systemPrompts,
         protected ?string $prompt,
         protected array $messages,
@@ -128,6 +129,11 @@ class Request implements PrismRequest
     public function model(): string
     {
         return $this->model;
+    }
+
+    public function provider(): string
+    {
+        return $this->providerKey;
     }
 
     public function addMessage(Message $message): self

@@ -64,6 +64,7 @@ class PendingRequest
 
         return new Request(
             model: $this->model,
+            providerKey: $this->providerKey(),
             systemPrompts: $this->systemPrompts,
             prompt: $this->prompt,
             messages: $messages,

@@ -20,6 +20,7 @@ class Request implements PrismRequest
      */
     public function __construct(
         protected string $model,
+        protected string $providerKey,
         protected string $prompt,
         protected array $clientOptions,
         protected array $clientRetry,
@@ -53,5 +54,10 @@ class Request implements PrismRequest
     public function model(): string
     {
         return $this->model;
+    }
+
+    public function provider(): string
+    {
+        return $this->providerKey;
     }
 }
