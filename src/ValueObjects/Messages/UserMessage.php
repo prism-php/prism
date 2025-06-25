@@ -8,6 +8,7 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Messages\Support\Media;
 use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\Support\Text;
 
@@ -16,7 +17,7 @@ class UserMessage implements Message
     use HasProviderOptions;
 
     /**
-     * @param  array<int, Text|Image|Document|OpenAIFile>  $additionalContent
+     * @param  array<int, Text|Image|Media|Document|OpenAIFile>  $additionalContent
      * @param  array<string, mixed>  $additionalAttributes
      */
     public function __construct(
@@ -47,6 +48,16 @@ class UserMessage implements Message
     {
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Image)
+            ->toArray();
+    }
+
+    /**
+     * @return Media[]
+     */
+    public function media(): array
+    {
+        return collect($this->additionalContent)
+            ->where(fn ($part): bool => $part instanceof Media)
             ->toArray();
     }
 
