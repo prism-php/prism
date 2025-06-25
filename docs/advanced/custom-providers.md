@@ -85,10 +85,40 @@ $response = Prism::text()
     ->asText();
 ```
 
+## Custom Error Handling
+
+Your provider inherits a default `handleRequestException` method that handles common HTTP status codes. You can override this method to handle provider-specific errors or add custom logic:
+
+```php
+use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Exceptions\PrismException;
+
+class MyCustomProvider extends Provider
+{
+    // ... other methods ...
+
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        // Handle provider-specific error codes
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make(
+                rateLimits: $this->processRateLimits($e->response),
+                retryAfter: $e->response->header('retry-after') === ''
+                    ? null
+                    : (int) $e->response->header('retry-after'),
+            ),
+            default => parent::handleRequestException($model, $e),
+        };
+    }
+}
+```
+
+The method must throw an exception (return type `never`). If you don't handle a specific status code, make sure to call the parent method to maintain the default error handling.
+
 ## Best Practices
 
 - **Start small**: Begin by implementing just the methods you need. You don't have to support every feature right away.
-- **Handle errors gracefully**: Your provider will inherit the base class's error handling, but you can customize it for provider-specific errors.
+- **Handle errors gracefully**: Leverage the inherited error handling or override `handleRequestException()` for provider-specific errors (see Custom Error Handling section above).
 - **Test thoroughly**: Make sure to test your provider with various inputs and edge cases.
 - **Document your models**: Let users know which models your provider supports and any special parameters they can use.
 
