@@ -6,10 +6,12 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Text\ThinkingChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
 use Prism\Prism\ValueObjects\Usage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -32,13 +34,15 @@ it('can generate text with a basic stream', function (): void {
     $model = null;
 
     foreach ($response as $chunk) {
-        if ($chunk->meta) {
+        if ($chunk instanceof \Prism\Prism\Text\MetaChunk) {
             $responseId = $chunk->meta?->id;
             $model = $chunk->meta?->model;
         }
 
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)->not->toBeEmpty();
@@ -87,15 +91,17 @@ it('can generate text using tools with streaming', function (): void {
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
 
-        if ($chunk->chunkType === ChunkType::ToolCall) {
+        if ($chunk instanceof ToolCallChunk) {
             $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
         }
 
-        if ($chunk->chunkType === ChunkType::ToolResult) {
+        if ($chunk instanceof ToolResultChunk) {
             $toolResults = array_merge($toolResults, $chunk->toolResults);
         }
 
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)->not->toBeEmpty();
@@ -138,10 +144,12 @@ it('can process a complete conversation with multiple tool calls', function (): 
     $toolCallCount = 0;
 
     foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
+        if ($chunk instanceof ToolCallChunk) {
             $toolCallCount += count($chunk->toolCalls);
         }
-        $fullResponse .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $fullResponse .= $chunk->text;
+        }
     }
 
     expect($toolCallCount)->toBe(2);
@@ -176,10 +184,12 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     $toolCallCount = 0;
 
     foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
+        if ($chunk instanceof ToolCallChunk) {
             $toolCallCount += count($chunk->toolCalls);
         }
-        $fullResponse .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $fullResponse .= $chunk->text;
+        }
     }
 
     expect($toolCallCount)->toBe(2);
@@ -223,17 +233,17 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     $usage = [];
 
     foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
+        if ($chunk instanceof ToolCallChunk) {
             $toolCallCount += count($chunk->toolCalls);
         }
 
-        if ($chunk->chunkType === ChunkType::Thinking) {
-            $reasoningText .= $chunk->text;
-        } else {
+        if ($chunk instanceof ThinkingChunk) {
+            $reasoningText .= $chunk->thinking;
+        } elseif (property_exists($chunk, 'text')) {
             $answerText .= $chunk->text;
         }
 
-        if ($chunk->usage) {
+        if ($chunk instanceof \Prism\Prism\Text\UsageChunk) {
             $usage[] = $chunk->usage;
         }
     }
@@ -258,7 +268,7 @@ it('emits usage information', function (): void {
         ->asStream();
 
     foreach ($response as $chunk) {
-        if ($chunk->usage) {
+        if ($chunk instanceof \Prism\Prism\Text\UsageChunk) {
             expect($chunk->usage->promptTokens)->toBeGreaterThan(0);
             expect($chunk->usage->completionTokens)->toBeGreaterThan(0);
         }

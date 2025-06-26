@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
@@ -18,6 +17,11 @@ use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\Text\MetaChunk;
+use Prism\Prism\Text\ThinkingChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
+use Prism\Prism\Text\UsageChunk;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
@@ -40,12 +44,25 @@ it('can generate text with a basic stream', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
-    expect(end($chunks)->finishReason)->toBe(FinishReason::Stop);
+
+    // Find the last chunk with finishReason
+    $lastChunkWithFinishReason = null;
+    foreach (array_reverse($chunks) as $chunk) {
+        if (property_exists($chunk, 'finishReason') && $chunk->finishReason !== null) {
+            $lastChunkWithFinishReason = $chunk;
+            break;
+        }
+    }
+
+    expect($lastChunkWithFinishReason)->not->toBeNull();
+    expect($lastChunkWithFinishReason->finishReason)->toBe(FinishReason::Stop);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
@@ -69,10 +86,22 @@ it('can return usage with a basic stream', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
-    expect((array) end($chunks)->usage)->toBe([
+    // Find the last UsageChunk
+    $usageChunk = null;
+    foreach (array_reverse($chunks) as $chunk) {
+        if ($chunk instanceof UsageChunk) {
+            $usageChunk = $chunk;
+            break;
+        }
+    }
+
+    expect($usageChunk)->not->toBeNull();
+    expect((array) $usageChunk->usage)->toBe([
         'promptTokens' => 11,
         'completionTokens' => 107,
         'cacheWriteInputTokens' => 0,
@@ -120,22 +149,35 @@ describe('tools', function (): void {
         foreach ($response as $chunk) {
             $chunks[] = $chunk;
 
-            if ($chunk->toolCalls !== []) {
+            if ($chunk instanceof ToolCallChunk) {
                 $toolCallFound = true;
                 expect($chunk->toolCalls[0]->name)->not->toBeEmpty();
                 expect($chunk->toolCalls[0]->arguments())->toBeArray();
             }
 
-            if ($chunk->toolResults !== []) {
+            if ($chunk instanceof ToolResultChunk) {
                 $toolResults = array_merge($toolResults, $chunk->toolResults);
             }
 
-            $text .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $text .= $chunk->text;
+            }
         }
 
         expect($chunks)->not->toBeEmpty();
         expect($toolCallFound)->toBeTrue('Expected to find at least one tool call in the stream');
-        expect(end($chunks)->finishReason)->toBe(FinishReason::Stop);
+
+        // Find the last chunk with finishReason
+        $lastChunkWithFinishReason = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if (property_exists($chunk, 'finishReason') && $chunk->finishReason !== null) {
+                $lastChunkWithFinishReason = $chunk;
+                break;
+            }
+        }
+
+        expect($lastChunkWithFinishReason)->not->toBeNull();
+        expect($lastChunkWithFinishReason->finishReason)->toBe(FinishReason::Stop);
 
         // Verify the HTTP request
         Http::assertSent(function (Request $request): bool {
@@ -173,10 +215,12 @@ describe('tools', function (): void {
         $toolCallCount = 0;
 
         foreach ($response as $chunk) {
-            if ($chunk->toolCalls !== []) {
+            if ($chunk instanceof ToolCallChunk) {
                 $toolCallCount++;
             }
-            $fullResponse .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $fullResponse .= $chunk->text;
+            }
         }
 
         expect($toolCallCount)->toBeGreaterThanOrEqual(1);
@@ -215,11 +259,11 @@ describe('tools', function (): void {
         foreach ($response as $chunk) {
             $chunks[] = $chunk;
 
-            if ($chunk->chunkType === ChunkType::ToolCall) {
+            if ($chunk instanceof ToolCallChunk) {
                 $toolCallChunks[] = $chunk;
             }
 
-            if ($chunk->chunkType === ChunkType::ToolResult) {
+            if ($chunk instanceof ToolResultChunk) {
                 $toolResultChunks[] = $chunk;
             }
         }
@@ -230,14 +274,14 @@ describe('tools', function (): void {
 
         // Verify ToolCall chunks have the expected structure
         $firstToolCallChunk = $toolCallChunks[0];
-        expect($firstToolCallChunk->chunkType)->toBe(ChunkType::ToolCall);
+        expect($firstToolCallChunk)->toBeInstanceOf(ToolCallChunk::class);
         expect($firstToolCallChunk->toolCalls)->toHaveCount(1);
         expect($firstToolCallChunk->toolCalls[0]->name)->not->toBeEmpty();
         expect($firstToolCallChunk->toolCalls[0]->arguments())->toBeArray();
 
         // Verify ToolResult chunks have the expected structure
         $firstToolResultChunk = $toolResultChunks[0];
-        expect($firstToolResultChunk->chunkType)->toBe(ChunkType::ToolResult);
+        expect($firstToolResultChunk)->toBeInstanceOf(ToolResultChunk::class);
         expect($firstToolResultChunk->toolResults)->toHaveCount(1);
         expect($firstToolResultChunk->toolResults[0]->result)->not->toBeEmpty();
     });
@@ -265,21 +309,42 @@ describe('citations', function (): void {
 
         foreach ($response as $chunk) {
             $chunks[] = $chunk;
-            $text .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $text .= $chunk->text;
+            }
         }
 
-        $lastChunk = end($chunks);
+        // Find a chunk with messagePartsWithCitations
+        $chunkWithCitations = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if (property_exists($chunk, 'additionalContent') && ! empty($chunk->additionalContent) && isset($chunk->additionalContent['messagePartsWithCitations'])) {
+                $chunkWithCitations = $chunk;
+                break;
+            }
+        }
 
-        expect($lastChunk->additionalContent)->toHaveKey('messagePartsWithCitations');
-        expect($lastChunk->additionalContent['messagePartsWithCitations'])->toBeArray();
-        expect($lastChunk->additionalContent['messagePartsWithCitations'])->toHaveCount(2);
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0]->text)->not()->toBeEmpty();
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0]->citations)->toHaveCount(1);
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0]->citations[0])->toBeInstanceOf(Citation::class);
+        expect($chunkWithCitations)->not->toBeNull();
+        expect($chunkWithCitations->additionalContent)->toHaveKey('messagePartsWithCitations');
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'])->toBeArray();
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'])->toHaveCount(2);
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'][0]->text)->not()->toBeEmpty();
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'][0]->citations)->toHaveCount(1);
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'][0]->citations[0])->toBeInstanceOf(Citation::class);
 
         // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+
+        // Find the last chunk with finishReason
+        $lastChunk = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if (property_exists($chunk, 'finishReason') && $chunk->finishReason !== null) {
+                $lastChunk = $chunk;
+                break;
+            }
+        }
+
+        expect($lastChunk)->not->toBeNull();
         expect($lastChunk->finishReason)->toBe(FinishReason::Stop);
     });
 
@@ -304,13 +369,22 @@ describe('citations', function (): void {
 
         foreach ($response as $chunk) {
             $chunks[] = $chunk;
-            $text .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $text .= $chunk->text;
+            }
         }
 
-        $lastChunk = end($chunks);
+        // Find a chunk with messagePartsWithCitations
+        $chunkWithCitations = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if (property_exists($chunk, 'additionalContent') && ! empty($chunk->additionalContent) && isset($chunk->additionalContent['messagePartsWithCitations'])) {
+                $chunkWithCitations = $chunk;
+                break;
+            }
+        }
 
         // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($chunkWithCitations->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
     });
 });
 
@@ -334,12 +408,31 @@ describe('thinking', function (): void {
 
         $lastChunk = end($chunks);
 
-        expect($lastChunk->additionalContent)->not->toBeEmpty();
+        // Find a chunk with additionalContent
+        $chunkWithAdditionalContent = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if (property_exists($chunk, 'additionalContent') && ! empty($chunk->additionalContent)) {
+                $chunkWithAdditionalContent = $chunk;
+                break;
+            }
+        }
 
-        expect($lastChunk->additionalContent)->toHaveKey('thinking');
-        expect($lastChunk->additionalContent['thinking'])->toContain('The question is asking about');
+        expect($chunkWithAdditionalContent)->not->toBeNull();
+        expect($chunkWithAdditionalContent->additionalContent)->not->toBeEmpty();
+        expect($chunkWithAdditionalContent->additionalContent)->toHaveKey('thinking');
+        expect($chunkWithAdditionalContent->additionalContent['thinking'])->toContain('The question is asking about');
 
-        expect($lastChunk->additionalContent)->toHaveKey('thinking_signature');
+        // Find a chunk with thinking_signature
+        $chunkWithThinkingSignature = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if (property_exists($chunk, 'additionalContent') && ! empty($chunk->additionalContent) && isset($chunk->additionalContent['thinking_signature'])) {
+                $chunkWithThinkingSignature = $chunk;
+                break;
+            }
+        }
+
+        expect($chunkWithThinkingSignature)->not->toBeNull();
+        expect($chunkWithThinkingSignature->additionalContent)->toHaveKey('thinking_signature');
 
         Http::assertSent(function (Request $request): bool {
             $body = json_decode($request->body(), true);
@@ -367,11 +460,11 @@ describe('thinking', function (): void {
             $chunks[] = $chunk;
         }
 
-        $thinkingChunks = (new Collection($chunks))->where('chunkType', ChunkType::Thinking);
+        $thinkingChunks = (new Collection($chunks))->filter(fn ($chunk): false => $chunk instanceof ThinkingChunk);
 
         expect($thinkingChunks->count())->toBeGreaterThan(0);
 
-        expect($thinkingChunks->first()->text)->not()->toBeEmpty();
+        expect($thinkingChunks->first()->thinking)->not()->toBeEmpty();
     });
 
     it('can process streams with thinking enabled with custom budget', function (): void {
@@ -521,7 +614,9 @@ describe('meta chunks', function (): void {
 
         foreach ($response as $chunk) {
             $chunks[] = $chunk;
-            $text .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $text .= $chunk->text;
+            }
         }
 
         expect($chunks)->not->toBeEmpty();
@@ -569,7 +664,7 @@ describe('meta chunks', function (): void {
             $chunks[] = $chunk;
         }
 
-        expect($chunks[0]->chunkType)->toBe(ChunkType::Meta);
+        expect($chunks[0])->toBeInstanceOf(MetaChunk::class);
 
         expect($chunks[0]->meta->rateLimits)->toHaveCount(4);
         expect($chunks[0]->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
@@ -578,15 +673,23 @@ describe('meta chunks', function (): void {
         expect($chunks[0]->meta->rateLimits[0]->remaining)->toEqual(500);
         expect($chunks[0]->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
 
-        $lastChunkIndex = count($chunks) - 1;
+        // Find the last MetaChunk (there might be a UsageChunk after it)
+        $lastMetaChunk = null;
+        foreach (array_reverse($chunks) as $chunk) {
+            if ($chunk instanceof MetaChunk) {
+                $lastMetaChunk = $chunk;
+                break;
+            }
+        }
 
-        expect($chunks[$lastChunkIndex]->chunkType)->toBe(ChunkType::Meta);
+        expect($lastMetaChunk)->not->toBeNull();
+        expect($lastMetaChunk)->toBeInstanceOf(MetaChunk::class);
 
-        expect($chunks[$lastChunkIndex]->meta->rateLimits)->toHaveCount(4);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->name)->toEqual('requests');
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->limit)->toEqual(1000);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->remaining)->toEqual(500);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
+        expect($lastMetaChunk->meta->rateLimits)->toHaveCount(4);
+        expect($lastMetaChunk->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
+        expect($lastMetaChunk->meta->rateLimits[0]->name)->toEqual('requests');
+        expect($lastMetaChunk->meta->rateLimits[0]->limit)->toEqual(1000);
+        expect($lastMetaChunk->meta->rateLimits[0]->remaining)->toEqual(500);
+        expect($lastMetaChunk->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
     });
 });

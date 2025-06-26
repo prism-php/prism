@@ -189,17 +189,19 @@ describe('fake streaming responses', function (): void {
         $toolCalls = [];
         $toolResults = [];
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
 
             // Check for tool calls
-            if ($chunk->toolCalls) {
+            if ($chunk instanceof \Prism\Prism\Text\ToolCallChunk) {
                 foreach ($chunk->toolCalls as $call) {
                     $toolCalls[] = $call;
                 }
             }
 
             // Check for tool results
-            if ($chunk->toolResults) {
+            if ($chunk instanceof \Prism\Prism\Text\ToolResultChunk) {
                 foreach ($chunk->toolResults as $result) {
                     $toolResults[] = $result;
                 }
@@ -245,17 +247,19 @@ describe('fake streaming responses', function (): void {
         $toolCalls = [];
         $toolResults = [];
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
 
             // Check for tool calls
-            if ($chunk->toolCalls) {
+            if ($chunk instanceof \Prism\Prism\Text\ToolCallChunk) {
                 foreach ($chunk->toolCalls as $call) {
                     $toolCalls[] = $call;
                 }
             }
 
             // Check for tool results
-            if ($chunk->toolResults) {
+            if ($chunk instanceof \Prism\Prism\Text\ToolResultChunk) {
                 foreach ($chunk->toolResults as $result) {
                     $toolResults[] = $result;
                 }
@@ -288,7 +292,9 @@ describe('fake streaming responses', function (): void {
 
         $outputText = '';
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
         }
 
         expect($outputText)->toBe('');
@@ -307,7 +313,9 @@ describe('fake streaming responses', function (): void {
         $outputText = '';
         $chunks = [];
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
             $chunks[] = $chunk;
         }
 
@@ -329,7 +337,9 @@ describe('fake streaming responses', function (): void {
         $outputText = '';
         $chunks = [];
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
             $chunks[] = $chunk;
         }
 
@@ -350,7 +360,9 @@ describe('fake streaming responses', function (): void {
         $outputText = '';
         $chunks = [];
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
             $chunks[] = $chunk;
         }
 
@@ -373,13 +385,16 @@ describe('fake streaming responses', function (): void {
         $outputText = '';
         $lastChunk = null;
         foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+            if (property_exists($chunk, 'text')) {
+                $outputText .= $chunk->text;
+            }
             $lastChunk = $chunk;
         }
 
         expect($outputText)->toBe('fake response text')
-            ->and($lastChunk?->text)->toBe('')
-            ->and($lastChunk?->finishReason)->toBe(FinishReason::Length);
+            ->and($lastChunk)->toBeInstanceOf(\Prism\Prism\Text\TextChunk::class)
+            ->and($lastChunk->text)->toBe('')
+            ->and($lastChunk->finishReason)->toBe(FinishReason::Length);
     });
 
 });

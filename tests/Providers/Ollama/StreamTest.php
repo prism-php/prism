@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Providers\Ollama;
 
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -30,9 +31,11 @@ it('can generate text with a basic stream', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
 
-        if ($chunk->finishReason !== null) {
+        if (property_exists($chunk, 'finishReason') && $chunk->finishReason !== null) {
             $lastChunkHasFinishReason = true;
         }
     }
@@ -43,6 +46,7 @@ it('can generate text with a basic stream', function (): void {
 
     // Last chunk should have a finish reason of "stop"
     $lastChunk = $chunks[count($chunks) - 1];
+    expect($lastChunk)->toHaveProperty('finishReason');
     expect($lastChunk->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::Stop);
 });
 
@@ -77,20 +81,22 @@ it('can generate text using tools with streaming', function (): void {
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
 
-        if ($chunk->chunkType === ChunkType::ToolCall) {
+        if ($chunk instanceof ToolCallChunk) {
             $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
         }
 
-        if ($chunk->chunkType === ChunkType::ToolResult) {
+        if ($chunk instanceof ToolResultChunk) {
             $toolResults = array_merge($toolResults, $chunk->toolResults);
         }
 
-        if ($chunk->finishReason !== null) {
+        if (property_exists($chunk, 'finishReason') && $chunk->finishReason !== null) {
             $finishReasonFound = true;
             expect($chunk->finishReason)->toBe(FinishReason::Stop);
         }
 
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)->not->toBeEmpty();

@@ -9,15 +9,16 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
-use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -31,7 +32,7 @@ class Stream
     public function __construct(protected PendingRequest $client) {}
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     public function handle(Request $request): Generator
     {
@@ -41,7 +42,7 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
@@ -81,7 +82,7 @@ class Stream
                 ? FinishReason::Stop
                 : FinishReason::Unknown;
 
-            yield new Chunk(
+            yield new TextChunk(
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
@@ -132,7 +133,7 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     protected function handleToolCalls(
         Request $request,
@@ -143,18 +144,14 @@ class Stream
 
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            chunkType: ChunkType::ToolCall,
+        yield new ToolCallChunk(
+            toolCalls: $toolCalls
         );
 
         $toolResults = $this->callTools($request->tools(), $toolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolResults: $toolResults,
-            chunkType: ChunkType::ToolResult,
+        yield new ToolResultChunk(
+            toolResults: $toolResults
         );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));

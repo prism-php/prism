@@ -17,9 +17,11 @@ use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\Concerns\CanGenerateFakeChunksFromTextResponses;
-use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
@@ -119,7 +121,7 @@ class PrismFake extends Provider
      * Supported fixture type:
      *  • {@link TextResponse} – auto-chunked into a stream.
      *
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      *
      * @throws Exception if the fixture type is unknown or no fixture remains.
      */

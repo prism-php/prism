@@ -31,7 +31,9 @@ it('can generate text with a basic stream', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)
@@ -73,7 +75,7 @@ it('can generate text using tools with streaming', function (): void {
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
 
-        if ($chunk->toolCalls !== []) {
+        if ($chunk instanceof \Prism\Prism\Text\ToolCallChunk) {
             expect($chunk->toolCalls[0]->name)
                 ->toBeString()
                 ->and($chunk->toolCalls[0]->name)->not
@@ -81,7 +83,7 @@ it('can generate text using tools with streaming', function (): void {
                 ->and($chunk->toolCalls[0]->arguments())->toBeArray();
         }
 
-        if ($chunk->toolResults !== []) {
+        if ($chunk instanceof \Prism\Prism\Text\ToolResultChunk) {
             $toolResults = array_merge($toolResults, $chunk->toolResults);
         }
 
@@ -89,7 +91,9 @@ it('can generate text using tools with streaming', function (): void {
             expect($chunk->finishReason)->toBeInstanceOf(FinishReason::class);
         }
 
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)->not->toBeEmpty();

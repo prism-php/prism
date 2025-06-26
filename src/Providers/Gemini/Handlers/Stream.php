@@ -17,8 +17,10 @@ use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
-use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -35,7 +37,7 @@ class Stream
     ) {}
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     public function handle(Request $request): Generator
     {
@@ -45,7 +47,7 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
@@ -83,7 +85,7 @@ class Stream
 
             $finishReason = $this->mapFinishReason($data);
 
-            yield new Chunk(
+            yield new TextChunk(
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
@@ -135,7 +137,7 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     protected function handleToolCalls(
         Request $request,
@@ -153,10 +155,13 @@ class Stream
         $request->addMessage(new ToolResultMessage($toolResults));
 
         // Yield the tool call chunk
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            toolResults: $toolResults,
+        yield new ToolCallChunk(
+            toolCalls: $toolCalls
+        );
+
+        // Yield the tool results chunk
+        yield new ToolResultChunk(
+            toolResults: $toolResults
         );
 
         // Continue the conversation with tool results

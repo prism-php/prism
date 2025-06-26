@@ -28,7 +28,9 @@ it('can generate text stream with a basic prompt', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)
@@ -60,17 +62,19 @@ it('can generate text stream using searchGrounding', function (): void {
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
 
-        if ($chunk->toolCalls !== []) {
+        if ($chunk instanceof \Prism\Prism\Text\ToolCallChunk) {
             expect($chunk->toolCalls[0]->name)->not
                 ->toBeEmpty()
                 ->and($chunk->toolCalls[0]->arguments())->toBeArray();
         }
 
-        if ($chunk->toolResults !== []) {
+        if ($chunk instanceof \Prism\Prism\Text\ToolResultChunk) {
             $toolResults = array_merge($toolResults, $chunk->toolResults);
         }
 
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     // Verify that the request was sent with the correct tools configuration
@@ -125,7 +129,9 @@ it('can generate text stream using tools ', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if (property_exists($chunk, 'text')) {
+            $text .= $chunk->text;
+        }
     }
 
     expect($chunks)

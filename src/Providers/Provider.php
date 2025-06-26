@@ -16,9 +16,14 @@ use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Text\MetaChunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ThinkingChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
+use Prism\Prism\Text\UsageChunk;
 
 abstract class Provider
 {
@@ -43,7 +48,7 @@ abstract class Provider
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ThinkingChunk|MetaChunk|UsageChunk|ToolCallChunk|ToolResultChunk>
      */
     public function stream(TextRequest $request): Generator
     {

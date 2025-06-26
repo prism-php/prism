@@ -3,9 +3,11 @@
 namespace Prism\Prism\Testing\Concerns;
 
 use Generator;
-use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Text\Step;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
 
 trait CanGenerateFakeChunksFromTextResponses
 {
@@ -21,14 +23,14 @@ trait CanGenerateFakeChunksFromTextResponses
     }
 
     /**
-     * Convert a {@link TextResponse} into a generator of {@link Chunk}s.
+     * Convert a {@link TextResponse} into a generator of chunk objects.
      *
      * The algorithm walks through the steps (if any) and yields:
      *  • text split into fixed-byte chunks,
      *  • an empty chunk carrying tool-calls / results when present,
      *  • finally an empty chunk with the original finish-reason.
      *
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ToolCallChunk|ToolResultChunk>
      */
     protected function chunksFromTextResponse(TextResponse $response): Generator
     {
@@ -46,7 +48,7 @@ trait CanGenerateFakeChunksFromTextResponses
             yield from $this->convertStringToTextChunkGenerator($response->text, $fakeChunkSize);
         }
 
-        yield new Chunk(text: '', finishReason: $response->finishReason);
+        yield new TextChunk(text: '', finishReason: $response->finishReason);
     }
 
     protected function convertStringToTextChunkGenerator(string $text, int $chunkSize): Generator
@@ -60,18 +62,18 @@ trait CanGenerateFakeChunksFromTextResponses
                 continue;
             }
 
-            yield new Chunk(text: $chunk);
+            yield new TextChunk(text: $chunk);
         }
     }
 
-    private function getToolChunkFromStepIfItExists(Step $step): ?Chunk
+    private function getToolChunkFromStepIfItExists(Step $step): ToolCallChunk|ToolResultChunk|null
     {
         if ($step->toolCalls) {
-            return new Chunk(text: '', toolCalls: $step->toolCalls);
+            return new ToolCallChunk(toolCalls: $step->toolCalls);
         }
 
         if ($step->toolResults) {
-            return new Chunk(text: '', toolResults: $step->toolResults);
+            return new ToolResultChunk(toolResults: $step->toolResults);
         }
 
         return null;

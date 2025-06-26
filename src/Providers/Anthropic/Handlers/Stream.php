@@ -10,7 +10,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
@@ -19,8 +18,13 @@ use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Providers\Anthropic\ValueObjects\StreamState;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Text\MetaChunk;
 use Prism\Prism\Text\Request;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ThinkingChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
+use Prism\Prism\Text\UsageChunk;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
@@ -42,7 +46,7 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -56,7 +60,7 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -78,7 +82,7 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -98,7 +102,7 @@ class Stream
                 yield from $outcome;
             }
 
-            if ($outcome instanceof Chunk) {
+            if ($outcome instanceof MetaChunk || $outcome instanceof TextChunk || $outcome instanceof ThinkingChunk || $outcome instanceof ToolCallChunk || $outcome instanceof ToolResultChunk || $outcome instanceof UsageChunk) {
                 yield $outcome;
             }
         }
@@ -111,7 +115,7 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function processChunk(array $chunk, Response $response, Request $request, int $depth): Generator|Chunk|null
+    protected function processChunk(array $chunk, Response $response, Request $request, int $depth): Generator|MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk|null
     {
         return match ($chunk['type'] ?? null) {
             'message_start' => $this->handleMessageStart($response, $chunk),
@@ -128,22 +132,19 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleMessageStart(Response $response, array $chunk): Chunk
+    protected function handleMessageStart(Response $response, array $chunk): MetaChunk
     {
         $this->state
             ->setModel(data_get($chunk, 'message.model', ''))
             ->setRequestId(data_get($chunk, 'message.id', ''))
             ->setUsage(data_get($chunk, 'message.usage', []));
 
-        return new Chunk(
-            text: '',
-            finishReason: null,
+        return new MetaChunk(
             meta: new Meta(
                 id: $this->state->requestId(),
                 model: $this->state->model(),
                 rateLimits: $this->processRateLimits($response)
-            ),
-            chunkType: ChunkType::Meta
+            )
         );
     }
 
@@ -173,7 +174,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleContentBlockDelta(array $chunk): ?Chunk
+    protected function handleContentBlockDelta(array $chunk): TextChunk|ThinkingChunk|null
     {
         $deltaType = data_get($chunk, 'delta.type');
         $blockType = $this->state->tempContentBlockType();
@@ -196,7 +197,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleTextBlockDelta(array $chunk, ?string $deltaType): ?Chunk
+    protected function handleTextBlockDelta(array $chunk, ?string $deltaType): ?TextChunk
     {
         if ($deltaType === 'text_delta') {
             $textDelta = $this->extractTextDelta($chunk);
@@ -205,10 +206,9 @@ class Stream
                 $this->state->appendText($textDelta);
                 $additionalContent = $this->buildCitationContent();
 
-                return new Chunk(
+                return new TextChunk(
                     text: $textDelta,
                     finishReason: null,
-                    chunkType: ChunkType::Text,
                     additionalContent: $additionalContent
                 );
             }
@@ -261,7 +261,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleToolInputDelta(array $chunk): ?Chunk
+    protected function handleToolInputDelta(array $chunk): null
     {
         $jsonDelta = data_get($chunk, 'delta.partial_json', '');
 
@@ -281,7 +281,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleThinkingBlockDelta(array $chunk, ?string $deltaType): ?Chunk
+    protected function handleThinkingBlockDelta(array $chunk, ?string $deltaType): ?ThinkingChunk
     {
         if ($deltaType === 'thinking_delta') {
             $thinkingDelta = data_get($chunk, 'delta.thinking', '');
@@ -292,10 +292,8 @@ class Stream
 
             $this->state->appendThinking($thinkingDelta);
 
-            return new Chunk(
-                text: $thinkingDelta,
-                finishReason: null,
-                chunkType: ChunkType::Thinking
+            return new ThinkingChunk(
+                thinking: $thinkingDelta
             );
         }
 
@@ -312,7 +310,7 @@ class Stream
         return null;
     }
 
-    protected function handleContentBlockStop(): ?Chunk
+    protected function handleContentBlockStop(): ?ToolCallChunk
     {
         $blockType = $this->state->tempContentBlockType();
         $blockIndex = $this->state->tempContentBlockIndex();
@@ -333,10 +331,8 @@ class Stream
                 arguments: $input
             );
 
-            $chunk = new Chunk(
-                text: '',
-                toolCalls: [$toolCall],
-                chunkType: ChunkType::ToolCall
+            $chunk = new ToolCallChunk(
+                toolCalls: [$toolCall]
             );
         }
 
@@ -374,32 +370,41 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function handleMessageStop(Response $response, Request $request, int $depth): Generator|Chunk
+    protected function handleMessageStop(Response $response, Request $request, int $depth): Generator
     {
         $usage = $this->state->usage();
 
-        return new Chunk(
-            text: $this->state->text(),
+        // Yield the final text chunk with finish reason
+        yield new TextChunk(
+            text: '',
             finishReason: FinishReasonMap::map($this->state->stopReason()),
+            additionalContent: $this->state->buildAdditionalContent()
+        );
+
+        // Yield the meta chunk
+        yield new MetaChunk(
             meta: new Meta(
                 id: $this->state->requestId(),
                 model: $this->state->model(),
                 rateLimits: $this->processRateLimits($response)
             ),
+            additionalContent: $this->state->buildAdditionalContent()
+        );
+
+        // Yield the usage chunk
+        yield new UsageChunk(
             usage: new Usage(
                 promptTokens: $usage['input_tokens'] ?? 0,
                 completionTokens: $usage['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usage['cache_creation_input_tokens'] ?? 0,
                 cacheReadInputTokens: $usage['cache_read_input_tokens'] ?? 0,
                 thoughtTokens: $usage['cache_read_input_tokens'] ?? 0,
-            ),
-            additionalContent: $this->state->buildAdditionalContent(),
-            chunkType: ChunkType::Meta
+            )
         );
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<ToolCallChunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -410,10 +415,8 @@ class Stream
         $mappedToolCalls = $this->mapToolCalls();
         $additionalContent = $this->state->buildAdditionalContent();
 
-        yield new Chunk(
-            text: '',
+        yield new ToolCallChunk(
             toolCalls: $mappedToolCalls,
-            finishReason: null,
             additionalContent: $additionalContent
         );
     }
@@ -551,7 +554,7 @@ class Stream
     /**
      * @param  array<int, ToolCall>  $toolCalls
      * @param  array<string, mixed>|null  $additionalContent
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -579,10 +582,8 @@ class Stream
 
                 $toolResults[] = $toolResult;
 
-                yield new Chunk(
-                    text: '',
-                    toolResults: [$toolResult],
-                    chunkType: ChunkType::ToolResult
+                yield new ToolResultChunk(
+                    toolResults: [$toolResult]
                 );
             } catch (Throwable $e) {
                 if ($e instanceof PrismException) {
