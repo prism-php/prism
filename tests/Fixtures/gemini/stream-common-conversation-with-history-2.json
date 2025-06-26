@@ -1,0 +1,4 @@
+data: {"candidates": [{"content": {"parts": [{"text": "The weather in San Francisco is"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 109,"candidatesTokenCount": 6,"totalTokenCount": 115,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 109}]},"modelVersion": "gemini-2.5-flash","responseId": "EtJdaL7vHdrTz7IP8rjJuAg"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " sunny and 65."}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 109,"candidatesTokenCount": 12,"totalTokenCount": 121,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 109}]},"modelVersion": "gemini-2.5-flash","responseId": "EtJdaL7vHdrTz7IP8rjJuAg"}
+

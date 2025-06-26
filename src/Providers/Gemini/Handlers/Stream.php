@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -161,8 +162,38 @@ class Stream
         // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
 
+        yield new Chunk(
+            text: '',
+            toolCalls: $toolCalls,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
+            usage: new Usage(
+                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+            ),
+            chunkType: ChunkType::ToolCall,
+        );
+
         // Call the tools and get results
         $toolResults = $this->callTools($request->tools(), $toolCalls);
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
+            usage: new Usage(
+                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+            ),
+            chunkType: ChunkType::ToolResult,
+        );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
