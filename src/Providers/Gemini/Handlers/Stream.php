@@ -21,7 +21,9 @@ use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -71,7 +73,7 @@ class Stream
 
                 // Check if this is the final part of the tool calls
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $data);
                 }
 
                 continue;
@@ -85,7 +87,18 @@ class Stream
 
             yield new Chunk(
                 text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
+                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
+                // gemini writes metadata in each chunk
+                meta: new Meta(
+                    id: data_get($data, 'responseId'),
+                    model: data_get($data, 'modelVersion'),
+                ),
+                usage: new Usage(
+                    promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                    // completion tokens will grow as more chunks are produced
+                    completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+                ),
             );
         }
     }
@@ -135,13 +148,15 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
+     * @param  array<string, mixed>  $data
      * @return Generator<Chunk>
      */
     protected function handleToolCalls(
         Request $request,
         string $text,
         array $toolCalls,
-        int $depth
+        int $depth,
+        array $data
     ): Generator {
         // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
@@ -157,6 +172,15 @@ class Stream
             text: '',
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
+            usage: new Usage(
+                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+            ),
         );
 
         // Continue the conversation with tool results
