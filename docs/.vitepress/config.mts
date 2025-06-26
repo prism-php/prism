@@ -144,8 +144,12 @@ export default defineConfig({
                 link: "/input-modalities/documents",
               },
               {
-                text: "Media",
-                link: "/input-modalities/media",
+                text: "Audio",
+                link: "/input-modalities/audio",
+              },
+              {
+                text: "Video",
+                link: "/input-modalities/video",
               },
             ],
           },

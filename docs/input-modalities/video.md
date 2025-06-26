@@ -1,29 +1,35 @@
-# Media
+# Video
 
-Prism supports including various media types (videos, audio files, and YouTube videos) in your messages for advanced analysis with supported providers like Gemini.
+Prism supports including video files and YouTube videos in your messages for advanced analysis with supported providers like Gemini.
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports media files.
+Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports video files.
+
+::: tip
+For other input modalities like audio and images, see their respective documentation pages:
+- [Audio documentation](/input-modalities/audio.html)
+- [Images documentation](/input-modalities/images.html)
+:::
 
 ## Getting started
 
-To add media to your message, add a `Media` value object to the `additionalContent` property:
+To add a video to your message, add a `Video` value object to the `additionalContent` property:
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Messages\Support\Video;
 
-// From a local path (video or audio)
+// From a local path
 $message = new UserMessage(
     "What's in this video?",
-    [Media::fromLocalPath(path: '/path/to/video.mp4')]
+    [Video::fromLocalPath(path: '/path/to/video.mp4')]
 );
 
 // From a path on a storage disk
 $message = new UserMessage(
     "What's in this video?",
-    [Media::fromStoragePath(
+    [Video::fromStoragePath(
         path: '/path/to/video.mp4', 
         disk: 'my-disk' // optional - omit/null for default disk
     )]
@@ -32,34 +38,34 @@ $message = new UserMessage(
 // From a URL
 $message = new UserMessage(
     'Analyze this video:',
-    [Media::fromUrl(url: 'https://example.com/video.mp4')]
+    [Video::fromUrl(url: 'https://example.com/video.mp4')]
 );
 
 // From a YouTube URL (automatically extracts the video ID)
 $message = new UserMessage(
     'What is this YouTube video about?',
-    [Media::fromUrl(url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
+    [Video::fromUrl(url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
 );
 
 // From shortened YouTube URL
 $message = new UserMessage(
     'What is this YouTube video about?',
-    [Media::fromUrl(url: 'https://youtu.be/dQw4w9WgXcQ')]
+    [Video::fromUrl(url: 'https://youtu.be/dQw4w9WgXcQ')]
 );
 
 // From base64
 $message = new UserMessage(
-    'Analyze this audio:',
-    [Media::fromBase64(
-        base64: base64_encode(file_get_contents('/path/to/audio.mp3')),
-        mimeType: 'audio/mpeg'
+    'Analyze this video:',
+    [Video::fromBase64(
+        base64: base64_encode(file_get_contents('/path/to/video.mp4')),
+        mimeType: 'video/mp4'
     )]
 );
 
 // From raw content
 $message = new UserMessage(
     'Analyze this video:',
-    [Media::fromRawContent(
+    [Video::fromRawContent(
         rawContent: file_get_contents('/path/to/video.mp4'),
         mimeType: 'video/mp4'
     )]
@@ -71,19 +77,21 @@ $response = Prism::text()
     ->asText();
 ```
 
-## Supported Media Types
+## Supported Video Types
 
-Prism supports a variety of media types, including:
+Prism supports a variety of video formats, including:
 
-- **Video Files**: Most common video formats (MP4, MOV, etc.)
-- **Audio Files**: Common audio formats (MP3, WAV, etc.)
-- **YouTube Videos**: Simply pass a YouTube URL and Prism automatically extracts the video ID
+- MP4 (video/mp4)
+- MOV (video/quicktime)
+- WEBM (video/webm)
+- AVI (video/x-msvideo)
+- YouTube videos (via URL)
 
-The specific supported formats depend on the provider. Check the provider's documentation for a complete list of supported formats.
+The specific supported formats depend on the provider. Gemini is currently the main provider with comprehensive video analysis capabilities. Check the provider's documentation for a complete list of supported formats.
 
 ## YouTube Video Support
 
-Prism provides seamless support for YouTube videos. When you pass a YouTube URL to `Media::fromUrl()`, Prism automatically extracts the video ID and sends it to the provider in the appropriate format.
+Prism provides seamless support for YouTube videos. When you pass a YouTube URL to `Video::fromUrl()`, Prism automatically extracts the video ID and sends it to the provider in the appropriate format.
 
 Supported YouTube URL formats:
 
@@ -99,7 +107,7 @@ $response = Prism::text()
         new UserMessage(
             'What is this YouTube video about?',
             additionalContent: [
-                Media::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+                Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
             ],
         ),
     ])
@@ -108,7 +116,7 @@ $response = Prism::text()
 
 ## Transfer mediums 
 
-Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above). 
+Providers are not consistent in their support of sending raw contents, base64 and/or URLs.
 
 Prism tries to smooth over these rough edges, but its not always possible.
 

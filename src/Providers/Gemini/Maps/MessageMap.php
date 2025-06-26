@@ -8,9 +8,11 @@ use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Audio;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Messages\Support\Video;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -103,10 +105,11 @@ class MessageMap
 
         // Gemini docs suggest including text prompt after documents, but before images.
         $parts = array_merge(
-            $parts,
             $this->mapDocuments($message->documents()),
+            $parts,
             $this->mapImages($message->images()),
-            $this->mapMedia($message->media()),
+            $this->mapVideo($message->media()),
+            $this->mapAudio($message->media()),
         );
 
         $this->contents['contents'][] = [
@@ -150,12 +153,21 @@ class MessageMap
     }
 
     /**
-     * @param  Media[]  $media
+     * @param  Media[]|Video[]  $video
      * @return array<string,array<string,mixed>>
      */
-    protected function mapMedia(array $media): array
+    protected function mapVideo(array $video): array
     {
-        return array_map(fn (Media $image): array => (new MediaMapper($image))->toPayload(), $media);
+        return array_map(fn (Video|Media $media): array => (new AudioVideoMapper($media))->toPayload(), $video);
+    }
+
+    /**
+     * @param  Media[]|Audio[]  $audio
+     * @return array<string,array<string,mixed>>
+     */
+    protected function mapAudio(array $audio): array
+    {
+        return array_map(fn (Audio|Media $media): array => (new AudioVideoMapper($media))->toPayload(), $audio);
     }
 
     /**

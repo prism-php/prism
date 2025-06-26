@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Messages\Support\Video;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -38,7 +39,7 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What is in this video',
                     additionalContent: [
-                        Media::fromUrl($videoUrl),
+                        Video::fromUrl($videoUrl),
                     ],
                 ),
             ])
@@ -75,7 +76,7 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What is in this video',
                     additionalContent: [
-                        Media::fromRawContent($videoContent, 'video/mp4'),
+                        Video::fromRawContent($videoContent, 'video/mp4'),
                     ],
                 ),
             ])
@@ -105,7 +106,7 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What is in this video',
                     additionalContent: [
-                        Media::fromBase64($videoBase64, 'video/mp4'),
+                        Video::fromBase64($videoBase64, 'video/mp4'),
                     ],
                 ),
             ])
@@ -126,7 +127,7 @@ describe('Media support with Gemini', function (): void {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('non-existent-file.mp4 is not a file');
 
-        Media::fromLocalPath('non-existent-file.mp4');
+        Video::fromLocalPath('non-existent-file.mp4');
     });
 
     it('can send audio from local path', function (): void {
@@ -138,7 +139,7 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'Transcribe this audio',
                     additionalContent: [
-                        Media::fromLocalPath('tests/Fixtures/sample-audio.wav'),
+                        Audio::fromLocalPath('tests/Fixtures/sample-audio.wav'),
                     ],
                 ),
             ])
@@ -180,7 +181,7 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What is in this audio',
                     additionalContent: [
-                        Media::fromUrl($audioUrl),
+                        Audio::fromUrl($audioUrl),
                     ],
                 ),
             ])
@@ -217,7 +218,7 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What can you tell me about this audio',
                     additionalContent: [
-                        Media::fromRawContent($audioContent, 'audio/mpeg'),
+                        Audio::fromRawContent($audioContent, 'audio/mpeg'),
                     ],
                 ),
             ])

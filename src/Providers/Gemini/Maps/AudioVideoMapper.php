@@ -9,7 +9,7 @@ use Prism\Prism\ValueObjects\Messages\Support\Image;
 /**
  * @property Image $media
  */
-class MediaMapper extends ProviderMediaMapper
+class AudioVideoMapper extends ProviderMediaMapper
 {
     /**
      * @return array<string,mixed>
