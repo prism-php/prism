@@ -1,0 +1,2 @@
+data: {"candidates": [{"content": {"parts": [{"functionCall": {"name": "weather","args": {"city": "San Diego"}}},{"functionCall": {"name": "weather","args": {"city": "Las Vegas"}}}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 359,"candidatesTokenCount": 28,"totalTokenCount": 436,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 359}],"thoughtsTokenCount": 49},"modelVersion": "gemini-2.5-flash","responseId": "FtJdaL6yLe6Fz7IP2uCB2AE"}
+

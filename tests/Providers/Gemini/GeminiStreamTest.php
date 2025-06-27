@@ -18,18 +18,42 @@ beforeEach(function (): void {
 it('can generate text stream with a basic prompt', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text');
 
+    $origModel = 'gemini-2.0-flash';
     $response = Prism::text()
-        ->using(Provider::Gemini, 'gemini-2.0-flash')
+        ->using(Provider::Gemini, $origModel)
         ->withPrompt('Explain how AI works')
         ->asStream();
 
     $text = '';
     $chunks = [];
 
+    $responseId = null;
+    $model = null;
+
     foreach ($response as $chunk) {
+        if ($chunk->meta) {
+            $responseId = $chunk->meta?->id;
+            $model = $chunk->meta?->model;
+        }
+
         $chunks[] = $chunk;
         $text .= $chunk->text;
     }
+
+    expect($chunks[0]->usage)
+        ->not
+        ->toBeNull()
+        ->and($chunks[0]->usage->promptTokens)
+        ->toBeGreaterThan(0)
+        ->and($chunks[0]->usage->promptTokens)
+        ->toEqual(last($chunks)->usage->promptTokens);
+
+    expect($responseId)
+        ->not->toBeNull()
+        ->not->toBeEmpty();
+
+    expect($model)
+        ->toEqual($origModel);
 
     expect($chunks)
         ->not->toBeEmpty()
@@ -69,6 +93,8 @@ it('can generate text stream using searchGrounding', function (): void {
         if ($chunk->toolResults !== []) {
             $toolResults = array_merge($toolResults, $chunk->toolResults);
         }
+
+        expect($chunk->meta)->not->toBeNull();
 
         $text .= $chunk->text;
     }
@@ -125,6 +151,7 @@ it('can generate text stream using tools ', function (): void {
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
+        expect($chunk->meta)->not->toBeNull();
         $text .= $chunk->text;
     }
 

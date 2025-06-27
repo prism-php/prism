@@ -52,6 +52,8 @@ class Stream
         $text = '';
         $toolCalls = [];
         $reasoningItems = [];
+        $meta = null;
+        $usage = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -60,14 +62,21 @@ class Stream
                 continue;
             }
 
+            $responseId = data_get($data, 'response.id');
+            $model = data_get($data, 'response.model');
+
+            if ($responseId && $model) {
+                $meta = new Meta(
+                    id: $responseId,
+                    model: $model,
+                );
+            }
+
             if ($data['type'] === 'response.created') {
                 yield new Chunk(
                     text: '',
                     finishReason: null,
-                    meta: new Meta(
-                        id: $data['response']['id'] ?? null,
-                        model: $data['response']['model'] ?? null,
-                    ),
+                    meta: $meta,
                     chunkType: ChunkType::Meta,
                 );
 
@@ -81,7 +90,8 @@ class Stream
                     yield new Chunk(
                         text: $reasoningDelta,
                         finishReason: null,
-                        chunkType: ChunkType::Thinking
+                        chunkType: ChunkType::Thinking,
+                        meta: $meta
                     );
                 }
 
@@ -108,25 +118,28 @@ class Stream
 
             yield new Chunk(
                 text: $content,
+                meta: $meta,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
 
             if (data_get($data, 'type') === 'response.completed') {
+                $usage = new Usage(
+                    promptTokens: data_get($data, 'response.usage.input_tokens'),
+                    completionTokens: data_get($data, 'response.usage.output_tokens'),
+                    cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
+                    thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
+                );
                 yield new Chunk(
                     text: '',
-                    usage: new Usage(
-                        promptTokens: data_get($data, 'response.usage.input_tokens'),
-                        completionTokens: data_get($data, 'response.usage.output_tokens'),
-                        cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
-                        thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
-                    ),
+                    meta: $meta,
+                    usage: $usage,
                     chunkType: ChunkType::Meta,
                 );
             }
         }
 
         if ($toolCalls !== []) {
-            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $meta, $usage);
         }
     }
 
@@ -211,7 +224,9 @@ class Stream
         Request $request,
         string $text,
         array $toolCalls,
-        int $depth
+        int $depth,
+        ?Meta $meta = null,
+        ?Usage $usage = null
     ): Generator {
         $toolCalls = $this->mapToolCalls($toolCalls);
 
@@ -219,6 +234,8 @@ class Stream
             text: '',
             toolCalls: $toolCalls,
             chunkType: ChunkType::ToolCall,
+            meta: $meta,
+            usage: $usage,
         );
 
         $toolResults = $this->callTools($request->tools(), $toolCalls);
@@ -227,6 +244,8 @@ class Stream
             text: '',
             toolResults: $toolResults,
             chunkType: ChunkType::ToolResult,
+            meta: $meta,
+            usage: $usage,
         );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));
