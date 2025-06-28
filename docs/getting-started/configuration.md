@@ -15,7 +15,7 @@ Let's break down the key sections of this configuration file:
 ```php
 return [
     'prism_server' => [
-        'enabled' => env('PRISM_SERVER_ENABLED', true),
+        'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
     'providers' => [
         // Provider configurations here
