@@ -7,9 +7,10 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\PrismServer;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Text\MetaChunk;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
+use Prism\Prism\Text\TextChunk;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
@@ -97,14 +98,15 @@ it('handles streaming requests', function (): void {
         ->andReturnSelf();
 
     $meta = new Meta('cmp_asdf123', 'gpt-4');
-    $chunk = new Chunk(
-        text: "I'm Nyx!",
-        meta: $meta
+    $metaChunk = new MetaChunk($meta);
+    $textChunk = new TextChunk(
+        text: "I'm Nyx!"
     );
 
     $generator->expects('asStream')
-        ->andReturn((function () use ($chunk) {
-            yield $chunk;
+        ->andReturn((function () use ($metaChunk, $textChunk) {
+            yield $metaChunk;
+            yield $textChunk;
         })());
 
     PrismServer::register(

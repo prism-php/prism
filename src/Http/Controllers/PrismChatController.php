@@ -5,8 +5,10 @@ namespace Prism\Prism\Http\Controllers;
 use Illuminate\Support\ItemNotFoundException;
 use Prism\Prism\Exceptions\PrismServerException;
 use Prism\Prism\Facades\PrismServer;
+use Prism\Prism\Text\MetaChunk;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\TextChunk;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -47,23 +49,33 @@ class PrismChatController
         return response()->stream(function () use ($generator): void {
             $response = $generator->asStream();
 
-            foreach ($response as $chunk) {
-                $data = [
-                    'id' => $chunk->meta?->id ?? 'unknown',
-                    'object' => 'chat.completion.chunk',
-                    'created' => now()->timestamp,
-                    'model' => $chunk->meta?->model ?? 'unknown',
-                    'choices' => [[
-                        'delta' => [
-                            'role' => 'assistant',
-                            'content' => $chunk->content ?? $chunk->text,
-                        ],
-                    ]],
-                ];
+            $meta = null;
 
-                echo 'data: '.json_encode($data)."\n\n";
-                ob_flush();
-                flush();
+            foreach ($response as $chunk) {
+                // Capture meta information if available
+                if ($chunk instanceof MetaChunk) {
+                    $meta = $chunk->meta;
+                }
+
+                // Only output data for chunks with text content
+                if ($chunk instanceof TextChunk) {
+                    $data = [
+                        'id' => $meta?->id ?? 'unknown',
+                        'object' => 'chat.completion.chunk',
+                        'created' => now()->timestamp,
+                        'model' => $meta?->model ?? 'unknown',
+                        'choices' => [[
+                            'delta' => [
+                                'role' => 'assistant',
+                                'content' => $chunk->text,
+                            ],
+                        ]],
+                    ];
+
+                    echo 'data: '.json_encode($data)."\n\n";
+                    ob_flush();
+                    flush();
+                }
             }
 
             echo "data: [DONE]\n";
