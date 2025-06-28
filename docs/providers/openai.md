@@ -221,3 +221,233 @@ if ($image->hasUrl()) {
     echo "<img src='{$image->url}' alt='Generated image'>";
 }
 ```
+
+## Audio Processing
+
+OpenAI provides comprehensive audio processing capabilities through their TTS (Text-to-Speech) and Whisper (Speech-to-Text) models. Prism supports all of OpenAI's audio models with their full feature sets.
+
+### Supported Models
+
+| Model | Type | Description |
+|-------|------|-------------|
+| `tts-1` | Text-to-Speech | Standard quality TTS |
+| `tts-1-hd` | Text-to-Speech | High definition TTS |
+| `whisper-1` | Speech-to-Text | Advanced speech recognition |
+
+### Text-to-Speech
+
+Convert text into natural-sounding speech with various voice options:
+
+#### Basic TTS Usage
+
+```php
+use Prism\Prism\Prism;
+
+$response = Prism::audio()
+    ->using('openai', 'tts-1')
+    ->withInput('Hello, welcome to our application!')
+    ->asAudio();
+
+// Save the audio file
+$audioData = base64_decode($response->audio->base64);
+file_put_contents('welcome.mp3', $audioData);
+```
+
+#### Voice Selection
+
+OpenAI offers six distinct voices with different characteristics:
+
+```php
+$response = Prism::audio()
+    ->using('openai', 'tts-1')
+    ->withInput('This is a test of the voice selection feature.')
+    ->withProviderOptions([
+        'voice' => 'alloy',    // Available voices: alloy, echo, fable, onyx, nova, shimmer
+    ])
+    ->asAudio();
+```
+
+#### High-Definition Audio
+
+For higher quality audio output, use the `tts-1-hd` model:
+
+```php
+$response = Prism::audio()
+    ->using('openai', 'tts-1-hd')
+    ->withInput('This is high-quality audio generation.')
+    ->withProviderOptions([
+        'voice' => 'nova',
+        'response_format' => 'wav',    // Higher quality format
+    ])
+    ->asAudio();
+```
+
+#### Audio Format Options
+
+Control the output format and quality:
+
+```php
+$response = Prism::audio()
+    ->using('openai', 'tts-1')
+    ->withInput('Testing different audio formats.')
+    ->withProviderOptions([
+        'voice' => 'echo',
+        'response_format' => 'opus',   // mp3, opus, aac, flac, wav, pcm
+        'speed' => 1.25,              // Speed: 0.25 to 4.0
+    ])
+    ->asAudio();
+
+echo "Audio type: " . $response->audio->getMimeType();
+```
+
+### Speech-to-Text
+
+Convert audio files into accurate text transcriptions using Whisper:
+
+#### Basic STT Usage
+
+```php
+use Prism\Prism\ValueObjects\Messages\Support\Audio;
+
+$audioFile = Audio::fromPath('/path/to/recording.mp3');
+
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->asText();
+
+echo "Transcription: " . $response->text->text;
+```
+#### Language Detection
+
+Whisper can automatically detect the language or you can specify it:
+
+```php
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->withProviderOptions([
+        'language' => 'es',           // ISO-639-1 code (optional)
+        'temperature' => 0.2,         // Lower temperature for more focused results
+    ])
+    ->asText();
+```
+
+#### Response Formats
+
+Get transcriptions in different formats with varying detail levels:
+
+```php
+// Standard JSON response
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->withProviderOptions([
+        'response_format' => 'json',  // json, text, srt, verbose_json, vtt
+    ])
+    ->asText();
+
+// Verbose JSON includes timestamps and confidence scores
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->withProviderOptions([
+        'response_format' => 'verbose_json',
+    ])
+    ->asText();
+
+// Access detailed segment information
+$segments = $response->additionalContent['segments'] ?? [];
+foreach ($segments as $segment) {
+    echo "Text: " . $segment['text'] . "\n";
+    echo "Start: " . $segment['start'] . "s\n";
+    echo "End: " . $segment['end'] . "s\n";
+    echo "Confidence: " . ($segment['no_speech_prob'] ?? 'N/A') . "\n\n";
+}
+```
+
+#### Subtitle Generation
+
+Generate subtitle files directly:
+
+```php
+// SRT format subtitles
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->withProviderOptions([
+        'response_format' => 'srt',
+    ])
+    ->asText();
+
+file_put_contents('subtitles.srt', $response->text->text);
+
+// VTT format subtitles
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->withProviderOptions([
+        'response_format' => 'vtt',
+    ])
+    ->asText();
+
+file_put_contents('subtitles.vtt', $response->text->text);
+```
+
+#### Context and Prompts
+
+Improve transcription accuracy with context:
+
+```php
+$response = Prism::audio()
+    ->using('openai', 'whisper-1')
+    ->withInput($audioFile)
+    ->withProviderOptions([
+        'prompt' => 'This is a technical discussion about machine learning and artificial intelligence.',
+        'language' => 'en',
+        'temperature' => 0.1,         // Lower temperature for technical content
+    ])
+    ->asText();
+```
+
+### Audio File Handling
+
+#### Creating Audio Objects
+
+Load audio from various sources:
+
+```php
+use Prism\Prism\ValueObjects\Messages\Support\Audio;
+
+// From local file path
+$audio = Audio::fromPath('/path/to/audio.mp3');
+
+// From remote URL
+$audio = Audio::fromUrl('https://example.com/recording.wav');
+
+// From base64 encoded data
+$audio = Audio::fromBase64($base64AudioData, 'audio/mpeg');
+
+// From binary content
+$audioContent = file_get_contents('/path/to/audio.wav');
+$audio = Audio::fromContent($audioContent, 'audio/wav');
+```
+
+#### File Size Considerations
+
+Whisper has a file size limit of 25 MB. For larger files, consider:
+
+```php
+// Check file size before processing
+$audio = Audio::fromPath('/path/to/large-audio.mp3');
+
+if ($audio->size() > 25 * 1024 * 1024) { // 25 MB
+    echo "File too large for processing";
+} else {
+    $response = Prism::audio()
+        ->using('openai', 'whisper-1')
+        ->withInput($audio)
+        ->asText();
+}
+```
+
