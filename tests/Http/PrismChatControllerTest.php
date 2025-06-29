@@ -17,10 +17,6 @@ use Prism\Prism\ValueObjects\Usage;
 
 use function Pest\Laravel\freezeTime;
 
-beforeEach(function (): void {
-    config()->set('prism.prism_server.enabled', true);
-});
-
 it('handles chat requests successfully', function (): void {
     freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
