@@ -266,11 +266,9 @@ it('works with thinking mode when use_tool_calling is true', function (): void {
     expect($response->structured)->toHaveKey('answer');
     expect($response->structured['answer'])->toBeString();
 
-    // Check that thinking data is available in additionalContent for backward compatibility
     expect($response->additionalContent)->toHaveKey('thinking');
     expect($response->additionalContent['thinking'])->toBeString();
 
-    // Check that __thinking is not in structured data (it should be moved to additionalContent)
     expect($response->structured)->not->toHaveKey('__thinking');
 });
 
@@ -306,7 +304,6 @@ it('handles Chinese output with double quotes using tool calling', function (): 
     expect($response->structured['recommendation'])->toBeString();
     expect($response->structured['coat_required'])->toBeBool();
 
-    // Verify that Chinese text with quotes is properly handled
     expect($response->structured['weather'])->toContain('今天天氣');
     expect($response->structured['weather'])->toContain('15°C');
     expect($response->structured['recommendation'])->toContain('建議');
