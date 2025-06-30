@@ -460,7 +460,7 @@ describe('thinking', function (): void {
             $chunks[] = $chunk;
         }
 
-        $thinkingChunks = (new Collection($chunks))->filter(fn ($chunk): false => $chunk instanceof ThinkingChunk);
+        $thinkingChunks = (new Collection($chunks))->filter(fn ($chunk): bool => $chunk instanceof ThinkingChunk);
 
         expect($thinkingChunks->count())->toBeGreaterThan(0);
 
