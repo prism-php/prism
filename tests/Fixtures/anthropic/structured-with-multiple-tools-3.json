@@ -1,1 +1,0 @@
-{"id":"msg_013AYqzNexbb1doFEdpzDjUN","type":"message","role":"assistant","model":"claude-3-5-sonnet-20241022","content":[{"type":"text","text":"{\n    \"weather\": \"90° and sunny\",\n    \"game_time\": \"3pm\",\n    \"coat_required\": false\n}"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":812,"output_tokens":36}}

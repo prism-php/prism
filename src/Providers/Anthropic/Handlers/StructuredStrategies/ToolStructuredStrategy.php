@@ -27,30 +27,9 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
      */
     public function mutatePayload(array $payload): array
     {
-        // Use the schema directly for tool input_schema instead of converting to Tool parameters
         $schemaArray = $this->request->schema()->toArray();
-        $isThinkingEnabled = $this->request->providerOptions('thinking.enabled') === true;
 
-        $properties = $schemaArray['properties'];
-        $required = $schemaArray['required'] ?? [];
-
-        // Prepend thinking fields when thinking mode is enabled (using special characters to avoid conflicts)
-        if ($isThinkingEnabled) {
-            $thinkingProperties = [
-                '__thinking' => [
-                    'type' => 'string',
-                    'description' => 'Your step-by-step thinking process and reasoning before the final answer',
-                ],
-            ];
-
-            // Prepend thinking fields to the beginning of properties
-            $properties = $thinkingProperties + $properties;
-
-            // Prepend thinking fields to required array
-            $required = array_merge(['__thinking'], $required);
-        }
-
-        return [
+        $payload = [
             ...$payload,
             'tools' => [
                 [
@@ -58,14 +37,19 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
                     'description' => 'Output data in the requested structure',
                     'input_schema' => [
                         'type' => 'object',
-                        'properties' => $properties,
-                        'required' => $required,
+                        'properties' => $schemaArray['properties'],
+                        'required' => $schemaArray['required'] ?? [],
                         'additionalProperties' => false,
                     ],
                 ],
             ],
-            'tool_choice' => $isThinkingEnabled ? null : ['type' => 'tool', 'name' => 'output_structured_data'],
         ];
+
+        if ($this->request->providerOptions('thinking.enabled') !== true) {
+            $payload['tool_choice'] = ['type' => 'tool', 'name' => 'output_structured_data'];
+        }
+
+        return $payload;
     }
 
     public function mutateResponse(HttpResponse $httpResponse, PrismResponse $prismResponse): PrismResponse
@@ -80,14 +64,7 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
             fn ($content): bool => data_get($content, 'type') === 'tool_use' && data_get($content, 'name') === 'output_structured_data'
         ));
 
-        if ($toolCalls !== []) {
-            $structured = data_get($toolCalls[0], 'input', []);
-        }
-
-        if ($this->request->providerOptions('thinking.enabled') === true && isset($structured['__thinking'])) {
-            $additionalContent['thinking'] = $structured['__thinking'];
-            unset($structured['__thinking']);
-        }
+        $structured = data_get($toolCalls, '0.input', []);
 
         return new PrismResponse(
             steps: $prismResponse->steps,
