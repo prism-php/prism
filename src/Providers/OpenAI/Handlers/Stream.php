@@ -10,7 +10,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
@@ -18,8 +17,13 @@ use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Text\MetaChunk;
 use Prism\Prism\Text\Request;
+use Prism\Prism\Text\TextChunk;
+use Prism\Prism\Text\ThinkingChunk;
+use Prism\Prism\Text\ToolCallChunk;
+use Prism\Prism\Text\ToolResultChunk;
+use Prism\Prism\Text\UsageChunk;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
@@ -35,7 +39,7 @@ class Stream
     public function __construct(protected PendingRequest $client) {}
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      */
     public function handle(Request $request): Generator
     {
@@ -45,7 +49,7 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
@@ -61,14 +65,11 @@ class Stream
             }
 
             if ($data['type'] === 'response.created') {
-                yield new Chunk(
-                    text: '',
-                    finishReason: null,
+                yield new MetaChunk(
                     meta: new Meta(
                         id: $data['response']['id'] ?? null,
                         model: $data['response']['model'] ?? null,
-                    ),
-                    chunkType: ChunkType::Meta,
+                    )
                 );
 
                 continue;
@@ -78,10 +79,8 @@ class Stream
                 $reasoningDelta = $this->extractReasoningSummaryDelta($data);
 
                 if ($reasoningDelta !== '') {
-                    yield new Chunk(
-                        text: $reasoningDelta,
-                        finishReason: null,
-                        chunkType: ChunkType::Thinking
+                    yield new ThinkingChunk(
+                        thinking: $reasoningDelta
                     );
                 }
 
@@ -106,21 +105,19 @@ class Stream
 
             $finishReason = $this->mapFinishReason($data);
 
-            yield new Chunk(
+            yield new TextChunk(
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
 
             if (data_get($data, 'type') === 'response.completed') {
-                yield new Chunk(
-                    text: '',
+                yield new UsageChunk(
                     usage: new Usage(
                         promptTokens: data_get($data, 'response.usage.input_tokens'),
                         completionTokens: data_get($data, 'response.usage.output_tokens'),
                         cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
                         thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
-                    ),
-                    chunkType: ChunkType::Meta,
+                    )
                 );
             }
         }
@@ -205,7 +202,7 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return Generator<Chunk>
+     * @return Generator<MetaChunk|TextChunk|ThinkingChunk|ToolCallChunk|ToolResultChunk|UsageChunk>
      */
     protected function handleToolCalls(
         Request $request,
@@ -215,18 +212,14 @@ class Stream
     ): Generator {
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            chunkType: ChunkType::ToolCall,
+        yield new ToolCallChunk(
+            toolCalls: $toolCalls
         );
 
         $toolResults = $this->callTools($request->tools(), $toolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolResults: $toolResults,
-            chunkType: ChunkType::ToolResult,
+        yield new ToolResultChunk(
+            toolResults: $toolResults
         );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));

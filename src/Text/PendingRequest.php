@@ -52,7 +52,7 @@ class PendingRequest
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<TextChunk|ThinkingChunk|MetaChunk|UsageChunk|ToolCallChunk|ToolResultChunk>
      */
     public function asStream(): Generator
     {
