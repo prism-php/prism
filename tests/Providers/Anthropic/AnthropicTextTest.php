@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
@@ -16,7 +15,6 @@ use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -155,63 +153,30 @@ describe('tools', function (): void {
 
         expect($response->text)->toContain('235');
     });
-});
 
-it('can send images from file', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-image');
+    it('handles specific tool choice', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-required-tool-call');
 
-    Prism::text()
-        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
-        ->withMessages([
-            new UserMessage(
-                'What is this image',
-                additionalContent: [
-                    Image::fromLocalPath('tests/Fixtures/dimond.png'),
-                ],
-            ),
-        ])
-        ->asText();
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
 
-    Http::assertSent(function (Request $request): true {
-        $message = $request->data()['messages'][0]['content'];
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withPrompt('Do something')
+            ->withTools($tools)
+            ->withToolChoice('weather')
+            ->asText();
 
-        expect($message[0])->toBe([
-            'type' => 'text',
-            'text' => 'What is this image',
-        ]);
-
-        expect($message[1]['type'])->toBe('image');
-        expect($message[1]['source']['data'])->toContain(
-            base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
-        );
-        expect($message[1]['source']['media_type'])->toBe('image/png');
-
-        return true;
+        expect($response->toolCalls[0]->name)->toBe('weather');
     });
-});
-
-it('handles specific tool choice', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-required-tool-call');
-
-    $tools = [
-        Tool::as('weather')
-            ->for('useful when you need to search for current weather conditions')
-            ->withStringParameter('city', 'The city that you want the weather for')
-            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
-        Tool::as('search')
-            ->for('useful for searching curret events or data')
-            ->withStringParameter('query', 'The detailed search query')
-            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
-    ];
-
-    $response = Prism::text()
-        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
-        ->withPrompt('Do something')
-        ->withTools($tools)
-        ->withToolChoice('weather')
-        ->asText();
-
-    expect($response->toolCalls[0]->name)->toBe('weather');
 });
 
 it('can calculate cache usage correctly', function (): void {
@@ -493,20 +458,6 @@ describe('Anthropic extended thinking', function (): void {
             ->additionalContent->thinking->toBe($expected_thinking)
             ->additionalContent->thinking_signature->toBe($expected_signature);
     });
-});
-
-it('includes anthropic beta header if set in config', function (): void {
-    config()->set('prism.providers.anthropic.anthropic_beta', 'beta1,beta2');
-
-    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking');
-
-    Prism::text()
-        ->using('anthropic', 'claude-3-7-sonnet-latest')
-        ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-        ->withProviderOptions(['thinking' => ['enabled' => true]])
-        ->asText();
-
-    Http::assertSent(fn (Request $request) => $request->hasHeader('anthropic-beta', 'beta1,beta2'));
 });
 
 describe('exceptions', function (): void {

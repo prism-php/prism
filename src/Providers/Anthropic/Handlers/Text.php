@@ -85,7 +85,7 @@ class Text extends AnthropicHandlerAbstract
 
         return Arr::whereNotNull([
             'model' => $request->model(),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
+            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'thinking' => $request->providerOptions('thinking.enabled') === true
                 ? [
@@ -98,7 +98,7 @@ class Text extends AnthropicHandlerAbstract
             'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
-            'tools' => static::buildTools($request),
+            'tools' => static::buildTools($request) ?: null,
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]);
     }

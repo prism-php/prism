@@ -119,7 +119,7 @@ class Structured extends AnthropicHandlerAbstract
         return Arr::whereNotNull([
             'model' => $request->model(),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
+            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'thinking' => $request->providerOptions('thinking.enabled') === true
             ? [
                 'type' => 'enabled',
@@ -176,7 +176,7 @@ class Structured extends AnthropicHandlerAbstract
         return Arr::whereNotNull([
             'model' => $request->model(),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
+            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'thinking' => $isThinkingEnabled
             ? [
                 'type' => 'enabled',
