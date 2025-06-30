@@ -208,8 +208,12 @@ class Stream
                 return new Chunk(
                     text: $textDelta,
                     finishReason: null,
-                    chunkType: ChunkType::Text,
-                    additionalContent: $additionalContent
+                    meta: new Meta(
+                        id: $this->state->requestId(),
+                        model: $this->state->model(),
+                    ),
+                    additionalContent: $additionalContent,
+                    chunkType: ChunkType::Text
                 );
             }
         }
@@ -295,7 +299,11 @@ class Stream
             return new Chunk(
                 text: $thinkingDelta,
                 finishReason: null,
-                chunkType: ChunkType::Thinking
+                meta: new Meta(
+                    id: $this->state->requestId(),
+                    model: $this->state->model(),
+                ),
+                chunkType: ChunkType::Thinking,
             );
         }
 
@@ -336,7 +344,11 @@ class Stream
             $chunk = new Chunk(
                 text: '',
                 toolCalls: [$toolCall],
-                chunkType: ChunkType::ToolCall
+                meta: new Meta(
+                    id: $this->state->requestId(),
+                    model: $this->state->model(),
+                ),
+                chunkType: ChunkType::ToolCall,
             );
         }
 
@@ -414,7 +426,11 @@ class Stream
             text: '',
             toolCalls: $mappedToolCalls,
             finishReason: null,
-            additionalContent: $additionalContent
+            meta: new Meta(
+                id: $this->state->requestId(),
+                model: $this->state->model(),
+            ),
+            additionalContent: $additionalContent,
         );
     }
 
@@ -582,7 +598,11 @@ class Stream
                 yield new Chunk(
                     text: '',
                     toolResults: [$toolResult],
-                    chunkType: ChunkType::ToolResult
+                    meta: new Meta(
+                        id: $this->state->requestId(),
+                        model: $this->state->model(),
+                    ),
+                    chunkType: ChunkType::ToolResult,
                 );
             } catch (Throwable $e) {
                 if ($e instanceof PrismException) {

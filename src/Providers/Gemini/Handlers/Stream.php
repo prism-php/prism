@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -21,7 +22,9 @@ use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -71,7 +74,7 @@ class Stream
 
                 // Check if this is the final part of the tool calls
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $data);
                 }
 
                 continue;
@@ -85,7 +88,18 @@ class Stream
 
             yield new Chunk(
                 text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
+                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
+                // gemini writes metadata in each chunk
+                meta: new Meta(
+                    id: data_get($data, 'responseId'),
+                    model: data_get($data, 'modelVersion'),
+                ),
+                usage: new Usage(
+                    promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                    // completion tokens will grow as more chunks are produced
+                    completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+                ),
             );
         }
     }
@@ -135,19 +149,51 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
+     * @param  array<string, mixed>  $data
      * @return Generator<Chunk>
      */
     protected function handleToolCalls(
         Request $request,
         string $text,
         array $toolCalls,
-        int $depth
+        int $depth,
+        array $data
     ): Generator {
         // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
 
+        yield new Chunk(
+            text: '',
+            toolCalls: $toolCalls,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
+            usage: new Usage(
+                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+            ),
+            chunkType: ChunkType::ToolCall,
+        );
+
         // Call the tools and get results
         $toolResults = $this->callTools($request->tools(), $toolCalls);
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
+            usage: new Usage(
+                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+            ),
+            chunkType: ChunkType::ToolResult,
+        );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -157,6 +203,15 @@ class Stream
             text: '',
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
+            usage: new Usage(
+                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
+                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
+            ),
         );
 
         // Continue the conversation with tool results
