@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
+use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
+use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -20,21 +26,16 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
-class Structured extends AnthropicHandlerAbstract
+class Structured
 {
-    /**
-     * @var StructuredRequest
-     */
-    protected PrismRequest $request; // Redeclared for type hinting
+    use ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
     protected Response $tempResponse;
 
     protected ResponseBuilder $responseBuilder;
 
-    public function __construct(mixed ...$args)
+    public function __construct(protected PendingRequest $client, protected StructuredRequest $request)
     {
-        parent::__construct(...$args);
-
         $this->responseBuilder = new ResponseBuilder;
     }
 
