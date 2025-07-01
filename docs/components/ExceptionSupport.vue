@@ -30,6 +30,21 @@
                 />
               </svg>
               <svg
+                v-else-if="provider[camelCase(exception)] === 'partial'"
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  d="M12 2L22 22H2L12 2Z" 
+                  stroke="yellow" 
+                  stroke-width="2" 
+                  stroke-linejoin="round" 
+                  fill="none" 
+                />
+              </svg>
+              <svg
                 v-else
                 class="w-6 h-6"
                 viewBox="0 0 24 24"
@@ -75,6 +90,23 @@
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
+          <path 
+            d="M12 2L22 22H2L12 2Z" 
+            stroke="yellow" 
+            stroke-width="2" 
+            stroke-linejoin="round" 
+            fill="none" 
+          />
+        </svg>
+        <span>Partially Supported</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <svg
+          class="w-5 h-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <path
             d="M18 6L6 18M6 6l12 12"
             stroke="red"
@@ -91,6 +123,7 @@
 
 <script>
 const Supported = "supported";
+const Partial = "partial";
 const Unsupported = "unsupported";
 
 export default {
@@ -149,7 +182,7 @@ export default {
         },
         {
           name: "OpenAI",
-          rateLimited: Supported,
+          rateLimited: Partial,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
