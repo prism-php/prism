@@ -18,7 +18,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses', ['Content-Type' => 'text/event-stream']);
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -58,7 +58,7 @@ it('can generate text with a basic stream', function (): void {
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-tools-responses');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-tools-responses', ['Content-Type' => 'text/event-stream']);
 
     $tools = [
         Tool::as('weather')
@@ -113,7 +113,7 @@ it('can generate text using tools with streaming', function (): void {
 });
 
 it('can process a complete conversation with multiple tool calls', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses', ['Content-Type' => 'text/event-stream']);
 
     $tools = [
         Tool::as('weather')
@@ -152,7 +152,7 @@ it('can process a complete conversation with multiple tool calls', function (): 
 });
 
 it('can process a complete conversation with multiple tool calls for reasoning models', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning', ['Content-Type' => 'text/event-stream']);
     $tools = [
         Tool::as('weather')
             ->for('Get weather information')
@@ -190,7 +190,7 @@ it('can process a complete conversation with multiple tool calls for reasoning m
 });
 
 it('can process a complete conversation with multiple tool calls for reasoning models that require past reasoning', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning-past-reasoning');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses-reasoning-past-reasoning', ['Content-Type' => 'text/event-stream']);
     $tools = [
         Tool::as('weather')
             ->for('Get weather information')
@@ -250,7 +250,7 @@ it('can process a complete conversation with multiple tool calls for reasoning m
 });
 
 it('emits usage information', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses', ['Content-Type' => 'text/event-stream']);
 
     $response = Prism::text()
         ->using('openai', 'gpt-4')
@@ -283,7 +283,7 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
 })->throws(PrismRateLimitedException::class);
 
 it('can accept falsy parameters', function (): void {
-    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-falsy-argument-conversation-responses');
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-falsy-argument-conversation-responses', ['Content-Type' => 'text/event-stream']);
 
     $modelTool = Tool::as('get_models')
         ->for('Returns info about of available models')

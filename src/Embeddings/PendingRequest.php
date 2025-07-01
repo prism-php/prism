@@ -8,7 +8,10 @@ use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Support\Trace;
 
 class PendingRequest
 {
@@ -69,9 +72,17 @@ class PendingRequest
 
         $request = $this->toRequest();
 
+        Trace::begin('embeddings', fn () => event(new PrismRequestStarted($this->providerKey(), ['request' => $request])));
+
         try {
-            return $this->provider->embeddings($request);
+            $response = $this->provider->embeddings($request);
+
+            Trace::end(fn () => event(new PrismRequestCompleted($this->providerKey(), ['response' => $response])));
+
+            return $response;
         } catch (RequestException $e) {
+            Trace::end(fn () => event(new PrismRequestCompleted(exception: $e)));
+
             $this->provider->handleRequestException($request->model(), $e);
         }
     }

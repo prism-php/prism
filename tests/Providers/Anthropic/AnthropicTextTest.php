@@ -5,8 +5,15 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Events\HttpRequestCompleted;
+use Prism\Prism\Events\HttpRequestStarted;
+use Prism\Prism\Events\PrismRequestCompleted;
+use Prism\Prism\Events\PrismRequestStarted;
+use Prism\Prism\Events\ToolCallCompleted;
+use Prism\Prism\Events\ToolCallStarted;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
@@ -41,6 +48,61 @@ it('can generate text with a prompt', function (): void {
     expect($response->text)->toBe(
         "I am an AI assistant created by Anthropic to be helpful, harmless, and honest. I don't have a physical form or avatar - I'm a language model trained to engage in conversation and help with tasks. How can I assist you today?"
     );
+});
+
+it('dispatch events while generating text with a prompt', function (): void {
+    Event::fake();
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    $provider = 'anthropic';
+    $model = 'claude-3-5-sonnet-20240620';
+    $prompt = 'Who are you?';
+
+    $response = Prism::text()
+        ->using($provider, $model)
+        ->withPrompt($prompt)
+        ->asText();
+
+    Event::assertDispatchedTimes(PrismRequestStarted::class, 1);
+    Event::assertDispatched(function (PrismRequestStarted $event) use ($provider, $model, $prompt): true {
+        $attributes = $event->attributes;
+
+        expect($event->provider)->toBe($provider);
+        expect($attributes['request']->model())->toBe($model);
+        expect($attributes['request']->prompt())->toBe($prompt);
+
+        return true;
+    });
+
+    Event::assertDispatchedTimes(HttpRequestStarted::class, 1);
+    Event::assertDispatched(function (HttpRequestStarted $event) use ($model): true {
+        $attributes = $event->attributes;
+
+        expect($attributes['model'])->toBe($model);
+
+        return true;
+    });
+
+    Event::assertDispatchedTimes(HttpRequestCompleted::class, 1);
+    Event::assertDispatched(function (HttpRequestCompleted $event) use ($response): true {
+        $attributes = $event->attributes;
+
+        expect($attributes['id'])->toBe($response->meta->id);
+        expect($attributes['stop_reason'])->toBe('end_turn');
+        expect($attributes['usage']['input_tokens'])->toBe($response->usage->promptTokens);
+        expect($attributes['usage']['output_tokens'])->toBe($response->usage->completionTokens);
+
+        return true;
+    });
+
+    Event::assertDispatchedTimes(PrismRequestCompleted::class, 1);
+    Event::assertDispatched(function (PrismRequestCompleted $event) use ($response): true {
+        $attributes = $event->attributes;
+
+        expect($attributes['response'])->toBe($response);
+
+        return true;
+    });
 });
 
 it('can generate text with a system prompt', function (): void {
@@ -111,6 +173,130 @@ describe('tools', function (): void {
         expect($response->text)->toContain('The Tigers game is scheduled for 3:00 PM today in Detroit');
         expect($response->text)->toContain('it will be 75°F (about 24°C) and sunny');
         expect($response->text)->toContain("you likely won't need a coat");
+    });
+
+    it('dispatch events while generating text using multiple tools and multiple steps', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-multiple-tools');
+
+        $provider = 'anthropic';
+        $model = 'claude-3-5-sonnet-20240620';
+        $prompt = 'What time is the tigers game today and should I wear a coat?';
+
+        $capturedEvents = [];
+        $traceId = '';
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'the city you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        Event::listen('*', function ($eventName, $event) use (&$capturedEvents, &$traceId, $provider, $tools): void {
+            $capturedEvents[$eventName][] = $eventName;
+
+            switch (count($capturedEvents[$eventName])) {
+                // First step
+                case 1:
+                    switch ($eventName) {
+                        case PrismRequestStarted::class:
+                            expect($event[0]->provider)->toBe($provider);
+                            expect($event[0]->attributes['request']->messages())->toHaveCount(1);
+                            expect($event[0]->attributes['request']->tools())->toHaveCount(2);
+                            expect($event[0]->attributes['request']->tools())->toBe($tools);
+                            $traceId = $event[0]->trace['traceId'];
+                            break;
+                        case PrismRequestCompleted::class:
+                            $response = $event[0]->attributes['response'];
+                            expect($response->text)->toBe("To answer your questions, I'll need to search for information about the Tigers game and check the weather. Let me do that for you.");
+                            expect($response->toolCalls)->toHaveCount(1);
+                            expect($response->toolCalls[0]->name)->toBe('search');
+                            expect($response->toolCalls[0]->arguments())->toBe([
+                                'query' => 'Detroit Tigers baseball game time today',
+                            ]);
+                            expect($event[0]->trace['traceId'])->toBe($traceId);
+                            break;
+                        case ToolCallStarted::class:
+                            expect($event[0]->toolName)->toBe('search');
+                            expect($event[0]->attributes['query'])->toBe('Detroit Tigers baseball game time today');
+                            $traceId = $event[0]->trace['traceId'];
+                            break;
+                        case ToolCallCompleted::class:
+                            expect($event[0]->attributes['result'])->toBe('The tigers game is at 3pm in detroit');
+                            expect($event[0]->trace['traceId'])->toBe($traceId);
+                            break;
+                    }
+                    break;
+                    // Second step
+                case 2:
+                    switch ($eventName) {
+                        case PrismRequestStarted::class:
+                            $request = $event[0]->attributes['request'];
+                            expect($request['messages'])->toHaveCount(3);
+                            expect($request['messages'][2]['content'][0]['type'])->toBe('tool_result');
+                            break;
+                        case PrismRequestCompleted::class:
+                            $response = $event[0]->attributes['response'];
+                            expect($response->text)->toBe("Thank you for that information. Now, let's check the weather in Detroit to determine if you should wear a coat.");
+                            expect($response->toolCalls)->toHaveCount(1);
+                            expect($response->toolCalls[0]->name)->toBe('weather');
+                            expect($response->toolCalls[0]->arguments())->toBe([
+                                'city' => 'Detroit',
+                            ]);
+                            break;
+                        case ToolCallStarted::class:
+                            expect($event[0]->toolName)->toBe('weather');
+                            expect($event[0]->attributes['city'])->toBe('Detroit');
+                            break;
+                        case ToolCallCompleted::class:
+                            expect($event[0]->attributes['result'])->toBe('The weather will be 75° and sunny');
+                            break;
+                    }
+                    break;
+                    // Third step
+                case 3:
+                    switch ($eventName) {
+                        case PrismRequestStarted::class:
+                            $request = $event[0]->attributes['request'];
+                            expect($request['messages'])->toHaveCount(5);
+                            expect($request['messages'][2]['content'][0]['type'])->toBe('tool_result');
+                            expect($request['messages'][2]['content'][0]['content'])->toBe('The tigers game is at 3pm in detroit');
+                            expect($request['messages'][4]['content'][0]['type'])->toBe('tool_result');
+                            expect($request['messages'][4]['content'][0]['content'])->toBe('The weather will be 75° and sunny');
+                            $traceId = $event[0]->trace['traceId'];
+                            break;
+                        case HttpRequestStarted::class:
+                        case HttpRequestCompleted::class:
+                            expect($event[0]->trace['parentTraceId'])->toBe($traceId);
+                            break;
+                        case PrismRequestCompleted::class:
+                            $response = $event[0]->attributes['response'];
+                            expect($response->text)->toContain('The Tigers game is scheduled for 3:00 PM today in Detroit');
+                            expect($response->text)->toContain('it will be 75°F (about 24°C) and sunny');
+                            expect($response->text)->toContain("you likely won't need a coat");
+                            break;
+                    }
+                    break;
+            }
+        });
+
+        Prism::text()
+            ->using($provider, $model)
+            ->withTools($tools)
+            ->withMaxSteps(3)
+            ->withPrompt($prompt)
+            ->asText();
+
+        expect($capturedEvents[PrismRequestStarted::class])->toHaveCount(3);
+        expect($capturedEvents[PrismRequestCompleted::class])->toHaveCount(3);
+        expect($capturedEvents[HttpRequestStarted::class])->toHaveCount(3);
+        expect($capturedEvents[HttpRequestCompleted::class])->toHaveCount(3);
+        expect($capturedEvents[ToolCallStarted::class])->toHaveCount(2);
+        expect($capturedEvents[ToolCallCompleted::class])->toHaveCount(2);
     });
 
     it('it handles a provider tool', function (): void {
