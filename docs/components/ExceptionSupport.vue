@@ -182,7 +182,7 @@ export default {
         },
         {
           name: "OpenAI",
-          rateLimited: Partial,
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
