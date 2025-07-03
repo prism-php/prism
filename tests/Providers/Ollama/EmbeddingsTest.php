@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Ollama;
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Embedding;
@@ -16,6 +18,14 @@ it('returns embeddings from input', function (): void {
         ->using(Provider::Ollama, 'mxbai-embed-large')
         ->fromInput('The food was delicious and the waiter...')
         ->asEmbeddings();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data()['model'])->toBe('mxbai-embed-large');
+        expect($request->data()['input'])->toBe(['The food was delicious and the waiter...']);
+        expect($request->data())->not->toHaveKeys(['options']);
+
+        return true;
+    });
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-input-1.json'), true);
     $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));
