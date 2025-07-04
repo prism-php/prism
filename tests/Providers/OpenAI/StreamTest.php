@@ -7,7 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\ChunkType;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Usage;
@@ -21,7 +21,7 @@ it('can generate text with a basic stream', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
     $response = Prism::text()
-        ->using('openai', 'gpt-4')
+        ->using('openai', 'gpt-4o')
         ->withPrompt('Who are you?')
         ->asStream();
 
@@ -265,23 +265,6 @@ it('emits usage information', function (): void {
     }
 });
 
-it('throws a PrismRateLimitedException with a 429 response code', function (): void {
-    Http::fake([
-        '*' => Http::response(
-            status: 429,
-        ),
-    ])->preventStrayRequests();
-
-    $response = Prism::text()
-        ->using('openai', 'gpt-4')
-        ->withPrompt('Who are you?')
-        ->asStream();
-
-    foreach ($response as $chunk) {
-        // Don't remove me rector!
-    }
-})->throws(PrismRateLimitedException::class);
-
 it('can accept falsy parameters', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-falsy-argument-conversation-responses');
 
@@ -302,3 +285,16 @@ it('can accept falsy parameters', function (): void {
         flush();
     }
 })->throwsNoExceptions();
+
+it('throws a PrismException on an unknown error', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-unknown-error-responses');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    foreach ($response as $chunk) {
+        // Read stream
+    }
+})->throws(PrismException::class, 'Sending to model gpt-4 failed. Code: unknown-error. Message: Foobar');

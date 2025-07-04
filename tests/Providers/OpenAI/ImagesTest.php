@@ -221,7 +221,6 @@ it('includes meta information in response', function (): void {
 
     expect($response->meta->id)->toBe('img_abc123');
     expect($response->meta->model)->toBe('dall-e-3');
-    expect($response->meta->rateLimits)->not->toBeEmpty();
 });
 
 it('can generate an image with gpt-image-1 returning base64', function (): void {

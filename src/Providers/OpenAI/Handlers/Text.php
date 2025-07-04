@@ -11,7 +11,6 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
@@ -32,7 +31,6 @@ class Text
 {
     use CallsTools;
     use MapsFinishReason;
-    use ProcessesRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -145,7 +143,6 @@ class Text
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
-                rateLimits: $this->processRateLimits($clientResponse)
             ),
             messages: $request->messages(),
             additionalContent: [],

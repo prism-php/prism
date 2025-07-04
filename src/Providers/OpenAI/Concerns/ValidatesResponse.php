@@ -23,9 +23,4 @@ trait ValidatesResponse
             ));
         }
     }
-
-    /**
-     * @return ProviderRateLimit[]
-     */
-    abstract protected function processRateLimits(Response $response): array;
 }

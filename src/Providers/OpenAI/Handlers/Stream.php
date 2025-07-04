@@ -13,7 +13,8 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
@@ -30,7 +31,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessesRateLimits;
+    use CallsTools;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -58,6 +59,10 @@ class Stream
 
             if ($data === null) {
                 continue;
+            }
+
+            if ($data['type'] === 'error') {
+                $this->handleErrors($data, $request);
             }
 
             if ($data['type'] === 'response.created') {
@@ -396,5 +401,24 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleErrors(array $data, Request $request): void
+    {
+        $code = data_get($data, 'error.code', 'unknown_error');
+
+        if ($code === 'rate_limit_exceeded') {
+            throw new PrismRateLimitedException([]);
+        }
+
+        throw new PrismException(sprintf(
+            'Sending to model %s failed. Code: %s. Message: %s',
+            $request->model(),
+            $code,
+            data_get($data, 'error.message', 'No error message provided')
+        ));
     }
 }
