@@ -410,6 +410,8 @@ class Stream
     {
         $code = data_get($data, 'error.code', 'unknown_error');
 
+        ray($code);
+
         if ($code === 'rate_limit_exceeded') {
             throw new PrismRateLimitedException([]);
         }

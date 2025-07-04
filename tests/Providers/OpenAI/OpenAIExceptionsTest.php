@@ -46,4 +46,8 @@ test('stream throws a PrismRateLimitedException', function (): void {
         ->using('openai', 'gpt-4o')
         ->withPrompt('Who are you?')
         ->asStream();
+
+    foreach ($response as $chunk) {
+        // Rector, leave me alone!
+    }
 })->throws(PrismRateLimitedException::class);
