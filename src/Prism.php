@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Prism\Prism;
 
+use Prism\Prism\Audio\AudioResponse;
+use Prism\Prism\Audio\PendingRequest as PendingAudioRequest;
+use Prism\Prism\Audio\TextResponse as AudioTextResponse;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
@@ -19,7 +22,7 @@ use Prism\Prism\Text\Response as TextResponse;
 class Prism
 {
     /**
-     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse>  $responses
+     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse|AudioResponse|AudioTextResponse>  $responses
      */
     public static function fake(array $responses = []): PrismFake
     {
@@ -60,6 +63,11 @@ class Prism
     public static function image(): PendingImageRequest
     {
         return new PendingImageRequest;
+    }
+
+    public static function audio(): PendingAudioRequest
+    {
+        return new PendingAudioRequest;
     }
 
     /**
