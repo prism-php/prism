@@ -1,0 +1,35 @@
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":"I'll"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" help"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" you"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" find"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" out"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" about"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" the"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" Tigers"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" game"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" and"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" weather"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" in"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" Detroit"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":"."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_abc123def456","type":"function","function":{"name":"search","arguments":"{\"query\":\"Detroit Tigers game today time schedule\"}"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272055,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+data: [DONE]

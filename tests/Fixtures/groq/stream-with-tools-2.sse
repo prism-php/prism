@@ -1,0 +1,19 @@
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"role":"assistant","content":"Now"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" I'll"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" check"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" the"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" weather"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" in"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"content":" Detroit"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_ghi789jkl012","type":"function","function":{"name":"weather","arguments":"{\"city\":\"Detroit\"}"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-987654321","object":"chat.completion.chunk","created":1736272056,"model":"llama-3.1-70b-versatile","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+data: [DONE] 

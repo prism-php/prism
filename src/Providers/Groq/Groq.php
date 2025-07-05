@@ -9,6 +9,7 @@ use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Groq\Handlers\Stream;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
@@ -57,6 +58,14 @@ class Groq extends Provider
             413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
             default => throw PrismException::providerRequestError($model, $e),
         };
+    }
+  
+     #[\Override]
+    public function stream(TextRequest $request): Generator
+    {
+        $handler = new Stream($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handle($request);
     }
 
     /**
