@@ -8,13 +8,13 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
@@ -30,7 +30,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ValidateResponse;
+    use CallsTools, ProcessRateLimits, ValidateResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -49,7 +49,6 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
-        // Prevent infinite recursion with tool calls
         if ($depth >= $request->maxSteps()) {
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
@@ -60,26 +59,26 @@ class Stream
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
 
-            // Skip empty data or DONE markers
             if ($data === null) {
                 continue;
             }
 
-            // Process tool calls
+            if ($this->hasError($data)) {
+                $this->handleErrors($data, $request);
+            }
+
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 continue;
             }
 
-            // Handle tool call completion
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
                 return;
             }
 
-            // Process regular content
             $content = data_get($data, 'choices.0.delta.content', '') ?? '';
             $text .= $content;
 
@@ -105,7 +104,7 @@ class Stream
 
         $line = trim(substr($line, strlen('data: ')));
 
-        if (Str::contains($line, 'DONE')) {
+        if ($line === '' || $line === '[DONE]') {
             return null;
         }
 
@@ -201,9 +200,17 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      */
+    protected function hasError(array $data): bool
+    {
+        return data_get($data, 'error') !== null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function mapFinishReason(array $data): FinishReason
     {
-        return FinishReasonMap::map(data_get($data, 'choices.0.finish_reason') ?? '');
+        return FinishReasonMap::map(data_get($data, 'choices.0.finish_reason'));
     }
 
     protected function sendRequest(Request $request): Response
@@ -213,22 +220,25 @@ class Stream
                 ->client
                 ->withOptions(['stream' => true])
                 ->throw()
-                ->post(
-                    'chat/completions',
-                    Arr::whereNotNull([
+                ->post('chat/completions',
+                    array_merge([
                         'stream' => true,
                         'model' => $request->model(),
                         'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                         'max_tokens' => $request->maxTokens(),
+                    ], Arr::whereNotNull([
                         'temperature' => $request->temperature(),
                         'top_p' => $request->topP(),
                         'tools' => ToolMap::map($request->tools()),
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    ])
+                    ]))
                 );
-        } catch (Throwable $e) {
-            if ($e instanceof \Illuminate\Http\Client\RequestException && $e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException($this->processRateLimits($e->response));
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            if ($e->response->getStatusCode() === 429) {
+                throw new PrismRateLimitedException(
+                    $this->processRateLimits($e->response),
+                    (int) $e->response->header('retry-after')
+                );
             }
 
             throw PrismException::providerRequestError($request->model(), $e);
@@ -254,5 +264,26 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleErrors(array $data, Request $request): void
+    {
+        $error = data_get($data, 'error', []);
+        $type = data_get($error, 'type', 'unknown_error');
+        $message = data_get($error, 'message', 'No error message provided');
+
+        if ($type === 'rate_limit_exceeded') {
+            throw new PrismRateLimitedException([]);
+        }
+
+        throw new PrismException(sprintf(
+            'Sending to model %s failed. Type: %s. Message: %s',
+            $request->model(),
+            $type,
+            $message
+        ));
     }
 }
