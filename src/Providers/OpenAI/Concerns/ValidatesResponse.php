@@ -9,9 +9,11 @@ use Prism\Prism\Exceptions\PrismException;
 
 trait ValidatesResponse
 {
-    protected function validateResponse(Response $response): void
+    protected Response $httpResponse;
+
+    protected function validateResponse(): void
     {
-        $data = $response->json();
+        $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(vsprintf(

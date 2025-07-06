@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
@@ -20,57 +17,21 @@ use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
+use Prism\Prism\Providers\TextHandler;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response;
-use Prism\Prism\Text\ResponseBuilder;
-use Prism\Prism\Text\Step;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolCall;
-use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
-class Text
+class Text extends TextHandler
 {
     use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
-    protected Response $tempResponse;
-
-    protected ResponseBuilder $responseBuilder;
-
-    public function __construct(protected PendingRequest $client, protected TextRequest $request)
-    {
-        $this->responseBuilder = new ResponseBuilder;
-    }
-
-    public function handle(): Response
-    {
-        $this->sendRequest();
-
-        $this->prepareTempResponse();
-
-        $responseMessage = new AssistantMessage(
-            $this->tempResponse->text,
-            $this->tempResponse->toolCalls,
-            $this->tempResponse->additionalContent,
-        );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
-        $this->request->addMessage($responseMessage);
-
-        return match ($this->tempResponse->finishReason) {
-            FinishReason::ToolCalls => $this->handleToolCalls(),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop(),
-            default => throw new PrismException('Anthropic: unknown finish reason'),
-        };
-    }
-
     /**
      * @param  TextRequest  $request
-     * @return array<string, mixed>
      */
     #[\Override]
     public static function buildHttpRequestPayload(PrismRequest $request): array
@@ -113,36 +74,11 @@ class Text
 
         $this->addStep($toolResults);
 
-        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
+        if ($this->shouldContinue()) {
             return $this->handle();
         }
 
         return $this->responseBuilder->toResponse();
-    }
-
-    protected function handleStop(): Response
-    {
-        $this->addStep();
-
-        return $this->responseBuilder->toResponse();
-    }
-
-    /**
-     * @param  ToolResult[]  $toolResults
-     */
-    protected function addStep(array $toolResults = []): void
-    {
-        $this->responseBuilder->addStep(new Step(
-            text: $this->tempResponse->text,
-            finishReason: $this->tempResponse->finishReason,
-            toolCalls: $this->tempResponse->toolCalls,
-            toolResults: $toolResults,
-            usage: $this->tempResponse->usage,
-            meta: $this->tempResponse->meta,
-            messages: $this->request->messages(),
-            systemPrompts: $this->request->systemPrompts(),
-            additionalContent: $this->tempResponse->additionalContent,
-        ));
     }
 
     protected function prepareTempResponse(): void

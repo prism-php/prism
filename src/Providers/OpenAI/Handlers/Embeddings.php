@@ -23,7 +23,7 @@ class Embeddings
     {
         $response = $this->sendRequest($request);
 
-        $this->validateResponse($response);
+        $this->validateResponse();
 
         $data = $response->json();
 
@@ -39,12 +39,14 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        $this->httpResponse = $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
             ]
         );
+
+        return $this->httpResponse;
     }
 }

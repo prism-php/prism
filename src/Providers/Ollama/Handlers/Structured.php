@@ -34,7 +34,7 @@ class Structured
     {
         $data = $this->sendRequest($request);
 
-        $this->validateResponse($data);
+        $this->validateResponse();
 
         $responseMessage = new AssistantMessage(
             data_get($data, 'message.content') ?? '',
@@ -80,7 +80,7 @@ class Structured
             throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
         }
 
-        $response = $this->client->post('api/chat', [
+        $this->httpResponse = $this->client->post('api/chat', [
             'model' => $request->model(),
             'system' => data_get($request->systemPrompts(), '0.content', ''),
             'messages' => (new MessageMap($request->messages()))->map(),
@@ -93,6 +93,6 @@ class Structured
             ], $request->providerOptions())),
         ]);
 
-        return $response->json();
+        return $this->httpResponse->json();
     }
 }

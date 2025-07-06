@@ -10,9 +10,9 @@ use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ValidateResponse
 {
-    protected function validateResponse(Response $response): void
+    protected function validateResponse(): void
     {
-        $data = $response->json();
+        $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(vsprintf(

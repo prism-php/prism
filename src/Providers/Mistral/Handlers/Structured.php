@@ -40,7 +40,7 @@ class Structured
 
         $response = $this->sendRequest($request);
 
-        $this->validateResponse($response);
+        $this->validateResponse();
 
         $data = $response->json();
 
@@ -49,7 +49,7 @@ class Structured
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        $this->httpResponse = $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -61,6 +61,8 @@ class Structured
                 'response_format' => ['type' => 'json_object'],
             ]))
         );
+
+        return $this->httpResponse;
     }
 
     /**
