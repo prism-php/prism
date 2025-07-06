@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Concerns;
 
-use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 
 trait ValidatesResponse
 {
-    protected function validateResponse(Response $response): void
+    protected function validateResponse(): void
     {
-        $data = $response->json();
+        $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(vsprintf(

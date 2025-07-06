@@ -37,12 +37,10 @@ class Gemini extends Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $handler = new Text(
+        return (new Text(
             $this->client($request->clientOptions(), $request->clientRetry()),
-            $this->apiKey
-        );
-
-        return $handler->handle($request);
+            $request
+        ))->handle();
     }
 
     #[\Override]

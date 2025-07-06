@@ -32,7 +32,7 @@ class PendingRequest
         $request = $this->toRequest();
 
         try {
-            return $this->provider->images($this->toRequest());
+            return $this->provider->images($request);
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }

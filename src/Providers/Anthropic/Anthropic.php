@@ -36,15 +36,10 @@ class Anthropic extends Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $handler = new Text(
-            $this->client(
-                $request->clientOptions(),
-                $request->clientRetry()
-            ),
+        return (new Text(
+            $this->client($request->clientOptions(), $request->clientRetry()),
             $request
-        );
-
-        return $handler->handle();
+        ))->handle();
     }
 
     #[\Override]

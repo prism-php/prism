@@ -8,12 +8,9 @@ use Prism\Prism\Exceptions\PrismException;
 
 trait ValidatesResponses
 {
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function validateResponse(array $data): void
+    protected function validateResponse(): void
     {
-        if ($data === []) {
+        if ($this->httpResponse->json() === []) {
             throw PrismException::providerResponseError('DeepSeek Error: Empty response');
         }
     }

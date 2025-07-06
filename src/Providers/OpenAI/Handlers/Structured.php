@@ -41,7 +41,7 @@ class Structured
 
         };
 
-        $this->validateResponse($response);
+        $this->validateResponse();
 
         $data = $response->json();
 
@@ -89,7 +89,7 @@ class Structured
      */
     protected function sendRequest(Request $request, array $responseFormat): ClientResponse
     {
-        return $this->client->post(
+        $this->httpResponse = $this->client->post(
             'responses',
             array_merge([
                 'model' => $request->model(),
@@ -106,6 +106,8 @@ class Structured
                 ],
             ]))
         );
+
+        return $this->httpResponse;
     }
 
     protected function handleAutoMode(Request $request): ClientResponse

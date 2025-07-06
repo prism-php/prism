@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
@@ -17,63 +16,29 @@ use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
-use Prism\Prism\Text\Request;
+use Prism\Prism\Providers\TextHandler;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response;
 use Prism\Prism\Text\Response as TextResponse;
-use Prism\Prism\Text\ResponseBuilder;
-use Prism\Prism\Text\Step;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
-use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
-class Text
+class Text extends TextHandler
 {
     use CallsTools, ExtractSearchGroundings, ValidatesResponse;
 
-    protected ResponseBuilder $responseBuilder;
-
-    public function __construct(
-        protected PendingRequest $client,
-        #[\SensitiveParameter] protected string $apiKey,
-    ) {
-        $this->responseBuilder = new ResponseBuilder;
-    }
-
-    public function handle(Request $request): TextResponse
+    /**
+     * @param  TextRequest  $request
+     */
+    #[\Override]
+    public static function buildHttpRequestPayload(PrismRequest $request): array
     {
-        $response = $this->sendRequest($request);
+        if (! $request->is(TextRequest::class)) {
+            throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
+        }
 
-        $this->validateResponse($response);
-
-        $data = $response->json();
-
-        $isToolCall = ! empty(data_get($data, 'candidates.0.content.parts.0.functionCall'));
-
-        $responseMessage = new AssistantMessage(
-            data_get($data, 'candidates.0.content.parts.0.text') ?? '',
-            $isToolCall ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
-        );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
-        $request->addMessage($responseMessage);
-
-        $finishReason = FinishReasonMap::map(
-            data_get($data, 'candidates.0.finishReason'),
-            $isToolCall
-        );
-
-        return match ($finishReason) {
-            FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request, $finishReason),
-            default => throw new PrismException('Gemini: unhandled finish reason'),
-        };
-    }
-
-    protected function sendRequest(Request $request): ClientResponse
-    {
         $providerOptions = $request->providerOptions();
 
         $thinkingConfig = Arr::whereNotNull([
@@ -106,68 +71,62 @@ class Text
             $tools['function_declarations'] = ToolMap::map($request->tools());
         }
 
-        return $this->client->post(
-            "{$request->model()}:generateContent",
-            Arr::whereNotNull([
-                ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'cachedContent' => $providerOptions['cachedContentName'] ?? null,
-                'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
-                'tools' => $tools !== [] ? $tools : null,
-                'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
-                'safetySettings' => $providerOptions['safetySettings'] ?? null,
-            ])
+        return Arr::whereNotNull([
+            ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
+            'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+            'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
+            'tools' => $tools !== [] ? $tools : null,
+            'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+            'safetySettings' => $providerOptions['safetySettings'] ?? null,
+        ]);
+    }
+
+    protected function sendRequest(): void
+    {
+        $this->httpResponse = $this->client->post(
+            "{$this->request->model()}:generateContent",
+            static::buildHttpRequestPayload($this->request),
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function handleStop(array $data, Request $request, FinishReason $finishReason): TextResponse
+    protected function handleToolCalls(): TextResponse
     {
-        $this->addStep($data, $request, $finishReason);
+        $data = $this->httpResponse->json();
 
-        return $this->responseBuilder->toResponse();
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function handleToolCalls(array $data, Request $request): TextResponse
-    {
         $toolResults = $this->callTools(
-            $request->tools(),
+            $this->request->tools(),
             ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []))
         );
 
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $this->request->addMessage(new ToolResultMessage($toolResults));
 
-        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
+        $this->addStep($toolResults);
 
-        if ($this->shouldContinue($request)) {
-            return $this->handle($request);
+        if ($this->shouldContinue()) {
+            return $this->handle();
         }
 
         return $this->responseBuilder->toResponse();
     }
 
-    protected function shouldContinue(Request $request): bool
+    protected function prepareTempResponse(): void
     {
-        return $this->responseBuilder->steps->count() < $request->maxSteps();
-    }
+        $data = $this->httpResponse->json();
+        $providerOptions = $this->request->providerOptions();
 
-    /**
-     * @param  array<string, mixed>  $data
-     * @param  ToolResult[]  $toolResults
-     */
-    protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
-    {
-        $providerOptions = $request->providerOptions();
+        $isToolCall = ! empty(data_get($data, 'candidates.0.content.parts.0.functionCall'));
 
-        $this->responseBuilder->addStep(new Step(
+        $this->tempResponse = new Response(
+            steps: new Collection,
+            responseMessages: new Collection,
+            messages: new Collection,
             text: data_get($data, 'candidates.0.content.parts.0.text') ?? '',
-            finishReason: $finishReason,
-            toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
-            toolResults: $toolResults,
+            finishReason: FinishReasonMap::map(
+                data_get($data, 'candidates.0.finishReason'),
+                $isToolCall
+            ),
+            toolCalls: $isToolCall ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
+            toolResults: [],
             usage: new Usage(
                 promptTokens: isset($providerOptions['cachedContentName'])
                     ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
@@ -180,11 +139,9 @@ class Text
                 id: data_get($data, 'id', ''),
                 model: data_get($data, 'modelVersion'),
             ),
-            messages: $request->messages(),
-            systemPrompts: $request->systemPrompts(),
             additionalContent: [
                 ...$this->extractSearchGroundingContent($data),
             ],
-        ));
+        );
     }
 }

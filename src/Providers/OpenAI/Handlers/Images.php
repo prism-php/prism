@@ -25,7 +25,7 @@ class Images
     {
         $response = $this->sendRequest($request);
 
-        $this->validateResponse($response);
+        $this->validateResponse();
 
         $data = $response->json();
 
@@ -48,7 +48,9 @@ class Images
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post('images/generations', ImageRequestMap::map($request));
+        $this->httpResponse = $this->client->post('images/generations', ImageRequestMap::map($request));
+
+        return $this->httpResponse;
     }
 
     /**
