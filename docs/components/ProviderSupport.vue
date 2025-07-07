@@ -270,6 +270,16 @@ export default {
           documents: Unsupported,
         },
         {
+          name: "OpenRouter",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Unsupported,
+          image: Unsupported,
+          tools: Supported,
+          documents: Unsupported,
+        },
+        {
           name: "OpenAI",
           text: Supported,
           streaming: Supported,

@@ -10,7 +10,7 @@ In this guide we will look at handling:
 
 Prism throws a `PrismRateLimitedException` for all providers other than DeepSeek (which does not have rate limits).
 
-Prism provides an array of `ProviderRateLimit` value objects on the exception and on meta for all providers other than Gemini, xAI and VoyageAI - as they do not provide the necessary headers to do so.
+Prism provides an array of `ProviderRateLimit` value objects on the exception and on meta for all providers other than OpenAI, Gemini, xAI and VoyageAI - as they do not provide the necessary headers to do so.
 
 ## The ProviderRateLimit value object
 

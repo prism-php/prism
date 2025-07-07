@@ -113,8 +113,8 @@ class Mistral extends Provider
                 rateLimits: $this->processRateLimits($e->response),
                 retryAfter: null
             ),
-            529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
-            413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::Mistral),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::Mistral),
             default => throw PrismException::providerRequestError($model, $e),
         };
     }

@@ -9,7 +9,6 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 use Prism\Prism\Images\ResponseBuilder;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\ImageRequestMap;
 use Prism\Prism\ValueObjects\GeneratedImage;
@@ -18,7 +17,6 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Images
 {
-    use ProcessesRateLimits;
     use ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
@@ -41,7 +39,6 @@ class Images
             meta: new Meta(
                 id: data_get($data, 'id', 'img_'.bin2hex(random_bytes(8))),
                 model: data_get($data, 'model', $request->model()),
-                rateLimits: $this->processRateLimits($response)
             ),
             images: $images,
         );

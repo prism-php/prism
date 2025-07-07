@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Groq;
 
+use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
@@ -13,11 +14,13 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\Groq\Handlers\Stream;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 
@@ -57,6 +60,17 @@ class Groq extends Provider
             413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
             default => throw PrismException::providerRequestError($model, $e),
         };
+    }
+
+    /**
+     * @return Generator<Chunk>
+     */
+    #[\Override]
+    public function stream(TextRequest $request): Generator
+    {
+        $handler = new Stream($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handle($request);
     }
 
     /**

@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
+use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
+use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
@@ -26,26 +32,16 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
-/**
- * @template TRequest of TextRequest
- */
-class Text extends AnthropicHandlerAbstract
+class Text
 {
-    use CallsTools;
-
-    /**
-     * @var TextRequest
-     */
-    protected PrismRequest $request; // Redeclared for type hinting
+    use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
     protected Response $tempResponse;
 
     protected ResponseBuilder $responseBuilder;
 
-    public function __construct(mixed ...$args)
+    public function __construct(protected PendingRequest $client, protected TextRequest $request)
     {
-        parent::__construct(...$args);
-
         $this->responseBuilder = new ResponseBuilder;
     }
 
@@ -85,7 +81,7 @@ class Text extends AnthropicHandlerAbstract
 
         return Arr::whereNotNull([
             'model' => $request->model(),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
+            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'thinking' => $request->providerOptions('thinking.enabled') === true
                 ? [
@@ -98,7 +94,7 @@ class Text extends AnthropicHandlerAbstract
             'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
-            'tools' => static::buildTools($request),
+            'tools' => static::buildTools($request) ?: null,
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]);
     }
@@ -109,8 +105,7 @@ class Text extends AnthropicHandlerAbstract
         $message = new ToolResultMessage($toolResults);
 
         // Apply tool result caching if configured
-        $tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type');
-        if ($tool_result_cache_type) {
+        if ($tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type')) {
             $message->withProviderOptions(['cacheType' => $tool_result_cache_type]);
         }
 
@@ -118,7 +113,7 @@ class Text extends AnthropicHandlerAbstract
 
         $this->addStep($toolResults);
 
-        if ($this->shouldContinue()) {
+        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
             return $this->handle();
         }
 
@@ -148,11 +143,6 @@ class Text extends AnthropicHandlerAbstract
             systemPrompts: $this->request->systemPrompts(),
             additionalContent: $this->tempResponse->additionalContent,
         ));
-    }
-
-    protected function shouldContinue(): bool
-    {
-        return $this->responseBuilder->steps->count() < $this->request->maxSteps();
     }
 
     protected function prepareTempResponse(): void

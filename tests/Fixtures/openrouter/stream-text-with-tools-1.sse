@@ -1,0 +1,33 @@
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"I'll"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" help"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" you"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" get"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" the"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" weather"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" for"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" you"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"."},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"tool_call_1","type":"function","function":{"name":"weather","arguments":""}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\""}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":": \"San"}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":" Francisco"}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"}"}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-tool-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":50,"completion_tokens":25,"total_tokens":75}}
+
+data: [DONE] 

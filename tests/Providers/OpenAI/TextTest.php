@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
@@ -274,36 +273,6 @@ describe('tools', function (): void {
             ->asText();
 
         expect($response->text)->toContain('235');
-    });
-});
-
-it('sets the rate limits on meta', function (): void {
-    $this->freezeTime(function (Carbon $time): void {
-        $time = $time->toImmutable();
-
-        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-a-prompt', [
-            'x-ratelimit-limit-requests' => 60,
-            'x-ratelimit-limit-tokens' => 150000,
-            'x-ratelimit-remaining-requests' => 0,
-            'x-ratelimit-remaining-tokens' => 149984,
-            'x-ratelimit-reset-requests' => '1s',
-            'x-ratelimit-reset-tokens' => '6m30s',
-        ]);
-
-        $response = Prism::text()
-            ->using('openai', 'gpt-4o')
-            ->withPrompt('Who are you?')
-            ->asText();
-
-        expect($response->meta->rateLimits)->toHaveCount(2);
-        expect($response->meta->rateLimits[0]->name)->toEqual('requests');
-        expect($response->meta->rateLimits[0]->limit)->toEqual(60);
-        expect($response->meta->rateLimits[0]->remaining)->toEqual(0);
-        expect($response->meta->rateLimits[0]->resetsAt->equalTo(now()->addSeconds(1)))->toBeTrue();
-        expect($response->meta->rateLimits[1]->name)->toEqual('tokens');
-        expect($response->meta->rateLimits[1]->limit)->toEqual(150000);
-        expect($response->meta->rateLimits[1]->remaining)->toEqual(149984);
-        expect($response->meta->rateLimits[1]->resetsAt->equalTo(now()->addMinutes(6)->addSeconds(30)))->toBeTrue();
     });
 });
 

@@ -10,6 +10,8 @@
 
 ## Search grounding
 
+Google Gemini offers built-in search grounding capabilities that allow your AI to search the web for real-time information. This is a provider tool that uses Google's search infrastructure. For more information about the difference between custom tools and provider tools, see [Tools & Function Calling](/core-concepts/tools-function-calling#provider-tools).
+
 You may enable Google search grounding on text requests using withProviderTools:
 
 ```php

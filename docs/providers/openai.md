@@ -70,9 +70,13 @@ $response = Prism::structured()
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.
 
-### Code interpreter
+## Provider Tools
 
-You can use the OpenAI code interpreter as follows:
+OpenAI offers built-in provider tools that can be used alongside your custom tools. These tools are executed by OpenAI's infrastructure and provide specialized capabilities. For more information about the difference between custom tools and provider tools, see [Tools & Function Calling](/core-concepts/tools-function-calling#provider-tools).
+
+### Code Interpreter
+
+The OpenAI code interpreter allows your AI to execute Python code in a secure, sandboxed environment. This is particularly useful for mathematical calculations, data analysis, and code execution tasks.
 
 ```php
 use Prism\Prism\Prism;
@@ -81,11 +85,18 @@ use Prism\Prism\ValueObjects\ProviderTool;
 Prism::text()
     ->using('openai', 'gpt-4.1')
     ->withPrompt('Solve the equation 3x + 10 = 14.')
-    ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+    ->withProviderTools([
+        new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])
+    ])
     ->asText();
 ```
 
-### Additional Message Attributes
+#### Configuration Options
+
+- **container**: Configure the execution environment
+  - `type`: Set to `'auto'` for automatic environment selection
+
+## Additional Message Attributes
 
 Adding optional parameters to a `UserMessage` like the `name` field can be done through the `additionalAttributes` parameter.
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
+use Illuminate\Support\Arr;
+
 class StreamState
 {
     /**
@@ -167,8 +169,8 @@ class StreamState
         if ($this->usage === []) {
             $this->usage = $usage;
         } else {
-            foreach ($usage as $key => $value) {
-                $this->usage[$key] = ($this->usage[$key] ?? 0) + $value;
+            foreach (Arr::dot($usage) as $key => $value) {
+                Arr::set($this->usage, $key, Arr::get($this->usage, $key, 0) + $value);
             }
         }
 

@@ -47,9 +47,9 @@ readonly class ResponseBuilder
             steps: $this->steps,
             responseMessages: $this->responseMessages,
             text: $finalStep->text,
-            structured: $finalStep->finishReason === FinishReason::Stop
+            structured: $finalStep->structured === [] && $finalStep->finishReason === FinishReason::Stop
                 ? $this->decodeObject($finalStep->text)
-                : [],
+                : $finalStep->structured,
             finishReason: $finalStep->finishReason,
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,

@@ -10,13 +10,12 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
@@ -24,15 +23,14 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
+    use BuildsTools;
     use CallsTools;
     use MapsFinishReason;
-    use ProcessesRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -145,33 +143,10 @@ class Text
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
-                rateLimits: $this->processRateLimits($clientResponse)
             ),
             messages: $request->messages(),
             additionalContent: [],
             systemPrompts: $request->systemPrompts(),
         ));
-    }
-
-    /**
-     * @return array<int|string,mixed>
-     */
-    protected function buildTools(Request $request): array
-    {
-        $tools = ToolMap::map($request->tools());
-
-        if ($request->providerTools() === []) {
-            return $tools;
-        }
-
-        $providerTools = array_map(
-            fn (ProviderTool $tool): array => [
-                'type' => $tool->type,
-                ...$tool->options,
-            ],
-            $request->providerTools()
-        );
-
-        return array_merge($providerTools, $tools);
     }
 }

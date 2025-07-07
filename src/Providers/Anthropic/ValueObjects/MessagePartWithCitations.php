@@ -10,7 +10,7 @@ class MessagePartWithCitations
      * @param  Citation[]  $citations
      */
     public function __construct(
-        public readonly string $text,
+        public readonly ?string $text,
         public readonly array $citations = []
     ) {}
 
@@ -20,22 +20,24 @@ class MessagePartWithCitations
     public static function fromContentBlock(array $data): self
     {
         return new self(
-            $data['text'],
+            $data['text'] ?? null,
             array_map(function (array $citation): Citation {
                 $indexPropertyCommonPart = match ($citation['type']) {
                     'page_location' => 'page_number',
                     'char_location' => 'char_index',
                     'content_block_location' => 'block_index',
+                    'web_search_result_location' => null,
                     default => throw new \InvalidArgumentException("Unknown citation type: {$citation['type']}"),
                 };
 
                 return new Citation(
                     type: $citation['type'],
                     citedText: data_get($citation, 'cited_text'),
-                    startIndex: data_get($citation, "start_$indexPropertyCommonPart"),
-                    endIndex: data_get($citation, "end_$indexPropertyCommonPart"),
-                    documentIndex: data_get($citation, 'document_index'),
-                    documentTitle: data_get($citation, 'document_title')
+                    startIndex: $indexPropertyCommonPart ? data_get($citation, "start_$indexPropertyCommonPart", null) : null,
+                    endIndex: $indexPropertyCommonPart ? data_get($citation, "end_$indexPropertyCommonPart", null) : null,
+                    documentIndex: data_get($citation, 'document_index', null),
+                    documentTitle: data_get($citation, 'document_title', null) ?? data_get($citation, 'title', null),
+                    url: data_get($citation, 'url', null)
                 );
             }, $data['citations'] ?? [])
         );

@@ -205,6 +205,8 @@ Please note however that due to Anthropic not supporting "native" structured out
 
 ## Code execution
 
+Anthropic offers built-in code execution capabilities that allow your AI to run code in a secure environment. This is a provider tool that executes code using Anthropic's infrastructure. For more information about the difference between custom tools and provider tools, see [Tools & Function Calling](/core-concepts/tools-function-calling#provider-tools).
+
 To enable code execution, you will first need to enable the beta feature.
 
 Either in prism/config.php:

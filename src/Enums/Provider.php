@@ -10,6 +10,7 @@ enum Provider: string
     case DeepSeek = 'deepseek';
     case Ollama = 'ollama';
     case OpenAI = 'openai';
+    case OpenRouter = 'openrouter';
     case Mistral = 'mistral';
     case Groq = 'groq';
     case XAI = 'xai';

@@ -7,9 +7,10 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\ChunkType;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\Usage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -21,7 +22,7 @@ it('can generate text with a basic stream', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
     $response = Prism::text()
-        ->using('openai', 'gpt-4')
+        ->using('openai', 'gpt-4o')
         ->withPrompt('Who are you?')
         ->asStream();
 
@@ -249,6 +250,46 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     Http::assertSentCount(3);
 });
 
+it('can process a complete conversation with provider tool', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-provider-tool');
+    $tools = [
+        new ProviderTool('web_search_preview'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'o4-mini')
+        ->withProviderTools($tools)
+        ->withMaxSteps(5) // Allow multiple tool call rounds
+        ->withPrompt('Search the web to retrieve the exact multiplicator to turn centimeters into inches.')
+        ->asStream();
+
+    $answerText = '';
+    $toolCallCount = 0;
+    $reasoningText = '';
+    /** @var Usage[] $usage */
+    $usage = [];
+
+    foreach ($response as $chunk) {
+        if ($chunk->toolCalls !== []) {
+            $toolCallCount += count($chunk->toolCalls);
+        }
+
+        if ($chunk->chunkType === ChunkType::Text) {
+            $answerText .= $chunk->text;
+        }
+
+        if ($chunk->usage) {
+            $usage[] = $chunk->usage;
+        }
+    }
+
+    expect($toolCallCount)->toBe(0); // We currently don't count provider tools as tool calls.
+    expect($answerText)->not->toBeEmpty();
+
+    // Verify we made multiple requests for a conversation with tool calls
+    Http::assertSentCount(1);
+});
+
 it('emits usage information', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
@@ -264,23 +305,6 @@ it('emits usage information', function (): void {
         }
     }
 });
-
-it('throws a PrismRateLimitedException with a 429 response code', function (): void {
-    Http::fake([
-        '*' => Http::response(
-            status: 429,
-        ),
-    ])->preventStrayRequests();
-
-    $response = Prism::text()
-        ->using('openai', 'gpt-4')
-        ->withPrompt('Who are you?')
-        ->asStream();
-
-    foreach ($response as $chunk) {
-        // Don't remove me rector!
-    }
-})->throws(PrismRateLimitedException::class);
 
 it('can accept falsy parameters', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-falsy-argument-conversation-responses');
@@ -302,3 +326,16 @@ it('can accept falsy parameters', function (): void {
         flush();
     }
 })->throwsNoExceptions();
+
+it('throws a PrismException on an unknown error', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-unknown-error-responses');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    foreach ($response as $chunk) {
+        // Read stream
+    }
+})->throws(PrismException::class, 'Sending to model gpt-4 failed. Code: unknown-error. Message: Foobar');

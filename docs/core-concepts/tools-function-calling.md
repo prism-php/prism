@@ -319,3 +319,84 @@ foreach ($response->steps as $step) {
     }
 }
 ```
+
+## Provider Tools
+
+In addition to custom tools that you define, Prism supports **provider tools** - built-in capabilities offered directly by AI providers. These are specialized tools that leverage the provider's own infrastructure and services.
+
+### Understanding Provider Tools vs Custom Tools
+
+**Custom Tools** (covered above) are functions you define and implement yourself:
+- You control the logic and implementation
+- Called by the AI, executed by your code
+- Can access your databases, APIs, and services
+
+**Provider Tools** are built-in capabilities offered by the AI provider:
+- Implemented and executed by the provider
+- Access the provider's own services and infrastructure
+- Enable capabilities like code execution, web search, and more
+
+### Using Provider Tools
+
+Provider tools are added to your requests using the `withProviderTools()` method with `ProviderTool` objects:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withPrompt('Calculate the fibonacci sequence up to 100')
+    ->withProviderTools([
+        new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')
+    ])
+    ->asText();
+```
+
+### Available Provider Tools
+
+Each provider offers different built-in capabilities. Check the provider-specific documentation for detailed information about available tools, configuration options, and usage examples.
+
+### ProviderTool Object
+
+The `ProviderTool` class accepts three parameters:
+
+```php
+new ProviderTool(
+    type: 'code_execution_20250522',  // Required: The provider tool identifier
+    name: 'code_execution',           // Optional: Custom name for the tool
+    options: []                       // Optional: Provider-specific options
+)
+```
+
+- **type**: The provider-specific tool identifier (required)
+- **name**: Optional custom name for the tool
+- **options**: Additional provider-specific configuration options
+
+### Combining Provider Tools and Custom Tools
+
+You can use both provider tools and custom tools in the same request:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\Facades\Tool;
+
+$customTool = Tool::as('database_lookup')
+    ->for('Look up user information')
+    ->withStringParameter('user_id', 'The user ID to look up')
+    ->using(function (string $userId): string {
+        // Your database lookup logic
+        return "User data for ID: {$userId}";
+    });
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withMaxSteps(5)
+    ->withPrompt('Look up user 123 and calculate their usage statistics')
+    ->withTools([$customTool])
+    ->withProviderTools([
+        new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')
+    ])
+    ->asText();
+``` 
