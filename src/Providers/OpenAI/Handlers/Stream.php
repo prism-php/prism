@@ -15,10 +15,10 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -31,6 +31,7 @@ use Throwable;
 
 class Stream
 {
+    use BuildsTools;
     use CallsTools;
 
     public function __construct(protected PendingRequest $client) {}
@@ -373,7 +374,7 @@ class Stream
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => $request->providerOptions('metadata'),
-                    'tools' => ToolMap::map($request->tools()),
+                    'tools' => $this->buildTools($request),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     'previous_response_id' => $request->providerOptions('previous_response_id'),
                     'truncation' => $request->providerOptions('truncation'),
