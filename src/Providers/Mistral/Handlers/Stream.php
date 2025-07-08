@@ -5,20 +5,14 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Mistral\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Mistral\Maps\MessageMap;
-use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Mistral\Maps\ToolMap;
+use Prism\Prism\Providers\StreamHandler;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -27,40 +21,28 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
-class Stream
+class Stream extends StreamHandler
 {
     use CallsTools, HandleResponseError, MapsFinishReason, ProcessRateLimits;
 
-    public function __construct(
-        protected PendingRequest $client,
-        #[\SensitiveParameter] protected string $apiKey,
-    ) {}
-
-    /**
-     * @return Generator<Chunk>
-     */
-    public function handle(Request $request): Generator
+    public static function buildHttpRequestPayload(Request $request): array
     {
-        $response = $this->sendRequest($request);
-
-        yield from $this->processStream($response, $request);
+        return [
+            ...Text::buildHttpRequestPayload($request),
+            'stream' => true,
+        ];
     }
 
     /**
      * @return Generator<Chunk>
      */
-    protected function processStream(Response $response, Request $request, int $depth = 0): Generator
+    protected function processStream(): Generator
     {
-        // Prevent infinite recursion with tool calls
-        if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
-        }
-
         $text = '';
         $toolCalls = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! $this->httpResponse->getBody()->eof()) {
+            $data = $this->parseNextDataLine($this->httpResponse->getBody());
 
             // Skip empty data
             if ($data === null) {
@@ -70,11 +52,6 @@ class Stream
             // Process tool calls
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                // Check if this is the final part of the tool calls
-                if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-                }
 
                 continue;
             }
@@ -89,6 +66,11 @@ class Stream
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
+        }
+
+        // Check if there are tool calls
+        if ($toolCalls !== []) {
+            yield from $this->handleToolCalls($text, $toolCalls);
         }
     }
 
@@ -140,20 +122,16 @@ class Stream
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @return Generator<Chunk>
      */
-    protected function handleToolCalls(
-        Request $request,
-        string $text,
-        array $toolCalls,
-        int $depth
-    ): Generator {
+    protected function handleToolCalls(string $text, array $toolCalls): Generator
+    {
         // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
 
         // Call the tools and get results
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $toolCalls);
 
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $this->request->addMessage(new AssistantMessage($text, $toolCalls));
+        $this->request->addMessage(new ToolResultMessage($toolResults));
 
         // Yield the tool call chunk
         yield new Chunk(
@@ -162,9 +140,13 @@ class Stream
             toolResults: $toolResults,
         );
 
-        // Continue the conversation with tool results
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $this->step++;
+
+        if ($this->shouldContinue()) {
+            // Continue the conversation with tool results
+            $this->sendRequest();
+            yield from $this->processStream();
+        }
     }
 
     /**
@@ -200,44 +182,14 @@ class Stream
         return false;
     }
 
-    protected function sendRequest(Request $request): Response
+    protected function sendRequest(): void
     {
-        return $this
+        $this->httpResponse = $this
             ->client
             ->withOptions(['stream' => true])
-            ->post('chat/completions',
-                array_merge([
-                    'stream' => true,
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
+            ->post(
+                'chat/completions',
+                static::buildHttpRequestPayload($this->request)
             );
-    }
-
-    protected function readLine(StreamInterface $stream): string
-    {
-        $buffer = '';
-
-        while (! $stream->eof()) {
-            $byte = $stream->read(1);
-
-            if ($byte === '') {
-                return $buffer;
-            }
-
-            $buffer .= $byte;
-
-            if ($byte === "\n") {
-                break;
-            }
-        }
-
-        return $buffer;
     }
 }

@@ -59,12 +59,10 @@ class Anthropic extends Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        $handler = new Stream($this->client(
-            $request->clientOptions(),
-            $request->clientRetry()
-        ));
-
-        return $handler->handle($request);
+        return (new Stream(
+            $this->client($request->clientOptions(), $request->clientRetry()),
+            $request,
+        ))->handle();
     }
 
     public function handleRequestException(string $model, RequestException $e): never

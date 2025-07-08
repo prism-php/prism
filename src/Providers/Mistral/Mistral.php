@@ -95,12 +95,10 @@ class Mistral extends Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        $handler = new Stream(
+        return (new Stream(
             $this->client($request->clientOptions(), $request->clientRetry()),
-            $this->apiKey
-        );
-
-        return $handler->handle($request);
+            $request,
+        ))->handle();
     }
 
     public function handleRequestException(string $model, RequestException $e): never

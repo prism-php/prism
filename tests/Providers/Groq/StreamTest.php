@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -101,32 +100,32 @@ it('handles maximum tool call depth exceeded', function (): void {
 
     $tools = [
         Tool::as('weather')
-            ->for('A tool that will be called recursively')
-            ->withStringParameter('input', 'Any input')
-            ->using(fn (string $input): string => 'This is a recursive response that will trigger another tool call.'),
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => "Search results for: {$query}"),
     ];
 
     $response = Prism::text()
         ->using(Provider::Groq, 'llama-3.1-70b-versatile')
         ->withTools($tools)
-        ->withMaxSteps(0) // Set very low to trigger the max depth exception
+        ->withMaxSteps(1) // Set very low to trigger the max step
         ->withPrompt('Call the weather tool multiple times')
         ->asStream();
 
-    $exception = null;
-
-    try {
-        // Consume the generator to trigger the exception
-        foreach ($response as $chunk) {
-            // The test should throw before completing
-            // ...
-        }
-    } catch (PrismException $e) {
-        $exception = $e;
+    foreach ($response as $chunk) {
+        $chunks[] = $chunk;
     }
 
-    expect($exception)->toBeInstanceOf(PrismException::class);
-    expect($exception->getMessage())->toContain('Maximum tool call chain depth exceeded');
+    expect($chunks)->not->toBeEmpty();
+    $lastChunk = end($chunks);
+    expect($lastChunk->toolResults)->not->toBeEmpty();
+    // with two steps it would have another result
+    expect($lastChunk->toolResults[0]->result)->toBe('Search results for: Detroit Tigers game today time schedule');
 });
 
 it('handles invalid stream data correctly', function (): void {

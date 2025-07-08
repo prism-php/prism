@@ -37,6 +37,10 @@ class Text extends TextHandler
             throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
+        if (count($request->systemPrompts()) > 1) {
+            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
+        }
+
         return [
             'model' => $request->model(),
             'system' => data_get($request->systemPrompts(), '0.content', ''),
@@ -53,10 +57,6 @@ class Text extends TextHandler
 
     protected function sendRequest(): void
     {
-        if (count($this->request->systemPrompts()) > 1) {
-            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
-        }
-
         $this->httpResponse = $this->client->post(
             'api/chat',
             static::buildHttpRequestPayload($this->request)

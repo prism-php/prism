@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
@@ -17,9 +14,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Groq\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
-use Prism\Prism\Providers\Groq\Maps\MessageMap;
-use Prism\Prism\Providers\Groq\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Groq\Maps\ToolMap;
+use Prism\Prism\Providers\StreamHandler;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -28,55 +23,41 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
-class Stream
+class Stream extends StreamHandler
 {
     use CallsTools, HandleResponseError, ProcessRateLimits;
 
-    public function __construct(protected PendingRequest $client) {}
-
-    /**
-     * @return Generator<Chunk>
-     */
-    public function handle(Request $request): Generator
+    public static function buildHttpRequestPayload(Request $request): array
     {
-        $response = $this->sendRequest($request);
-
-        yield from $this->processStream($response, $request);
+        return [
+            ...Text::buildHttpRequestPayload($request),
+            'stream' => true,
+        ];
     }
 
     /**
      * @return Generator<Chunk>
      */
-    protected function processStream(Response $response, Request $request, int $depth = 0): Generator
+    protected function processStream(): Generator
     {
-        if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
-        }
-
         $text = '';
         $toolCalls = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! $this->httpResponse->getBody()->eof()) {
+            $data = $this->parseNextDataLine($this->httpResponse->getBody());
 
             if ($data === null) {
                 continue;
             }
 
             if ($this->hasError($data)) {
-                $this->handleErrors($data, $request);
+                $this->handleErrors($data);
             }
 
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 continue;
-            }
-
-            if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                return;
             }
 
             $content = data_get($data, 'choices.0.delta.content', '') ?? '';
@@ -88,6 +69,10 @@ class Stream
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
+        }
+
+        if ($toolCalls !== []) {
+            yield from $this->handleToolCalls($text, $toolCalls);
         }
     }
 
@@ -143,12 +128,8 @@ class Stream
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @return Generator<Chunk>
      */
-    protected function handleToolCalls(
-        Request $request,
-        string $text,
-        array $toolCalls,
-        int $depth
-    ): Generator {
+    protected function handleToolCalls(string $text, array $toolCalls): Generator
+    {
         $toolCalls = $this->mapToolCalls($toolCalls);
 
         yield new Chunk(
@@ -157,7 +138,7 @@ class Stream
             chunkType: ChunkType::ToolCall,
         );
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $toolCalls);
 
         yield new Chunk(
             text: '',
@@ -165,11 +146,15 @@ class Stream
             chunkType: ChunkType::ToolResult,
         );
 
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $this->request->addMessage(new AssistantMessage($text, $toolCalls));
+        $this->request->addMessage(new ToolResultMessage($toolResults));
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $this->step++;
+
+        if ($this->shouldContinue()) {
+            $this->sendRequest();
+            yield from $this->processStream();
+        }
     }
 
     /**
@@ -213,63 +198,22 @@ class Stream
         return FinishReasonMap::map(data_get($data, 'choices.0.finish_reason'));
     }
 
-    protected function sendRequest(Request $request): Response
+    protected function sendRequest(): void
     {
-        try {
-            return $this
-                ->client
-                ->withOptions(['stream' => true])
-                ->throw()
-                ->post('chat/completions',
-                    array_merge([
-                        'stream' => true,
-                        'model' => $request->model(),
-                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                        'max_tokens' => $request->maxTokens(),
-                    ], Arr::whereNotNull([
-                        'temperature' => $request->temperature(),
-                        'top_p' => $request->topP(),
-                        'tools' => ToolMap::map($request->tools()),
-                        'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    ]))
-                );
-        } catch (\Illuminate\Http\Client\RequestException $e) {
-            if ($e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException(
-                    $this->processRateLimits($e->response),
-                    (int) $e->response->header('retry-after')
-                );
-            }
-
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
-    }
-
-    protected function readLine(StreamInterface $stream): string
-    {
-        $buffer = '';
-
-        while (! $stream->eof()) {
-            $byte = $stream->read(1);
-
-            if ($byte === '') {
-                return $buffer;
-            }
-
-            $buffer .= $byte;
-
-            if ($byte === "\n") {
-                break;
-            }
-        }
-
-        return $buffer;
+        $this->httpResponse = $this
+            ->client
+            ->withOptions(['stream' => true])
+            ->throw()
+            ->post(
+                'chat/completions',
+                static::buildHttpRequestPayload($this->request)
+            );
     }
 
     /**
      * @param  array<string, mixed>  $data
      */
-    protected function handleErrors(array $data, Request $request): void
+    protected function handleErrors(array $data): void
     {
         $error = data_get($data, 'error', []);
         $type = data_get($error, 'type', 'unknown_error');
@@ -281,7 +225,7 @@ class Stream
 
         throw new PrismException(sprintf(
             'Sending to model %s failed. Type: %s. Message: %s',
-            $request->model(),
+            $this->request->model(),
             $type,
             $message
         ));

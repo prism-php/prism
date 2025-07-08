@@ -33,7 +33,6 @@ class Text extends TextHandler
     /**
      * @param  TextRequest  $request
      */
-    #[\Override]
     public static function buildHttpRequestPayload(PrismRequest $request): array
     {
         if (! $request->is(TextRequest::class)) {

@@ -22,8 +22,6 @@ class Structured
 {
     use HandleResponseError, ProcessRateLimits;
 
-    protected ClientResponse $httpResponse;
-
     protected ResponseBuilder $responseBuilder;
 
     public function __construct(protected PendingRequest $client)

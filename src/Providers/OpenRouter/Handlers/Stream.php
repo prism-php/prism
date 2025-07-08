@@ -5,18 +5,13 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
-use Prism\Prism\Providers\OpenRouter\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenRouter\Maps\ToolMap;
+use Prism\Prism\Providers\StreamHandler;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -27,27 +22,24 @@ use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
-class Stream
+class Stream extends StreamHandler
 {
     use CallsTools;
     use MapsFinishReason;
 
-    public function __construct(protected PendingRequest $client) {}
-
-    /**
-     * @return Generator<Chunk>
-     */
-    public function handle(Request $request): Generator
+    public static function buildHttpRequestPayload(Request $request): array
     {
-        $response = $this->sendRequest($request);
-
-        yield from $this->processStream($response, $request);
+        return [
+            ...Text::buildHttpRequestPayload($request),
+            'stream' => true,
+            'stream_options' => ['include_usage' => true],
+        ];
     }
 
     /**
      * @return Generator<Chunk>
      */
-    protected function processStream(Response $response, Request $request, int $depth = 0): Generator
+    protected function processStream(): Generator
     {
         $text = '';
         $toolCalls = [];
@@ -55,14 +47,14 @@ class Stream
         $usage = null;
         $meta = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! $this->httpResponse->getBody()->eof()) {
+            $data = $this->parseNextDataLine($this->httpResponse->getBody());
 
             if ($data === null) {
                 continue;
             }
 
-            if (isset($data['id']) && ! $meta instanceof \Prism\Prism\ValueObjects\Meta) {
+            if (isset($data['id']) && ! $meta instanceof Meta) {
                 $meta = new Meta(
                     id: $data['id'],
                     model: $data['model'] ?? null,
@@ -142,7 +134,7 @@ class Stream
         }
 
         if ($toolCalls !== []) {
-            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+            yield from $this->handleToolCalls($text, $toolCalls);
         }
     }
 
@@ -256,12 +248,8 @@ class Stream
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @return Generator<Chunk>
      */
-    protected function handleToolCalls(
-        Request $request,
-        string $text,
-        array $toolCalls,
-        int $depth
-    ): Generator {
+    protected function handleToolCalls(string $text, array $toolCalls): Generator
+    {
         $toolCalls = $this->mapToolCalls($toolCalls);
 
         yield new Chunk(
@@ -270,7 +258,7 @@ class Stream
             chunkType: ChunkType::ToolCall,
         );
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $toolCalls);
 
         yield new Chunk(
             text: '',
@@ -278,14 +266,14 @@ class Stream
             chunkType: ChunkType::ToolResult,
         );
 
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $this->request->addMessage(new AssistantMessage($text, $toolCalls));
+        $this->request->addMessage(new ToolResultMessage($toolResults));
 
-        $depth++;
+        $this->step++;
 
-        if ($depth < $request->maxSteps()) {
-            $nextResponse = $this->sendRequest($request);
-            yield from $this->processStream($nextResponse, $request, $depth);
+        if ($this->shouldContinue()) {
+            $this->sendRequest();
+            yield from $this->processStream();
         }
     }
 
@@ -317,46 +305,14 @@ class Stream
         }, $toolCalls);
     }
 
-    protected function sendRequest(Request $request): Response
+    protected function sendRequest(): void
     {
-        return $this
+        $this->httpResponse = $this
             ->client
             ->withOptions(['stream' => true])
             ->post(
                 'chat/completions',
-                array_merge([
-                    'stream' => true,
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    'stream_options' => ['include_usage' => true],
-                ]))
+                static::buildHttpRequestPayload($this->request)
             );
-    }
-
-    protected function readLine(StreamInterface $stream): string
-    {
-        $buffer = '';
-
-        while (! $stream->eof()) {
-            $byte = $stream->read(1);
-
-            if ($byte === '') {
-                return $buffer;
-            }
-
-            $buffer .= $byte;
-
-            if ($byte === "\n") {
-                break;
-            }
-        }
-
-        return $buffer;
     }
 }
