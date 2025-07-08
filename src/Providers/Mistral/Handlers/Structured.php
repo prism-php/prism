@@ -7,9 +7,9 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
+use Prism\Prism\Providers\Mistral\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
@@ -23,9 +23,9 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use HandleResponseError;
     use MapsFinishReason;
     use ProcessRateLimits;
-    use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -40,7 +40,7 @@ class Structured
 
         $response = $this->sendRequest($request);
 
-        $this->validateResponse();
+        $this->handleResponseError();
 
         $data = $response->json();
 

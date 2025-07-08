@@ -8,15 +8,15 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Providers\Mistral\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {
-    use ProcessRateLimits, ValidatesResponse;
+    use HandleResponseError, ProcessRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -24,7 +24,7 @@ class Embeddings
     {
         $response = $this->sendRequest($request);
 
-        $this->validateResponse();
+        $this->handleResponseError();
 
         $data = $response->json();
 

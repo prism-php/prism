@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\Providers\Gemini\Concerns;
+namespace Prism\Prism\Providers\XAI\Concerns;
 
 use Prism\Prism\Exceptions\PrismException;
 
-trait ValidatesResponse
+trait HandleResponseError
 {
-    protected function validateResponse(): void
+    protected function handleResponseError(): void
     {
         $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(vsprintf(
-                'Gemini Error: [%s] %s',
+                'XAI Error:  [%s] %s',
                 [
-                    data_get($data, 'error.code', 'unknown'),
+                    data_get($data, 'error.type', 'unknown'),
                     data_get($data, 'error.message', 'unknown'),
                 ]
             ));

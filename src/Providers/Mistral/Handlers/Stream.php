@@ -13,9 +13,9 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Mistral\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolMap;
@@ -29,7 +29,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, ProcessRateLimits, ValidatesResponse;
+    use CallsTools, HandleResponseError, MapsFinishReason, ProcessRateLimits;
 
     public function __construct(
         protected PendingRequest $client,

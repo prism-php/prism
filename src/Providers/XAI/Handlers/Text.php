@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Providers\TextHandler;
+use Prism\Prism\Providers\XAI\Concerns\HandleResponseError;
 use Prism\Prism\Providers\XAI\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\XAI\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\XAI\Maps\MessageMap;
 use Prism\Prism\Providers\XAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\XAI\Maps\ToolMap;
@@ -24,8 +24,8 @@ use Prism\Prism\ValueObjects\Usage;
 class Text extends TextHandler
 {
     use CallsTools;
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponses;
 
     /**
      * @param  TextRequest  $request

@@ -6,9 +6,8 @@ namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenRouter\Concerns\HandleResponseError;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
@@ -22,8 +21,8 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -38,7 +37,7 @@ class Structured
 
         $data = $this->sendRequest($request);
 
-        $this->validateResponse($data);
+        $this->handleResponseError();
 
         return $this->createResponse($request, $data);
     }
@@ -48,7 +47,7 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        $response = $this->client->post(
+        $this->httpResponse = $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -61,17 +60,7 @@ class Structured
             ]))
         );
 
-        return $response->json();
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function validateResponse(array $data): void
-    {
-        if ($data === []) {
-            throw PrismException::providerResponseError('OpenRouter Error: Empty response');
-        }
+        return $this->httpResponse->json();
     }
 
     /**
