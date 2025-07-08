@@ -8,8 +8,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\Providers\Groq\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
 use Prism\Prism\Providers\Groq\Maps\ToolChoiceMap;
@@ -24,7 +24,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Text extends TextHandler
 {
-    use CallsTools, ProcessRateLimits,  ValidateResponse;
+    use CallsTools, HandleResponseError, ProcessRateLimits;
 
     /**
      * @param  TextRequest  $request

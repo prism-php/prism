@@ -8,8 +8,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\Providers\DeepSeek\Concerns\HandleResponseError;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolCallMap;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolChoiceMap;
@@ -24,8 +24,8 @@ use Prism\Prism\ValueObjects\Usage;
 class Text extends TextHandler
 {
     use CallsTools;
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponses;
 
     /**
      * @param  TextRequest  $request

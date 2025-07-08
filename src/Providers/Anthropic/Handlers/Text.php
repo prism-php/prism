@@ -154,4 +154,6 @@ class Text extends TextHandler
 
         return $toolCalls;
     }
+
+    protected function handleResponseError(): void {}
 }

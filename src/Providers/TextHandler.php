@@ -34,7 +34,7 @@ abstract class TextHandler
 
         $this->prepareTempResponse();
 
-        $this->validateResponse();
+        $this->handleResponseError();
 
         $responseMessage = new AssistantMessage(
             $this->tempResponse->text,
@@ -88,7 +88,7 @@ abstract class TextHandler
         ));
     }
 
-    protected function validateResponse(): void {}
+    abstract protected function handleResponseError(): void;
 
     abstract protected function handleToolCalls(): TextResponse;
 

@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\HandleResponseError;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
@@ -25,8 +25,8 @@ class Text extends TextHandler
 {
     use BuildsTools;
     use CallsTools;
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponse;
 
     /**
      * @param  TextRequest  $request

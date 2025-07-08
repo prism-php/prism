@@ -7,8 +7,8 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Ollama\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
 use Prism\Prism\Structured\Response;
@@ -20,8 +20,8 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -34,7 +34,7 @@ class Structured
     {
         $data = $this->sendRequest($request);
 
-        $this->validateResponse();
+        $this->handleResponseError();
 
         $responseMessage = new AssistantMessage(
             data_get($data, 'message.content') ?? '',

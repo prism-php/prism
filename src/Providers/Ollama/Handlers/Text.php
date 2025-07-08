@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Ollama\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\TextHandler;
@@ -24,8 +24,8 @@ use Prism\Prism\ValueObjects\Usage;
 class Text extends TextHandler
 {
     use CallsTools;
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponse;
 
     /**
      * @param  TextRequest  $request

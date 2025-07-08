@@ -10,7 +10,7 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
-use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
@@ -27,7 +27,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Text extends TextHandler
 {
-    use CallsTools, ExtractSearchGroundings, ValidatesResponse;
+    use CallsTools, ExtractSearchGroundings, HandleResponseError;
 
     /**
      * @param  TextRequest  $request

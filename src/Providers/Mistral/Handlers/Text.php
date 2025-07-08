@@ -8,9 +8,9 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\Providers\Mistral\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolMap;
@@ -25,9 +25,9 @@ use Prism\Prism\ValueObjects\Usage;
 class Text extends TextHandler
 {
     use CallsTools;
+    use HandleResponseError;
     use MapsFinishReason;
     use ProcessRateLimits;
-    use ValidatesResponse;
 
     /**
      * @param  TextRequest  $request

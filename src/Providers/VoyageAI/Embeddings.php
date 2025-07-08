@@ -26,7 +26,7 @@ class Embeddings
 
         $this->sendRequest();
 
-        $this->validateResponse();
+        $this->handleReponseError();
 
         $data = $this->httpResponse->json();
 
@@ -54,7 +54,7 @@ class Embeddings
         ]));
     }
 
-    protected function validateResponse(): void
+    protected function handleReponseError(): void
     {
         $data = $this->httpResponse->json();
 

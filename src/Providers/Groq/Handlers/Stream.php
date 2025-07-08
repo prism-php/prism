@@ -14,8 +14,8 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\Groq\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
 use Prism\Prism\Providers\Groq\Maps\ToolChoiceMap;
@@ -30,7 +30,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessRateLimits, ValidateResponse;
+    use CallsTools, HandleResponseError, ProcessRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
