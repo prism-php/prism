@@ -7,6 +7,7 @@ namespace Tests;
 use ArgumentCountError;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Tool;
+use Throwable;
 use TypeError;
 
 it('throws exception when no error handler is set', function (): void {
@@ -15,7 +16,7 @@ it('throws exception when no error handler is set', function (): void {
         ->for('Perform calculation')
         ->withNumberParameter('a', 'First number')
         ->withNumberParameter('b', 'Second number')
-        ->using(fn(int $a, int $b): string => (string) ($a + $b));
+        ->using(fn (int $a, int $b): string => (string) ($a + $b));
 
     expect(fn (): string => $tool->handle('five', 10))
         ->toThrow(PrismException::class, 'Invalid parameters for tool : calculate');
@@ -27,27 +28,27 @@ it('uses custom failed handler when provided', function (): void {
         ->for('Perform calculation')
         ->withNumberParameter('a', 'First number')
         ->withNumberParameter('b', 'Second number')
-        ->using(fn(int $a, int $b): string => (string) ($a + $b))
-        ->failed(fn(\Throwable $e, array $params): string => 'Custom error: Parameters must be numbers');
+        ->using(fn (int $a, int $b): string => (string) ($a + $b))
+        ->failed(fn (Throwable $e, array $params): string => 'Custom error: Parameters must be numbers');
 
     $result = $tool->handle('five', 10);
 
     expect($result)->toBe('Custom error: Parameters must be numbers');
 });
 
-it('uses default error handler with handleErrors()', function (): void {
+it('uses default error handler with handleToolErrors()', function (): void {
     $tool = (new Tool)
         ->as('calculate')
         ->for('Perform calculation')
         ->withNumberParameter('a', 'First number')
         ->withNumberParameter('b', 'Second number')
-        ->using(fn(int $a, int $b): string => (string) ($a + $b))
-        ->handleErrors();
+        ->using(fn (int $a, int $b): string => (string) ($a + $b))
+        ->handleToolErrors();
 
     $result = $tool->handle('five', 10);
 
     expect($result)
-        ->toContain('Type mismatch in parameters')
+        ->toContain('Parameter validation error: Type mismatch')
         ->toContain('Expected: [a (NumberSchema, required), b (NumberSchema, required)]')
         ->toContain('Received: {"a":"five","b":10}');
 });
@@ -58,14 +59,14 @@ it('handles missing required parameters gracefully', function (): void {
         ->for('Search files')
         ->withStringParameter('query', 'Search query')
         ->withStringParameter('path', 'Directory path')
-        ->using(fn(string $query, string $path): string => "Found results for $query in $path")
-        ->handleErrors();
+        ->using(fn (string $query, string $path): string => "Found results for $query in $path")
+        ->handleToolErrors();
 
     // Missing second parameter
     $result = $tool->handle('test query');
 
     expect($result)
-        ->toContain('Missing required parameters')
+        ->toContain('Parameter validation error: Missing required parameters')
         ->toContain('Expected: [query (StringSchema, required), path (StringSchema, required)]');
 });
 
@@ -74,14 +75,14 @@ it('handles unknown parameters gracefully', function (): void {
         ->as('simple')
         ->for('Simple tool')
         ->withStringParameter('name', 'Name')
-        ->using(fn(string $name): string => "Hello $name")
-        ->handleErrors();
+        ->using(fn (string $name): string => "Hello $name")
+        ->handleToolErrors();
 
     // Unknown parameter 'unknown'
     $result = $tool->handle(name: 'John', unknown: 'parameter');
 
     expect($result)
-        ->toContain('Unknown parameters provided')
+        ->toContain('Parameter validation error: Unknown parameters')
         ->toContain('Expected: [name (StringSchema, required)]');
 });
 
@@ -91,14 +92,14 @@ it('handles optional parameters correctly', function (): void {
         ->for('Read file')
         ->withStringParameter('path', 'File path')
         ->withNumberParameter('lines', 'Number of lines', required: false)
-        ->using(fn(string $path, ?int $lines = null): string => "Reading $path".($lines ? " ($lines lines)" : ''))
-        ->handleErrors();
+        ->using(fn (string $path, ?int $lines = null): string => "Reading $path".($lines ? " ($lines lines)" : ''))
+        ->handleToolErrors();
 
     // Valid call with optional parameter as wrong type
     $result = $tool->handle('/path/to/file', 'ten');
 
     expect($result)
-        ->toContain('Type mismatch in parameters')
+        ->toContain('Parameter validation error: Type mismatch')
         ->toContain('lines (NumberSchema)'); // Note: not marked as required
 });
 
@@ -108,8 +109,8 @@ it('returns successful result when parameters are valid', function (): void {
         ->for('Perform calculation')
         ->withNumberParameter('a', 'First number')
         ->withNumberParameter('b', 'Second number')
-        ->using(fn(int $a, int $b): string => (string) ($a + $b))
-        ->handleErrors();
+        ->using(fn (int $a, int $b): string => (string) ($a + $b))
+        ->handleToolErrors();
 
     $result = $tool->handle(5, 10);
 
@@ -122,7 +123,7 @@ it('allows custom error messages based on exception type', function (): void {
         ->for('Make API call')
         ->withStringParameter('endpoint', 'API endpoint')
         ->withArrayParameter('data', 'Request data', new \Prism\Prism\Schema\StringSchema('item', 'Data item'))
-        ->using(fn(string $endpoint, array $data): string => "Called $endpoint")
+        ->using(fn (string $endpoint, array $data): string => "Called $endpoint")
         ->failed(function (\Throwable $e, array $params): string {
             if ($e instanceof TypeError && str_contains($e->getMessage(), 'array')) {
                 return "The 'data' parameter must be an array, not a string. Example: ['item1', 'item2']";
@@ -141,4 +142,118 @@ it('allows custom error messages based on exception type', function (): void {
     // Test with missing parameter
     $result2 = $tool->handle('/api/users');
     expect($result2)->toBe("Missing parameters. Both 'endpoint' and 'data' are required.");
+});
+
+it('differentiates between validation errors and runtime errors', function (): void {
+    $tool = (new Tool)
+        ->as('file_reader')
+        ->for('Read a file')
+        ->withStringParameter('path', 'File path')
+        ->using(function (string $path): string {
+            if (! file_exists($path)) {
+                throw new \RuntimeException("File not found: $path");
+            }
+
+            return file_get_contents($path);
+        })
+        ->handleToolErrors();
+
+    // Test validation error (wrong type)
+    $result1 = $tool->handle(['not', 'a', 'string']);
+    expect($result1)
+        ->toContain('Parameter validation error: Type mismatch')
+        ->toContain('Expected: [path (StringSchema, required)]');
+
+    // Test runtime error (file doesn't exist)
+    $result2 = $tool->handle('/nonexistent/file.txt');
+    expect($result2)
+        ->toContain('Tool execution error: File not found: /nonexistent/file.txt')
+        ->toContain('This error occurred during tool execution, not due to invalid parameters');
+});
+
+// Note: Schema validation for complex types (objects, arrays with specific item types, enums)
+// is not currently implemented. The Tool class relies on PHP's type system.
+// These tests demonstrate the desired behavior for future enhancement.
+
+it('handles complex parameter types with current implementation', function (): void {
+    $tool = (new Tool)
+        ->as('create_user')
+        ->for('Create a new user')
+        ->withObjectParameter('user', 'User information', [
+            new \Prism\Prism\Schema\StringSchema('name', 'User name'),
+            new \Prism\Prism\Schema\NumberSchema('age', 'User age'),
+            new \Prism\Prism\Schema\StringSchema('email', 'User email'),
+        ], ['name', 'age', 'email'])
+        ->using(fn (array $user): string => "Created user: {$user['name']}")
+        ->handleToolErrors();
+
+    // Currently passes through without schema validation
+    $result = $tool->handle(['name' => 'John']);
+    expect($result)->toBe('Created user: John');
+});
+
+it('handles array parameters that cause runtime errors', function (): void {
+    $tool = (new Tool)
+        ->as('process_numbers')
+        ->for('Process a list of numbers')
+        ->withArrayParameter('numbers', 'List of numbers to process', new \Prism\Prism\Schema\NumberSchema('number', 'A number'))
+        ->using(fn (array $numbers): string => 'Sum: '.array_sum($numbers))
+        ->handleToolErrors();
+
+    // Currently causes runtime error due to string in array_sum
+    $result = $tool->handle(['one', 2, 'three', 4]);
+    expect($result)
+        ->toContain('Tool execution error')
+        ->toContain('array_sum()');
+});
+
+it('demonstrates enum parameters without validation', function (): void {
+    $tool = (new Tool)
+        ->as('set_status')
+        ->for('Set status')
+        ->withEnumParameter('status', 'Status value', ['active', 'inactive', 'pending'])
+        ->using(fn (string $status): string => "Status set to: $status")
+        ->handleToolErrors();
+
+    // Currently accepts any string value
+    $result = $tool->handle('completed');
+    expect($result)->toBe('Status set to: completed');
+});
+
+it('handles boolean parameters with PHP type coercion', function (): void {
+    $tool = (new Tool)
+        ->as('toggle_feature')
+        ->for('Toggle a feature')
+        ->withBooleanParameter('enabled', 'Whether to enable the feature')
+        ->using(fn (bool $enabled): string => $enabled ? 'Feature enabled' : 'Feature disabled')
+        ->handleToolErrors();
+
+    // PHP coerces 'yes' to true
+    $result = $tool->handle('yes');
+    expect($result)->toBe('Feature enabled');
+
+    // Test with actual type error
+    $result2 = $tool->handle(['array']);
+    expect($result2)
+        ->toContain('Parameter validation error: Type mismatch')
+        ->toContain('enabled (BooleanSchema, required)');
+});
+
+it('handles multiple optional parameters with partial invalid data', function (): void {
+    $tool = (new Tool)
+        ->as('search_files')
+        ->for('Search for files')
+        ->withStringParameter('query', 'Search query')
+        ->withStringParameter('path', 'Directory path', required: false)
+        ->withNumberParameter('limit', 'Max results', required: false)
+        ->withBooleanParameter('recursive', 'Search recursively', required: false)
+        ->using(fn(string $query, ?string $path = './', ?int $limit = 10, ?bool $recursive = false): string => "Searching for '$query' in $path (limit: $limit, recursive: ".($recursive ? 'yes' : 'no').')')
+        ->handleToolErrors();
+
+    // Test with some valid and some invalid optional parameters
+    $result = $tool->handle('test', null, 'not-a-number', 'not-a-boolean');
+    expect($result)
+        ->toContain('Parameter validation error: Type mismatch')
+        ->toContain('limit (NumberSchema)')
+        ->toContain('recursive (BooleanSchema)');
 });

@@ -73,9 +73,9 @@ class Tool
     }
 
     /**
-     * Enable default error handling that returns helpful error messages instead of throwing exceptions.
+     * Enable default tool error handling that returns helpful error messages instead of throwing exceptions.
      */
-    public function handleErrors(): self
+    public function handleToolErrors(): self
     {
         $this->failedHandler = fn (Throwable $e, array $params): string => $this->getDefaultFailedMessage($e, $params);
 
@@ -225,7 +225,7 @@ class Tool
             }
 
             return $value;
-        } catch (ArgumentCountError|Error|InvalidArgumentException|TypeError $e) {
+        } catch (Throwable $e) {
             // If we have a failed handler, use it instead of throwing
             if ($this->failedHandler instanceof \Closure) {
                 // Extract the provided parameters for context
@@ -235,13 +235,23 @@ class Tool
             }
 
             // Otherwise, maintain backward compatibility
+            if ($e instanceof ArgumentCountError || $e instanceof TypeError || $e instanceof InvalidArgumentException) {
+                throw PrismException::invalidParameterInTool($this->name, $e);
+            }
+
             if ($e::class === Error::class && ! str_starts_with($e->getMessage(), 'Unknown named parameter')) {
                 throw $e;
             }
 
-            throw PrismException::invalidParameterInTool($this->name, $e);
+            if (str_starts_with($e->getMessage(), 'Unknown named parameter')) {
+                throw PrismException::invalidParameterInTool($this->name, $e);
+            }
+
+            // Re-throw other exceptions
+            throw $e;
         }
     }
+
     /**
      * @param  array<string,mixed>  $providedParams
      */
@@ -256,18 +266,31 @@ class Tool
             ))
             ->join(', ');
 
-        $message = match (true) {
-            $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch in parameters',
-            $e instanceof ArgumentCountError => 'Missing required parameters',
-            str_contains($e->getMessage(), 'Unknown named parameter') => 'Unknown parameters provided',
-            default => 'Invalid parameters',
-        };
+        // Differentiate between validation errors (AI gave wrong types/names) and runtime errors
+        $isValidationError = $e instanceof TypeError
+            || $e instanceof ArgumentCountError
+            || str_contains($e->getMessage(), 'Unknown named parameter');
 
+        if ($isValidationError) {
+            $errorType = match (true) {
+                $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch',
+                $e instanceof ArgumentCountError => 'Missing required parameters',
+                str_contains($e->getMessage(), 'Unknown named parameter') => 'Unknown parameters',
+                default => 'Invalid parameters',
+            };
+
+            return sprintf(
+                'Parameter validation error: %s. Expected: [%s]. Received: %s. Please provide correct parameter types and names.',
+                $errorType,
+                $expectedParams,
+                json_encode($providedParams)
+            );
+        }
+
+        // For runtime errors (e.g., file not found, API failures), provide different format
         return sprintf(
-            '%s. Expected: [%s]. Received: %s. Please check the parameter types and names.',
-            $message,
-            $expectedParams,
-            json_encode($providedParams)
+            'Tool execution error: %s. This error occurred during tool execution, not due to invalid parameters.',
+            $e->getMessage()
         );
     }
 
