@@ -38,7 +38,7 @@ class Tool
     /** @var Closure():string|callable():string */
     protected $fn;
 
-    /** @var null|Closure(Throwable,array<string,mixed>):string */
+    /** @var null|Closure(Throwable,array<int|string,mixed>):string */
     protected ?Closure $failedHandler = null;
 
     public function as(string $name): self
@@ -63,7 +63,7 @@ class Tool
     }
 
     /**
-     * @param  Closure(Throwable,array<string,mixed>):string  $handler
+     * @param  Closure(Throwable,array<int|string,mixed>):string  $handler
      */
     public function failed(Closure $handler): self
     {
@@ -203,7 +203,7 @@ class Tool
     }
 
     /**
-     * @return null|Closure(Throwable,array<string,mixed>):string
+     * @return null|Closure(Throwable,array<int|string,mixed>):string
      */
     public function failedHandler(): ?Closure
     {
@@ -235,7 +235,7 @@ class Tool
             }
 
             // Otherwise, maintain backward compatibility
-            if ($e instanceof ArgumentCountError || $e instanceof TypeError || $e instanceof InvalidArgumentException) {
+            if ($e instanceof TypeError || $e instanceof InvalidArgumentException) {
                 throw PrismException::invalidParameterInTool($this->name, $e);
             }
 
@@ -253,7 +253,7 @@ class Tool
     }
 
     /**
-     * @param  array<string,mixed>  $providedParams
+     * @param  array<int|string,mixed>  $providedParams
      */
     protected function getDefaultFailedMessage(Throwable $e, array $providedParams): string
     {
@@ -267,14 +267,14 @@ class Tool
             ->join(', ');
 
         // Differentiate between validation errors (AI gave wrong types/names) and runtime errors
+        // Note: ArgumentCountError extends TypeError, so we only need to check TypeError
         $isValidationError = $e instanceof TypeError
-            || $e instanceof ArgumentCountError
-            || str_contains($e->getMessage(), 'Unknown named parameter');
+            || ($e instanceof Error && str_contains($e->getMessage(), 'Unknown named parameter'));
 
         if ($isValidationError) {
             $errorType = match (true) {
-                $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch',
                 $e instanceof ArgumentCountError => 'Missing required parameters',
+                $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch',
                 str_contains($e->getMessage(), 'Unknown named parameter') => 'Unknown parameters',
                 default => 'Invalid parameters',
             };
@@ -296,7 +296,7 @@ class Tool
 
     /**
      * @param  array<int|string,mixed>  $args
-     * @return array<string,mixed>
+     * @return array<int|string,mixed>
      */
     protected function extractProvidedParams(array $args): array
     {
