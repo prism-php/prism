@@ -16,8 +16,8 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Providers\Anthropic\ValueObjects\StreamState;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
@@ -229,10 +229,13 @@ class Stream
         $additionalContent = [];
 
         if ($this->state->tempCitation() !== null) {
-            $this->state->addCitation(MessagePartWithCitations::fromContentBlock([
+            $messagePartWithCitations = CitationsMapper::mapFromAnthropic([
+                'type' => 'text',
                 'text' => $this->state->text(),
                 'citations' => [$this->state->tempCitation()],
-            ]));
+            ]);
+
+            $this->state->addCitation($messagePartWithCitations);
 
             $additionalContent['citationIndex'] = count($this->state->citations()) - 1;
         }

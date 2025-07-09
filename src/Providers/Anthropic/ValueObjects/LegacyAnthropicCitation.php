@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
-class Citation
+class LegacyAnthropicCitation
 {
     public function __construct(
         public readonly string $type,

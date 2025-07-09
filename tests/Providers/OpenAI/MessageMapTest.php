@@ -114,9 +114,15 @@ it('maps assistant message', function (): void {
         systemPrompts: []
     );
 
+    ray($messageMap());
     expect($messageMap())->toContain([
         'role' => 'assistant',
-        'content' => 'I am Nyx',
+        'content' => [
+            [
+                'type' => 'output_text',
+                'text' => 'I am Nyx',
+            ],
+        ],
     ]);
 });
 
@@ -140,7 +146,12 @@ it('maps assistant message with tool calls', function (): void {
     expect($messageMap())->toBe([
         [
             'role' => 'assistant',
-            'content' => 'I am Nyx',
+            'content' => [
+                [
+                    'type' => 'output_text',
+                    'text' => 'I am Nyx',
+                ],
+            ],
         ],
         [
             'id' => 'tool_1234',

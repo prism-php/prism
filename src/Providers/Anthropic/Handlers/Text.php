@@ -169,7 +169,7 @@ class Text
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
             additionalContent: Arr::whereNotNull([
-                'messagePartsWithCitations' => $this->extractCitations($data),
+                'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])
         );

@@ -1,0 +1,90 @@
+{
+  "id": "resp_686e7aae3180819ea5788d621aa3a139054cb0c9bb0cdde4",
+  "object": "response",
+  "created_at": 1752070830,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-4.1-2025-04-14",
+  "output": [
+    {
+      "id": "ws_686e7ab039f4819eb5f6440d096b113f054cb0c9bb0cdde4",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "search",
+        "query": "London weather forecast today"
+      }
+    },
+    {
+      "id": "msg_686e7ab330e0819e95e421d16f24f686054cb0c9bb0cdde4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "end_index": 1052,
+              "start_index": 883,
+              "title": "What will the weather be like in London on 09 July 2025",
+              "url": "https://www.metcheck.com/WEATHER/dayforecast.asp?dateFor=09%2F07%2F2025&lat=51.508530&location=London&locationID=691044&lon=-0.125740&utm_source=openai"
+            }
+          ],
+          "logprobs": [],
+          "text": "As of 3:20\u202fPM BST on Wednesday, July 9, 2025, the weather in London is mostly cloudy with a temperature of 78\u00b0F (26\u00b0C).\n\n## Weather for London, Greater London, United Kingdom:\nCurrent Conditions: Mostly cloudy, 78\u00b0F (26\u00b0C)\n\nHourly Forecast:\n* 4:00\u202fPM: 80\u00b0F (26\u00b0C), Mostly sunny\n* 5:00\u202fPM: 80\u00b0F (27\u00b0C), Partly sunny\n* 6:00\u202fPM: 80\u00b0F (27\u00b0C), Intermittent clouds\n* 7:00\u202fPM: 78\u00b0F (26\u00b0C), Partly sunny\n* 8:00\u202fPM: 76\u00b0F (24\u00b0C), Partly sunny\n* 9:00\u202fPM: 73\u00b0F (23\u00b0C), Mostly sunny\n* 10:00\u202fPM: 71\u00b0F (22\u00b0C), Mostly clear\n* 11:00\u202fPM: 70\u00b0F (21\u00b0C), Mostly clear\n* 12:00\u202fAM: 69\u00b0F (20\u00b0C), Mostly clear\n* 1:00\u202fAM: 68\u00b0F (20\u00b0C), Mostly clear\n* 2:00\u202fAM: 67\u00b0F (20\u00b0C), Mostly clear\n* 3:00\u202fAM: 66\u00b0F (19\u00b0C), Clear\n\n\nAccording to Metcheck, the forecast for today indicates temperatures reaching up to 26\u00b0C (79\u00b0F) in the afternoon, with a low chance of precipitation and varying cloud cover throughout the day. ([metcheck.com](https://www.metcheck.com/WEATHER/dayforecast.asp?dateFor=09%2F07%2F2025&lat=51.508530&location=London&locationID=691044&lon=-0.125740&utm_source=openai)) "
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "web_search_preview",
+      "search_context_size": "medium",
+      "user_location": {
+        "type": "approximate",
+        "city": null,
+        "country": "US",
+        "region": null,
+        "timezone": null
+      }
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 317,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 400,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 717
+  },
+  "user": null,
+  "metadata": {}
+}
