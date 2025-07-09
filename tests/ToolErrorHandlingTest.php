@@ -194,17 +194,26 @@ it('handles complex parameter types with current implementation', function (): v
 
 it('handles array parameters that cause runtime errors', function (): void {
     $tool = (new Tool)
-        ->as('process_numbers')
-        ->for('Process a list of numbers')
-        ->withArrayParameter('numbers', 'List of numbers to process', new \Prism\Prism\Schema\NumberSchema('number', 'A number'))
-        ->using(fn (array $numbers): string => 'Sum: '.array_sum($numbers))
+        ->as('divide_numbers')
+        ->for('Divide first number by second')
+        ->withArrayParameter('numbers', 'Two numbers: dividend and divisor', new \Prism\Prism\Schema\NumberSchema('number', 'A number'))
+        ->using(function (array $numbers): string {
+            if (count($numbers) !== 2) {
+                throw new \InvalidArgumentException('Exactly 2 numbers required');
+            }
+            if ($numbers[1] == 0) {
+                throw new \DivisionByZeroError('Cannot divide by zero');
+            }
+
+            return 'Result: '.($numbers[0] / $numbers[1]);
+        })
         ->handleToolErrors();
 
-    // Currently causes runtime error due to string in array_sum
-    $result = $tool->handle(['one', 2, 'three', 4]);
+    // Test with division by zero - a real runtime error
+    $result = $tool->handle([10, 0]);
     expect($result)
         ->toContain('Tool execution error')
-        ->toContain('array_sum()');
+        ->toContain('Cannot divide by zero');
 });
 
 it('demonstrates enum parameters without validation', function (): void {
@@ -247,7 +256,7 @@ it('handles multiple optional parameters with partial invalid data', function ()
         ->withStringParameter('path', 'Directory path', required: false)
         ->withNumberParameter('limit', 'Max results', required: false)
         ->withBooleanParameter('recursive', 'Search recursively', required: false)
-        ->using(fn(string $query, ?string $path = './', ?int $limit = 10, ?bool $recursive = false): string => "Searching for '$query' in $path (limit: $limit, recursive: ".($recursive ? 'yes' : 'no').')')
+        ->using(fn (string $query, ?string $path = './', ?int $limit = 10, ?bool $recursive = false): string => "Searching for '$query' in $path (limit: $limit, recursive: ".($recursive ? 'yes' : 'no').')')
         ->handleToolErrors();
 
     // Test with some valid and some invalid optional parameters
