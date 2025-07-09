@@ -38,6 +38,9 @@ class Tool
     /** @var Closure():string|callable():string */
     protected $fn;
 
+    /** @var null|Closure(Throwable,array<string,mixed>):string */
+    protected ?Closure $failedHandler = null;
+
     public function as(string $name): self
     {
         $this->name = $name;
@@ -55,6 +58,26 @@ class Tool
     public function using(Closure|callable $fn): self
     {
         $this->fn = $fn;
+
+        return $this;
+    }
+
+    /**
+     * @param  Closure(Throwable,array<string,mixed>):string  $handler
+     */
+    public function failed(Closure $handler): self
+    {
+        $this->failedHandler = $handler;
+
+        return $this;
+    }
+
+    /**
+     * Enable default error handling that returns helpful error messages instead of throwing exceptions.
+     */
+    public function handleErrors(): self
+    {
+        $this->failedHandler = fn (Throwable $e, array $params): string => $this->getDefaultFailedMessage($e, $params);
 
         return $this;
     }
@@ -180,6 +203,14 @@ class Tool
     }
 
     /**
+     * @return null|Closure(Throwable,array<string,mixed>):string
+     */
+    public function failedHandler(): ?Closure
+    {
+        return $this->failedHandler;
+    }
+
+    /**
      * @param  string|int|float  $args
      *
      * @throws PrismException|Throwable
@@ -195,11 +226,72 @@ class Tool
 
             return $value;
         } catch (ArgumentCountError|Error|InvalidArgumentException|TypeError $e) {
+            // If we have a failed handler, use it instead of throwing
+            if ($this->failedHandler instanceof \Closure) {
+                // Extract the provided parameters for context
+                $providedParams = $this->extractProvidedParams($args);
+
+                return ($this->failedHandler)($e, $providedParams);
+            }
+
+            // Otherwise, maintain backward compatibility
             if ($e::class === Error::class && ! str_starts_with($e->getMessage(), 'Unknown named parameter')) {
                 throw $e;
             }
 
             throw PrismException::invalidParameterInTool($this->name, $e);
         }
+    }
+    /**
+     * @param  array<string,mixed>  $providedParams
+     */
+    protected function getDefaultFailedMessage(Throwable $e, array $providedParams): string
+    {
+        $expectedParams = collect($this->parameters)
+            ->map(fn (Schema $param): string => sprintf(
+                '%s (%s%s)',
+                $param->name(),
+                class_basename($param),
+                in_array($param->name(), $this->requiredParameters) ? ', required' : ''
+            ))
+            ->join(', ');
+
+        $message = match (true) {
+            $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch in parameters',
+            $e instanceof ArgumentCountError => 'Missing required parameters',
+            str_contains($e->getMessage(), 'Unknown named parameter') => 'Unknown parameters provided',
+            default => 'Invalid parameters',
+        };
+
+        return sprintf(
+            '%s. Expected: [%s]. Received: %s. Please check the parameter types and names.',
+            $message,
+            $expectedParams,
+            json_encode($providedParams)
+        );
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $args
+     * @return array<string,mixed>
+     */
+    protected function extractProvidedParams(array $args): array
+    {
+        // If args is already an associative array (from tool calls), return as is
+        if (! array_is_list($args)) {
+            return $args;
+        }
+
+        // Otherwise map positional args to parameter names
+        $paramNames = array_keys($this->parameters);
+        $result = [];
+
+        foreach ($args as $index => $value) {
+            if (isset($paramNames[$index])) {
+                $result[$paramNames[$index]] = $value;
+            }
+        }
+
+        return $result;
     }
 }
