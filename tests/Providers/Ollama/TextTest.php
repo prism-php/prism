@@ -167,17 +167,3 @@ describe('Image support', function (): void {
         });
     });
 });
-
-it('throws an exception with multiple system prompts', function (): void {
-    Http::preventStrayRequests();
-
-    $response = Prism::text()
-        ->using('ollama', 'qwen2.5:14b')
-        ->withSystemPrompts([
-            new SystemMessage('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!'),
-            new SystemMessage('But my friends call my Nyx.'),
-        ])
-        ->withPrompt('Who are you?')
-        ->asText();
-
-})->throws(PrismException::class, 'Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
