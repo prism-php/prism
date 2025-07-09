@@ -269,15 +269,15 @@ $response = Prism::text()
 
 ### Accessing citations
 
-You can access the chunked output with its citations via the additionalContent property on a response, which returns an array of `Providers\Anthropic\ValueObjects\MessagePartWithCitations`s.
+You can access the chunked output with its citations via the additionalContent property on a response, which returns an array of `MessagePartWithCitations`s.
 
 As a rough worked example, let's assume you want to implement footnotes. You'll need to loop through those chunks and (1) re-construct the message with links to the footnotes; and (2) build an array of footnotes to loop through in your frontend.
 
 ```php
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Citation;
 
-$messageChunks = $response->additionalContent['messagePartsWithCitations'];
+$messageChunks = $response->additionalContent['citations'];
 
 $text = '';
 $footnotes = [];
@@ -286,15 +286,15 @@ $footnoteId = 1;
 
 /** @var MessagePartWithCitations $messageChunk  */
 foreach ($messageChunks as $messageChunk) {
-    $text .= $messageChunk->text;
+    $text .= $messageChunk->outputText;
     
     /** @var Citation $citation */
     foreach ($messageChunk->citations as $citation) {
         $footnotes[] = [
             'id' => $footnoteId,
-            'document_title' => $citation->documentTitle,
-            'reference_start' => $citation->startIndex,
-            'reference_end' => $citation->endIndex
+            'document_title' => $citation->sourceTitle,
+            'reference_start' => $citation->sourceStartIndex,
+            'reference_end' => $citation->sourceEndIndex
         ];
     
         $text .= '<sup><a href="#footnote-'.$footnoteId.'">'.$footnoteId.'</a></sup>';

@@ -16,9 +16,9 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
-use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Citation;
 use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
@@ -270,16 +270,16 @@ describe('citations', function (): void {
 
         $lastChunk = end($chunks);
 
-        expect($lastChunk->additionalContent)->toHaveKey('messagePartsWithCitations');
-        expect($lastChunk->additionalContent['messagePartsWithCitations'])->toBeArray();
-        expect($lastChunk->additionalContent['messagePartsWithCitations'])->toHaveCount(2);
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0]->text)->not()->toBeEmpty();
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0]->citations)->toHaveCount(1);
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0]->citations[0])->toBeInstanceOf(Citation::class);
+        expect($lastChunk->additionalContent)->toHaveKey('citations');
+        expect($lastChunk->additionalContent['citations'])->toBeArray();
+        expect($lastChunk->additionalContent['citations'])->toHaveCount(2);
+        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($lastChunk->additionalContent['citations'][0]->outputText)->not()->toBeEmpty();
+        expect($lastChunk->additionalContent['citations'][0]->citations)->toHaveCount(1);
+        expect($lastChunk->additionalContent['citations'][0]->citations[0])->toBeInstanceOf(Citation::class);
 
         // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
         expect($lastChunk->finishReason)->toBe(FinishReason::Stop);
     });
 
@@ -310,7 +310,7 @@ describe('citations', function (): void {
         $lastChunk = end($chunks);
 
         // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
     });
 });
 

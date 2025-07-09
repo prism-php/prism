@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
 use Illuminate\Support\Arr;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 
 class StreamState
 {
@@ -134,8 +135,12 @@ class StreamState
         return $this->citations;
     }
 
-    public function addCitation(MessagePartWithCitations $citation): self
+    public function addCitation(?MessagePartWithCitations $citation): self
     {
+        if (! $citation instanceof \Prism\Prism\ValueObjects\MessagePartWithCitations) {
+            return $this;
+        }
+
         $this->citations[] = $citation;
 
         return $this;
@@ -263,7 +268,7 @@ class StreamState
         }
 
         if ($this->citations !== []) {
-            $additionalContent['messagePartsWithCitations'] = $this->citations;
+            $additionalContent['citations'] = $this->citations;
         }
 
         return $additionalContent;

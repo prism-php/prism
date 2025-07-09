@@ -10,8 +10,8 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\Gemini\Concerns\ExtractSearchGroundings;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
@@ -30,7 +30,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
-    use CallsTools, ExtractSearchGroundings, ValidatesResponse;
+    use CallsTools, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -180,9 +180,11 @@ class Text
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
-            additionalContent: [
-                ...$this->extractSearchGroundingContent($data),
-            ],
+            additionalContent: Arr::whereNotNull([
+                'citations' => CitationMapper::mapFromGemini(data_get($data, 'candidates.0', [])) ?: null,
+                'searchEntryPoint' => data_get($data, 'candidates.0.groundingMetadata.searchEntryPoint', null),
+                'searchQueries' => data_get($data, 'candidates.0.groundingMetadata.webSearchQueries', null),
+            ]),
         ));
     }
 }
