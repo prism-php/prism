@@ -127,12 +127,12 @@ class Structured
             throw new PrismException(sprintf('%s model does not support structured mode', $request->model()));
         }
 
-        /** @var array{type: 'json_schema', name: string, schema: array<mixed>, strict?: bool} $responseFormat */
+        /** @var array{type: 'json_schema', name: string, schema: array<mixed>, strict: bool} $responseFormat */
         $responseFormat = Arr::whereNotNull([
             'type' => 'json_schema',
             'name' => $request->schema()->name(),
             'schema' => $request->schema()->toArray(),
-            'strict' => $request->providerOptions('schema.strict') ? true : null,
+            'strict' => (bool) $request->providerOptions('schema.strict'),
         ]);
 
         return $this->sendRequest($request, $responseFormat);
