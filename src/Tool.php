@@ -227,7 +227,7 @@ class Tool
             return $value;
         } catch (Throwable $e) {
             // If we have a failed handler, use it instead of throwing
-            if ($this->failedHandler instanceof \Closure) {
+            if ($this->failedHandler instanceof Closure) {
                 // Extract the provided parameters for context
                 $providedParams = $this->extractProvidedParams($args);
 
