@@ -617,12 +617,6 @@ class Stream
 
         $message = new ToolResultMessage($toolResults);
 
-        // Apply tool result caching if configured
-        $tool_result_cache_type = $request->providerOptions('tool_result_cache_type');
-        if ($tool_result_cache_type) {
-            $message->withProviderOptions(['cacheType' => $tool_result_cache_type]);
-        }
-
         $request->addMessage($message);
     }
 
