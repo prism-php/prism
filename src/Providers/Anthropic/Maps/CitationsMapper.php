@@ -59,7 +59,10 @@ class CitationsMapper
         $sourceType = self::mapSourceType($citationData['type']);
         $source = self::mapSource($citationData, $sourceType);
         $sourcePositionType = self::mapSourcePositionType($citationData['type']);
-        [$startIndex, $endIndex] = self::mapIndices($citationData);
+
+        $indices = self::mapIndices($citationData);
+        $startIndex = $indices['start'] ?? null;
+        $endIndex = $indices['end'] ?? null;
 
         return new Citation(
             sourceType: $sourceType,
@@ -109,7 +112,7 @@ class CitationsMapper
 
     /**
      * @param  array<string, mixed>  $citationData
-     * @return array<int, int|null>
+     * @return array{start:int|null,end:int|null}
      */
     protected static function mapIndices(array $citationData): array
     {
@@ -122,12 +125,12 @@ class CitationsMapper
         };
 
         if ($indexPropertyCommonPart === null) {
-            return [null, null];
+            return ['start' => null, 'end' => null];
         }
 
         return [
-            $citationData["start_$indexPropertyCommonPart"] ?? null,
-            $citationData["end_$indexPropertyCommonPart"] ?? null,
+            'start' => $citationData["start_$indexPropertyCommonPart"] ?? null,
+            'end' => $citationData["end_$indexPropertyCommonPart"] ?? null,
         ];
     }
 
