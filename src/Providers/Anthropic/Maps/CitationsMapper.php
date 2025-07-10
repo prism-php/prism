@@ -22,7 +22,7 @@ class CitationsMapper
         }
 
         $citations = array_map(
-            fn (array $citationData): Citation => self::mapCitation($citationData),
+            fn (array $citationData): Citation => self::mapCitationFromAnthropic($citationData),
             $contentBlock['citations'] ?? []
         );
 
@@ -54,7 +54,7 @@ class CitationsMapper
     /**
      * @param  array<string, mixed>  $citationData
      */
-    protected static function mapCitation(array $citationData): Citation
+    public static function mapCitationFromAnthropic(array $citationData): Citation
     {
         $sourceType = self::mapSourceType($citationData['type']);
         $source = self::mapSource($citationData, $sourceType);
