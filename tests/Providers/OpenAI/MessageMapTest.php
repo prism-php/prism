@@ -131,7 +131,6 @@ it('maps assistant message', function (): void {
         systemPrompts: []
     );
 
-    ray($messageMap());
     expect($messageMap())->toContain([
         'role' => 'assistant',
         'content' => [
