@@ -21,6 +21,7 @@ use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -311,6 +312,38 @@ describe('citations', function (): void {
 
         // Instead of looking for a chunk with the exact text, just check that the citation was properly set
         expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+    });
+
+    it('handles web search citations', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withPrompt('What is the weather like in London UK today?')
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->asStream();
+
+        $text = '';
+        $chunks = [];
+
+        foreach ($response as $chunk) {
+            $chunks[] = $chunk;
+            $text .= $chunk->text;
+        }
+
+        $lastChunk = end($chunks);
+
+        expect($lastChunk->additionalContent)->toHaveKey('citations');
+        expect($lastChunk->additionalContent['citations'])->toBeArray();
+        expect($lastChunk->additionalContent['citations'])->toHaveCount(20);
+        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($lastChunk->additionalContent['citations'][0]->outputText)->not()->toBeEmpty();
+        expect($lastChunk->additionalContent['citations'][0]->citations)->toHaveCount(1);
+        expect($lastChunk->additionalContent['citations'][0]->citations[0])->toBeInstanceOf(Citation::class);
+
+        // Instead of looking for a chunk with the exact text, just check that the citation was properly set
+        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($lastChunk->finishReason)->toBe(FinishReason::Stop);
     });
 });
 
