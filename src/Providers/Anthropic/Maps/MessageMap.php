@@ -32,10 +32,32 @@ class MessageMap
             throw new PrismException('Anthropic does not support SystemMessages in the messages array. Use withSystemPrompt or withSystemPrompts instead.');
         }
 
-        return array_map(
+        $mappedMessages = array_map(
             fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
         );
+
+        if (isset($requestProviderOptions['tool_result_cache_type'])) {
+            $lastToolResultIndex = null;
+
+            for ($i = count($mappedMessages) - 1; $i >= 0; $i--) {
+                if ($mappedMessages[$i]['role'] === 'user' &&
+                    isset($mappedMessages[$i]['content'][0]['type']) &&
+                    $mappedMessages[$i]['content'][0]['type'] === 'tool_result') {
+                    $lastToolResultIndex = $i;
+                    break;
+                }
+            }
+
+            if ($lastToolResultIndex !== null) {
+                $lastContent = &$mappedMessages[$lastToolResultIndex]['content'];
+                $lastContent[count($lastContent) - 1]['cache_control'] = [
+                    'type' => $requestProviderOptions['tool_result_cache_type'],
+                ];
+            }
+        }
+
+        return $mappedMessages;
     }
 
     /**

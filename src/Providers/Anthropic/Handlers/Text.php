@@ -106,11 +106,6 @@ class Text
 
         $toolResultMessage = new ToolResultMessage($toolResults);
 
-        // Apply tool result caching if configured
-        if ($tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type')) {
-            $toolResultMessage->withProviderOptions(['cacheType' => $tool_result_cache_type]);
-        }
-
         $this->request->addMessage($toolResultMessage);
         $this->request->resetToolChoice();
 
