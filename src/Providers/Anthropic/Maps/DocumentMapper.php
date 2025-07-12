@@ -79,6 +79,10 @@ class DocumentMapper extends ProviderMediaMapper
 
     protected function validateMedia(): bool
     {
+        if ($this->media->isFileId()) {
+            return true;
+        }
+
         if ($this->media->isUrl()) {
             return true;
         }
