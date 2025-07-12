@@ -374,7 +374,7 @@ class Stream
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => $request->providerOptions('metadata'),
-                    'tools' => $this->buildTools($request),
+                    'tools' => static::buildTools($request),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     'previous_response_id' => $request->providerOptions('previous_response_id'),
                     'truncation' => $request->providerOptions('truncation'),

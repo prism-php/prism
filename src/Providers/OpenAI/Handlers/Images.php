@@ -9,7 +9,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 use Prism\Prism\Images\ResponseBuilder;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\OpenAI\Concerns\HandleResponseError;
 use Prism\Prism\Providers\OpenAI\Maps\ImageRequestMap;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
@@ -17,7 +17,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Images
 {
-    use ValidatesResponse;
+    use HandleResponseError;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -25,7 +25,7 @@ class Images
     {
         $response = $this->sendRequest($request);
 
-        $this->validateResponse($response);
+        $this->handleResponseError();
 
         $data = $response->json();
 
@@ -48,7 +48,9 @@ class Images
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post('images/generations', ImageRequestMap::map($request));
+        $this->httpResponse = $this->client->post('images/generations', ImageRequestMap::map($request));
+
+        return $this->httpResponse;
     }
 
     /**

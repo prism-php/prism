@@ -14,7 +14,6 @@ use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Providers\OpenRouter\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenRouter\Maps\ToolMap;
@@ -32,7 +31,6 @@ class Stream
 {
     use CallsTools;
     use MapsFinishReason;
-    use ValidatesResponses;
 
     public function __construct(protected PendingRequest $client) {}
 

@@ -11,7 +11,7 @@ trait BuildsTools
     /**
      * @return array<int|string,mixed>
      */
-    protected function buildTools(Request $request): array
+    protected static function buildTools(Request $request): array
     {
         $tools = ToolMap::map($request->tools());
 
