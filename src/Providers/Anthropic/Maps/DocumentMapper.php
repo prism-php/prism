@@ -40,7 +40,12 @@ class DocumentMapper extends ProviderMediaMapper
                 : null,
         ];
 
-        if ($this->media->isUrl()) {
+        if ($this->media->isFileId()) {
+            $payload['source'] = [
+                'type' => 'file',
+                'file_id' => $this->media->fileId(),
+            ];
+        } elseif ($this->media->isUrl()) {
             $payload['source'] = [
                 'type' => 'url',
                 'url' => $this->media->url(),

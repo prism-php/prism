@@ -11,6 +11,8 @@ class Document extends Media
 {
     protected ?string $documentTitle = null;
 
+    protected ?string $fileId = null;
+
     /**
      * @var null|array<string>
      */
@@ -22,6 +24,15 @@ class Document extends Media
     public static function fromPath(string $path, ?string $title = null): static
     {
         return self::fromLocalPath($path, $title);
+    }
+
+    public static function fromFileId(string $fileId, ?string $title = null): static
+    {
+        $instance = new static;
+        $instance->documentTitle = $title;
+        $instance->fileId = $fileId;
+
+        return $instance;
     }
 
     public static function fromLocalPath(string $path, ?string $title = null): static
@@ -71,6 +82,11 @@ class Document extends Media
         return $this->chunks !== null;
     }
 
+    public function isFileId(): bool
+    {
+        return $this->fileId !== null;
+    }
+
     public function setDocumentTitle(?string $title): static
     {
         $this->documentTitle = $title;
@@ -81,6 +97,11 @@ class Document extends Media
     public function documentTitle(): ?string
     {
         return $this->documentTitle;
+    }
+
+    public function fileId(): ?string
+    {
+        return $this->fileId;
     }
 
     /**
