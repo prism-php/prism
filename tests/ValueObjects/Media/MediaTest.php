@@ -5,6 +5,12 @@ use Illuminate\Support\Facades\Storage;
 use Prism\Prism\ValueObjects\Media\Media;
 
 describe('creation', function (): void {
+    it('can create from file ID', function (): void {
+        $media = Media::fromFileId('file-id');
+
+        expect($media->fileId())->toBe('file-id');
+    });
+
     it('can create from a local path', function (): void {
         $media = Media::fromLocalPath('tests/Fixtures/dimond.png');
 

@@ -16,6 +16,11 @@ class Document extends Media
      */
     protected ?array $chunks = null;
 
+    public static function fromFileId(string $fileId, ?string $title = null): static
+    {
+        return parent::fromFileId($fileId)->setDocumentTitle($title);
+    }
+
     /**
      * @deprecated Use `fromLocalPath()` instead.
      */

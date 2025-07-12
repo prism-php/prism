@@ -30,7 +30,12 @@ class ImageMapper extends ProviderMediaMapper
             'cache_control' => $this->cacheControl,
         ];
 
-        if ($this->media->isUrl()) {
+        if ($this->media->isFileId()) {
+            $payload['source'] = [
+                'type' => 'file',
+                'file_id' => $this->media->fileId(),
+            ];
+        } elseif ($this->media->isUrl()) {
             $payload['source'] = [
                 'type' => 'url',
                 'url' => $this->media->url(),
@@ -53,6 +58,10 @@ class ImageMapper extends ProviderMediaMapper
 
     protected function validateMedia(): bool
     {
+        if ($this->media->isFileId()) {
+            return true;
+        }
+
         if ($this->media->isUrl()) {
             return true;
         }

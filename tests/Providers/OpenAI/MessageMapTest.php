@@ -106,6 +106,24 @@ it('maps user messages with images from url', function (): void {
         ->toBe('https://prismphp.com/storage/dimond.png');
 });
 
+it('maps user messages with images from file id', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new UserMessage('Who are you?', [
+                Image::fromFileId('file_1234'),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    $mappedMessage = $messageMap();
+
+    expect(data_get($mappedMessage, '0.content.1.type'))
+        ->toBe('input_image');
+    expect(data_get($mappedMessage, '0.content.1.file_id'))
+        ->toBe('file_1234');
+});
+
 it('maps assistant message', function (): void {
     $messageMap = new MessageMap(
         messages: [
