@@ -19,7 +19,7 @@ class UserMessage implements Message
     use HasProviderOptions;
 
     /**
-     * @param  array<int, Audio|Text|Image|Media|Document|OpenAIFile>  $additionalContent
+     * @param  array<int, Text|Image|Document>  $additionalContent
      * @param  array<string, mixed>  $additionalAttributes
      */
     public function __construct(
@@ -77,6 +77,8 @@ class UserMessage implements Message
 
     /**
      * Note: Prism currently only supports previously uploaded Files with OpenAI.
+     *
+     * @deprecated Use `documents()` instead.
      *
      * @return OpenAIFile[]
      */

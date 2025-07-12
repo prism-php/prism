@@ -110,6 +110,8 @@ class MessageMap
     }
 
     /**
+     * @deprecated Use `mapDocumentParts()` instead.
+     *
      * @param  OpenAIFile[]  $files
      * @return array<int, mixed>
      */
