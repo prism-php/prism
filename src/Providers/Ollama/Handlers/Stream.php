@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\Ollama\Maps\MessageMap;
-use Prism\Prism\Providers\Ollama\Maps\ToolMap;
+use Prism\Prism\Providers\StreamHandler;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -24,37 +19,28 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
-class Stream
+class Stream extends StreamHandler
 {
     use CallsTools, MapsFinishReason;
 
-    public function __construct(protected PendingRequest $client) {}
-
-    /**
-     * @return Generator<Chunk>
-     */
-    public function handle(Request $request): Generator
+    public static function buildHttpRequestPayload(Request $request): array
     {
-        $response = $this->sendRequest($request);
-
-        yield from $this->processStream($response, $request);
+        return [
+            ...Text::buildHttpRequestPayload($request),
+            'stream' => true,
+        ];
     }
 
     /**
      * @return Generator<Chunk>
      */
-    protected function processStream(Response $response, Request $request, int $depth = 0): Generator
+    protected function processStream(): Generator
     {
-
-        if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
-        }
-
         $text = '';
         $toolCalls = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! $this->httpResponse->getBody()->eof()) {
+            $data = $this->parseNextDataLine($this->httpResponse->getBody());
 
             if ($data === null) {
                 continue;
@@ -65,13 +51,6 @@ class Stream
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 continue;
-            }
-
-            // Handle tool call completion when stream is done
-            if ((bool) data_get($data, 'done', false) && $toolCalls !== []) {
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                return;
             }
 
             $content = data_get($data, 'message.content', '') ?? '';
@@ -85,6 +64,11 @@ class Stream
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
             );
+        }
+
+        // Handle tool call completion when stream is done
+        if ($toolCalls !== []) {
+            yield from $this->handleToolCalls($text, $toolCalls);
         }
     }
 
@@ -134,13 +118,8 @@ class Stream
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @return Generator<Chunk>
      */
-    protected function handleToolCalls(
-        Request $request,
-        string $text,
-        array $toolCalls,
-        int $depth
-    ): Generator {
-
+    protected function handleToolCalls(string $text, array $toolCalls): Generator
+    {
         $toolCalls = $this->mapToolCalls($toolCalls);
 
         yield new Chunk(
@@ -149,7 +128,7 @@ class Stream
             chunkType: ChunkType::ToolCall,
         );
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $toolCalls);
 
         yield new Chunk(
             text: '',
@@ -157,11 +136,15 @@ class Stream
             chunkType: ChunkType::ToolResult,
         );
 
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $this->request->addMessage(new AssistantMessage($text, $toolCalls));
+        $this->request->addMessage(new ToolResultMessage($toolResults));
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $this->step++;
+
+        if ($this->shouldContinue()) {
+            $this->sendRequest();
+            yield from $this->processStream();
+        }
     }
 
     /**
@@ -172,27 +155,15 @@ class Stream
         return (bool) data_get($data, 'message.tool_calls');
     }
 
-    protected function sendRequest(Request $request): Response
+    protected function sendRequest(): void
     {
-        if (count($request->systemPrompts()) > 1) {
-            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
-        }
-
-        return $this
+        $this->httpResponse = $this
             ->client
             ->withOptions(['stream' => true])
-            ->post('api/chat', [
-                'model' => $request->model(),
-                'system' => data_get($request->systemPrompts(), '0.content', ''),
-                'messages' => (new MessageMap($request->messages()))->map(),
-                'tools' => ToolMap::map($request->tools()),
-                'stream' => true,
-                'options' => Arr::whereNotNull(array_merge([
-                    'temperature' => $request->temperature(),
-                    'num_predict' => $request->maxTokens() ?? 2048,
-                    'top_p' => $request->topP(),
-                ], $request->providerOptions())),
-            ]);
+            ->post(
+                'api/chat',
+                static::buildHttpRequestPayload($this->request)
+            );
     }
 
     protected function readLine(StreamInterface $stream): string

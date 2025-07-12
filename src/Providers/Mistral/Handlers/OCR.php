@@ -10,7 +10,6 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\DocumentMapper;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 use Prism\Prism\Text\ResponseBuilder;
@@ -21,7 +20,6 @@ class OCR
     use CallsTools;
     use MapsFinishReason;
     use ProcessRateLimits;
-    use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 

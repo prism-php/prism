@@ -5,8 +5,8 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
+use Prism\Prism\Providers\Groq\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Groq\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
@@ -20,7 +20,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
-    use ProcessRateLimits, ValidateResponse;
+    use HandleResponseError, ProcessRateLimits;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -35,7 +35,7 @@ class Structured
 
         $response = $this->sendRequest($request);
 
-        $this->validateResponse($response);
+        $this->handleResponseError();
 
         $data = $response->json();
 
@@ -44,7 +44,7 @@ class Structured
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        $this->httpResponse = $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -56,6 +56,8 @@ class Structured
                 'response_format' => ['type' => 'json_object'],
             ]))
         );
+
+        return $this->httpResponse;
     }
 
     /**

@@ -8,14 +8,14 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\OpenAI\Concerns\HandleResponseError;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {
-    use ValidatesResponse;
+    use HandleResponseError;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -23,7 +23,7 @@ class Embeddings
     {
         $response = $this->sendRequest($request);
 
-        $this->validateResponse($response);
+        $this->handleResponseError();
 
         $data = $response->json();
 
@@ -39,12 +39,14 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        $this->httpResponse = $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
             ]
         );
+
+        return $this->httpResponse;
     }
 }

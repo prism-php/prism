@@ -14,6 +14,10 @@ trait MapsFinishReason
      */
     protected function mapFinishReason(array $data): FinishReason
     {
+        if (! empty(data_get($data, 'message.tool_calls'))) {
+            return FinishReason::ToolCalls;
+        }
+
         return FinishReasonMap::map(data_get($data, 'done_reason', ''));
     }
 }

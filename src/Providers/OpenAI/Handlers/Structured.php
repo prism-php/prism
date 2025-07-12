@@ -7,8 +7,8 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\HandleResponseError;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Support\StructuredModeResolver;
 use Prism\Prism\Structured\Request;
@@ -22,8 +22,8 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use HandleResponseError;
     use MapsFinishReason;
-    use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -41,7 +41,7 @@ class Structured
 
         };
 
-        $this->validateResponse($response);
+        $this->handleResponseError();
 
         $data = $response->json();
 
@@ -89,7 +89,7 @@ class Structured
      */
     protected function sendRequest(Request $request, array $responseFormat): ClientResponse
     {
-        return $this->client->post(
+        $this->httpResponse = $this->client->post(
             'responses',
             array_merge([
                 'model' => $request->model(),
@@ -106,6 +106,8 @@ class Structured
                 ],
             ]))
         );
+
+        return $this->httpResponse;
     }
 
     protected function handleAutoMode(Request $request): ClientResponse

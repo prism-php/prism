@@ -7,11 +7,13 @@ namespace Prism\Prism\Providers\OpenAI\Concerns;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 
-trait ValidatesResponse
+trait HandleResponseError
 {
-    protected function validateResponse(Response $response): void
+    protected Response $httpResponse;
+
+    protected function handleResponseError(): void
     {
-        $data = $response->json();
+        $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(vsprintf(

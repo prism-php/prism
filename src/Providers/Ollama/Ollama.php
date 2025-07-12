@@ -31,12 +31,10 @@ class Ollama extends Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $handler = new Text($this->client(
-            $request->clientOptions(),
-            $request->clientRetry()
-        ));
-
-        return $handler->handle($request);
+        return (new Text(
+            $this->client($request->clientOptions(), $request->clientRetry()),
+            $request
+        ))->handle();
     }
 
     #[\Override]
@@ -64,12 +62,10 @@ class Ollama extends Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        $handler = new Stream($this->client(
-            $request->clientOptions(),
-            $request->clientRetry()
-        ));
-
-        return $handler->handle($request);
+        return (new Stream(
+            $this->client($request->clientOptions(), $request->clientRetry()),
+            $request,
+        ))->handle();
     }
 
     /**

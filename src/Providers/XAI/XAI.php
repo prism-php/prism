@@ -23,9 +23,10 @@ class XAI extends Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $handler = new Text($this->client($request->clientOptions(), $request->clientRetry()));
-
-        return $handler->handle($request);
+        return (new Text(
+            $this->client($request->clientOptions(), $request->clientRetry()),
+            $request
+        ))->handle();
     }
 
     /**

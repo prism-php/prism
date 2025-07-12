@@ -4,8 +4,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Concerns\HandleResponseError;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\SchemaMap;
@@ -19,7 +18,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
-    use ValidatesResponse;
+    use HandleResponseError;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -32,7 +31,7 @@ class Structured
     {
         $data = $this->sendRequest($request);
 
-        $this->validateResponse($data);
+        $this->handleResponseError();
 
         $responseMessage = new AssistantMessage(data_get($data, 'candidates.0.content.parts.0.text') ?? '');
 
@@ -52,7 +51,7 @@ class Structured
     {
         $providerOptions = $request->providerOptions();
 
-        $response = $this->client->post(
+        $this->httpResponse = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
                 ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
@@ -71,23 +70,7 @@ class Structured
             ])
         );
 
-        return $response->json();
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function validateResponse(array $data): void
-    {
-        if (! $data || data_get($data, 'error')) {
-            throw PrismException::providerResponseError(vsprintf(
-                'Gemini Error: [%s] %s',
-                [
-                    data_get($data, 'error.code', 'unknown'),
-                    data_get($data, 'error.message', 'unknown'),
-                ]
-            ));
-        }
+        return $this->httpResponse->json();
     }
 
     /**

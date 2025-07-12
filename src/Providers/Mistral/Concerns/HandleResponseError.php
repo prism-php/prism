@@ -8,11 +8,13 @@ use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
-trait ValidatesResponse
+trait HandleResponseError
 {
-    protected function validateResponse(Response $response): void
+    protected Response $httpResponse;
+
+    protected function handleResponseError(): void
     {
-        $data = $response->json();
+        $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'object') === 'error') {
             $message = data_get($data, 'message', 'unknown');

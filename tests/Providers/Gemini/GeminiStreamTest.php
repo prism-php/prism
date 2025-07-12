@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+use stdClass;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -48,7 +50,7 @@ it('can generate text stream using searchGrounding', function (): void {
 
     $response = Prism::text()
         ->using(Provider::Gemini, 'gemini-2.0-flash')
-        ->withProviderOptions(['searchGrounding' => true])
+        ->withProviderTools([new ProviderTool('google_search')])
         ->withMaxSteps(4)
         ->withPrompt('What\'s the current weather in San Francisco? And tell me if I need to wear a coat?')
         ->asStream();
@@ -74,21 +76,21 @@ it('can generate text stream using searchGrounding', function (): void {
     }
 
     // Verify that the request was sent with the correct tools configuration
-    Http::assertSent(function (Request $request): bool {
+    Http::assertSent(function (Request $request): true {
         $data = $request->data();
 
         // Verify the endpoint is for streaming
-        $endpointCorrect = str_contains($request->url(), 'streamGenerateContent?alt=sse');
+        expect($request->url())->toContain('streamGenerateContent?alt=sse');
 
         // Verify tools configuration has google_search when searchGrounding is true
-        $hasGoogleSearch = isset($data['tools']) &&
-            isset($data['tools'][0]['google_search']) &&
-            $data['tools'][0]['google_search'] instanceof \stdClass;
+        expect($data['tools'])->toBeArray();
+        expect($data['tools'])->toHaveKeys(['0', '0.google_search']);
+        expect($data['tools'][0]['google_search'])->toBeInstanceOf(stdClass::class);
 
-        // Verify tools are configured as expected (google_search, not function_declarations)
-        $toolsConfigCorrect = ! isset($data['tools'][0]['function_declarations']);
+        // // Verify tools are configured as expected (google_search, not function_declarations)
+        expect($data['tools'][0])->not->toHaveKeys(['function_declarations']);
 
-        return $endpointCorrect && $hasGoogleSearch && $toolsConfigCorrect;
+        return true;
     });
 
     expect($chunks)->not

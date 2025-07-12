@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\DeepSeek\Concerns;
 
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 
-trait ValidatesResponses
+trait HandleResponseError
 {
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function validateResponse(array $data): void
+    protected Response $httpResponse;
+
+    protected function handleResponseError(): void
     {
-        if ($data === []) {
+        if ($this->httpResponse->json() === []) {
             throw PrismException::providerResponseError('DeepSeek Error: Empty response');
         }
     }

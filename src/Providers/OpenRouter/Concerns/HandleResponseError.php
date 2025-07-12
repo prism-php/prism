@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenRouter\Concerns;
 
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 
-trait ValidatesResponses
+trait HandleResponseError
 {
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function validateResponse(array $data): void
+    protected Response $httpResponse;
+
+    protected function handleResponseError(): void
     {
+        $data = $this->httpResponse->json();
+
         if ($data === []) {
             throw PrismException::providerResponseError('OpenRouter Error: Empty response');
         }
