@@ -14,6 +14,8 @@ class Media
 {
     use HasProviderOptions;
 
+    protected ?string $fileId = null;
+
     protected ?string $localPath = null;
 
     protected ?string $storagePath = null;
@@ -27,6 +29,14 @@ class Media
     protected ?string $mimeType = null;
 
     final public function __construct() {}
+
+    public static function fromFileId(string $fileId): static
+    {
+        $instance = new static;
+        $instance->fileId = $fileId;
+
+        return $instance;
+    }
 
     /**
      * @deprecated Use `fromLocalPath()` instead.
@@ -123,6 +133,11 @@ class Media
         return $instance;
     }
 
+    public function isFileId(): bool
+    {
+        return $this->fileId !== null;
+    }
+
     public function isFile(): bool
     {
         return $this->localPath !== null || $this->storagePath !== null;
@@ -151,6 +166,11 @@ class Media
         }
 
         return $this->isUrl();
+    }
+
+    public function fileId(): ?string
+    {
+        return $this->fileId;
     }
 
     public function localPath(): ?string
