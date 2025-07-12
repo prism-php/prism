@@ -16,12 +16,26 @@ class ImageMapper extends ProviderMediaMapper
      */
     public function toPayload(): array
     {
-        return [
+        $payload = [
             'type' => 'input_image',
             'image_url' => $this->media->isUrl()
                 ? $this->media->url()
                 : sprintf('data:%s;base64,%s', $this->media->mimeType(), $this->media->base64()),
         ];
+
+        if ($this->media->isFileId()) {
+            $payload['file_id'] = $this->media->fileId();
+        } elseif ($this->media->isUrl()) {
+            $payload['image_url'] = $this->media->url();
+        } else {
+            $payload['image_url'] = sprintf(
+                'data:%s;base64,%s',
+                $this->media->mimeType(),
+                $this->media->base64()
+            );
+        }
+
+        return $payload;
     }
 
     protected function provider(): string|Provider
@@ -31,6 +45,10 @@ class ImageMapper extends ProviderMediaMapper
 
     protected function validateMedia(): bool
     {
+        if ($this->media->isFileId()) {
+            return true;
+        }
+
         if ($this->media->isUrl()) {
             return true;
         }
