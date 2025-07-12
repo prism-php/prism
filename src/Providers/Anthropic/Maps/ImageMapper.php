@@ -58,7 +58,7 @@ class ImageMapper extends ProviderMediaMapper
 
     protected function validateMedia(): bool
     {
-        if ($this->media->isFile()) {
+        if ($this->media->isFileId()) {
             return true;
         }
 
