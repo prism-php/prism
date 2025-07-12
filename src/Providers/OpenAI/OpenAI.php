@@ -21,7 +21,6 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Audio;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;

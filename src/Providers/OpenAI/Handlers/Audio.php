@@ -9,7 +9,7 @@ use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits as ConcernsProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\SpeechToTextRequestMapper;
 use Prism\Prism\Providers\OpenAI\Maps\TextToSpeechRequestMapper;
@@ -18,7 +18,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Audio
 {
-    use ProcessesRateLimits;
+    use ConcernsProcessesRateLimits;
     use ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
