@@ -1,0 +1,34 @@
+{
+  "id": "chatcmpl-CZaPUjMBtN3XS1RKGvkI7ZfnNPpJU",
+  "object": "chat.completion",
+  "created": 1731710834,
+  "model": "grok-4",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"answer\": \"The answer is 4\"}",
+        "parsed": {
+          "answer": "The answer is 4"
+        },
+        "refusal": null
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 45,
+    "completion_tokens": 12,
+    "total_tokens": 57,
+    "prompt_tokens_details": {
+      "text_tokens": 45,
+      "audio_tokens": 0,
+      "image_tokens": 0,
+      "cached_tokens": 0
+    }
+  },
+  "system_fingerprint": "fp_3de1288069"
+}
+
