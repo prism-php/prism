@@ -32,7 +32,7 @@ class ImageMapper extends ProviderMediaMapper
             );
         }
 
-        return $payload;
+        return array_filter($payload);
     }
 
     protected function provider(): string|Provider

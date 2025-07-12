@@ -7,7 +7,6 @@ namespace Tests\Providers\OpenAI;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
-use Prism\Prism\ValueObjects\Media\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -243,11 +242,29 @@ describe('documents', function (): void {
             ->toContain(base64_encode(file_get_contents('tests/Fixtures/test-pdf.pdf')));
     });
 
+    it('maps user messages with file urls', function (): void {
+        $messageMap = new \Prism\Prism\Providers\OpenAi\Maps\MessageMap(
+            messages: [
+                new UserMessage('Here is the document', [
+                    Document::fromUrl('https://example.com/test-pdf.pdf'),
+                ]),
+            ],
+            systemPrompts: []
+        );
+
+        $mappedMessage = $messageMap();
+
+        expect(data_get($mappedMessage, '0.content.1.type'))
+            ->toBe('input_file')
+            ->and(data_get($mappedMessage, '0.content.1.file_url'))
+            ->toBe('https://example.com/test-pdf.pdf');
+    });
+
     it('maps previously uploaded files', function (): void {
         $messageMap = new \Prism\Prism\Providers\OpenAi\Maps\MessageMap(
             messages: [
                 new UserMessage('Here is the document', [
-                    new OpenAIFile('previously-uploaded-file-id'),
+                    Document::fromFileId('previously-uploaded-file-id'),
                 ]),
             ],
             systemPrompts: []
