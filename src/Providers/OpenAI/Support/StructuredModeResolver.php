@@ -32,6 +32,9 @@ class StructuredModeResolver
             'chatgpt-4o-latest',
             'o3-mini',
             'o3-mini-2025-01-31',
+            'gpt-4.1',
+            'gpt-4.1-nano',
+            'gpt-4.1-mini',
             'gpt-4.5-preview',
             'gpt-4.5-preview-2025-02-27',
         ]);

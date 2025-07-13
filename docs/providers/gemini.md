@@ -188,3 +188,73 @@ $response = Prism::text()
 ```
 > [!NOTE]
 > Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.
+
+## Media Support
+
+Gemini has robust support for processing multimedia content:
+
+### Video Analysis
+
+Gemini can process and analyze video content including standard video files and YouTube videos. Prism implements this through the `Video` value object which maps to Gemini's video processing capabilities.
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Video;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withMessages([
+        new UserMessage(
+            'What is happening in this video?',
+            additionalContent: [
+                Video::fromUrl('https://example.com/sample-video.mp4'),
+            ],
+        ),
+    ])
+    ->asText();
+```
+
+### YouTube Integration
+
+Gemini has special support for YouTube videos. You can easily `analyze/summarize` YouTube content by providing the URL:
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Video;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withMessages([
+        new UserMessage(
+            'Summarize this YouTube video:',
+            additionalContent: [
+                Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+            ],
+        ),
+    ])
+    ->asText();
+```
+### Audio Processing
+
+Gemini can analyze audio files for various tasks like transcription, content analysis, and audio scene understanding. The implementation in Prism uses the `Audio` value object which is specifically designed for Gemini's audio processing capabilities.
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withMessages([
+        new UserMessage(
+            'Transcribe this audio file:',
+            additionalContent: [
+                Audio::fromLocalPath('/path/to/audio.mp3'),
+            ],
+        ),
+    ])
+    ->asText();
+```
+

@@ -143,6 +143,14 @@ export default defineConfig({
                 text: "Documents",
                 link: "/input-modalities/documents",
               },
+              {
+                text: "Audio",
+                link: "/input-modalities/audio",
+              },
+              {
+                text: "Video",
+                link: "/input-modalities/video",
+              },
             ],
           },
           {

@@ -1,0 +1,54 @@
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355200,"model":"grok-4","choices":[{"index":0,"delta":{"reasoning_content":"I need to multiply 15 by 23. Let me work through this step by step.","role":"assistant"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355201,"model":"grok-4","choices":[{"index":0,"delta":{"reasoning_content":" 15 × 23 = 15 × (20 + 3) = (15 × 20) + (15 × 3) = 300 + 45 = 345"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355202,"model":"grok-4","choices":[{"index":0,"delta":{"content":"To","role":"assistant"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355203,"model":"grok-4","choices":[{"index":0,"delta":{"content":" solve"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355204,"model":"grok-4","choices":[{"index":0,"delta":{"content":" 15"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355205,"model":"grok-4","choices":[{"index":0,"delta":{"content":" ×"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355206,"model":"grok-4","choices":[{"index":0,"delta":{"content":" 23"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355207,"model":"grok-4","choices":[{"index":0,"delta":{"content":","}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355208,"model":"grok-4","choices":[{"index":0,"delta":{"content":" I"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355209,"model":"grok-4","choices":[{"index":0,"delta":{"content":" can"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355210,"model":"grok-4","choices":[{"index":0,"delta":{"content":" break"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355211,"model":"grok-4","choices":[{"index":0,"delta":{"content":" it"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355212,"model":"grok-4","choices":[{"index":0,"delta":{"content":" down"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355213,"model":"grok-4","choices":[{"index":0,"delta":{"content":" using"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355214,"model":"grok-4","choices":[{"index":0,"delta":{"content":" the"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355215,"model":"grok-4","choices":[{"index":0,"delta":{"content":" distributive"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355216,"model":"grok-4","choices":[{"index":0,"delta":{"content":" property"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355217,"model":"grok-4","choices":[{"index":0,"delta":{"content":"."}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355218,"model":"grok-4","choices":[{"index":0,"delta":{"content":" The"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355219,"model":"grok-4","choices":[{"index":0,"delta":{"content":" answer"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355220,"model":"grok-4","choices":[{"index":0,"delta":{"content":" is"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355221,"model":"grok-4","choices":[{"index":0,"delta":{"content":" **"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355222,"model":"grok-4","choices":[{"index":0,"delta":{"content":"345"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355223,"model":"grok-4","choices":[{"index":0,"delta":{"content":"**"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355224,"model":"grok-4","choices":[{"index":0,"delta":{"content":"."}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-reasoning-123","object":"chat.completion.chunk","created":1752355225,"model":"grok-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: [DONE]
+
