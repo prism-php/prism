@@ -7,6 +7,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
@@ -22,6 +23,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use ExtractsCitations;
     use MapsFinishReason;
     use ValidatesResponse;
 
@@ -79,7 +81,9 @@ class Structured
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->extractCitations($data),
+            ]),
             systemPrompts: $request->systemPrompts(),
         ));
     }
