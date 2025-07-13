@@ -22,6 +22,7 @@ use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -85,7 +86,8 @@ class Stream
 
             yield new Chunk(
                 text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
+                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
+                usage: $this->extractUsage($data, $request),
             );
         }
     }
@@ -157,6 +159,7 @@ class Stream
             text: '',
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            usage: $this->extractUsage([], $request),
         );
 
         // Continue the conversation with tool results
@@ -195,6 +198,23 @@ class Stream
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function extractUsage(array $data, Request $request): Usage
+    {
+        $providerOptions = $request->providerOptions();
+
+        return new Usage(
+            promptTokens: isset($providerOptions['cachedContentName'])
+                ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
+                : data_get($data, 'usageMetadata.promptTokenCount', 0),
+            completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+            cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
+            thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+        );
     }
 
     /**

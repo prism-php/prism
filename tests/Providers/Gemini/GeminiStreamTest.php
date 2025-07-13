@@ -29,6 +29,11 @@ it('can generate text stream with a basic prompt', function (): void {
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
         $text .= $chunk->text;
+
+        // Verify usage information for each chunk
+        expect($chunk->usage)->not->toBeNull()
+            ->and($chunk->usage->promptTokens)->toBeGreaterThanOrEqual(0)
+            ->and($chunk->usage->completionTokens)->toBeGreaterThanOrEqual(0);
     }
 
     expect($chunks)
@@ -36,7 +41,11 @@ it('can generate text stream with a basic prompt', function (): void {
         ->and($text)->not->toBeEmpty()
         ->and($text)->toContain(
             'AI? It\'s simple! We just feed a computer a HUGE pile of information, tell it to find patterns, and then it pretends to be smart! Like teaching a parrot to say cool things. Mostly magic, though.'
-        );
+        )
+        ->and($chunks[0]->usage->promptTokens)->toBe(21)
+        ->and($chunks[0]->usage->completionTokens)->toBe(0)
+        ->and($chunks[3]->usage->promptTokens)->toBe(21)  // Last chunk
+        ->and($chunks[3]->usage->completionTokens)->toBe(47);  // Completion tokens in last chunk
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
@@ -96,7 +105,9 @@ it('can generate text stream using searchGrounding', function (): void {
         ->and($chunks)->not
         ->toBeEmpty()
         ->and($text)
-        ->toContain('The weather in San Francisco is currently 58Â°F (14Â°C) and partly cloudy. It feels like 55Â°F (13Â°C) with 79% humidity. There is a 0% chance of rain right now but showers are expected to develop.');
+        ->toContain('The weather in San Francisco is currently 58Â°F (14Â°C) and partly cloudy. It feels like 55Â°F (13Â°C) with 79% humidity. There is a 0% chance of rain right now but showers are expected to develop.')
+        ->and($chunks[0]->usage->promptTokens)->toBe(30)
+        ->and($chunks[0]->usage->completionTokens)->toBe(0);
 });
 
 it('can generate text stream using tools ', function (): void {
@@ -132,7 +143,9 @@ it('can generate text stream using tools ', function (): void {
         ->not->toBeEmpty()
         ->and($text)->not->toBeEmpty()
         ->and($text)->toContain('The weather in San Francisco is currently 58Â°F (14Â°C) and partly cloudy. It feels like 55Â°F (13Â°C) with 79% humidity. There is a 0% chance of rain right now but showers are expected to develop.')
-        ->and($text)->toContain('a light jacket or coat would be advisable');
+        ->and($text)->toContain('a light jacket or coat would be advisable')
+        ->and($chunks[0]->usage->promptTokens)->toBe(30)
+        ->and($chunks[0]->usage->completionTokens)->toBe(0);
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
