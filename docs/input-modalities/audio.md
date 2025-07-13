@@ -14,49 +14,79 @@ For other input modalities like videos and images, see their respective document
 
 ## Getting started
 
-To add an audio file to your message, add an `Audio` value object to the `additionalContent` property:
+To add an audio file to your prompt, use the `withPrompt` method with an `Audio` value object:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Audio;
+
+// From a local path
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        "What's in this audio?",
+        [Audio::fromLocalPath(path: '/path/to/audio.mp3')]
+    )
+    ->asText();
+
+// From a path on a storage disk
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        "What's in this audio?",
+        [Audio::fromStoragePath(
+            path: '/path/to/audio.mp3', 
+            disk: 'my-disk' // optional - omit/null for default disk
+        )]
+    )
+    ->asText();
+
+// From a URL
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Analyze this audio:',
+        [Audio::fromUrl(url: 'https://example.com/audio.mp3')]
+    )
+    ->asText();
+
+// From base64
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Analyze this audio:',
+        [Audio::fromBase64(
+            base64: base64_encode(file_get_contents('/path/to/audio.mp3')),
+            mimeType: 'audio/mpeg'
+        )]
+    )
+    ->asText();
+
+// From raw content
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Analyze this audio:',
+        [Audio::fromRawContent(
+            rawContent: file_get_contents('/path/to/audio.mp3'),
+            mimeType: 'audio/mpeg'
+        )]
+    )
+    ->asText();
+```
+
+## Alternative: Using withMessages
+
+You can also include audio files using the message-based approach:
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Audio;
 
-// From a local path
 $message = new UserMessage(
     "What's in this audio?",
     [Audio::fromLocalPath(path: '/path/to/audio.mp3')]
-);
-
-// From a path on a storage disk
-$message = new UserMessage(
-    "What's in this audio?",
-    [Audio::fromStoragePath(
-        path: '/path/to/audio.mp3', 
-        disk: 'my-disk' // optional - omit/null for default disk
-    )]
-);
-
-// From a URL
-$message = new UserMessage(
-    'Analyze this audio:',
-    [Audio::fromUrl(url: 'https://example.com/audio.mp3')]
-);
-
-// From base64
-$message = new UserMessage(
-    'Analyze this audio:',
-    [Audio::fromBase64(
-        base64: base64_encode(file_get_contents('/path/to/audio.mp3')),
-        mimeType: 'audio/mpeg'
-    )]
-);
-
-// From raw content
-$message = new UserMessage(
-    'Analyze this audio:',
-    [Audio::fromRawContent(
-        rawContent: file_get_contents('/path/to/audio.mp3'),
-        mimeType: 'audio/mpeg'
-    )]
 );
 
 $response = Prism::text()

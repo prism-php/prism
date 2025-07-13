@@ -48,6 +48,69 @@ $response = Prism::text()
 
 You an also pass a View to the `withPrompt` method.
 
+## Multi-Modal Input
+
+Prism supports including images, documents, audio, and video files in your prompts for rich multi-modal analysis:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Video;
+
+// Analyze an image
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'What objects do you see in this image?',
+        [Image::fromLocalPath('/path/to/image.jpg')]
+    )
+    ->asText();
+
+// Process a document
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Summarize the key points from this document',
+        [Document::fromLocalPath('/path/to/document.pdf')]
+    )
+    ->asText();
+
+// Analyze audio content
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'What is being discussed in this audio?',
+        [Audio::fromLocalPath('/path/to/audio.mp3')]
+    )
+    ->asText();
+
+// Process video content
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Describe what happens in this video',
+        [Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
+    )
+    ->asText();
+
+// Multiple media types in one prompt
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Compare this image with the information in this document',
+        [
+            Image::fromLocalPath('/path/to/chart.png'),
+            Document::fromLocalPath('/path/to/report.pdf')
+        ]
+    )
+    ->asText();
+```
+
+For detailed information about supported media types and transfer methods, see the [input modalities documentation](/input-modalities/).
+
 ## Message Chains and Conversations
 
 For interactive conversations, use message chains to maintain context:

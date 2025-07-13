@@ -14,61 +14,97 @@ For other input modalities like audio and images, see their respective documenta
 
 ## Getting started
 
-To add a video to your message, add a `Video` value object to the `additionalContent` property:
+To add a video to your prompt, use the `withPrompt` method with a `Video` value object:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Video;
+
+// From a local path
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        "What's in this video?",
+        [Video::fromLocalPath(path: '/path/to/video.mp4')]
+    )
+    ->asText();
+
+// From a path on a storage disk
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        "What's in this video?",
+        [Video::fromStoragePath(
+            path: '/path/to/video.mp4', 
+            disk: 'my-disk' // optional - omit/null for default disk
+        )]
+    )
+    ->asText();
+
+// From a URL
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Analyze this video:',
+        [Video::fromUrl(url: 'https://example.com/video.mp4')]
+    )
+    ->asText();
+
+// From a YouTube URL (automatically extracts the video ID)
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'What is this YouTube video about?',
+        [Video::fromUrl(url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
+    )
+    ->asText();
+
+// From shortened YouTube URL
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'What is this YouTube video about?',
+        [Video::fromUrl(url: 'https://youtu.be/dQw4w9WgXcQ')]
+    )
+    ->asText();
+
+// From base64
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Analyze this video:',
+        [Video::fromBase64(
+            base64: base64_encode(file_get_contents('/path/to/video.mp4')),
+            mimeType: 'video/mp4'
+        )]
+    )
+    ->asText();
+
+// From raw content
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Analyze this video:',
+        [Video::fromRawContent(
+            rawContent: file_get_contents('/path/to/video.mp4'),
+            mimeType: 'video/mp4'
+        )]
+    )
+    ->asText();
+```
+
+## Alternative: Using withMessages
+
+You can also include videos using the message-based approach:
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Video;
 
-// From a local path
 $message = new UserMessage(
     "What's in this video?",
     [Video::fromLocalPath(path: '/path/to/video.mp4')]
-);
-
-// From a path on a storage disk
-$message = new UserMessage(
-    "What's in this video?",
-    [Video::fromStoragePath(
-        path: '/path/to/video.mp4', 
-        disk: 'my-disk' // optional - omit/null for default disk
-    )]
-);
-
-// From a URL
-$message = new UserMessage(
-    'Analyze this video:',
-    [Video::fromUrl(url: 'https://example.com/video.mp4')]
-);
-
-// From a YouTube URL (automatically extracts the video ID)
-$message = new UserMessage(
-    'What is this YouTube video about?',
-    [Video::fromUrl(url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
-);
-
-// From shortened YouTube URL
-$message = new UserMessage(
-    'What is this YouTube video about?',
-    [Video::fromUrl(url: 'https://youtu.be/dQw4w9WgXcQ')]
-);
-
-// From base64
-$message = new UserMessage(
-    'Analyze this video:',
-    [Video::fromBase64(
-        base64: base64_encode(file_get_contents('/path/to/video.mp4')),
-        mimeType: 'video/mp4'
-    )]
-);
-
-// From raw content
-$message = new UserMessage(
-    'Analyze this video:',
-    [Video::fromRawContent(
-        rawContent: file_get_contents('/path/to/video.mp4'),
-        mimeType: 'video/mp4'
-    )]
 );
 
 $response = Prism::text()
@@ -103,14 +139,10 @@ Example:
 ```php
 $response = Prism::text()
     ->using(Provider::Gemini, 'gemini-1.5-flash')
-    ->withMessages([
-        new UserMessage(
-            'What is this YouTube video about?',
-            additionalContent: [
-                Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
-            ],
-        ),
-    ])
+    ->withPrompt(
+        'What is this YouTube video about?',
+        [Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
+    )
     ->asText();
 ```
 
