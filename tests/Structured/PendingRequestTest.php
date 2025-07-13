@@ -8,7 +8,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Structured\PendingRequest;
 use Prism\Prism\Structured\Request;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
