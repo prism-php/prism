@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Prism\Prism\Concerns;
 
 use Illuminate\Contracts\View\View;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
-use Prism\Prism\ValueObjects\Messages\Support\Text;
-use Prism\Prism\ValueObjects\Messages\Support\Video;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\Text;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 trait HasPrompts
