@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\ValueObjects\Messages\Support;
+namespace Prism\Prism\ValueObjects;
 
 /**
  * Note: Prism currently only supports Documents with Anthropic.

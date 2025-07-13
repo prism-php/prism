@@ -34,10 +34,10 @@ class OpenAI extends Provider
     use InitializesClient, ProcessesRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] readonly public string $apiKey,
-        readonly public string $url,
-        readonly public ?string $organization,
-        readonly public ?string $project,
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $url,
+        public readonly ?string $organization,
+        public readonly ?string $project,
     ) {}
 
     #[\Override]

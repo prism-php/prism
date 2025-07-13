@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
+use Prism\Prism\ValueObjects\Document;
+use Prism\Prism\ValueObjects\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\OpenAIFile;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 

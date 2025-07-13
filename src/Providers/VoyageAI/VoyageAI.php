@@ -13,8 +13,8 @@ class VoyageAI extends Provider
     use InitializesClient;
 
     public function __construct(
-        #[\SensitiveParameter] readonly protected string $apiKey,
-        readonly protected string $baseUrl
+        #[\SensitiveParameter] protected readonly string $apiKey,
+        protected readonly string $baseUrl
     ) {}
 
     #[\Override]

@@ -6,9 +6,9 @@ namespace Prism\Prism\Providers\Mistral\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Document;
+use Prism\Prism\ValueObjects\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;

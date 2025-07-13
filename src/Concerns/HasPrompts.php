@@ -12,13 +12,23 @@ trait HasPrompts
     protected ?string $prompt = null;
 
     /**
+     * @var array<int, \Prism\Prism\ValueObjects\Text|\Prism\Prism\ValueObjects\Image|\Prism\Prism\ValueObjects\Document|\Prism\Prism\ValueObjects\OpenAIFile>
+     */
+    protected $additionalPromptContent = [];
+
+    /**
      * @var SystemMessage[]
      */
     protected array $systemPrompts = [];
 
-    public function withPrompt(string|View $prompt): self
+    /**
+     * @param  array<int, \Prism\Prism\ValueObjects\Text|\Prism\Prism\ValueObjects\Image|\Prism\Prism\ValueObjects\Document|\Prism\Prism\ValueObjects\OpenAIFile>  $additionalContent
+     */
+    public function withPrompt(string|View $prompt, $additionalContent = []): self
     {
         $this->prompt = is_string($prompt) ? $prompt : $prompt->render();
+
+        $this->additionalPromptContent = $additionalContent;
 
         return $this;
     }

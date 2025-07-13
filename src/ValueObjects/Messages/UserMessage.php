@@ -6,10 +6,10 @@ namespace Prism\Prism\ValueObjects\Messages;
 
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
-use Prism\Prism\ValueObjects\Messages\Support\Text;
+use Prism\Prism\ValueObjects\Document;
+use Prism\Prism\ValueObjects\Image;
+use Prism\Prism\ValueObjects\OpenAIFile;
+use Prism\Prism\ValueObjects\Text;
 
 class UserMessage implements Message
 {
