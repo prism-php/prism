@@ -28,9 +28,9 @@ class Anthropic extends Provider
     use InitializesClient, ProcessesRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] readonly public string $apiKey,
-        readonly public string $apiVersion,
-        readonly public ?string $betaFeatures = null
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $apiVersion,
+        public readonly ?string $betaFeatures = null
     ) {}
 
     #[\Override]
