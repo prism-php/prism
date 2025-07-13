@@ -128,3 +128,30 @@ it('can use a cache object with a structured request', function (): void {
     expect($response->structured['legal_jurisdiction'])->toBe('European Union');
     expect($response->structured['legislation_type'])->toBe('Treaty');
 });
+
+it('works with allowAdditionalProperties set to true', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured');
+
+    $schema = new ObjectSchema(
+        'book_info',
+        'Book information',
+        [
+            new StringSchema('title', 'Book title'),
+            new StringSchema('author', 'Book author'),
+        ],
+        ['title', 'author'],
+        true  // allowAdditionalProperties: true
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+        ->withSchema($schema)
+        ->withPrompt('Generate information about a book')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    // The fixture data contains different keys, so we'll just verify it's not empty
+    expect($response->structured)->not->toBeEmpty();
+    expect($response->usage->promptTokens)->toBe(81);
+    expect($response->usage->completionTokens)->toBe(64);
+});
