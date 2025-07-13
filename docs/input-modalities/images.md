@@ -8,7 +8,51 @@ Note however that provider support may differ by model. If you receive error mes
 
 ## Getting started
 
-To add an image to your message, add an `Image` value object to the `additionalContent` property:
+There are two ways to include images in your requests: using the `withMessages` method or the `withPrompt` method.
+
+### Using withPrompt (recommended for simple requests)
+
+The `withPrompt` method accepts an optional second parameter for additional content like images:
+
+```php
+use Prism\Prism;
+use Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Image;
+
+// From a local path
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        "What's in this image?",
+        [Image::fromLocalPath(path: '/path/to/image.jpg')]
+    )
+    ->asText();
+
+// From a URL
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Analyze this diagram:',
+        [Image::fromUrl(url: 'https://example.com/diagram.png')]
+    )
+    ->asText();
+
+// Multiple images
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Compare these two images:',
+        [
+            Image::fromLocalPath(path: '/path/to/image1.jpg'),
+            Image::fromLocalPath(path: '/path/to/image2.jpg'),
+        ]
+    )
+    ->asText();
+```
+
+### Using withMessages (for complex conversations)
+
+For more complex scenarios or when building a conversation, use the `withMessages` method:
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;

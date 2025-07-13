@@ -35,7 +35,69 @@ Prism tries to smooth over these rough edges, but its not always possible.
 
 ## Getting started
 
-To add a document to your message, add a `Document` value object to the `additionalContent` property:
+There are two ways to include documents in your requests: using the `withMessages` method or the `withPrompt` method.
+
+### Using withPrompt (recommended for simple requests)
+
+The `withPrompt` method accepts an optional second parameter for additional content like documents:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Document;
+
+// From a local path
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Summarize this document',
+        [Document::fromLocalPath(
+            path: 'tests/Fixtures/test-pdf.pdf',
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From a URL
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Analyze this PDF document',
+        [Document::fromUrl(
+            url: 'https://example.com/document.pdf',
+            title: 'External document' // optional
+        )]
+    )
+    ->asText();
+
+// From text content
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Review this document content',
+        [Document::fromText(
+            text: $documentContent,
+            title: 'Database content' // optional
+        )]
+    )
+    ->asText();
+
+// Multiple documents
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Compare these two documents',
+        [
+            Document::fromLocalPath('docs/first.pdf'),
+            Document::fromLocalPath('docs/second.pdf'),
+        ]
+    )
+    ->asText();
+```
+
+### Using withMessages (for complex conversations)
+
+For more complex scenarios or when building a conversation, use the `withMessages` method:
 
 ```php
 use Prism\Prism\Enums\Provider;
