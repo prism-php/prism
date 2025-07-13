@@ -301,7 +301,7 @@ Convert audio files into accurate text transcriptions using Whisper:
 #### Basic STT Usage
 
 ```php
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 $audioFile = Audio::fromPath('/path/to/recording.mp3');
 
@@ -411,7 +411,7 @@ $response = Prism::audio()
 Load audio from various sources:
 
 ```php
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file path
 $audio = Audio::fromPath('/path/to/audio.mp3');

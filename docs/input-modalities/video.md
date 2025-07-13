@@ -18,7 +18,7 @@ To add a video to your message, add a `Video` value object to the `additionalCon
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Video;
+use Prism\Prism\ValueObjects\Media\Video;
 
 // From a local path
 $message = new UserMessage(

@@ -90,7 +90,7 @@ To store content in the cache, use the Gemini provider cache method as follows:
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Gemini\Gemini;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -199,7 +199,7 @@ Gemini can process and analyze video content including standard video files and 
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Video;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -221,7 +221,7 @@ Gemini has special support for YouTube videos. You can easily `analyze/summarize
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Video;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -242,7 +242,7 @@ Gemini can analyze audio files for various tasks like transcription, content ana
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()

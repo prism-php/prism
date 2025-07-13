@@ -16,7 +16,7 @@ To add an image to your message, add an `Image` value object to the `additionalC
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 
 // From a local path
 $message = new UserMessage(

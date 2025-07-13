@@ -4,7 +4,7 @@ namespace Prism\Prism\Contracts;
 
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Media\Media;
 
 abstract class ProviderMediaMapper
 {

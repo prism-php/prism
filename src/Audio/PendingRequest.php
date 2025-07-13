@@ -9,7 +9,7 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 class PendingRequest
 {

@@ -41,8 +41,8 @@ To add a document to your message, add a `Document` value object to the `additio
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\OpenAIFile;
 
 Prism::text()
     ->using('my-provider', 'my-model')
@@ -113,7 +113,7 @@ Or, if using an OpenAI file_id - add an `OpenAIFile`:
 use Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\OpenAIFile;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')

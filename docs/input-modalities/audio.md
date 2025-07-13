@@ -18,7 +18,7 @@ To add an audio file to your message, add an `Audio` value object to the `additi
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 // From a local path
 $message = new UserMessage(

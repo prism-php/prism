@@ -7,7 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 beforeEach(function (): void {
     config()->set('prism.providers.openai.api_key', env('OPENAI_API_KEY'));

@@ -32,7 +32,7 @@ Convert audio files into text transcriptions:
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 $audioFile = Audio::fromPath('/path/to/audio.mp3');
 
@@ -75,7 +75,7 @@ echo "Has audio data: " . ($audio->hasBase64() ? 'Yes' : 'No');
 Transcribe audio files to text:
 
 ```php
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 // From file path
 $audioFile = Audio::fromPath('/path/to/recording.wav');
@@ -102,7 +102,7 @@ echo $response->text;
 The `Audio` class provides several ways to work with audio files:
 
 ```php
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file
 $audio = Audio::fromPath('/path/to/audio.mp3');
@@ -288,8 +288,8 @@ Audio can be integrated into multi-modal conversations:
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Audio;
-use Prism\Prism\ValueObjects\Messages\Support\Text;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Text;
 
 $audioFile = Audio::fromPath('/path/to/question.mp3');
 

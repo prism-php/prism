@@ -1,6 +1,6 @@
 <?php
 
-namespace Prism\Prism\ValueObjects\Messages\Support;
+namespace Prism\Prism\ValueObjects\Media;
 
 use finfo;
 use Illuminate\Filesystem\FilesystemAdapter;
