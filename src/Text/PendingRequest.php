@@ -17,6 +17,7 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class PendingRequest
@@ -34,9 +35,6 @@ class PendingRequest
 
     protected bool $toolErrorHandlingEnabled = true;
 
-    /**
-     * Disable tool error handling for this request.
-     */
     public function withoutToolErrorHandling(): self
     {
         $this->toolErrorHandlingEnabled = false;
@@ -93,16 +91,13 @@ class PendingRequest
             $messages[] = new UserMessage($this->prompt);
         }
 
-        // Apply error handling preference to tools if disabled
         $tools = $this->tools;
-        if (!$this->toolErrorHandlingEnabled && !empty($tools)) {
-            $tools = array_map(function ($tool) {
-                // Only disable if the tool hasn't already been explicitly configured
-                if ($tool instanceof \Prism\Prism\Tool && $tool->failedHandler() !== null) {
-                    return $tool->withoutErrorHandling();
-                }
-                return $tool;
-            }, $tools);
+
+        if (! $this->toolErrorHandlingEnabled && filled($tools)) {
+            $tools = array_map(
+                callback: fn ($tool): Tool => $tool instanceof Tool && ! is_null($tool->failedHandler()) ? $tool->withoutErrorHandling() : $tool,
+                array: $tools
+            );
         }
 
         return new Request(

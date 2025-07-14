@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace Tests;
 
 use ArgumentCountError;
+use DivisionByZeroError;
+use InvalidArgumentException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use RuntimeException;
 use Throwable;
 use TypeError;
 
@@ -59,8 +64,7 @@ it('uses default error handler with handleToolErrors()', function (): void {
         ->for('Perform calculation')
         ->withNumberParameter('a', 'First number')
         ->withNumberParameter('b', 'Second number')
-        ->using(fn (int $a, int $b): string => (string) ($a + $b))
-        ;
+        ->using(fn (int $a, int $b): string => (string) ($a + $b));
 
     $result = $tool->handle('five', 10);
 
@@ -76,8 +80,7 @@ it('handles missing required parameters gracefully', function (): void {
         ->for('Search files')
         ->withStringParameter('query', 'Search query')
         ->withStringParameter('path', 'Directory path')
-        ->using(fn (string $query, string $path): string => "Found results for $query in $path")
-        ;
+        ->using(fn (string $query, string $path): string => "Found results for $query in $path");
 
     // Missing second parameter
     $result = $tool->handle('test query');
@@ -92,8 +95,7 @@ it('handles unknown parameters gracefully', function (): void {
         ->as('simple')
         ->for('Simple tool')
         ->withStringParameter('name', 'Name')
-        ->using(fn (string $name): string => "Hello $name")
-        ;
+        ->using(fn (string $name): string => "Hello $name");
 
     // Unknown parameter 'unknown'
     $result = $tool->handle(name: 'John', unknown: 'parameter');
@@ -109,8 +111,7 @@ it('handles optional parameters correctly', function (): void {
         ->for('Read file')
         ->withStringParameter('path', 'File path')
         ->withNumberParameter('lines', 'Number of lines', required: false)
-        ->using(fn (string $path, ?int $lines = null): string => "Reading $path".($lines ? " ($lines lines)" : ''))
-        ;
+        ->using(fn (string $path, ?int $lines = null): string => "Reading $path".($lines ? " ($lines lines)" : ''));
 
     // Valid call with optional parameter as wrong type
     $result = $tool->handle('/path/to/file', 'ten');
@@ -138,9 +139,9 @@ it('allows custom error messages based on exception type', function (): void {
         ->as('api_call')
         ->for('Make API call')
         ->withStringParameter('endpoint', 'API endpoint')
-        ->withArrayParameter('data', 'Request data', new \Prism\Prism\Schema\StringSchema('item', 'Data item'))
+        ->withArrayParameter('data', 'Request data', new StringSchema('item', 'Data item'))
         ->using(fn (string $endpoint, array $data): string => "Called $endpoint")
-        ->failed(function (\Throwable $e, array $params): string {
+        ->failed(function (Throwable $e, array $params): string {
             if ($e instanceof TypeError && str_contains($e->getMessage(), 'array')) {
                 return "The 'data' parameter must be an array, not a string. Example: ['item1', 'item2']";
             }
@@ -167,12 +168,11 @@ it('differentiates between validation errors and runtime errors', function (): v
         ->withStringParameter('path', 'File path')
         ->using(function (string $path): string {
             if (! file_exists($path)) {
-                throw new \RuntimeException("File not found: $path");
+                throw new RuntimeException("File not found: $path");
             }
 
             return file_get_contents($path);
-        })
-        ;
+        });
 
     // Test validation error (wrong type)
     $result1 = $tool->handle(['not', 'a', 'string']);
@@ -196,12 +196,11 @@ it('handles complex parameter types with current implementation', function (): v
         ->as('create_user')
         ->for('Create a new user')
         ->withObjectParameter('user', 'User information', [
-            new \Prism\Prism\Schema\StringSchema('name', 'User name'),
-            new \Prism\Prism\Schema\NumberSchema('age', 'User age'),
-            new \Prism\Prism\Schema\StringSchema('email', 'User email'),
+            new StringSchema('name', 'User name'),
+            new NumberSchema('age', 'User age'),
+            new StringSchema('email', 'User email'),
         ], ['name', 'age', 'email'])
-        ->using(fn (array $user): string => "Created user: {$user['name']}")
-        ;
+        ->using(fn (array $user): string => "Created user: {$user['name']}");
 
     // Currently passes through without schema validation
     $result = $tool->handle(['name' => 'John']);
@@ -212,18 +211,17 @@ it('handles array parameters that cause runtime errors', function (): void {
     $tool = (new Tool)
         ->as('divide_numbers')
         ->for('Divide first number by second')
-        ->withArrayParameter('numbers', 'Two numbers: dividend and divisor', new \Prism\Prism\Schema\NumberSchema('number', 'A number'))
+        ->withArrayParameter('numbers', 'Two numbers: dividend and divisor', new NumberSchema('number', 'A number'))
         ->using(function (array $numbers): string {
             if (count($numbers) !== 2) {
-                throw new \InvalidArgumentException('Exactly 2 numbers required');
+                throw new InvalidArgumentException('Exactly 2 numbers required');
             }
             if ($numbers[1] == 0) {
-                throw new \DivisionByZeroError('Cannot divide by zero');
+                throw new DivisionByZeroError('Cannot divide by zero');
             }
 
             return 'Result: '.($numbers[0] / $numbers[1]);
-        })
-        ;
+        });
 
     // Test with division by zero - a real runtime error
     $result = $tool->handle([10, 0]);
@@ -237,8 +235,7 @@ it('demonstrates enum parameters without validation', function (): void {
         ->as('set_status')
         ->for('Set status')
         ->withEnumParameter('status', 'Status value', ['active', 'inactive', 'pending'])
-        ->using(fn (string $status): string => "Status set to: $status")
-        ;
+        ->using(fn (string $status): string => "Status set to: $status");
 
     // Currently accepts any string value
     $result = $tool->handle('completed');
@@ -250,8 +247,7 @@ it('handles boolean parameters with PHP type coercion', function (): void {
         ->as('toggle_feature')
         ->for('Toggle a feature')
         ->withBooleanParameter('enabled', 'Whether to enable the feature')
-        ->using(fn (bool $enabled): string => $enabled ? 'Feature enabled' : 'Feature disabled')
-        ;
+        ->using(fn (bool $enabled): string => $enabled ? 'Feature enabled' : 'Feature disabled');
 
     // PHP coerces 'yes' to true
     $result = $tool->handle('yes');
@@ -272,8 +268,7 @@ it('handles multiple optional parameters with partial invalid data', function ()
         ->withStringParameter('path', 'Directory path', required: false)
         ->withNumberParameter('limit', 'Max results', required: false)
         ->withBooleanParameter('recursive', 'Search recursively', required: false)
-        ->using(fn (string $query, ?string $path = './', ?int $limit = 10, ?bool $recursive = false): string => "Searching for '$query' in $path (limit: $limit, recursive: ".($recursive ? 'yes' : 'no').')')
-        ;
+        ->using(fn (string $query, ?string $path = './', ?int $limit = 10, ?bool $recursive = false): string => "Searching for '$query' in $path (limit: $limit, recursive: ".($recursive ? 'yes' : 'no').')');
 
     // Test with some valid and some invalid optional parameters
     $result = $tool->handle('test', null, 'not-a-number', 'not-a-boolean');
@@ -283,15 +278,30 @@ it('handles multiple optional parameters with partial invalid data', function ()
         ->toContain('recursive (BooleanSchema)');
 });
 
-it('allows disabling error handling globally via config', function (): void {
-    // This test demonstrates the config option exists
-    // In a real Laravel app, you would set config('prism.tool_error_handling', false)
-    // Since we can't mock config() in pest easily, we'll test the method exists
-    $tool = new Tool();
-    
-    // The Tool class should check config on initialization
-    expect($tool)
-        ->toBeInstanceOf(Tool::class)
-        ->and(method_exists($tool, 'withoutErrorHandling'))
-        ->toBeTrue();
+it('respects global config when error handling is disabled', function (): void {
+    config(['prism.tool_error_handling' => false]);
+
+    $tool = (new Tool)
+        ->as('test')
+        ->for('Test tool')
+        ->withStringParameter('name', 'Name')
+        ->using(fn (string $name): string => "Hello $name");
+
+    expect(fn (): string => $tool->handle(['array']))
+        ->toThrow(PrismException::class, 'Invalid parameters for tool : test');
+});
+
+it('respects global config when error handling is enabled', function (): void {
+    config(['prism.tool_error_handling' => true]);
+
+    $tool = (new Tool)
+        ->as('test')
+        ->for('Test tool')
+        ->withStringParameter('name', 'Name')
+        ->using(fn (string $name): string => "Hello $name");
+
+    $result = $tool->handle(['array']);
+    expect($result)
+        ->toContain('Parameter validation error')
+        ->toContain('Type mismatch');
 });

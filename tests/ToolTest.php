@@ -156,7 +156,7 @@ it('can throw a prism custom exception for unknown named parameters', function (
 
             return 'The event is at 3pm eastern';
         })
-        ->withoutErrorHandling(); // Disable error handling to get exception
+        ->withoutErrorHandling();
 
     $this->expectException(PrismException::class);
     $this->expectExceptionMessage('Invalid parameters for tool : search');
@@ -174,7 +174,7 @@ it('can throw a prism custom exception for invalid return type', function (): vo
 
             return 1;
         })
-        ->withoutErrorHandling(); // Disable error handling to get exception
+        ->withoutErrorHandling();
 
     $this->expectException(PrismException::class);
     $this->expectExceptionMessage('Invalid return type for tool : search. Tools must return string.');
