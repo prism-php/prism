@@ -118,7 +118,7 @@ This project will demonstrate Prism's powerful tools system, allowing participan
    - Creating a database search tool
    - Building a calculation/processing tool
    - Implementing an API integration tool
-   - Managing tool results and error handling
+   - Managing tool results and error handling (tools return helpful error messages by default - can be disabled with `->withoutErrorHandling()` if exceptions are preferred)
 
 3. **Building a Conversational Assistant**
    - Managing conversation state with message chains

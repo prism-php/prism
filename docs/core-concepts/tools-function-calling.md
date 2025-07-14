@@ -64,6 +64,38 @@ $searchTool = Tool::as('search')
 
 Tools can take a variety of parameters, but must always return a string.
 
+## Error Handling
+
+By default, tools handle invalid parameters gracefully by returning error messages instead of throwing exceptions. This helps AI assistants understand and potentially correct their mistakes.
+
+```php
+$tool = Tool::as('calculate')
+    ->for('Add two numbers')
+    ->withNumberParameter('a', 'First number')
+    ->withNumberParameter('b', 'Second number')
+    ->using(fn (int $a, int $b): string => (string) ($a + $b));
+
+// If AI provides invalid parameters, it receives:
+// "Parameter validation error: Type mismatch. Expected: [a (NumberSchema, required), b (NumberSchema, required)]. Received: {"a":"five","b":10}"
+```
+
+### Opting Out
+
+If you prefer exceptions for invalid parameters:
+
+```php
+// Per-tool
+$tool->withoutErrorHandling();
+
+// Per-request
+Prism::text()->withoutToolErrorHandling();
+
+// Globally
+// Set PRISM_TOOL_ERROR_HANDLING=false in .env
+```
+
+**Best Practice**: Use default error handling for conversational AI. Disable it only when you need strict validation that stops execution.
+
 ## Parameter Definition
 
 Prism offers multiple ways to define tool parameters, from simple primitives to complex objects.
