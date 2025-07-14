@@ -24,8 +24,8 @@ class Ollama extends Provider
     use InitializesClient;
 
     public function __construct(
-        #[\SensitiveParameter] readonly public string $apiKey,
-        readonly public string $url,
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $url,
     ) {}
 
     #[\Override]

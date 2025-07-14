@@ -84,9 +84,9 @@ class Structured
             'format' => $request->schema()->toArray(),
             'stream' => false,
             'options' => Arr::whereNotNull(array_merge([
-            'temperature' => $request->temperature(),
-            'num_predict' => $request->maxTokens() ?? 2048,
-            'top_p' => $request->topP(),
+                'temperature' => $request->temperature(),
+                'num_predict' => $request->maxTokens() ?? 2048,
+                'top_p' => $request->topP(),
             ], $request->providerOptions())),
         ]);
 
