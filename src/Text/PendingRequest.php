@@ -32,6 +32,18 @@ class PendingRequest
     use HasProviderTools;
     use HasTools;
 
+    protected bool $toolErrorHandlingEnabled = true;
+
+    /**
+     * Disable tool error handling for this request.
+     */
+    public function withoutToolErrorHandling(): self
+    {
+        $this->toolErrorHandlingEnabled = false;
+
+        return $this;
+    }
+
     /**
      * @deprecated Use `asText` instead.
      */
@@ -81,6 +93,18 @@ class PendingRequest
             $messages[] = new UserMessage($this->prompt);
         }
 
+        // Apply error handling preference to tools if disabled
+        $tools = $this->tools;
+        if (!$this->toolErrorHandlingEnabled && !empty($tools)) {
+            $tools = array_map(function ($tool) {
+                // Only disable if the tool hasn't already been explicitly configured
+                if ($tool instanceof \Prism\Prism\Tool && $tool->failedHandler() !== null) {
+                    return $tool->withoutErrorHandling();
+                }
+                return $tool;
+            }, $tools);
+        }
+
         return new Request(
             model: $this->model,
             providerKey: $this->providerKey(),
@@ -91,7 +115,7 @@ class PendingRequest
             maxTokens: $this->maxTokens,
             maxSteps: $this->maxSteps,
             topP: $this->topP,
-            tools: $this->tools,
+            tools: $tools,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,
