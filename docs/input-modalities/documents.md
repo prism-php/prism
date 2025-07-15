@@ -15,16 +15,17 @@ Please check provider documentation for supported file/mime types, as support di
 
 The most supported file types are pdf and text/plain (which may include markdown).
 
-## Transfer mediums 
+## Transfer mediums
 
 > [!TIP]
 > If provider interoperability is important to your app, we recommend using rawContent or base64.
 
-Providers are not consistent in their support of sending file raw contents, base64 and/or URLs. 
+Providers are not consistent in their support of sending file raw contents, base64 and/or URLs.
 
 Prism tries to smooth over these rough edges, but its not always possible.
 
 ### Supported conversions
+
 - Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.
 - Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
 
@@ -48,7 +49,7 @@ $response = Prism::text()
     ->withPrompt(
         'Analyze this document',
         [Document::fromLocalPath(
-            path: 'tests/Fixtures/test-pdf.pdf', 
+            path: 'tests/Fixtures/test-pdf.pdf',
             title: 'My document title' // optional
         )]
     )
@@ -60,7 +61,7 @@ $response = Prism::text()
     ->withPrompt(
         'Summarize this document',
         [Document::fromStoragePath(
-            path: 'mystoragepath/file.pdf', 
+            path: 'mystoragepath/file.pdf',
             disk: 'my-disk', // optional - omit/null for default disk
             title: 'My document title' // optional
         )]
@@ -73,8 +74,8 @@ $response = Prism::text()
     ->withPrompt(
         'Extract key points from this document',
         [Document::fromBase64(
-            base64: $baseFromDB, 
-            mimeType: 'optional/mimetype', // optional 
+            base64: $baseFromDB,
+            mimeType: 'optional/mimetype', // optional
             title: 'My document title' // optional
         )]
     )
@@ -86,8 +87,8 @@ $response = Prism::text()
     ->withPrompt(
         'Review this document',
         [Document::fromRawContent(
-            rawContent: $rawContent, 
-            mimeType: 'optional/mimetype', // optional 
+            rawContent: $rawContent,
+            mimeType: 'optional/mimetype', // optional
             title: 'My document title' // optional
         )]
     )
@@ -99,7 +100,7 @@ $response = Prism::text()
     ->withPrompt(
         'Process this text document',
         [Document::fromText(
-            text: 'Hello world!', 
+            text: 'Hello world!',
             title: 'My document title' // optional
         )]
     )
@@ -111,7 +112,7 @@ $response = Prism::text()
     ->withPrompt(
         'Analyze this document from URL',
         [Document::fromUrl(
-            url: 'https://example.com/test-pdf.pdf', 
+            url: 'https://example.com/test-pdf.pdf',
             title: 'My document title' // optional
         )]
     )
@@ -126,8 +127,19 @@ $response = Prism::text()
             chunks: [
                 'chunk one',
                 'chunk two'
-            ], 
+            ],
             title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From a provider file ID
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Analyze this document from provider file',
+        [Document::fromFileId(
+            fileId: 'my-provider-file-id'
         )]
     )
     ->asText();
@@ -144,7 +156,7 @@ use Prism\Prism\ValueObjects\Media\Document;
 $message = new UserMessage(
     'Analyze this document',
     [Document::fromLocalPath(
-        path: 'tests/Fixtures/test-pdf.pdf', 
+        path: 'tests/Fixtures/test-pdf.pdf',
         title: 'My document title' // optional
     )]
 );
@@ -155,18 +167,20 @@ $response = Prism::text()
     ->asText();
 ```
 
-Or, if using an OpenAI file_id - add an `OpenAIFile`:
+Or, if using a provider file_id - use fromFileId:
 
 ```php
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Media\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withPrompt(
         'Analyze this OpenAI file',
-        [new OpenAIFile('file-lsfgSXyV2xEb8gw8fYjXU6')]
+        [Document::fromFileId(
+            fileId: 'file-lsfgSXyV2xEb8gw8fYjXU6'
+        )]
     )
     ->asText();
 ```

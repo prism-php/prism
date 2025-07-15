@@ -10,7 +10,6 @@ use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Media;
-use Prism\Prism\ValueObjects\Media\OpenAIFile;
 use Prism\Prism\ValueObjects\Media\Text;
 use Prism\Prism\ValueObjects\Media\Video;
 
@@ -19,7 +18,7 @@ class UserMessage implements Message
     use HasProviderOptions;
 
     /**
-     * @param  array<int, Text|Image|Document>  $additionalContent
+     * @param  array<int, Text|Image|Document|Media>  $additionalContent
      * @param  array<string, mixed>  $additionalAttributes
      */
     public function __construct(
@@ -72,20 +71,6 @@ class UserMessage implements Message
     {
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Document)
-            ->toArray();
-    }
-
-    /**
-     * Note: Prism currently only supports previously uploaded Files with OpenAI.
-     *
-     * @deprecated Use `documents()` instead.
-     *
-     * @return OpenAIFile[]
-     */
-    public function files(): array
-    {
-        return collect($this->additionalContent)
-            ->where(fn ($part): bool => $part instanceof OpenAIFile)
             ->toArray();
     }
 

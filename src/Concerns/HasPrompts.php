@@ -9,7 +9,6 @@ use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Media;
-use Prism\Prism\ValueObjects\Media\OpenAIFile;
 use Prism\Prism\ValueObjects\Media\Text;
 use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -19,7 +18,7 @@ trait HasPrompts
     protected ?string $prompt = null;
 
     /**
-     * @var array<int, Audio|Text|Image|Media|Document|OpenAIFile|Video>
+     * @var array<int, Audio|Text|Image|Media|Document|Video>
      */
     protected array $additionalContent = [];
 
@@ -29,7 +28,7 @@ trait HasPrompts
     protected array $systemPrompts = [];
 
     /**
-     * @param  array<int, Audio|Text|Image|Media|Document|OpenAIFile|Video>  $additionalContent
+     * @param  array<int, Audio|Text|Image|Media|Document|Video>  $additionalContent
      */
     public function withPrompt(string|View $prompt, array $additionalContent = []): self
     {
