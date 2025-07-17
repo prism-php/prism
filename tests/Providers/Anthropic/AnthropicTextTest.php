@@ -15,7 +15,7 @@ use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Prism\Prism\ValueObjects\ProviderTool;

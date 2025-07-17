@@ -14,7 +14,7 @@ use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\DocumentMapper;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
 use Prism\Prism\Text\ResponseBuilder;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 class OCR
 {

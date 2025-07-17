@@ -6,6 +6,10 @@ namespace Prism\Prism\Providers;
 
 use Generator;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as SpeechToTextResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -40,6 +44,16 @@ abstract class Provider
     public function images(ImagesRequest $request): ImagesResponse
     {
         throw PrismException::unsupportedProviderAction('images', class_basename($this));
+    }
+
+    public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
+    {
+        throw PrismException::unsupportedProviderAction('textToSpeech', class_basename($this));
+    }
+
+    public function speechToText(SpeechToTextRequest $request): SpeechToTextResponse
+    {
+        throw PrismException::unsupportedProviderAction('speechToText', class_basename($this));
     }
 
     /**

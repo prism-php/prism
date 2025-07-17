@@ -35,92 +35,138 @@ Prism tries to smooth over these rough edges, but its not always possible.
 
 ## Getting started
 
-To add a document to your message, add a `Document` value object to the `additionalContent` property:
+To add a document to your prompt, use the `withPrompt` method with a `Document` value object:
 
 ```php
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\Document;
 
-Prism::text()
+// From a local path
+$response = Prism::text()
     ->using('my-provider', 'my-model')
-    ->withMessages([
-        // From a local path
-        new UserMessage('Here is the document from a local path', [
-            Document::fromLocalPath(
-                path: 'tests/Fixtures/test-pdf.pdf', 
-                title: 'My document title' // optional
-            ),
-        ]),
-        // From a storage path
-        new UserMessage('Here is the document from a storage path', [
-            Document::fromStoragePath(
-                path: 'mystoragepath/file.pdf', 
-                disk: 'my-disk', // optional - omit/null for default disk
-                title: 'My document title' // optional
-            ),
-        ]),
-        // From base64
-        new UserMessage('Here is the document from base64', [
-            Document::fromBase64(
-                base64: $baseFromDB, 
-                mimeType: 'optional/mimetype', // optional 
-                title: 'My document title' // optional
-            ),
-        ]),
-        // From raw content
-        new UserMessage('Here is the document from raw content', [
-            Document::fromRawContent(
-                rawContent: $rawContent, 
-                mimeType: 'optional/mimetype', // optional 
-                title: 'My document title' // optional
-            ),
-        ]),
-        // From a text string
-        new UserMessage('Here is the document from a text string (e.g. from your database)', [
-            Document::fromText(
-                text: 'Hello world!', 
-                title: 'My document title' // optional
-            ),
-        ]),
-        // From an URL
-        new UserMessage('Here is the document from a url (make sure this is publically accessible)', [
-            Document::fromUrl(
-                url: 'https://example.com/test-pdf.pdf', 
-                title: 'My document title' // optional
-            ),
-        ]),
-        // From chunks
-        new UserMessage('Here is a chunked document', [
-            Document::fromChunks(
-                chunks: [
-                    'chunk one',
-                    'chunk two'
-                ], 
-                title: 'My document title' // optional
-            ),
-        ]),
-    ])
+    ->withPrompt(
+        'Analyze this document',
+        [Document::fromLocalPath(
+            path: 'tests/Fixtures/test-pdf.pdf', 
+            title: 'My document title' // optional
+        )]
+    )
     ->asText();
 
+// From a storage path
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Summarize this document',
+        [Document::fromStoragePath(
+            path: 'mystoragepath/file.pdf', 
+            disk: 'my-disk', // optional - omit/null for default disk
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From base64
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Extract key points from this document',
+        [Document::fromBase64(
+            base64: $baseFromDB, 
+            mimeType: 'optional/mimetype', // optional 
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From raw content
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Review this document',
+        [Document::fromRawContent(
+            rawContent: $rawContent, 
+            mimeType: 'optional/mimetype', // optional 
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From a text string
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Process this text document',
+        [Document::fromText(
+            text: 'Hello world!', 
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From an URL
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Analyze this document from URL',
+        [Document::fromUrl(
+            url: 'https://example.com/test-pdf.pdf', 
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+
+// From chunks
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withPrompt(
+        'Process this chunked document',
+        [Document::fromChunks(
+            chunks: [
+                'chunk one',
+                'chunk two'
+            ], 
+            title: 'My document title' // optional
+        )]
+    )
+    ->asText();
+```
+
+## Alternative: Using withMessages
+
+You can also include documents using the message-based approach:
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Media\Document;
+
+$message = new UserMessage(
+    'Analyze this document',
+    [Document::fromLocalPath(
+        path: 'tests/Fixtures/test-pdf.pdf', 
+        title: 'My document title' // optional
+    )]
+);
+
+$response = Prism::text()
+    ->using('my-provider', 'my-model')
+    ->withMessages([$message])
+    ->asText();
 ```
 
 Or, if using an OpenAI file_id - add an `OpenAIFile`:
 
 ```php
-use Prism\Enums\Provider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\OpenAIFile;
 
-Prism::text()
+$response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
-    ->withMessages([
-        new UserMessage('Here is the document from file_id', [
-            new OpenAIFile('file-lsfgSXyV2xEb8gw8fYjXU6'),
-        ]),
-    ])
+    ->withPrompt(
+        'Analyze this OpenAI file',
+        [new OpenAIFile('file-lsfgSXyV2xEb8gw8fYjXU6')]
+    )
     ->asText();
 ```

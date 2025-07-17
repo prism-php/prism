@@ -52,7 +52,7 @@ If you prefer, you can use the `AnthropicCacheType` Enum like so:
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 (new UserMessage('I am a long re-usable user message.'))->withProviderOptions(['cacheType' => AnthropicCacheType::ephemeral])
 ```
@@ -182,7 +182,7 @@ Custom content documents are primarily for use with citations (see below), if yo
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -247,7 +247,7 @@ Anthropic require citations to be enabled on all documents in a request. To enab
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')

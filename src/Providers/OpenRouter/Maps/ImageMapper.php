@@ -6,7 +6,7 @@ namespace Prism\Prism\Providers\OpenRouter\Maps;
 
 use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 
 /**
  * @property Image $media
