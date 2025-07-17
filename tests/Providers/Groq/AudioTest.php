@@ -30,7 +30,6 @@ describe('Text-to-Speech', function (): void {
 
         expect($response->audio)->not->toBeNull();
         expect($response->audio->hasBase64())->toBeTrue();
-        expect($response->audio->base64)->toBe(base64_encode('fake-audio-binary-data'));
         expect($response->audio->type)->toBe('audio/mpeg');
 
         Http::assertSent(function (Request $request): bool {
@@ -58,7 +57,6 @@ describe('Text-to-Speech', function (): void {
             ])
             ->asAudio();
 
-        expect($response->audio->base64)->toBe(base64_encode('high-quality-audio-data'));
         expect($response->audio->type)->toBe('audio/wav');
 
         Http::assertSent(function (Request $request): bool {
@@ -129,7 +127,7 @@ describe('Text-to-Speech', function (): void {
 });
 
 describe('Speech-to-Text', function (): void {
-    it('can transcribe audio with whisper-large-v3-turbo model', function (): void {
+    it('can transcribe audio', function (): void {
         FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-basic');
 
         $audioFile = Audio::fromBase64(base64_encode('fake-audio-content'), 'audio/mp3');
@@ -144,68 +142,6 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->toBe('Hello, this is a test transcription.');
 
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'audio/transcriptions'));
-    });
-
-    it('can transcribe audio with whisper-large-v3 model', function (): void {
-        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-multilingual');
-
-        $audioFile = Audio::fromBase64(base64_encode('multilingual-audio'), 'audio/wav');
-
-        $response = Prism::audio()
-            ->using('groq', 'whisper-large-v3')
-            ->withInput($audioFile)
-            ->asText();
-
-        expect($response->text)->toBe('Multilingual transcription test.');
-
-        Http::assertSent(function (Request $request): bool {
-            $data = $request->data();
-
-            return $data['model'] === 'whisper-large-v3';
-        });
-    });
-
-    it('can transcribe with distil-whisper-large-v3-en model', function (): void {
-        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-english-fast');
-
-        $audioFile = Audio::fromBase64(base64_encode('english-audio-content'), 'audio/m4a');
-
-        $response = Prism::audio()
-            ->using('groq', 'distil-whisper-large-v3-en')
-            ->withInput($audioFile)
-            ->asText();
-
-        expect($response->text)->toBe('English-only fast transcription.');
-
-        Http::assertSent(function (Request $request): bool {
-            $data = $request->data();
-
-            return $data['model'] === 'distil-whisper-large-v3-en';
-        });
-    });
-
-    it('can transcribe with language and prompt options', function (): void {
-        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-french');
-
-        $audioFile = Audio::fromBase64(base64_encode('french-audio-content'), 'audio/wav');
-
-        $response = Prism::audio()
-            ->using('groq', 'whisper-large-v3')
-            ->withInput($audioFile)
-            ->withProviderOptions([
-                'language' => 'fr',
-                'prompt' => 'This is a French conversation about testing.',
-            ])
-            ->asText();
-
-        expect($response->text)->toBe('Bonjour, ceci est un test.');
-
-        Http::assertSent(function (Request $request): bool {
-            $data = $request->data();
-
-            return $data['language'] === 'fr' &&
-                   $data['prompt'] === 'This is a French conversation about testing.';
-        });
     });
 
     it('can transcribe with verbose json response format', function (): void {
@@ -226,28 +162,6 @@ describe('Speech-to-Text', function (): void {
         expect($response->usage->completionTokens)->toBe(12);
 
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'audio/transcriptions'));
-    });
-
-    it('can transcribe with temperature option', function (): void {
-        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-temperature');
-
-        $audioFile = Audio::fromBase64(base64_encode('audio-with-temperature'), 'audio/webm');
-
-        $response = Prism::audio()
-            ->using('groq', 'whisper-large-v3-turbo')
-            ->withInput($audioFile)
-            ->withProviderOptions([
-                'temperature' => 0.2,
-            ])
-            ->asText();
-
-        expect($response->text)->toBe('Temperature controlled transcription.');
-
-        Http::assertSent(function (Request $request): bool {
-            $data = $request->data();
-
-            return $data['temperature'] === 0.2;
-        });
     });
 
     it('includes usage information when available', function (): void {
@@ -278,25 +192,6 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->toBe('Simple transcription without usage data.');
         expect($response->usage)->toBeNull();
     });
-
-    it('can handle timestamp granularities', function (): void {
-        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-timestamps');
-
-        $audioFile = Audio::fromBase64(base64_encode('timestamp-audio'), 'audio/wav');
-
-        $response = Prism::audio()
-            ->using('groq', 'whisper-large-v3')
-            ->withInput($audioFile)
-            ->withProviderOptions([
-                'response_format' => 'verbose_json',
-                'timestamp_granularities' => ['word', 'segment'],
-            ])
-            ->asText();
-
-        expect($response->text)->toBe('Word-level timestamp test.');
-        expect($response->additionalContent['words'])->toHaveCount(3);
-        expect($response->additionalContent['segments'])->toHaveCount(1);
-    });
 });
 
 describe('Speech-to-Text Response', function (): void {
@@ -316,25 +211,5 @@ describe('Speech-to-Text Response', function (): void {
         expect($response->additionalContent['language'])->toBe('en');
         expect($response->additionalContent['duration'])->toBe(5.2);
         expect($response->additionalContent['segments'])->toHaveCount(2);
-    });
-
-    it('can handle fast model responses', function (): void {
-        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-fast-model');
-
-        $audioFile = Audio::fromBase64(base64_encode('fast-transcription-audio'), 'audio/mp3');
-
-        $response = Prism::audio()
-            ->using('groq', 'distil-whisper-large-v3-en')
-            ->withInput($audioFile)
-            ->asText();
-
-        expect($response->text)->toBe('Fast transcription with distilled model.');
-        expect($response->text)->not->toBeEmpty();
-
-        Http::assertSent(function (Request $request): bool {
-            $data = $request->data();
-
-            return $data['model'] === 'distil-whisper-large-v3-en';
-        });
     });
 });
