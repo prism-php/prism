@@ -13,10 +13,10 @@ use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolMap;
-use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Meta;
@@ -30,14 +30,9 @@ class Stream
     use MapsFinishReason;
     use ValidatesResponses;
 
-    /**
-     * @param PendingRequest $client
-     */
     public function __construct(protected PendingRequest $client) {}
 
     /**
-     * @param Request $request
-     * @return Generator
      * @throws ConnectionException
      */
     public function handle(Request $request): Generator
@@ -73,21 +68,23 @@ class Stream
             }
 
             $reasoningDelta = $this->extractReasoningDelta($data);
-            if (!empty($reasoningDelta)) {
+            if (! empty($reasoningDelta)) {
                 yield new Chunk(
                     text: $reasoningDelta,
                     finishReason: null,
                     chunkType: ChunkType::Thinking
                 );
+
                 continue;
             }
 
             $content = $this->extractContentDelta($data);
-            if (!empty($content)) {
+            if (! empty($content)) {
                 yield new Chunk(
                     text: $content,
                     finishReason: null
                 );
+
                 continue;
             }
 
@@ -120,8 +117,8 @@ class Stream
     }
 
     /**
-     * @param StreamInterface $stream
-     * @return array|null
+     * @return array<string, mixed>|null
+     *
      * @throws PrismChunkDecodeException
      */
     protected function parseNextDataLine(StreamInterface $stream): ?array
@@ -146,17 +143,15 @@ class Stream
     }
 
     /**
-     * @param array $data
-     * @return string
+     * @param  array<string, mixed>  $data
      */
-    protected function extractReasoningDelta(array $data): ?string
+    protected function extractReasoningDelta(array $data): string
     {
         return data_get($data, 'choices.0.delta.reasoning_content') ?? '';
     }
 
     /**
-     * @param array $data
-     * @return string
+     * @param  array<string, mixed>  $data
      */
     protected function extractContentDelta(array $data): string
     {
@@ -164,8 +159,7 @@ class Stream
     }
 
     /**
-     * @param array $data
-     * @return FinishReason
+     * @param  array<string, mixed>  $data
      */
     protected function extractFinishReason(array $data): FinishReason
     {
@@ -178,14 +172,16 @@ class Stream
         return $this->mapFinishReason($data);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
+     */
     protected function extractUsage(array $data): ?array
     {
         return data_get($data, 'usage');
     }
 
     /**
-     * @param Request $request
-     * @return Response
      * @throws ConnectionException
      */
     protected function sendRequest(Request $request): Response
@@ -206,10 +202,6 @@ class Stream
         );
     }
 
-    /**
-     * @param StreamInterface $stream
-     * @return string
-     */
     protected function readLine(StreamInterface $stream): string
     {
         $buffer = '';
