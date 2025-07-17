@@ -49,6 +49,7 @@ echo "Transcription: " . $response->text;
 Currently, Prism supports audio processing through:
 
 - **OpenAI**: TTS-1, TTS-1-HD (text-to-speech) and Whisper-1 (speech-to-text)
+- **Groq**: PlayAI TTS models (text-to-speech) and Whisper Large V3 models (speech-to-text)
 
 Additional providers will be added in future releases as the ecosystem evolves.
 
@@ -176,7 +177,7 @@ echo "Transcription: " . $text;
 if ($response->usage) {
     echo "Prompt tokens: " . $response->usage->promptTokens;
     echo "Completion tokens: " . $response->usage->completionTokens;
-}`
+}
 
 // Access raw response data
 print_r($response->additionalContent);
@@ -190,33 +191,7 @@ Prism provides a dedicated `withVoice()` method for selecting voices in text-to-
 $response = Prism::audio()
     ->using('openai', 'tts-1')
     ->withInput('Hello, how are you today?')
-    ->withVoice('alloy')  // alloy, echo, fable, onyx, nova, shimmer
-    ->asAudio();
-```
-
-### Available Voices
-
-OpenAI provides six different voices for text-to-speech:
-
-- `alloy` - Neutral, balanced voice
-- `echo` - Clear, warm tone
-- `fable` - Expressive, storytelling voice
-- `onyx` - Deep, authoritative tone
-- `nova` - Young, energetic voice
-- `shimmer` - Gentle, whispering tone
-
-```php
-// Different voices for different contexts
-$announcements = Prism::audio()
-    ->using('openai', 'tts-1')
-    ->withInput('Welcome to our service!')
-    ->withVoice('onyx')  // Authoritative tone
-    ->asAudio();
-
-$stories = Prism::audio()
-    ->using('openai', 'tts-1')
-    ->withInput('Once upon a time...')
-    ->withVoice('fable')  // Storytelling voice
+    ->withVoice('alloy')  // Voice options vary by provider
     ->asAudio();
 ```
 
@@ -318,7 +293,6 @@ $speechResponse = Prism::audio()
     ->withVoice('alloy')
     ->asAudio();
 ```
-
 
 ## Configuration Options
 
@@ -427,7 +401,7 @@ test('can transcribe speech-to-text', function () {
         ->withInput($audioFile)
         ->asText();
 
-            expect($response->text)->toBe('This is a fake transcription');
+    expect($response->text)->toBe('This is a fake transcription');
 });
 ```
 

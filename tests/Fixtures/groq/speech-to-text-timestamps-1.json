@@ -1,0 +1,27 @@
+{
+  "text": "Word-level timestamp test.",
+  "words": [
+    {
+      "word": "Word-level",
+      "start": 0.0,
+      "end": 0.5
+    },
+    {
+      "word": "timestamp",
+      "start": 0.5,
+      "end": 1.0
+    },
+    {
+      "word": "test.",
+      "start": 1.0,
+      "end": 1.2
+    }
+  ],
+  "segments": [
+    {
+      "text": "Word-level timestamp test.",
+      "start": 0.0,
+      "end": 1.2
+    }
+  ]
+} 

@@ -7,6 +7,10 @@ namespace Prism\Prism\Providers\Groq;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\AudioResponse;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as AudioTextResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
@@ -14,6 +18,7 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\Groq\Handlers\Audio;
 use Prism\Prism\Providers\Groq\Handlers\Stream;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
@@ -47,6 +52,22 @@ class Groq extends Provider
         $handler = new Structured($this->client($request->clientOptions(), $request->clientRetry()));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function textToSpeech(TextToSpeechRequest $request): AudioResponse
+    {
+        $handler = new Audio($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handleTextToSpeech($request);
+    }
+
+    #[\Override]
+    public function speechToText(SpeechToTextRequest $request): AudioTextResponse
+    {
+        $handler = new Audio($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handleSpeechToText($request);
     }
 
     public function handleRequestException(string $model, RequestException $e): never
