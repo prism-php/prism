@@ -6,17 +6,20 @@ namespace Prism\Prism\ValueObjects\Messages;
 
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
-use Prism\Prism\ValueObjects\Messages\Support\Text;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\OpenAIFile;
+use Prism\Prism\ValueObjects\Media\Text;
+use Prism\Prism\ValueObjects\Media\Video;
 
 class UserMessage implements Message
 {
     use HasProviderOptions;
 
     /**
-     * @param  array<int, Text|Image|Document|OpenAIFile>  $additionalContent
+     * @param  array<int, Audio|Text|Image|Media|Document|OpenAIFile>  $additionalContent
      * @param  array<string, mixed>  $additionalAttributes
      */
     public function __construct(
@@ -51,6 +54,16 @@ class UserMessage implements Message
     }
 
     /**
+     * @return array<int, Audio|Video|Media>
+     */
+    public function media(): array
+    {
+        return collect($this->additionalContent)
+            ->filter(fn ($part): bool => $part instanceof Audio || $part instanceof Video || $part instanceof Media)
+            ->toArray();
+    }
+
+    /**
      * Note: Prism currently only supports Documents with Anthropic.
      *
      * @return Document[]
@@ -71,6 +84,16 @@ class UserMessage implements Message
     {
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof OpenAIFile)
+            ->toArray();
+    }
+
+    /**
+     * @return Audio[]
+     */
+    public function audios(): array
+    {
+        return collect($this->additionalContent)
+            ->where(fn ($part): bool => $part instanceof Audio)
             ->toArray();
     }
 }

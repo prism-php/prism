@@ -9,6 +9,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Providers\Provider as ProviderContract;
 use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -324,3 +325,31 @@ test('you can run toRequest multiple times', function (): void {
     $request->toRequest();
     $request->toRequest();
 })->throwsNoExceptions();
+
+test('it can set prompt with additional content', function (): void {
+    $image = Image::fromUrl('https://example.com/image.jpg');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('Analyze this image', [$image]);
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Analyze this image')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($generated->messages()[0]->additionalContent)->toHaveCount(2) // Text + Image
+        ->and($generated->messages()[0]->images())->toHaveCount(1)
+        ->and($generated->messages()[0]->images()[0])->toBe($image);
+});
+
+test('withPrompt maintains backward compatibility without additional content', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('Hello AI');
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Hello AI')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($generated->messages()[0]->additionalContent)->toHaveCount(1); // Only Text
+});

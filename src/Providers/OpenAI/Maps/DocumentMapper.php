@@ -4,7 +4,7 @@ namespace Prism\Prism\Providers\OpenAI\Maps;
 
 use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 /**
  * @property Document $media

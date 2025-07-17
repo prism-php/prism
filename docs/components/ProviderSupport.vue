@@ -302,8 +302,8 @@ export default {
         {
           name: "xAI",
           text: Supported,
-          streaming: Unsupported,
-          structured: Unsupported,
+          streaming: Supported,
+          structured: Supported,
           embeddings: Unsupported,
           image: Supported,
           tools: Supported,

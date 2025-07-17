@@ -29,5 +29,5 @@ features:
   - title: First-Class Testing Support
     details: Write confident code with our comprehensive testing utilities, including response faking and detailed assertion helpers that make unit testing a breeze.
   - title: Multi-Modal Capabilities
-    details: Work with both text and images seamlessly using the same elegant API, enabling rich visual understanding and context-aware responses.
+    details: Work with text, images, and audio seamlessly using the same elegant API, enabling rich understanding and context-aware responses across all media types.
 ---

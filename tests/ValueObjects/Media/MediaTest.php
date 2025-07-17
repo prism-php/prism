@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Media\Media;
 
 describe('creation', function (): void {
     it('can create from a local path', function (): void {

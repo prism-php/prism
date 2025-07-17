@@ -1,0 +1,8 @@
+data: {"id":"chatcmpl-124","object":"chat.completion.chunk","created":1752363435,"model":"grok-4","choices":[{"index":0,"delta":{"reasoning_content":"Now I have the weather information. Let me also get information about the Tigers game.","role":"assistant"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-124","object":"chat.completion.chunk","created":1752363436,"model":"grok-4","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_47706008","function":{"name":"get_weather","arguments":"{\"city\":\"Detroit\"}"},"index":0,"type":"function"}]}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-124","object":"chat.completion.chunk","created":1752363437,"model":"grok-4","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: [DONE]
+

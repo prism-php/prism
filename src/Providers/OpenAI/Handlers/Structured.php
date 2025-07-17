@@ -132,7 +132,9 @@ class Structured
             'type' => 'json_schema',
             'name' => $request->schema()->name(),
             'schema' => $request->schema()->toArray(),
-            'strict' => $request->providerOptions('schema.strict') ? true : null,
+            'strict' => is_null($request->providerOptions('schema.strict'))
+                ? null
+                : $request->providerOptions('schema.strict'),
         ]);
 
         return $this->sendRequest($request, $responseFormat);

@@ -8,6 +8,10 @@ use Closure;
 use Exception;
 use Generator;
 use PHPUnit\Framework\Assert as PHPUnit;
+use Prism\Prism\Audio\AudioResponse;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as AudioTextResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
@@ -21,6 +25,7 @@ use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\GeneratedAudio;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
@@ -31,14 +36,14 @@ class PrismFake extends Provider
 
     protected int $responseSequence = 0;
 
-    /** @var array<int, StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest> */
+    /** @var array<int, StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest|TextToSpeechRequest|SpeechToTextRequest> */
     protected array $recorded = [];
 
     /** @var array<string, mixed> */
     protected array $providerConfig = [];
 
     /**
-     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse>  $responses
+     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse|AudioResponse|AudioTextResponse>  $responses
      */
     public function __construct(protected array $responses = []) {}
 
@@ -108,6 +113,32 @@ class PrismFake extends Provider
         );
     }
 
+    #[\Override]
+    public function textToSpeech(TextToSpeechRequest $request): AudioResponse
+    {
+        $this->recorded[] = $request;
+
+        return $this->nextAudioResponse() ?? new AudioResponse(
+            audio: new GeneratedAudio(
+                base64: 'ZmFrZS1hdWRpby1jb250ZW50',
+                type: 'audio/mpeg'
+            ),
+            additionalContent: [],
+        );
+    }
+
+    #[\Override]
+    public function speechToText(SpeechToTextRequest $request): AudioTextResponse
+    {
+        $this->recorded[] = $request;
+
+        return $this->nextAudioTextResponse() ?? new AudioTextResponse(
+            text: 'fake transcribed text',
+            usage: new Usage(0, 0),
+            additionalContent: [],
+        );
+    }
+
     /**
      * Fake implementation of the streaming endpoint.
      *
@@ -153,7 +184,7 @@ class PrismFake extends Provider
     }
 
     /**
-     * @param  Closure(array<int, StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest>):void  $fn
+     * @param  Closure(array<int, StructuredRequest|TextRequest|EmbeddingRequest|ImageRequest|TextToSpeechRequest|SpeechToTextRequest>):void  $fn
      */
     public function assertRequest(Closure $fn): void
     {
@@ -256,7 +287,45 @@ class PrismFake extends Provider
             return null;
         }
 
-        /** @var ImageResponse[] $responses */
+        /** @var array<int, ImageResponse> $responses */
+        $responses = $this->responses;
+        $sequence = $this->responseSequence;
+
+        if (! isset($responses[$sequence])) {
+            throw new Exception('Could not find a response for the request');
+        }
+
+        $this->responseSequence++;
+
+        return $responses[$sequence];
+    }
+
+    protected function nextAudioResponse(): ?AudioResponse
+    {
+        if (! isset($this->responses)) {
+            return null;
+        }
+
+        /** @var array<int, AudioResponse> $responses */
+        $responses = $this->responses;
+        $sequence = $this->responseSequence;
+
+        if (! isset($responses[$sequence])) {
+            throw new Exception('Could not find a response for the request');
+        }
+
+        $this->responseSequence++;
+
+        return $responses[$sequence];
+    }
+
+    protected function nextAudioTextResponse(): ?AudioTextResponse
+    {
+        if (! isset($this->responses)) {
+            return null;
+        }
+
+        /** @var array<int, AudioTextResponse> $responses */
         $responses = $this->responses;
         $sequence = $this->responseSequence;
 

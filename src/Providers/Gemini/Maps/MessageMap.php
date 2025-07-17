@@ -7,9 +7,12 @@ namespace Prism\Prism\Providers\Gemini\Maps;
 use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -101,7 +104,13 @@ class MessageMap
         }
 
         // Gemini docs suggest including text prompt after documents, but before images.
-        $parts = array_merge($this->mapDocuments($message->documents()), $parts, $this->mapImages($message->images()));
+        $parts = array_merge(
+            $this->mapDocuments($message->documents()),
+            $parts,
+            $this->mapImages($message->images()),
+            $this->mapVideo($message->media()),
+            $this->mapAudio($message->media()),
+        );
 
         $this->contents['contents'][] = [
             'role' => 'user',
@@ -141,6 +150,24 @@ class MessageMap
     protected function mapImages(array $images): array
     {
         return array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $images);
+    }
+
+    /**
+     * @param  Media[]|Video[]  $video
+     * @return array<string,array<string,mixed>>
+     */
+    protected function mapVideo(array $video): array
+    {
+        return array_map(fn (Video|Media $media): array => (new AudioVideoMapper($media))->toPayload(), $video);
+    }
+
+    /**
+     * @param  Media[]|Audio[]  $audio
+     * @return array<string,array<string,mixed>>
+     */
+    protected function mapAudio(array $audio): array
+    {
+        return array_map(fn (Audio|Media $media): array => (new AudioVideoMapper($media))->toPayload(), $audio);
     }
 
     /**

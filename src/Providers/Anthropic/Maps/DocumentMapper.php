@@ -5,8 +5,8 @@ namespace Prism\Prism\Providers\Anthropic\Maps;
 use Illuminate\Support\Str;
 use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Media;
 
 class DocumentMapper extends ProviderMediaMapper
 {
