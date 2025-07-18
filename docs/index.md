@@ -16,6 +16,9 @@ hero:
     - theme: alt
       text: Github
       link: https://github.com/prism-php/prism
+  image:
+    src: /assets/prism-logo.webp
+    alt: Prism Logo
 
 features:
   - title: Elegant Provider Integrations
