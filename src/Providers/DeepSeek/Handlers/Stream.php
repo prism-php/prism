@@ -7,7 +7,6 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
@@ -54,7 +53,6 @@ class Stream
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
-            Log::info('Stream data', ['data' => $data]);
 
             if ($data === null) {
                 continue;
