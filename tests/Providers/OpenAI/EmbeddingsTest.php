@@ -103,7 +103,7 @@ it('allows setting provider options like dimensions', function (): void {
         ->fromInput($input)
         ->asEmbeddings();
 
-    Http::assertSent(fn($request): bool => $request->url() === 'https://api.openai.com/v1/embeddings'
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://api.openai.com/v1/embeddings'
         && $request['model'] === $model
         && $request['input'] === [$input]
         && $request['dimensions'] === 256);
