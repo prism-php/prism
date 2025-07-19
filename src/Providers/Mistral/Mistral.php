@@ -7,6 +7,8 @@ namespace Prism\Prism\Providers\Mistral;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as AudioTextResponse;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
@@ -16,6 +18,7 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\Mistral\Handlers\Audio;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
 use Prism\Prism\Providers\Mistral\Handlers\Stream;
@@ -104,6 +107,19 @@ class Mistral extends Provider
         );
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function speechToText(SpeechToTextRequest $request): AudioTextResponse
+    {
+        $handler = new Audio(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry()
+            )
+        );
+
+        return $handler->handleSpeechToText($request);
     }
 
     public function handleRequestException(string $model, RequestException $e): never
