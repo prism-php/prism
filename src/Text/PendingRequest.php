@@ -17,6 +17,7 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class PendingRequest
@@ -31,6 +32,15 @@ class PendingRequest
     use HasProviderOptions;
     use HasProviderTools;
     use HasTools;
+
+    protected bool $toolErrorHandlingEnabled = true;
+
+    public function withoutToolErrorHandling(): self
+    {
+        $this->toolErrorHandlingEnabled = false;
+
+        return $this;
+    }
 
     /**
      * @deprecated Use `asText` instead.
@@ -81,6 +91,15 @@ class PendingRequest
             $messages[] = new UserMessage($this->prompt, $this->additionalContent);
         }
 
+        $tools = $this->tools;
+
+        if (! $this->toolErrorHandlingEnabled && filled($tools)) {
+            $tools = array_map(
+                callback: fn ($tool): Tool => $tool instanceof Tool && ! is_null($tool->failedHandler()) ? $tool->withoutErrorHandling() : $tool,
+                array: $tools
+            );
+        }
+
         return new Request(
             model: $this->model,
             providerKey: $this->providerKey(),
@@ -91,7 +110,7 @@ class PendingRequest
             maxTokens: $this->maxTokens,
             maxSteps: $this->maxSteps,
             topP: $this->topP,
-            tools: $this->tools,
+            tools: $tools,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,

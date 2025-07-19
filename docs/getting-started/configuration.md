@@ -64,9 +64,15 @@ PRISM_SERVER_ENABLED=true
 PROVIDER_API_KEY=your-api-key-here
 PROVIDER_URL=https://custom-endpoint.com
 
+# Tool Configuration
+PRISM_TOOL_ERROR_HANDLING=true
 ```
 > [!NOTE]
 > Remember to always refer to your chosen provider's documentation pages for the most up-to-date configuration options and requirements specific to that provider.
+
+### Tool Error Handling
+
+- `tool_error_handling` - Enable graceful error handling for tool parameters (default: `true`)
 
 ## Overriding config in your code
 

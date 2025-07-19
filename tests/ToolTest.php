@@ -137,7 +137,8 @@ it('can throw a prism custom exception for invalid parameters', function (): voi
             expect($query)->toBe('What time is the event?');
 
             return 'The event is at 3pm eastern';
-        });
+        })
+        ->withoutErrorHandling(); // Disable error handling to get exception
 
     $this->expectException(PrismException::class);
     $this->expectExceptionMessage('Invalid parameters for tool : search');
@@ -154,7 +155,8 @@ it('can throw a prism custom exception for unknown named parameters', function (
             expect($query)->toBe('What time is the event?');
 
             return 'The event is at 3pm eastern';
-        });
+        })
+        ->withoutErrorHandling();
 
     $this->expectException(PrismException::class);
     $this->expectExceptionMessage('Invalid parameters for tool : search');
@@ -171,7 +173,8 @@ it('can throw a prism custom exception for invalid return type', function (): vo
             expect($query)->toBe('What time is the event?');
 
             return 1;
-        });
+        })
+        ->withoutErrorHandling();
 
     $this->expectException(PrismException::class);
     $this->expectExceptionMessage('Invalid return type for tool : search. Tools must return string.');
