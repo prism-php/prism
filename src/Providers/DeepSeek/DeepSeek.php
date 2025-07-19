@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\DeepSeek;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Providers\DeepSeek\Handlers\Stream;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
 use Prism\Prism\Providers\Provider;
@@ -14,7 +15,6 @@ use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
-use Prism\Prism\Providers\DeepSeek\Handlers\Stream;
 
 class DeepSeek extends Provider
 {
