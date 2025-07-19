@@ -25,3 +25,14 @@ Prism currently supports three exceptions based on provider feedback:
 However, as providers all handle errors differently, support is being rolled out incrementally. If you'd like to make your first contribution, adding one or more of these exceptions for a provider would make a great first contribution. If you'd like to discuss, start an issue on Github, or just jump straight into a pull request.
 
 <ExceptionSupport />
+
+## Tool-specific Error Handling
+
+In addition to the exceptions above, Prism provides specific error handling capabilities for tools and function calling. When AI models provide invalid parameters to your tools (wrong types, missing required fields, etc.), you can choose to handle these errors gracefully instead of throwing exceptions.
+
+The tool error handling feature allows you to:
+- Return error messages to the AI instead of breaking the conversation flow
+- Differentiate between parameter validation errors and runtime execution errors  
+- Provide custom error messages for specific scenarios
+
+For detailed information about tool error handling, including the `handleToolErrors()` and `failed()` methods, see the [Tools & Function Calling](/core-concepts/tools-function-calling#error-handling-in-tools) documentation.

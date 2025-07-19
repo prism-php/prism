@@ -10,3 +10,4 @@ phpunit.xml
 .vscode
 ray.php
 CLAUDE.md
+.phpunit.result.cache

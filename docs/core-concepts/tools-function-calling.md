@@ -320,6 +320,117 @@ foreach ($response->steps as $step) {
 }
 ```
 
+## Error Handling in Tools
+
+When AI models interact with your tools, they may sometimes provide invalid parameters - wrong types, missing required values, or malformed data. By default, these errors throw exceptions that break the entire conversation flow. Prism's tool error handling feature allows you to gracefully handle these errors and provide feedback to the AI.
+
+### The Problem
+
+Without error handling, invalid tool parameters cause exceptions:
+
+```php
+$mathTool = Tool::as('calculate')
+    ->for('Add two numbers')
+    ->withNumberParameter('a', 'First number')
+    ->withNumberParameter('b', 'Second number')
+    ->using(fn(int $a, int $b): string => (string) ($a + $b));
+
+// If AI provides: {'a': 'five', 'b': 10}
+// Result: PrismException - breaks the entire flow
+```
+
+### Graceful Error Handling
+
+Enable default error handling with `handleToolErrors()`:
+
+```php
+$mathTool = Tool::as('calculate')
+    ->for('Add two numbers')
+    ->withNumberParameter('a', 'First number')
+    ->withNumberParameter('b', 'Second number')
+    ->using(fn(int $a, int $b): string => (string) ($a + $b))
+    ->handleToolErrors(); // Enable graceful error handling
+
+// Now if AI provides: {'a': 'five', 'b': 10}
+// Result: "Parameter validation error: Type mismatch. Expected: [a (NumberSchema, required), b (NumberSchema, required)]. Received: {"a":"five","b":10}. Please provide correct parameter types and names."
+```
+
+The AI receives this error message as the tool result and can adjust its approach or explain the issue to the user.
+
+### Custom Error Handlers
+
+For more control over error messages, use the `failed()` method:
+
+```php
+$searchTool = Tool::as('search')
+    ->for('Search the database')
+    ->withStringParameter('query', 'Search query')
+    ->using(function (string $query): string {
+        // Your search logic
+        return "Results for: $query";
+    })
+    ->failed(function (Throwable $e, array $params): string {
+        if ($e instanceof TypeError) {
+            return "Please provide a text search query, not a " . gettype($params['query']);
+        }
+        return "Search failed: " . $e->getMessage();
+    });
+```
+
+### Error Types
+
+Prism differentiates between two types of errors:
+
+**Parameter Validation Errors** (AI's fault):
+- Wrong parameter types
+- Missing required parameters  
+- Unknown parameters
+
+**Runtime Errors** (execution issues):
+- File not found
+- API failures
+- Division by zero
+- Custom exceptions from your code
+
+This distinction helps the AI understand whether to retry with different parameters or handle the error differently.
+
+### When to Use Error Handling
+
+✅ **Use error handling when:**
+- Your tool is part of a conversational flow
+- You want the AI to potentially retry with corrected parameters
+- You need to provide user-friendly error messages
+- Multiple tools are called and one failure shouldn't break all results
+
+❌ **Let exceptions propagate when:**
+- The error indicates a critical system failure
+- You need to log and investigate the issue
+- The tool should never fail under normal circumstances
+- You want to maintain strict parameter validation
+
+### Example: Multi-Tool Resilience
+
+```php
+$weatherTool = Tool::as('weather')
+    ->for('Get weather for a city')
+    ->withStringParameter('city', 'City name')
+    ->using(fn(string $city): string => "Weather in $city: 72°F")
+    ->handleToolErrors();
+
+$calculateTool = Tool::as('calculate')
+    ->for('Perform calculation')
+    ->withNumberParameter('a', 'First number')
+    ->withNumberParameter('b', 'Second number')
+    ->using(fn(int $a, int $b): string => (string)($a + $b))
+    ->handleToolErrors();
+
+// Even if one tool receives invalid parameters, others continue to work
+// AI can see which tools succeeded and which had errors
+```
+
+> [!TIP]
+> Error handling works identically in both streaming and non-streaming modes, ensuring consistent behavior across your application.
+
 ## Provider Tools
 
 In addition to custom tools that you define, Prism supports **provider tools** - built-in capabilities offered directly by AI providers. These are specialized tools that leverage the provider's own infrastructure and services.
