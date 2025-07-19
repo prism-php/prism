@@ -174,17 +174,15 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        if (count($request->systemPrompts()) > 1) {
-            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
-        }
-
         return $this
             ->client
             ->withOptions(['stream' => true])
             ->post('api/chat', [
                 'model' => $request->model(),
-                'system' => data_get($request->systemPrompts(), '0.content', ''),
-                'messages' => (new MessageMap($request->messages()))->map(),
+                'messages' => (new MessageMap(array_merge(
+                    $request->systemPrompts(),
+                    $request->messages()
+                )))->map(),
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => true,
                 'options' => Arr::whereNotNull(array_merge([
