@@ -346,3 +346,56 @@ it('uses meta to set auto truncation', function (): void {
         return true;
     });
 });
+
+it('can analyze images with detail parameter', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/dimond.png')
+        ->withProviderOptions(['detail' => 'high']);
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What do you see in this image?', [$image])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        $imageContent = $body['input'][0]['content'][1];
+
+        expect($imageContent['type'])->toBe('input_image');
+        expect($imageContent['detail'])->toBe('high');
+        expect($imageContent['image_url'])->toStartWith('data:image/png;base64,');
+
+        return true;
+    });
+});
+
+it('omits detail parameter when not specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/dimond.png');
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What do you see in this image?', [$image])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        $imageContent = $body['input'][0]['content'][1];
+
+        expect($imageContent['type'])->toBe('input_image');
+        expect($imageContent)->not->toHaveKey('detail');
+        expect($imageContent['image_url'])->toStartWith('data:image/png;base64,');
+
+        return true;
+    });
+});
