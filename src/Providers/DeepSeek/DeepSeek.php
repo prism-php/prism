@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\DeepSeek;
 
+use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Providers\DeepSeek\Handlers\Stream;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
 use Prism\Prism\Providers\Provider;
@@ -38,6 +40,17 @@ class DeepSeek extends Provider
     public function structured(StructuredRequest $request): StructuredResponse
     {
         $handler = new Structured($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function stream(TextRequest $request): Generator
+    {
+        $handler = new Stream($this->client(
             $request->clientOptions(),
             $request->clientRetry()
         ));
