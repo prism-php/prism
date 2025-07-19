@@ -32,6 +32,10 @@ class ImageMapper extends ProviderMediaMapper
             );
         }
 
+        if ($this->media->providerOptions('detail')) {
+            $payload['detail'] = $this->media->providerOptions('detail');
+        }
+
         return array_filter($payload);
     }
 
