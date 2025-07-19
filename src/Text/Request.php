@@ -41,8 +41,9 @@ class Request implements PrismRequest
         protected array $clientOptions,
         protected array $clientRetry,
         protected string|ToolChoice|null $toolChoice,
-        array $providerOptions = [],
-        protected array $providerTools = [],
+        array $providerOptions,
+        protected array $providerTools,
+        protected ?int $toolChoiceAutoAfterSteps,
     ) {
         $this->providerOptions = $providerOptions;
     }
@@ -50,6 +51,11 @@ class Request implements PrismRequest
     public function toolChoice(): string|ToolChoice|null
     {
         return $this->toolChoice;
+    }
+
+    public function toolChoiceAutoAfterSteps(): ?int
+    {
+        return $this->toolChoiceAutoAfterSteps;
     }
 
     /**
