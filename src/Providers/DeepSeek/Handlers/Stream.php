@@ -79,7 +79,7 @@ class Stream
             }
 
             $reasoningDelta = $this->extractReasoningDelta($data);
-            if (! empty($reasoningDelta)) {
+            if ($reasoningDelta !== '' && $reasoningDelta !== '0') {
                 yield new Chunk(
                     text: $reasoningDelta,
                     finishReason: null,
@@ -90,7 +90,7 @@ class Stream
             }
 
             $content = $this->extractContentDelta($data);
-            if (! empty($content)) {
+            if ($content !== '' && $content !== '0') {
                 $text .= $content;
 
                 yield new Chunk(
@@ -161,9 +161,8 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
-     * @return bool
      */
-    protected function hasToolCalls(array $data)
+    protected function hasToolCalls(array $data): bool
     {
         return ! empty(data_get($data, 'choices.0.delta.tool_calls', []));
     }
