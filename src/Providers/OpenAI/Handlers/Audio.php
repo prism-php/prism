@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
