@@ -10,9 +10,6 @@ use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits as ConcernsProcessesRateLimits;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
-use Prism\Prism\Providers\OpenAI\Maps\SpeechToTextRequestMapper;
-use Prism\Prism\Providers\OpenAI\Maps\TextToSpeechRequestMapper;
 use Prism\Prism\ValueObjects\GeneratedAudio;
 use Prism\Prism\ValueObjects\Usage;
 
