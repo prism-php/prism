@@ -33,15 +33,6 @@ class PendingRequest
     use HasProviderTools;
     use HasTools;
 
-    protected bool $toolErrorHandlingEnabled = true;
-
-    public function withoutToolErrorHandling(): self
-    {
-        $this->toolErrorHandlingEnabled = false;
-
-        return $this;
-    }
-
     /**
      * @deprecated Use `asText` instead.
      */
