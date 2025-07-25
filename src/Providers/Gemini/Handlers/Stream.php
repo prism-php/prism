@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -159,7 +160,14 @@ class Stream
             text: '',
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            chunkType: ChunkType::ToolCall,
             usage: $this->extractUsage([], $request),
+        );
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            chunkType: ChunkType::ToolResult,
         );
 
         // Continue the conversation with tool results
