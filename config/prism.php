@@ -6,7 +6,6 @@ return [
         'middleware' => [],
         'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
-    'tool_error_handling' => env('PRISM_TOOL_ERROR_HANDLING', true),
     'providers' => [
         'openai' => [
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),

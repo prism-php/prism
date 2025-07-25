@@ -43,10 +43,8 @@ class Tool
 
     public function __construct()
     {
-        // Initialize with default error handler if globally enabled
-        if ($this->isErrorHandlingEnabled()) {
-            $this->failedHandler = fn (Throwable $e, array $params): string => $this->getDefaultFailedMessage($e, $params);
-        }
+        // Initialize with default error handler by default
+        $this->failedHandler = fn (Throwable $e, array $params): string => $this->getDefaultFailedMessage($e, $params);
     }
 
     public function as(string $name): self
@@ -80,9 +78,6 @@ class Tool
         return $this;
     }
 
-    /**
-     * Disable tool error handling and revert to throwing exceptions.
-     */
     public function withoutErrorHandling(): self
     {
         $this->failedHandler = null;
@@ -234,15 +229,12 @@ class Tool
 
             return $value;
         } catch (Throwable $e) {
-            // If we have a failed handler, use it instead of throwing
             if ($this->failedHandler instanceof Closure) {
-                // Extract the provided parameters for context
                 $providedParams = $this->extractProvidedParams($args);
 
                 return ($this->failedHandler)($e, $providedParams);
             }
 
-            // Otherwise, maintain backward compatibility
             if ($e instanceof TypeError || $e instanceof InvalidArgumentException) {
                 throw PrismException::invalidParameterInTool($this->name, $e);
             }
@@ -265,7 +257,61 @@ class Tool
      */
     protected function getDefaultFailedMessage(Throwable $e, array $providedParams): string
     {
-        $expectedParams = collect($this->parameters)
+        $errorType = $this->classifyToolError($e);
+
+        return match ($errorType) {
+            'validation' => $this->formatValidationError($e, $providedParams),
+            'runtime' => $this->formatRuntimeError($e),
+            default => $this->formatRuntimeError($e),
+        };
+    }
+
+    protected function classifyToolError(Throwable $e): string
+    {
+        $isValidationError = $e instanceof TypeError
+            || ($e instanceof Error && str_contains($e->getMessage(), 'Unknown named parameter'));
+
+        return $isValidationError ? 'validation' : 'runtime';
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $providedParams
+     */
+    protected function formatValidationError(Throwable $e, array $providedParams): string
+    {
+        $errorType = $this->determineValidationErrorType($e);
+        $expectedParams = $this->formatExpectedParameters();
+        $receivedParams = $this->formatReceivedParameters($providedParams);
+
+        return sprintf(
+            'Parameter validation error: %s. Expected: [%s]. Received: %s. Please provide correct parameter types and names.',
+            $errorType,
+            $expectedParams,
+            $receivedParams
+        );
+    }
+
+    protected function formatRuntimeError(Throwable $e): string
+    {
+        return sprintf(
+            'Tool execution error: %s. This error occurred during tool execution, not due to invalid parameters.',
+            $e->getMessage()
+        );
+    }
+
+    protected function determineValidationErrorType(Throwable $e): string
+    {
+        return match (true) {
+            $e instanceof ArgumentCountError => 'Missing required parameters',
+            $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch',
+            str_contains($e->getMessage(), 'Unknown named parameter') => 'Unknown parameters',
+            default => 'Invalid parameters',
+        };
+    }
+
+    protected function formatExpectedParameters(): string
+    {
+        return collect($this->parameters)
             ->map(fn (Schema $param): string => sprintf(
                 '%s (%s%s)',
                 $param->name(),
@@ -273,33 +319,14 @@ class Tool
                 in_array($param->name(), $this->requiredParameters) ? ', required' : ''
             ))
             ->join(', ');
+    }
 
-        // Differentiate between validation errors (AI gave wrong types/names) and runtime errors
-        // Note: ArgumentCountError extends TypeError, so we only need to check TypeError
-        $isValidationError = $e instanceof TypeError
-            || ($e instanceof Error && str_contains($e->getMessage(), 'Unknown named parameter'));
-
-        if ($isValidationError) {
-            $errorType = match (true) {
-                $e instanceof ArgumentCountError => 'Missing required parameters',
-                $e instanceof TypeError && str_contains($e->getMessage(), 'must be of type') => 'Type mismatch',
-                str_contains($e->getMessage(), 'Unknown named parameter') => 'Unknown parameters',
-                default => 'Invalid parameters',
-            };
-
-            return sprintf(
-                'Parameter validation error: %s. Expected: [%s]. Received: %s. Please provide correct parameter types and names.',
-                $errorType,
-                $expectedParams,
-                json_encode($providedParams)
-            );
-        }
-
-        // For runtime errors (e.g., file not found, API failures), provide different format
-        return sprintf(
-            'Tool execution error: %s. This error occurred during tool execution, not due to invalid parameters.',
-            $e->getMessage()
-        );
+    /**
+     * @param  array<int|string,mixed>  $providedParams
+     */
+    protected function formatReceivedParameters(array $providedParams): string
+    {
+        return json_encode($providedParams) ?: '{}';
     }
 
     /**
@@ -324,19 +351,5 @@ class Tool
         }
 
         return $result;
-    }
-
-    /**
-     * Check if error handling is enabled globally.
-     */
-    protected function isErrorHandlingEnabled(): bool
-    {
-        // Check if we're in a Laravel environment and respect the config
-        if (function_exists('config')) {
-            return config('prism.tool_error_handling', true);
-        }
-
-        // Default to enabled if not in Laravel
-        return true;
     }
 }

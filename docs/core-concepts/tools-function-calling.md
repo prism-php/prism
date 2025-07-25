@@ -89,9 +89,6 @@ $tool->withoutErrorHandling();
 
 // Per-request
 Prism::text()->withoutToolErrorHandling();
-
-// Globally
-// Set PRISM_TOOL_ERROR_HANDLING=false in .env
 ```
 
 **Best Practice**: Use default error handling for conversational AI. Disable it only when you need strict validation that stops execution.
