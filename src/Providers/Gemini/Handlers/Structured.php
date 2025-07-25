@@ -88,6 +88,18 @@ class Structured
                 ]
             ));
         }
+
+        // Check for thinking token exhaustion pattern
+        $finishReason = data_get($data, 'candidates.0.finishReason');
+        $content = data_get($data, 'candidates.0.content.parts.0.text', '');
+        $thoughtTokens = data_get($data, 'usageMetadata.thoughtsTokenCount', 0);
+
+        if ($finishReason === 'MAX_TOKENS' && in_array(trim((string) $content), ['', '0'], true) && $thoughtTokens > 0) {
+            throw PrismException::providerResponseError(
+                'Gemini thinking tokens exhausted the token limit, leaving no tokens for structured output generation. '.
+                'Try increasing maxTokens to account for thinking overhead (suggested: 2-3x current value).'
+            );
+        }
     }
 
     /**

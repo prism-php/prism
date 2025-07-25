@@ -1,0 +1,8 @@
+{
+  "text": "Usage tracking test.",
+  "usage": {
+    "prompt_tokens": 5,
+    "completion_tokens": 8,
+    "total_tokens": 13
+  }
+} 

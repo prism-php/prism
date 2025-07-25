@@ -6,6 +6,7 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
@@ -29,6 +30,11 @@ it('can generate text stream with a basic prompt', function (): void {
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
         $text .= $chunk->text;
+
+        // Verify usage information for each chunk
+        expect($chunk->usage)->not->toBeNull()
+            ->and($chunk->usage->promptTokens)->toBeGreaterThanOrEqual(0)
+            ->and($chunk->usage->completionTokens)->toBeGreaterThanOrEqual(0);
     }
 
     expect($chunks)
@@ -36,7 +42,11 @@ it('can generate text stream with a basic prompt', function (): void {
         ->and($text)->not->toBeEmpty()
         ->and($text)->toContain(
             'AI? It\'s simple! We just feed a computer a HUGE pile of information, tell it to find patterns, and then it pretends to be smart! Like teaching a parrot to say cool things. Mostly magic, though.'
-        );
+        )
+        ->and($chunks[0]->usage->promptTokens)->toBe(21)
+        ->and($chunks[0]->usage->completionTokens)->toBe(0)
+        ->and($chunks[3]->usage->promptTokens)->toBe(21)  // Last chunk
+        ->and($chunks[3]->usage->completionTokens)->toBe(47);  // Completion tokens in last chunk
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
@@ -44,10 +54,10 @@ it('can generate text stream with a basic prompt', function (): void {
 });
 
 it('can generate text stream using searchGrounding', function (): void {
-    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools-search-grounding');
 
     $response = Prism::text()
-        ->using(Provider::Gemini, 'gemini-2.0-flash')
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
         ->withProviderOptions(['searchGrounding' => true])
         ->withMaxSteps(4)
         ->withPrompt('What\'s the current weather in San Francisco? And tell me if I need to wear a coat?')
@@ -91,12 +101,12 @@ it('can generate text stream using searchGrounding', function (): void {
         return $endpointCorrect && $hasGoogleSearch && $toolsConfigCorrect;
     });
 
-    expect($chunks)->not
-        ->toBeEmpty()
-        ->and($chunks)->not
-        ->toBeEmpty()
-        ->and($text)
-        ->toContain('The weather in San Francisco is currently 58Â°F (14Â°C) and partly cloudy. It feels like 55Â°F (13Â°C) with 79% humidity. There is a 0% chance of rain right now but showers are expected to develop.');
+    expect($chunks)
+        ->not->toBeEmpty()
+        ->and($chunks)->not->toBeEmpty()
+        ->and($text)->toContain('The current weather in San Francisco is cloudy with a temperature of 56°F (13°C), and it feels like 54°F (12°C). There\'s a 0% chance of rain currently, though light rain is forecast for today and tonight with a 20% chance.')
+        ->and($chunks[0]->usage->promptTokens)->toBe(22)
+        ->and($chunks[0]->usage->completionTokens)->toBe(27);
 });
 
 it('can generate text stream using tools ', function (): void {
@@ -115,24 +125,41 @@ it('can generate text stream using tools ', function (): void {
     ];
 
     $response = Prism::text()
-        ->using(Provider::Gemini, 'gemini-2.0-flash')
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
         ->withTools($tools)
+        ->withMaxSteps(3)
         ->withPrompt('What\'s the current weather in San Francisco? And tell me if I need to wear a coat?')
         ->asStream();
 
     $text = '';
     $chunks = [];
+    $toolCalls = [];
+    $toolResults = [];
+    $meta = null;
 
     foreach ($response as $chunk) {
         $chunks[] = $chunk;
         $text .= $chunk->text;
+        if ($chunk->chunkType === ChunkType::ToolCall) {
+            $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
+        }
+        if ($chunk->chunkType === ChunkType::ToolResult) {
+            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        }
+        dump($chunk);
     }
 
     expect($chunks)
         ->not->toBeEmpty()
         ->and($text)->not->toBeEmpty()
-        ->and($text)->toContain('The weather in San Francisco is currently 58Â°F (14Â°C) and partly cloudy. It feels like 55Â°F (13Â°C) with 79% humidity. There is a 0% chance of rain right now but showers are expected to develop.')
-        ->and($text)->toContain('a light jacket or coat would be advisable');
+        ->and($toolCalls)->not->toBeEmpty()
+        ->and($toolCalls[0]->name)->toBe('weather')
+        ->and($toolCalls[0]->arguments())->toBe(['city' => 'San Francisco'])
+        ->and($toolResults)->not->toBeEmpty()
+        ->and($toolResults[0]->result)->toBe('The weather will be 75° and sunny in San Francisco')
+        ->and($text)->toContain('It is 75° and sunny in San Francisco, so you likely do not need to wear a coat.')
+        ->and(last($chunks)->usage->promptTokens)->toBe(159)
+        ->and(last($chunks)->usage->completionTokens)->toBe(22);
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')

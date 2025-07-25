@@ -13,7 +13,7 @@ use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;

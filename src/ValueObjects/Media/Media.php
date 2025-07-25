@@ -1,6 +1,6 @@
 <?php
 
-namespace Prism\Prism\ValueObjects\Messages\Support;
+namespace Prism\Prism\ValueObjects\Media;
 
 use finfo;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -13,6 +13,8 @@ use Prism\Prism\Concerns\HasProviderOptions;
 class Media
 {
     use HasProviderOptions;
+
+    protected ?string $fileId = null;
 
     protected ?string $localPath = null;
 
@@ -27,6 +29,14 @@ class Media
     protected ?string $mimeType = null;
 
     final public function __construct() {}
+
+    public static function fromFileId(string $fileId): static
+    {
+        $instance = new static;
+        $instance->fileId = $fileId;
+
+        return $instance;
+    }
 
     /**
      * @deprecated Use `fromLocalPath()` instead.
@@ -123,6 +133,11 @@ class Media
         return $instance;
     }
 
+    public function isFileId(): bool
+    {
+        return $this->fileId !== null;
+    }
+
     public function isFile(): bool
     {
         return $this->localPath !== null || $this->storagePath !== null;
@@ -151,6 +166,11 @@ class Media
         }
 
         return $this->isUrl();
+    }
+
+    public function fileId(): ?string
+    {
+        return $this->fileId;
     }
 
     public function localPath(): ?string
@@ -208,6 +228,35 @@ class Media
         return $this->mimeType;
     }
 
+    /**
+     * Get a file resource suitable for HTTP multipart uploads
+     *
+     * @return resource
+     */
+    public function resource()
+    {
+        if ($this->localPath) {
+            $resource = fopen($this->localPath, 'r');
+            if ($resource === false) {
+                throw new InvalidArgumentException("Cannot open file: {$this->localPath}");
+            }
+
+            return $resource;
+        }
+
+        if ($this->url) {
+            $this->fetchUrlContent();
+
+            return $this->resource();
+        }
+
+        if ($this->rawContent || $this->base64) {
+            return $this->createStreamFromContent($this->rawContent());
+        }
+
+        throw new InvalidArgumentException('Cannot create resource from media');
+    }
+
     public function fetchUrlContent(): void
     {
         if (! $this->url) {
@@ -227,5 +276,25 @@ class Media
         }
 
         $this->rawContent = $content;
+    }
+
+    /**
+     * @return resource
+     */
+    protected function createStreamFromContent(?string $content)
+    {
+        if ($content === null) {
+            throw new InvalidArgumentException('Cannot create stream from null content');
+        }
+
+        $stream = fopen('php://temp', 'r+');
+        if ($stream === false) {
+            throw new InvalidArgumentException('Cannot create temporary stream');
+        }
+
+        fwrite($stream, $content);
+        rewind($stream);
+
+        return $stream;
     }
 }

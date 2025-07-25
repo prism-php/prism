@@ -88,7 +88,7 @@ class PendingRequest
         $messages = $this->messages;
 
         if ($this->prompt) {
-            $messages[] = new UserMessage($this->prompt);
+            $messages[] = new UserMessage($this->prompt, $this->additionalContent);
         }
 
         $tools = $this->tools;

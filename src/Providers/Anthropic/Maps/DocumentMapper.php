@@ -5,8 +5,8 @@ namespace Prism\Prism\Providers\Anthropic\Maps;
 use Illuminate\Support\Str;
 use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Media;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Media;
 
 class DocumentMapper extends ProviderMediaMapper
 {
@@ -40,7 +40,12 @@ class DocumentMapper extends ProviderMediaMapper
                 : null,
         ];
 
-        if ($this->media->isUrl()) {
+        if ($this->media->isFileId()) {
+            $payload['source'] = [
+                'type' => 'file',
+                'file_id' => $this->media->fileId(),
+            ];
+        } elseif ($this->media->isUrl()) {
             $payload['source'] = [
                 'type' => 'url',
                 'url' => $this->media->url(),
@@ -74,6 +79,10 @@ class DocumentMapper extends ProviderMediaMapper
 
     protected function validateMedia(): bool
     {
+        if ($this->media->isFileId()) {
+            return true;
+        }
+
         if ($this->media->isUrl()) {
             return true;
         }

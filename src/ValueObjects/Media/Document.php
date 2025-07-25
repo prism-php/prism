@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\ValueObjects\Messages\Support;
+namespace Prism\Prism\ValueObjects\Media;
 
 /**
  * Note: Prism currently only supports Documents with Anthropic.
@@ -15,6 +15,11 @@ class Document extends Media
      * @var null|array<string>
      */
     protected ?array $chunks = null;
+
+    public static function fromFileId(string $fileId, ?string $title = null): static
+    {
+        return parent::fromFileId($fileId)->setDocumentTitle($title);
+    }
 
     /**
      * @deprecated Use `fromLocalPath()` instead.

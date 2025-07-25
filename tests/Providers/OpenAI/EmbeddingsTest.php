@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Embedding;
@@ -85,5 +86,35 @@ it('works with multiple embeddings', function (): void {
     expect($response->embeddings)->toBeArray();
     expect($response->embeddings[0]->embedding)->toBe($embeddings[0]->embedding);
     expect($response->embeddings[1]->embedding)->toBe($embeddings[1]->embedding);
+    expect($response->usage->tokens)->toBeNumeric();
+});
+
+it('allows setting provider options like dimensions', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/embeddings', 'openai/embeddings-with-dimensions');
+
+    $model = 'text-embedding-3-small';
+    $input = 'The food was delicious and the waiter...';
+
+    $response = Prism::embeddings()
+        ->using(Provider::OpenAI, $model)
+        ->withProviderOptions([
+            'dimensions' => 256,
+        ])
+        ->fromInput($input)
+        ->asEmbeddings();
+
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://api.openai.com/v1/embeddings'
+        && $request['model'] === $model
+        && $request['input'] === [$input]
+        && $request['dimensions'] === 256);
+
+    $embeddings = json_decode(
+        file_get_contents('tests/Fixtures/openai/embeddings-with-dimensions-1.json'),
+        true
+    );
+    $embedding = Embedding::fromArray(data_get($embeddings, 'data.0.embedding'));
+
+    expect($response->embeddings)->toBeArray();
+    expect($response->embeddings[0]->embedding)->toBe($embedding->embedding);
     expect($response->usage->tokens)->toBeNumeric();
 });

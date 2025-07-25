@@ -19,11 +19,15 @@ class SchemaMap
      */
     public function toArray(): array
     {
+        $schemaArray = $this->schema->toArray();
+
+        // Remove additionalProperties from the schema array since Gemini doesn't support it
+        unset($schemaArray['additionalProperties']);
+
         return array_merge([
             ...array_filter([
-                ...$this->schema->toArray(),
+                ...$schemaArray,
                 'type' => $this->mapType(),
-                'additionalProperties' => null,
             ]),
         ], array_filter([
             'items' => property_exists($this->schema, 'items') ?

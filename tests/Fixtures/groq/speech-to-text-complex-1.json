@@ -1,0 +1,17 @@
+{
+  "text": "Complex transcription with metadata.",
+  "language": "en",
+  "duration": 5.2,
+  "segments": [
+    {
+      "text": "Complex transcription",
+      "start": 0.0,
+      "end": 2.1
+    },
+    {
+      "text": "with metadata.",
+      "start": 2.1,
+      "end": 5.2
+    }
+  ]
+} 

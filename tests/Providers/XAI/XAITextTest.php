@@ -13,7 +13,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\Text\Response as TextResponse;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 

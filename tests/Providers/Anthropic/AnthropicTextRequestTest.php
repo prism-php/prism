@@ -6,7 +6,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 

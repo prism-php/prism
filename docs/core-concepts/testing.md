@@ -80,7 +80,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Messages\{UserMessage,AssistantMessage,SystemMessage};
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 Prism::fake([
     (new ResponseBuilder)
