@@ -54,10 +54,10 @@ it('can generate text stream with a basic prompt', function (): void {
 });
 
 it('can generate text stream using searchGrounding', function (): void {
-    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools-search-grounding');
 
     $response = Prism::text()
-        ->using(Provider::Gemini, 'gemini-2.0-flash')
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
         ->withProviderOptions(['searchGrounding' => true])
         ->withMaxSteps(4)
         ->withPrompt('What\'s the current weather in San Francisco? And tell me if I need to wear a coat?')
@@ -101,14 +101,12 @@ it('can generate text stream using searchGrounding', function (): void {
         return $endpointCorrect && $hasGoogleSearch && $toolsConfigCorrect;
     });
 
-    expect($chunks)->not
-        ->toBeEmpty()
-        ->and($chunks)->not
-        ->toBeEmpty()
-        ->and($text)
-        ->toContain('The weather in San Francisco is currently 58Â°F (14Â°C) and partly cloudy. It feels like 55Â°F (13Â°C) with 79% humidity. There is a 0% chance of rain right now but showers are expected to develop.')
-        ->and($chunks[0]->usage->promptTokens)->toBe(30)
-        ->and($chunks[0]->usage->completionTokens)->toBe(0);
+    expect($chunks)
+        ->not->toBeEmpty()
+        ->and($chunks)->not->toBeEmpty()
+        ->and($text)->toContain('The current weather in San Francisco is cloudy with a temperature of 56°F (13°C), and it feels like 54°F (12°C). There\'s a 0% chance of rain currently, though light rain is forecast for today and tonight with a 20% chance.')
+        ->and($chunks[0]->usage->promptTokens)->toBe(22)
+        ->and($chunks[0]->usage->completionTokens)->toBe(27);
 });
 
 it('can generate text stream using tools ', function (): void {
