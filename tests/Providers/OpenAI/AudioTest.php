@@ -252,8 +252,7 @@ describe('Speech-to-Text', function (): void {
             'api.openai.com/v1/audio/transcriptions' => Http::response([
                 'text' => 'Usage tracking test.',
                 'usage' => [
-                    'prompt_tokens' => 5,
-                    'completion_tokens' => 8,
+                    'input_tokens' => 5,
                     'total_tokens' => 13,
                 ],
             ], 200),
@@ -268,7 +267,7 @@ describe('Speech-to-Text', function (): void {
 
         expect($response->usage)->not->toBeNull();
         expect($response->usage->promptTokens)->toBe(5);
-        expect($response->usage->completionTokens)->toBe(8);
+        expect($response->usage->completionTokens)->toBe(13);
     });
 
     it('handles transcription without usage information', function (): void {
