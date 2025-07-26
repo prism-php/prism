@@ -118,9 +118,7 @@ class PrismChatController
 
     protected function textFromResponse(TextResponse $response): string
     {
-        return $response->responseMessages
-            ->whereInstanceOf(AssistantMessage::class)
-            ->implode(fn (AssistantMessage $message): string => $message->content);
+        return $response->text;
     }
 
     /**

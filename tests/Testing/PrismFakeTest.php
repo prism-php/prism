@@ -34,7 +34,6 @@ describe('fake text, structured, and embedding responses', function (): void {
             new TextResponse(
                 text: 'The meaning of life is 42',
                 steps: collect([]),
-                responseMessages: collect([]),
                 messages: collect([]),
                 toolCalls: [],
                 toolResults: [],
@@ -62,7 +61,6 @@ describe('fake text, structured, and embedding responses', function (): void {
             new StructuredResponse(
                 steps: collect([]),
                 text: json_encode(['foo' => 'bar']),
-                responseMessages: collect([]),
                 structured: ['foo' => 'bar'],
                 usage: new Usage(42, 42),
                 finishReason: FinishReason::Stop,
@@ -392,7 +390,6 @@ it("throws an exception when it can't runs out of responses", function (): void 
         new TextResponse(
             steps: collect([]),
             messages: collect([]),
-            responseMessages: collect([]),
             text: 'The meaning of life is 42',
             toolCalls: [],
             toolResults: [],
@@ -418,7 +415,6 @@ it('asserts provider config', function (): void {
         new TextResponse(
             steps: collect([]),
             messages: collect([]),
-            responseMessages: collect([]),
             text: 'The meaning of life is 42',
             toolCalls: [],
             toolResults: [],

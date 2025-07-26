@@ -10,7 +10,6 @@ use Prism\Prism\ValueObjects\Usage;
 
 /**
  * @method self withSteps(Collection $steps)
- * @method self withResponseMessages(Collection $responseMessages)
  * @method self withText(string $text)
  * @method self withStructured(array $structured)
  * @method self withFinishReason(FinishReason $finishReason)
@@ -26,7 +25,6 @@ readonly class StructuredResponseFake extends \Prism\Prism\Structured\Response
     {
         return new self(
             steps: collect([]),
-            responseMessages: collect([]),
             text: '',
             structured: [],
             finishReason: FinishReason::Stop,

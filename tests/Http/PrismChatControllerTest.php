@@ -10,7 +10,6 @@ use Prism\Prism\Facades\PrismServer;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
@@ -34,9 +33,6 @@ it('handles chat requests successfully', function (): void {
         toolResults: [],
         usage: new Usage(10, 10),
         meta: new Meta('cmp_asdf123', 'gpt-4'),
-        responseMessages: collect([
-            new AssistantMessage("I'm Nyx!"),
-        ]),
         messages: collect(),
     );
 
@@ -192,9 +188,6 @@ it('handles multimodal messages with image URL', function (): void {
         toolResults: [],
         usage: new Usage(15, 12),
         meta: new Meta('cmp_image123', 'gpt-4-vision'),
-        responseMessages: collect([
-            new AssistantMessage('I can see a test image.'),
-        ]),
         messages: collect(),
     );
 
@@ -249,9 +242,6 @@ it('handles multimodal messages with base64 image', function (): void {
         toolResults: [],
         usage: new Usage(20, 15),
         meta: new Meta('cmp_base64_123', 'gpt-4-vision'),
-        responseMessages: collect([
-            new AssistantMessage('This appears to be a screenshot.'),
-        ]),
         messages: collect(),
     );
 
@@ -303,9 +293,6 @@ it('handles multimodal messages with multiple images', function (): void {
         toolResults: [],
         usage: new Usage(25, 18),
         meta: new Meta('cmp_multi123', 'gpt-4-vision'),
-        responseMessages: collect([
-            new AssistantMessage('Both images show different scenes.'),
-        ]),
         messages: collect(),
     );
 
@@ -356,9 +343,6 @@ it('handles mixed simple and multimodal messages', function (): void {
         toolResults: [],
         usage: new Usage(20, 15),
         meta: new Meta('cmp_mixed123', 'gpt-4-vision'),
-        responseMessages: collect([
-            new AssistantMessage('Hello! I can see the image you shared.'),
-        ]),
         messages: collect(),
     );
 
