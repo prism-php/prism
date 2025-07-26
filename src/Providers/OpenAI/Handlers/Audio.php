@@ -55,8 +55,8 @@ class Audio
         $usage = null;
         if (isset($data['usage'])) {
             $usage = new Usage(
-                promptTokens: $data['usage']['prompt_tokens'] ?? 0,
-                completionTokens: $data['usage']['completion_tokens'] ?? 0,
+                promptTokens: $data['usage']['input_tokens'] ?? 0,
+                completionTokens: $data['usage']['total_tokens'] ?? 0,
             );
         }
 
