@@ -60,7 +60,6 @@ class Structured
         );
 
         $this->request->addMessage($responseMessage);
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $this->responseBuilder->addStep(new Step(
             text: $this->tempResponse->text,
@@ -117,7 +116,6 @@ class Structured
 
         $baseResponse = new Response(
             steps: new Collection,
-            responseMessages: new Collection,
             text: $this->extractText($data),
             structured: [],
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
