@@ -10,23 +10,23 @@ use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits as ConcernsProcessesRateLimits;
-use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
-use Prism\Prism\Providers\OpenAI\Maps\SpeechToTextRequestMapper;
-use Prism\Prism\Providers\OpenAI\Maps\TextToSpeechRequestMapper;
 use Prism\Prism\ValueObjects\GeneratedAudio;
 use Prism\Prism\ValueObjects\Usage;
 
 class Audio
 {
     use ConcernsProcessesRateLimits;
-    use ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
     public function handleTextToSpeech(TextToSpeechRequest $request): AudioResponse
     {
-        $mapper = new TextToSpeechRequestMapper($request);
-        $response = $this->client->post('audio/speech', $mapper->toPayload());
+        $options = $request->providerOptions();
+        $options['model'] = $request->model();
+        $options['input'] = $request->input();
+        $options['voice'] = $request->voice();
+
+        $response = $this->client->post('audio/speech', $options);
 
         if (! $response->successful()) {
             throw new \Exception('Failed to generate audio: '.$response->body());
@@ -45,15 +45,18 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
-        $mapper = new SpeechToTextRequestMapper($request);
-        $response = $this->client->asMultipart()->post('audio/transcriptions', $mapper->toPayload());
+        $audio = $request->input();
+        $options = $request->providerOptions();
+        $options['model'] = $request->model();
 
-        $this->validateResponse($response);
+        $response = $this->client
+            ->attach('file', $audio->resource(), 'audio', ['Content-Type' => $audio->mimeType()])
+            ->post('audio/transcriptions', $options);
 
         $data = $response->json();
 
         $usage = null;
-        if (isset($data['usage'])) {
+        if ($data && isset($data['usage'])) {
             $usage = new Usage(
                 promptTokens: $data['usage']['input_tokens'] ?? 0,
                 completionTokens: $data['usage']['total_tokens'] ?? 0,
@@ -61,9 +64,9 @@ class Audio
         }
 
         return new TextResponse(
-            text: $data['text'] ?? '',
+            text: $data ? ($data['text'] ?? '') : $response->body(),
             usage: $usage,
-            additionalContent: $data,
+            additionalContent: $data ?? [],
         );
     }
 }
