@@ -99,18 +99,12 @@ class Structured
             $totalTokens = data_get($data, 'usageMetadata.totalTokenCount', 0);
             $outputTokens = $totalTokens - $promptTokens - $thoughtTokens;
 
-            throw PrismException::providerResponseError(sprintf(
+            throw PrismException::providerResponseError(
                 'Gemini thinking tokens exhausted the token limit. '.
-                'Token usage: %d prompt + %d thinking + %d output = %d total. '.
+                "Token usage: {$promptTokens} prompt + {$thoughtTokens} thinking + {$outputTokens} output = {$totalTokens} total. ".
                 'Since thinking tokens consumed most of the allocation, no tokens remained for structured output. '.
-                'Try increasing maxTokens to at least %d (suggested: %d for comfortable margin).',
-                $promptTokens,
-                $thoughtTokens,
-                $outputTokens,
-                $totalTokens,
-                $totalTokens + 500,
-                $totalTokens * 2
-            ));
+                'Try increasing maxTokens to at least '.($totalTokens + 500).' (suggested: '.($totalTokens * 2).' for comfortable margin).'
+            );
         }
     }
 
