@@ -20,7 +20,7 @@
   "require": {
     "php": "^8.2",
     "ext-fileinfo": "*",
-    "laravel/framework": "^11.0|^12.0"
+    "laravel/framework": "^10.0|^11.0|^12.0"
   },
   "config": {
     "allow-plugins": {
