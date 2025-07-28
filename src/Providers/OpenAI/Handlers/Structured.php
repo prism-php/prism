@@ -19,6 +19,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
+use Illuminate\Support\Arr;
 
 class Structured
 {
@@ -45,10 +46,10 @@ class Structured
 
         $data = $response->json();
 
-        $this->handleRefusal(data_get($data, 'output.{last}.content.0', []));
+        $this->handleRefusal(Arr::last(data_get($data, 'output.*.content.0', [])));
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'output.{last}.content.0.text') ?? '',
+            Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
         );
 
         $this->responseBuilder->addResponseMessage($responseMessage);
@@ -66,7 +67,7 @@ class Structured
     protected function addStep(array $data, Request $request, ClientResponse $clientResponse): void
     {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'output.{last}.content.0.text') ?? '',
+            text: Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
             finishReason: $this->mapFinishReason($data),
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
