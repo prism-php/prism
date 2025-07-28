@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Concerns;
 
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
+use Illuminate\Support\Arr;
 
 trait MapsFinishReason
 {
@@ -15,8 +16,8 @@ trait MapsFinishReason
     protected function mapFinishReason(array $data): FinishReason
     {
         return FinishReasonMap::map(
-            data_get($data, 'output.{last}.status', ''),
-            data_get($data, 'output.{last}.type', ''),
+            Arr::last(data_get($data, 'output.*.status', [])),
+            Arr::last(data_get($data, 'output.*.type', [])),
         );
     }
 }
