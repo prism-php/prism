@@ -25,6 +25,7 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
+use Illuminate\Support\Arr;
 
 class Text
 {
@@ -49,7 +50,7 @@ class Text
         $data = $response->json();
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'output.{last}.content.0.text') ?? '',
+            Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
             ToolCallMap::map(
                 array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
                 array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
