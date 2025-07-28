@@ -28,6 +28,7 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
+use Illuminate\Support\Arr;
 
 class Stream
 {
@@ -319,7 +320,7 @@ class Stream
     protected function mapFinishReason(array $data): FinishReason
     {
         $eventType = Str::after(data_get($data, 'type'), 'response.');
-        $lastOutputType = data_get($data, 'response.output.{last}.type');
+        $lastOutputType = Arr::last(data_get($data, 'response.output.*.type'));
 
         return FinishReasonMap::map($eventType, $lastOutputType);
     }
