@@ -113,7 +113,7 @@ class Text
                 'cachedContent' => $providerOptions['cachedContentName'] ?? null,
                 'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
                 'tools' => $tools !== [] ? $tools : null,
-                'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice(), $this->responseBuilder->steps->count(), $request->toolChoiceAutoAfterSteps()) : null,
                 'safetySettings' => $providerOptions['safetySettings'] ?? null,
             ])
         );
