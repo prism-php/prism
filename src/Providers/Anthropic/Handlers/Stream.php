@@ -379,7 +379,7 @@ class Stream
         $usage = $this->state->usage();
 
         return new Chunk(
-            text: $this->state->text(),
+            text: '',
             finishReason: FinishReasonMap::map($this->state->stopReason()),
             meta: new Meta(
                 id: $this->state->requestId(),
