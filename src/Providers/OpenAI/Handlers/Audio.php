@@ -47,7 +47,6 @@ class Audio
     {
         $response = $this
             ->client
-            ->dontTruncateExceptions()
             ->attach(
                 'file',
                 $request->input()->resource(),
