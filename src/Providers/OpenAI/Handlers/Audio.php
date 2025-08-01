@@ -80,7 +80,7 @@ class Audio
 
         // Handle other response formats like vtt
         return new TextResponse(
-            text: $response->body() ?? '',
+            text: $response->body(),
         );
     }
 }
