@@ -128,7 +128,7 @@ describe('Speech-to-Text', function (): void {
         );
 
         $audioFile = Audio::fromBase64(
-            base64_encode(file_get_contents('tests/fixtures/slightly-caffeinated-36.mp3'))
+            base64_encode(file_get_contents('tests/Fixtures/slightly-caffeinated-36.mp3'))
         );
 
         $response = Prism::audio()
@@ -148,7 +148,7 @@ describe('Speech-to-Text', function (): void {
             'openai/audio-from-path'
         );
 
-        $audioFile = Audio::fromLocalPath('tests/fixtures/slightly-caffeinated-36.mp3');
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
 
         $response = Prism::audio()
             ->using('openai', 'whisper-1')
@@ -167,7 +167,7 @@ describe('Speech-to-Text', function (): void {
             'openai/audio-from-path-vtt'
         );
 
-        $audioFile = Audio::fromLocalPath('tests/fixtures/slightly-caffeinated-36.mp3');
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
 
         $response = Prism::audio()
             ->using('openai', 'whisper-1')
