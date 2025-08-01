@@ -62,7 +62,7 @@ $response = Prism::text()
         'Summarize this document',
         [Document::fromStoragePath(
             path: 'mystoragepath/file.pdf',
-            disk: 'my-disk', // optional - omit/null for default disk
+            diskName: 'my-disk', // optional - omit/null for default disk
             title: 'My document title' // optional
         )]
     )

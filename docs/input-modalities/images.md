@@ -30,8 +30,8 @@ $response = Prism::text()
     ->withPrompt(
         "What's in this image?",
         [Image::fromStoragePath(
-            path: '/path/to/image.jpg', 
-            disk: 'my-disk' // optional - omit/null for default disk
+            path: '/path/to/image.jpg',
+            diskName: 'my-disk' // optional - omit/null for default disk
         )]
     )
     ->asText();
@@ -83,9 +83,9 @@ $response = Prism::text()
     ->asText();
 ```
 
-## Transfer mediums 
+## Transfer mediums
 
-Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above). 
+Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above).
 
 Prism tries to smooth over these rough edges, but its not always possible.
 
