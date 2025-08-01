@@ -56,8 +56,6 @@ class Text
             $isToolCall ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $finishReason = FinishReasonMap::map(

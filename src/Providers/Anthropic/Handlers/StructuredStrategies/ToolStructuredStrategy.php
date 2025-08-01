@@ -68,7 +68,6 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
 
         return new PrismResponse(
             steps: $prismResponse->steps,
-            responseMessages: $prismResponse->responseMessages,
             text: $prismResponse->text,
             structured: $structured,
             finishReason: $prismResponse->finishReason,

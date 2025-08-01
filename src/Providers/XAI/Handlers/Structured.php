@@ -46,8 +46,6 @@ class Structured
 
         $responseMessage = new AssistantMessage($content);
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request, $parsed);

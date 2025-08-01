@@ -54,7 +54,6 @@ class PrismFake extends Provider
 
         return $this->nextTextResponse() ?? new TextResponse(
             steps: collect([]),
-            responseMessages: collect([]),
             text: '',
             finishReason: FinishReason::Stop,
             toolCalls: [],
@@ -85,7 +84,6 @@ class PrismFake extends Provider
 
         return $this->nextStructuredResponse() ?? new StructuredResponse(
             steps: collect([]),
-            responseMessages: collect([]),
             text: '',
             structured: [],
             finishReason: FinishReason::Stop,
@@ -161,7 +159,6 @@ class PrismFake extends Provider
 
         $fixture = $this->nextTextResponse() ?? new TextResponse(
             steps: collect([]),
-            responseMessages: collect([]),
             text: '',
             finishReason: FinishReason::Stop,
             toolCalls: [],

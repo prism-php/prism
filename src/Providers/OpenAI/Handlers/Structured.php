@@ -51,8 +51,6 @@ class Structured
             data_get($data, 'output.{last}.content.0.text') ?? '',
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request, $response);
