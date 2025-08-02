@@ -25,7 +25,7 @@ class DocumentMapper extends ProviderMediaMapper
         } elseif ($this->media->isUrl()) {
             $payload['file_url'] = $this->media->url();
         } else {
-            $payload['filename'] = $this->media->documentTitle();
+            $payload['filename'] = $this->media->documentTitle() ?? 'document';
             $payload['file_data'] = sprintf('data:%s;base64,%s', $this->media->mimeType(), $this->media->base64());
         }
 

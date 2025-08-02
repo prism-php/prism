@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
@@ -395,6 +396,31 @@ it('omits detail parameter when not specified', function (): void {
         expect($imageContent['type'])->toBe('input_image');
         expect($imageContent)->not->toHaveKey('detail');
         expect($imageContent['image_url'])->toStartWith('data:image/png;base64,');
+
+        return true;
+    });
+});
+
+it('can analyze documents', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/text-response-with-document'
+    );
+
+    $document = Document::fromLocalPath('tests/Fixtures/test-pdf.pdf');
+
+    $response = Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Summarize this document', [$document])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        $documentContent = $body['input'][0]['content'][1];
+
+        expect($documentContent['type'])->toBe('input_file');
+        expect($documentContent['filename'])->not->toBeEmpty();
 
         return true;
     });

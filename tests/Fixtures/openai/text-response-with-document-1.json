@@ -1,0 +1,63 @@
+{
+  "id": "resp_688e94a36f04819ab9b92222098bfa900cb97fed98bbe78a",
+  "object": "response",
+  "created_at": 1754174627,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "msg_688e94a40170819aa59245d1232d3d490cb97fed98bbe78a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "This document humorously concludes that the answer to the Ultimate Question of Life, the Universe, and Everything is simply the number 42."
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 34,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 28,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 62
+  },
+  "user": null,
+  "metadata": {}
+}
