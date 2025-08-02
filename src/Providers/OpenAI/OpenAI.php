@@ -138,7 +138,6 @@ class OpenAI extends Provider
     protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
         return $this->baseClient()
-            ->dontTruncateExceptions()
             ->withHeaders(array_filter([
                 'OpenAI-Organization' => $this->organization,
                 'OpenAI-Project' => $this->project,

@@ -414,6 +414,8 @@ it('can analyze documents', function (): void {
         ->withPrompt('Summarize this document', [$document])
         ->asText();
 
+    expect($response->text)->not->toBeEmpty();
+
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
 
