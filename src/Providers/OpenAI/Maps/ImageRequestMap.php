@@ -40,7 +40,9 @@ class ImageRequestMap
             'output_format' => $providerOptions['output_format'] ?? null,
         ];
 
+        // Sent as multi-part
         unset($providerOptions['image']);
+        unset($providerOptions['mask']);
 
         // Include any additional options not explicitly handled above
         $additionalOptions = array_diff_key($providerOptions, $supportedOptions);
