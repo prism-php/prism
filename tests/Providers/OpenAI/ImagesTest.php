@@ -354,7 +354,7 @@ it('can edit images', function (): void {
         'openai/image-edit'
     );
 
-    $originalImage = fopen('tests/Fixtures/dimond.png', 'r');
+    $originalImage = fopen('tests/Fixtures/diamond.png', 'r');
 
     $response = Prism::image()
         ->using('openai', 'gpt-image-1')

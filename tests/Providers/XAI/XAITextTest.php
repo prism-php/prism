@@ -152,7 +152,7 @@ describe('Image support with XAI', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/diamond.png'),
                     ],
                 ),
             ])
@@ -171,7 +171,7 @@ describe('Image support with XAI', function (): void {
 
             expect($message[1]['image_url']['url'])->toStartWith('data:image/png;base64,');
             expect($message[1]['image_url']['url'])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -188,7 +188,7 @@ describe('Image support with XAI', function (): void {
                     'What is this image',
                     additionalContent: [
                         Image::fromBase64(
-                            base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                            base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                             'image/png'
                         ),
                     ],
@@ -209,7 +209,7 @@ describe('Image support with XAI', function (): void {
 
             expect($message[1]['image_url']['url'])->toStartWith('data:image/png;base64,');
             expect($message[1]['image_url']['url'])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -219,7 +219,7 @@ describe('Image support with XAI', function (): void {
     it('can send images from url', function (): void {
         FixtureResponse::fakeResponseSequence('chat/completions', 'xai/text-image-from-url');
 
-        $image = 'https://prismphp.com/storage/dimond.png';
+        $image = 'https://prismphp.com/storage/diamond.png';
 
         $response = Prism::text()
             ->using(Provider::XAI, 'grok-vision-beta')

@@ -51,7 +51,7 @@ it('maps user messages with images from path', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -64,14 +64,14 @@ it('maps user messages with images from path', function (): void {
     expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toStartWith('data:image/png;base64,');
     expect(data_get($mappedMessage, '0.content.1.image_url'))
-        ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toContain(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 it('maps user messages with images from base64', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/dimond.png')), 'image/png'),
+                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/diamond.png')), 'image/png'),
             ]),
         ],
         systemPrompts: []
@@ -84,14 +84,14 @@ it('maps user messages with images from base64', function (): void {
     expect(data_get($mappedMessage, '0.content.1.image_url'))
         ->toStartWith('data:image/png;base64,');
     expect(data_get($mappedMessage, '0.content.1.image_url'))
-        ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toContain(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 it('maps user messages with images from url', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromUrl('https://prismphp.com/storage/dimond.png'),
+                Image::fromUrl('https://prismphp.com/storage/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -102,7 +102,7 @@ it('maps user messages with images from url', function (): void {
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('input_image');
     expect(data_get($mappedMessage, '0.content.1.image_url'))
-        ->toBe('https://prismphp.com/storage/dimond.png');
+        ->toBe('https://prismphp.com/storage/diamond.png');
 });
 
 it('maps user messages with images from file id', function (): void {

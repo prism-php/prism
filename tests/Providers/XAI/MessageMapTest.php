@@ -130,7 +130,7 @@ it('maps user messages with images from path', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -143,7 +143,7 @@ it('maps user messages with images from path', function (): void {
             [
                 'type' => 'image_url',
                 'image_url' => [
-                    'url' => 'data:image/png;base64,'.base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                    'url' => 'data:image/png;base64,'.base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                 ],
             ],
         ],
@@ -154,7 +154,7 @@ it('maps user messages with images from base64', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/dimond.png')), 'image/png'),
+                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/diamond.png')), 'image/png'),
             ]),
         ],
         systemPrompts: []
@@ -167,7 +167,7 @@ it('maps user messages with images from base64', function (): void {
             [
                 'type' => 'image_url',
                 'image_url' => [
-                    'url' => 'data:image/png;base64,'.base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                    'url' => 'data:image/png;base64,'.base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                 ],
             ],
         ],
@@ -178,7 +178,7 @@ it('maps user messages with images from url', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromUrl('https://prismphp.com/storage/dimond.png'),
+                Image::fromUrl('https://prismphp.com/storage/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -191,7 +191,7 @@ it('maps user messages with images from url', function (): void {
             [
                 'type' => 'image_url',
                 'image_url' => [
-                    'url' => 'https://prismphp.com/storage/dimond.png',
+                    'url' => 'https://prismphp.com/storage/diamond.png',
                 ],
             ],
         ],

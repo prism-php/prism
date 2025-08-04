@@ -250,7 +250,7 @@ it('can send images from file', function (): void {
             new UserMessage(
                 'What is this image',
                 additionalContent: [
-                    Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                    Image::fromLocalPath('tests/Fixtures/diamond.png'),
                 ],
             ),
         ])
@@ -266,7 +266,7 @@ it('can send images from file', function (): void {
 
         expect($message[1]['type'])->toBe('image');
         expect($message[1]['source']['data'])->toContain(
-            base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+            base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
         );
         expect($message[1]['source']['media_type'])->toBe('image/png');
 
