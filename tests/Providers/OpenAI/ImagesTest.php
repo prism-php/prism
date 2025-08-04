@@ -7,6 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
 
 beforeEach(function (): void {
     config()->set('prism.providers.openai.api_key', env('OPENAI_API_KEY'));
@@ -345,4 +346,25 @@ it('can generate an image with dall-e-2 requesting base64 format', function (): 
                $data['response_format'] === 'b64_json' &&
                $data['size'] === '256x256';
     });
+});
+
+it('can edit images', function (): void {
+    $originalImage = fopen('tests/Fixtures/dimond.png', 'r');
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background')
+        ->withProviderOptions([
+            'image' => $originalImage,          // Base64 encoded original image
+            'size' => '1024x1024',
+            'output_format' => 'png',
+            'quality' => 'high',
+        ])
+        ->withClientOptions(['timeout' => 9999])
+        ->generate();
+
+    ray($response);
+
+    file_put_contents('edit.png', base64_decode($response->firstImage()->base64));
+
 });

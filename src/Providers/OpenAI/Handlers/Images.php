@@ -48,6 +48,16 @@ class Images
 
     protected function sendRequest(Request $request): ClientResponse
     {
+        if ($request->providerOptions('image')) {
+            return $this
+                ->client
+                ->attach(
+                    'image',
+                    $request->providerOptions('image'),
+                )
+                ->post('images/edits', ImageRequestMap::map($request));
+        }
+
         return $this->client->post('images/generations', ImageRequestMap::map($request));
     }
 
