@@ -16,7 +16,6 @@ readonly class Response
 {
     /**
      * @param  Collection<int, Step>  $steps
-     * @param  Collection<int, Message>  $responseMessages
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
      * @param  Collection<int, Message>  $messages
@@ -24,7 +23,6 @@ readonly class Response
      */
     public function __construct(
         public Collection $steps,
-        public Collection $responseMessages,
         public string $text,
         public FinishReason $finishReason,
         public array $toolCalls,

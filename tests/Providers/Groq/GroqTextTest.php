@@ -37,9 +37,6 @@ describe('Text generation for Groq', function (): void {
             ->and($response->meta->model)->toBe('llama3-8b-8192')
             ->and($response->text)->toBe(
                 'I am LLaMA, an AI assistant developed by Meta AI.'
-            )
-            ->and($response->responseMessages->first()->content)->toBe(
-                'I am LLaMA, an AI assistant developed by Meta AI.'
             );
     });
 

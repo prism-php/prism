@@ -48,8 +48,6 @@ class Text
             $this->mapToolCalls(data_get($data, 'message.tool_calls', [])),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         // Check for tool calls first, regardless of finish reason

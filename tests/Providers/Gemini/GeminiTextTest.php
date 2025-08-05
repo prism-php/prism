@@ -47,10 +47,7 @@ describe('Text generation for Gemini', function (): void {
             ->and($response->usage->completionTokens)->toBe(57)
             ->and($response->meta->id)->toBe('')
             ->and($response->meta->model)->toBe('gemini-1.5-flash')
-            ->and($response->finishReason)->toBe(FinishReason::Stop)
-            ->and($response->responseMessages->first()->content)->toBe(
-                "I am a large language model, trained by Google.  I am an AI, and I don't have a name, feelings, or personal experiences.  My purpose is to process information and respond to a wide range of prompts and questions in a helpful and informative way.\n"
-            );
+            ->and($response->finishReason)->toBe(FinishReason::Stop);
     });
 
     it('can generate text with a system prompt', function (): void {
