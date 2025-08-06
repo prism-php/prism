@@ -51,5 +51,9 @@ return [
             'api_key' => env('OPENROUTER_API_KEY', ''),
             'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
         ],
+        'elevenlabs' => [
+            'api_key' => env('ELEVENLABS_API_KEY', ''),
+            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1/'),
+        ],
     ],
 ];
