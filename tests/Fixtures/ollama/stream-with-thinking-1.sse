@@ -1,0 +1,5 @@
+{"model":"gpt-oss:20b","created_at":"2025-08-08T10:00:00Z","message":{"role":"assistant","thinking":"Let me think about that."},"done":false}
+{"model":"gpt-oss:20b","created_at":"2025-08-08T10:00:01Z","message":{"role":"assistant","thinking":"First, I will consider relevant factors."},"done":false}
+{"model":"gpt-oss:20b","created_at":"2025-08-08T10:00:02Z","message":{"role":"assistant","content":"Here is the answer:"},"done":false}
+{"model":"gpt-oss:20b","created_at":"2025-08-08T10:00:03Z","message":{"role":"assistant","content":" You should bring a light jacket."},"done":false}
+{"model":"gpt-oss:20b","created_at":"2025-08-08T10:00:04Z","message":{"role":"assistant","content":" Have a great day!"},"done_reason":"stop","done":true}

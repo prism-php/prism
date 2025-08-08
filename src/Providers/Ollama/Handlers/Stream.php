@@ -74,8 +74,15 @@ class Stream
                 return;
             }
 
-            $content = data_get($data, 'message.content', '') ?? '';
-            $text .= $content;
+            $thinking = data_get($data, 'message.thinking', '');
+            $isThinking = $thinking !== '';
+
+            $chunkType = $isThinking ? ChunkType::Thinking : ChunkType::Text;
+            $content = $isThinking ? $thinking : data_get($data, 'message.content', '');
+
+            if (! $isThinking) {
+                $text .= $content;
+            }
 
             $finishReason = (bool) data_get($data, 'done', false)
                 ? FinishReason::Stop
@@ -83,7 +90,8 @@ class Stream
 
             yield new Chunk(
                 text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
+                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
+                chunkType: $chunkType,
             );
         }
     }

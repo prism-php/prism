@@ -119,3 +119,40 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
         // Don't remove me rector!
     }
 })->throws(PrismRateLimitedException::class);
+
+it('emits thinking chunks when provider sends thinking field', function (): void {
+    \Tests\Fixtures\FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss:20b')
+        ->withPrompt('Should I bring a jacket?')
+        ->asStream();
+
+    $sawThinking = false;
+    $sawText = false;
+    $thinkingTexts = [];
+    $finalText = '';
+    $lastFinishReason = null;
+
+    foreach ($response as $chunk) {
+        if ($chunk->chunkType === ChunkType::Thinking) {
+            $sawThinking = true;
+            $thinkingTexts[] = $chunk->text;
+        }
+
+        if ($chunk->chunkType === ChunkType::Text) {
+            $sawText = true;
+            $finalText .= $chunk->text;
+        }
+
+        if ($chunk->finishReason !== null) {
+            $lastFinishReason = $chunk->finishReason;
+        }
+    }
+
+    expect($sawThinking)->toBeTrue();
+    expect($sawText)->toBeTrue();
+    expect($thinkingTexts)->not->toBeEmpty();
+    expect($finalText)->toContain('Here is the answer:');
+    expect($lastFinishReason)->toBe(FinishReason::Stop);
+});
