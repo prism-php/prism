@@ -396,7 +396,7 @@ describe('provider tools', function (): void {
         });
     });
 
-    it('throws an exception if provider tools are enabled with other tools', function (): void {
+    it('can use provider tools together with other tools', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         $tools = [
@@ -411,10 +411,10 @@ describe('provider tools', function (): void {
             ->using(Provider::Gemini, 'gemini-2.0-flash')
             ->withMaxSteps(3)
             ->withTools($tools)
-            ->withProviderTools([new ProviderTool('google_search')])
+            ->withProviderTools([new ProviderTool('google_search_retrieval')])
             ->withPrompt('What sport fixtures are on today, and will I need a coat based on today\'s weather forecast?')
             ->asText();
-    })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
+    });
 
     it('maps search groundings into additional content', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
