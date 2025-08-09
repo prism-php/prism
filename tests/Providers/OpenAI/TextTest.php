@@ -348,6 +348,31 @@ it('uses meta to set auto truncation', function (): void {
     });
 });
 
+it('passes reasoning effort parameter when specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Explain quantum physics')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+            ],
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'reasoning.effort'))->toBe('low');
+
+        return true;
+    });
+});
+
 it('can analyze images with detail parameter', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/responses',

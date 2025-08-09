@@ -10,6 +10,15 @@
 ```
 
 ## Provider-specific options
+
+OpenAI supports several provider-specific options via `withProviderOptions()`:
+
+- **`metadata`** - Custom metadata for tracking requests
+- **`previous_response_id`** - ID of a previous response for conversation state
+- **`truncation`** - Automatic truncation settings (`'auto'`)
+- **`reasoning`** - Reasoning configuration for o-series and reasoning models (nested object with `effort` key)
+- **`schema.strict`** - Enable strict schema validation for structured output
+
 ### Strict Tool Schemas
 
 Prism supports OpenAI's [function calling with Structured Outputs](https://platform.openai.com/docs/guides/function-calling#function-calling-with-structured-outputs) via provider-specific meta.
@@ -65,6 +74,40 @@ $response = Prism::structured()
         'truncation' => 'auto' // [!code focus]
     ]) // [!code focus]
 ```
+
+### Reasoning Configuration
+
+Control the computational effort spent on internal reasoning for o-series and reasoning models (o1, o3):
+
+```php
+$response = Prism::text()
+    ->using('openai', 'o3')
+    ->withPrompt('Explain the theory of relativity')
+    ->withProviderOptions([ // [!code focus]
+        'reasoning' => [ // [!code focus]
+            'effort' => 'low' // [!code focus]
+        ] // [!code focus]
+    ]) // [!code focus]
+    ->asText();
+
+// Also works with structured output
+$response = Prism::structured()
+    ->using('openai', 'o3')
+    ->withSchema($schema)
+    ->withPrompt('Extract key information')
+    ->withProviderOptions([ // [!code focus]
+        'reasoning' => [ // [!code focus]
+            'effort' => 'medium' // [!code focus]
+        ] // [!code focus]
+    ]) // [!code focus]
+    ->asStructured();
+```
+
+Available effort levels:
+- `'minimal'` - Minimal reasoning effort
+- `'low'` - Low reasoning effort  
+- `'medium'` - Moderate reasoning effort
+- `'high'` - Maximum reasoning effort
 
 ### Caching
 
