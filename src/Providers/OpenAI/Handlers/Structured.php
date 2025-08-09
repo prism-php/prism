@@ -101,6 +101,7 @@ class Structured
                 'metadata' => $request->providerOptions('metadata'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
                 'text' => [
                     'format' => $responseFormat,
                 ],

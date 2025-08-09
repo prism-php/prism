@@ -318,6 +318,39 @@ it('uses meta to set auto truncation', function (): void {
     });
 });
 
+it('passes reasoning effort parameter when specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [new StringSchema('result', 'The result')],
+        ['result']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Generate a result')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'medium',
+            ],
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'reasoning.effort'))->toBe('medium');
+
+        return true;
+    });
+});
+
 it('uses meta to define strict mode as false', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/responses',
