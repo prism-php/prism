@@ -8,7 +8,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
 use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
