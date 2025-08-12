@@ -25,7 +25,6 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Illuminate\Support\Arr;
 
 class Text
 {
@@ -131,7 +130,7 @@ class Text
     protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
     {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'output.{last}.content.0.text') ?? '',
+            text: Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
             finishReason: $this->mapFinishReason($data),
             toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
