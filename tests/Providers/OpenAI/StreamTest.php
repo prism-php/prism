@@ -355,5 +355,5 @@ it('sends reasoning effort when defined', function (): void {
     // process stream
     collect($response);
 
-    Http::assertSent(fn(Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
 });
