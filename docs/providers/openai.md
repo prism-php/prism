@@ -66,6 +66,52 @@ $response = Prism::structured()
     ]) // [!code focus]
 ```
 
+### Reasoning Models
+
+OpenAI's reasoning models like `gpt-5`, `gpt-5-mini`, and `gpt-5-nano` use advanced reasoning capabilities to think through complex problems before responding. These models excel at multi-step problem solving, coding, scientific reasoning, and complex analysis tasks.
+
+#### Reasoning Effort
+
+Control how much reasoning the model performs before generating a response using the `reasoning` parameter:
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-5')
+    ->withPrompt('Write a PHP function to implement a binary search algorithm with proper error handling')
+    ->withProviderOptions([ // [!code focus]
+        'reasoning' => ['effort' => 'high'] // [!code focus]
+    ]) // [!code focus]
+    ->asText();
+```
+
+Available reasoning effort levels:
+
+- **`low`**: Faster responses with economical token usage, suitable for simpler tasks
+- **`medium`**: Balanced approach between speed and reasoning depth (default)
+- **`high`**: More thorough reasoning for complex problems requiring deep analysis
+
+> [!NOTE]
+> Reasoning models generate internal "reasoning tokens" that help them think through problems. These tokens are included in your usage costs but aren't visible in the response.
+
+#### Reasoning Token Usage
+
+You can track reasoning token usage through the response's usage information:
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-5-mini')
+    ->withPrompt('Refactor this PHP code to use dependency injection')
+    ->withProviderOptions([
+        'reasoning' => ['effort' => 'medium']
+    ])
+    ->asText();
+
+// Access reasoning token usage
+$usage = $response->firstStep()->usage;
+echo "Reasoning tokens: " . $usage->thoughtTokens;
+echo "Total completion tokens: " . $usage->completionTokens;
+```
+
 ### Caching
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.

@@ -129,6 +129,7 @@ class Text
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
             ]))
         );
     }
