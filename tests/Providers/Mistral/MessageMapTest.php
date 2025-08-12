@@ -35,7 +35,7 @@ it('maps user messages with images', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -48,7 +48,7 @@ it('maps user messages with images', function (): void {
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
         ->toStartWith('data:image/png;base64,');
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
-        ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toContain(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 it('maps assistant message', function (): void {
@@ -152,7 +152,7 @@ it('maps user messages with documents from a url', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Document::fromUrl('https://prismphp.com/storage/dimond.png')->setDocumentTitle('diamond'),
+                Document::fromUrl('https://prismphp.com/storage/diamond.png')->setDocumentTitle('diamond'),
             ]),
         ],
         systemPrompts: []
@@ -162,7 +162,7 @@ it('maps user messages with documents from a url', function (): void {
 
     expect(data_get($mappedMessage, '0.content.1.type'))->toBe('document_url');
 
-    expect(data_get($mappedMessage, '0.content.1.document_url'))->toBe('https://prismphp.com/storage/dimond.png');
+    expect(data_get($mappedMessage, '0.content.1.document_url'))->toBe('https://prismphp.com/storage/diamond.png');
 
     expect(data_get($mappedMessage, '0.content.1.document_name'))->toBe('diamond');
 });
@@ -171,7 +171,7 @@ it('throws an exception for a non-url document', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Document::fromLocalPath('tests/Fixtures/dimond.png'),
+                Document::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ],
         systemPrompts: []

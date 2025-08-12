@@ -40,7 +40,7 @@ it('maps user messages correctly', function (): void {
 });
 
 it('maps user messages with images correctly', function (): void {
-    $image = Image::fromLocalPath('tests/Fixtures/dimond.png');
+    $image = Image::fromLocalPath('tests/Fixtures/diamond.png');
     $userMessage = new UserMessage('User input with image', [$image]);
 
     $messageMap = new MessageMap([$userMessage]);
@@ -50,7 +50,7 @@ it('maps user messages with images correctly', function (): void {
         [
             'role' => 'user',
             'content' => 'User input with image',
-            'images' => [base64_encode(file_get_contents('tests/Fixtures/dimond.png'))],
+            'images' => [base64_encode(file_get_contents('tests/Fixtures/diamond.png'))],
         ],
     ]);
 });

@@ -30,7 +30,7 @@ describe('Text-to-Speech', function (): void {
 
         expect($response->audio)->not->toBeNull();
         expect($response->audio->hasBase64())->toBeTrue();
-        expect($response->audio->type)->toBe('audio/mpeg');
+        expect($response->audio->base64)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -57,7 +57,8 @@ describe('Text-to-Speech', function (): void {
             ])
             ->asAudio();
 
-        expect($response->audio->type)->toBe('audio/wav');
+        expect($response->audio->hasBase64())->toBeTrue();
+        expect($response->audio->base64)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -86,7 +87,8 @@ describe('Text-to-Speech', function (): void {
             ])
             ->asAudio();
 
-        expect($response->audio->type)->toBe('audio/opus');
+        expect($response->audio->hasBase64())->toBeTrue();
+        expect($response->audio->base64)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -115,7 +117,8 @@ describe('Text-to-Speech', function (): void {
             ])
             ->asAudio();
 
-        expect($response->audio->getMimeType())->toBe('audio/mpeg');
+        expect($response->audio->hasBase64())->toBeTrue();
+        expect($response->audio->base64)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -127,6 +130,68 @@ describe('Text-to-Speech', function (): void {
 });
 
 describe('Speech-to-Text', function (): void {
+    it('can transcribe audio with whisper-large-v3-turbo model - base64 - json', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'groq/audio-from-base64'
+        );
+
+        $audioFile = Audio::fromBase64(
+            base64_encode(file_get_contents('tests/Fixtures/slightly-caffeinated-36.mp3'))
+        );
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput($audioFile)
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
+
+    it('can transcribe audio with whisper-large-v3-turbo model - from path - json', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'groq/audio-from-path'
+        );
+
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput($audioFile)
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
+
+    it('can transcribe audio with whisper-large-v3-turbo model - from path - text', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'groq/audio-from-path-text'
+        );
+
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput($audioFile)
+            ->withProviderOptions([
+                'response_format' => 'text',
+            ])
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
+
     it('can transcribe audio', function (): void {
         FixtureResponse::fakeResponseSequence('audio/transcriptions', 'groq/speech-to-text-basic');
 

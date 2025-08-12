@@ -200,21 +200,23 @@ $response = Prism::image()
 GPT-Image-1 supports sophisticated image editing operations:
 
 ```php
-// Load your source image and mask
-$originalImage = base64_encode(file_get_contents('/path/to/photo.jpg'));
-$maskImage = base64_encode(file_get_contents('/path/to/mask.png'));
+$originalImage = fopen('tests/Fixtures/diamond.png', 'r');
+$mask = fopen('tests/Fixtures/diamond-mask.png', 'r');
 
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
-    ->withPrompt('Replace the sky with a dramatic sunset')
+    ->withPrompt('Add a vaporwave sunset to the background')
     ->withProviderOptions([
-        'image' => $originalImage,          // Base64 encoded original image
-        'mask' => $maskImage,               // Base64 encoded mask (optional)
+        'image' => $originalImage,
+        'mask' => $mask,
         'size' => '1024x1024',
         'output_format' => 'png',
         'quality' => 'high',
     ])
+    ->withClientOptions(['timeout' => 9999])
     ->generate();
+
+file_put_contents('edited-image.png', base64_decode($response->firstImage()->base64));
 ```
 
 ### Response Format

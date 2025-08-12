@@ -48,7 +48,32 @@ class Images
 
     protected function sendRequest(Request $request): ClientResponse
     {
+        if ($request->providerOptions('image')) {
+            return $this->sendImageEditRequest($request);
+        }
+
         return $this->client->post('images/generations', ImageRequestMap::map($request));
+    }
+
+    protected function sendImageEditRequest(Request $request): ClientResponse
+    {
+        $this
+            ->client
+            ->attach(
+                'image',
+                $request->providerOptions('image'),
+            );
+
+        if ($request->providerOptions('mask')) {
+            $this
+                ->client
+                ->attach(
+                    'mask',
+                    $request->providerOptions('mask'),
+                );
+        }
+
+        return $this->client->post('images/edits', ImageRequestMap::map($request));
     }
 
     /**

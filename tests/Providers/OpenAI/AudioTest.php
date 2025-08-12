@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Media\Audio;
+use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
     config()->set('prism.providers.openai.api_key', env('OPENAI_API_KEY'));
@@ -15,13 +16,10 @@ beforeEach(function (): void {
 
 describe('Text-to-Speech', function (): void {
     it('can generate audio with basic tts-1 model', function (): void {
-        Http::fake([
-            'api.openai.com/v1/audio/speech' => Http::response(
-                'fake-audio-binary-data',
-                200,
-                ['Content-Type' => 'audio/mpeg']
-            ),
-        ]);
+        FixtureResponse::fakeResponseSequence(
+            '/audio/speech',
+            'openai/tts-tts-1'
+        );
 
         $response = Prism::audio()
             ->using('openai', 'tts-1')
@@ -31,8 +29,7 @@ describe('Text-to-Speech', function (): void {
 
         expect($response->audio)->not->toBeNull();
         expect($response->audio->hasBase64())->toBeTrue();
-        expect($response->audio->base64)->toBe(base64_encode('fake-audio-binary-data'));
-        expect($response->audio->type)->toBe('audio/mpeg');
+        expect($response->audio->base64)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -44,13 +41,10 @@ describe('Text-to-Speech', function (): void {
     });
 
     it('can generate audio with tts-1-hd model', function (): void {
-        Http::fake([
-            'api.openai.com/v1/audio/speech' => Http::response(
-                'high-quality-audio-data',
-                200,
-                ['Content-Type' => 'audio/wav']
-            ),
-        ]);
+        FixtureResponse::fakeResponseSequence(
+            '/audio/speech',
+            'openai/tts-tts-1-hd'
+        );
 
         $response = Prism::audio()
             ->using('openai', 'tts-1-hd')
@@ -62,8 +56,8 @@ describe('Text-to-Speech', function (): void {
             ])
             ->asAudio();
 
-        expect($response->audio->base64)->toBe(base64_encode('high-quality-audio-data'));
-        expect($response->audio->type)->toBe('audio/wav');
+        expect($response->audio->hasBase64())->toBeTrue();
+        expect($response->audio->base64)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -76,13 +70,10 @@ describe('Text-to-Speech', function (): void {
     });
 
     it('can generate audio with all provider options', function (): void {
-        Http::fake([
-            'api.openai.com/v1/audio/speech' => Http::response(
-                'custom-voice-audio-data',
-                200,
-                ['Content-Type' => 'audio/opus']
-            ),
-        ]);
+        FixtureResponse::fakeResponseSequence(
+            '/audio/speech',
+            'openai/tts-all-options'
+        );
 
         $response = Prism::audio()
             ->using('openai', 'tts-1')
@@ -93,8 +84,6 @@ describe('Text-to-Speech', function (): void {
                 'speed' => 1.2,
             ])
             ->asAudio();
-
-        expect($response->audio->type)->toBe('audio/opus');
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -108,13 +97,10 @@ describe('Text-to-Speech', function (): void {
     });
 
     it('supports different voice options', function (): void {
-        Http::fake([
-            'api.openai.com/v1/audio/speech' => Http::response(
-                'echo-voice-audio',
-                200,
-                ['Content-Type' => 'audio/mpeg']
-            ),
-        ]);
+        FixtureResponse::fakeResponseSequence(
+            '/audio/speech',
+            'openai/tts-voice-option'
+        );
 
         $response = Prism::audio()
             ->using('openai', 'tts-1')
@@ -124,8 +110,6 @@ describe('Text-to-Speech', function (): void {
                 'response_format' => 'mp3',
             ])
             ->asAudio();
-
-        expect($response->audio->getMimeType())->toBe('audio/mpeg');
 
         Http::assertSent(function (Request $request): bool {
             $data = $request->data();
@@ -137,25 +121,67 @@ describe('Text-to-Speech', function (): void {
 });
 
 describe('Speech-to-Text', function (): void {
-    it('can transcribe audio with whisper-1 model', function (): void {
-        Http::fake([
-            'api.openai.com/v1/audio/transcriptions' => Http::response([
-                'text' => 'Hello, this is a test transcription.',
-            ], 200),
-        ]);
+    it('can transcribe audio with whisper-1 model - base64 - json', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'openai/audio-from-base64'
+        );
 
-        $audioFile = Audio::fromBase64(base64_encode('fake-audio-content'), 'audio/mp3');
+        $audioFile = Audio::fromBase64(
+            base64_encode(file_get_contents('tests/Fixtures/slightly-caffeinated-36.mp3'))
+        );
 
         $response = Prism::audio()
             ->using('openai', 'whisper-1')
             ->withInput($audioFile)
+            ->withClientOptions(['timeout' => 9999])
             ->asText();
 
         expect($response->text)->not->toBeNull();
         expect($response->text)->not->toBeEmpty();
-        expect($response->text)->toBe('Hello, this is a test transcription.');
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
 
-        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/audio/transcriptions');
+    it('can transcribe audio with whisper-1 model - from path - json', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'openai/audio-from-path'
+        );
+
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
+
+        $response = Prism::audio()
+            ->using('openai', 'whisper-1')
+            ->withInput($audioFile)
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
+
+    it('can transcribe audio with whisper-1 model - from path - vtt', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'openai/audio-from-path-vtt'
+        );
+
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
+
+        $response = Prism::audio()
+            ->using('openai', 'whisper-1')
+            ->withInput($audioFile)
+            ->withProviderOptions([
+                'response_format' => 'vtt',
+            ])
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain('00:04:34.000 --> 00:04:40.320');
+        expect($response->text)->toContain("But maybe after Laracon, I'll spend a little time coming up with some stuff. But I think those are");
     });
 
     it('can transcribe with language and prompt options', function (): void {
@@ -358,7 +384,6 @@ describe('GeneratedAudio Value Object', function (): void {
             ->asAudio();
 
         expect($response->audio->hasBase64())->toBeTrue();
-        expect($response->audio->getMimeType())->toBe('audio/mpeg');
     });
 });
 

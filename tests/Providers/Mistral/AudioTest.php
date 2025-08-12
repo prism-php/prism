@@ -15,6 +15,46 @@ beforeEach(function (): void {
 });
 
 describe('Speech-to-Text', function (): void {
+    it('can transcribe audio with voxtral-mini-latest model - base64 - json', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'mistral/audio-from-base64'
+        );
+
+        $audioFile = Audio::fromBase64(
+            base64_encode(file_get_contents('tests/Fixtures/slightly-caffeinated-36.mp3'))
+        );
+
+        $response = Prism::audio()
+            ->using('mistral', 'voxtral-mini-latest')
+            ->withInput($audioFile)
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
+
+    it('can transcribe audio with voxtral-mini-latest model - from path - json', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/audio/transcriptions',
+            'mistral/audio-from-path'
+        );
+
+        $audioFile = Audio::fromLocalPath('tests/Fixtures/slightly-caffeinated-36.mp3');
+
+        $response = Prism::audio()
+            ->using('mistral', 'voxtral-mini-latest')
+            ->withInput($audioFile)
+            ->withClientOptions(['timeout' => 9999])
+            ->asText();
+
+        expect($response->text)->not->toBeNull();
+        expect($response->text)->not->toBeEmpty();
+        expect($response->text)->toContain("So I'd love to hear about your experience here");
+    });
+
     it('can transcribe audio', function (): void {
         FixtureResponse::fakeResponseSequence('audio/transcriptions', 'mistral/speech-to-text-basic');
 

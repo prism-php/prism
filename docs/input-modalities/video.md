@@ -36,8 +36,8 @@ $response = Prism::text()
     ->withPrompt(
         "What's in this video?",
         [Video::fromStoragePath(
-            path: '/path/to/video.mp4', 
-            disk: 'my-disk' // optional - omit/null for default disk
+            path: '/path/to/video.mp4',
+            diskName: 'my-disk' // optional - omit/null for default disk
         )]
     )
     ->asText();
@@ -146,7 +146,7 @@ $response = Prism::text()
     ->asText();
 ```
 
-## Transfer mediums 
+## Transfer mediums
 
 Providers are not consistent in their support of sending raw contents, base64 and/or URLs.
 

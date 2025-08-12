@@ -36,8 +36,8 @@ $response = Prism::text()
     ->withPrompt(
         "What's in this audio?",
         [Audio::fromStoragePath(
-            path: '/path/to/audio.mp3', 
-            disk: 'my-disk' // optional - omit/null for default disk
+            path: '/path/to/audio.mp3',
+            diskName: 'my-disk' // optional - omit/null for default disk
         )]
     )
     ->asText();
@@ -106,7 +106,7 @@ Prism supports a variety of audio formats, including:
 
 The specific supported formats depend on the provider. Gemini is currently the main provider with comprehensive audio analysis capabilities. Check the provider's documentation for a complete list of supported formats.
 
-## Transfer mediums 
+## Transfer mediums
 
 Providers are not consistent in their support of sending raw contents, base64 and/or URLs.
 

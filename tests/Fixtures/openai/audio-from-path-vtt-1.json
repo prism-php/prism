@@ -1,0 +1,158 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.640
+by that conference. So I think that's a good excuse to be on the newsletter, too, is like,
+
+00:00:08.640 --> 00:00:15.440
+yeah, find out about 1.0 as soon as possible. Yeah, totally. Yeah, I like that idea. Then
+
+00:00:15.440 --> 00:00:23.760
+that gets you not as much pressure for tagging 1.0 before you go to Larikon. It gets an added
+
+00:00:23.760 --> 00:00:29.120
+benefit of getting people on the newsletter and a little bit more exposure in there. And then
+
+00:00:30.240 --> 00:00:36.560
+in the meantime before you can, I don't know, maybe start drafting up newsletter launch email
+
+00:00:36.560 --> 00:00:45.040
+number one. Yeah. Yeah. Yeah. I might. Right now I'm using button down email for everything. May
+
+00:00:45.040 --> 00:00:51.599
+consider switching over to Bento just because Aaron loves it. And I like using things that
+
+00:00:51.599 --> 00:00:57.680
+people recommend. So. Yeah. I might I might switch providers right before I pull the trigger on it.
+
+00:00:57.680 --> 00:01:01.919
+So that's that's something I'm gonna have to look at and maybe I'll I'll work on on the plane or
+
+00:01:01.919 --> 00:01:06.879
+something. I'm on my way out to Denver. I know it's just getting close, man. I leave on Sunday.
+
+00:01:07.599 --> 00:01:12.879
+It's Thursday. So this is all coming up really quick and there's a lot I want to do. So,
+
+00:01:13.440 --> 00:01:17.760
+yeah, maybe I don't sleep tonight. Yeah. But even if you just like captured email
+
+00:01:17.760 --> 00:01:22.239
+addresses like you can always export them, import them into the new place anyways.
+
+00:01:23.120 --> 00:01:28.480
+Yep. Yeah. A hundred percent. So cool, man. Moving on from newsletters. I think you had
+
+00:01:28.480 --> 00:01:33.599
+added something here about cloud custom commands and that's something that we talked about, I think
+
+00:01:33.599 --> 00:01:40.000
+last week a little bit and maybe starting to find some excuses for using slash custom slash
+
+00:01:40.000 --> 00:01:45.519
+commands and stuff. So I'd love to hear about your experience here. Yeah, definitely. So
+
+00:01:46.160 --> 00:01:51.760
+this was definitely prompted from last week's conversation. And as I'm working through the
+
+00:01:51.760 --> 00:01:58.639
+week, I was like, OK, what can I possibly make a custom command for? So I basically started off
+
+00:01:59.279 --> 00:02:07.599
+with two things. I created like a refresh repo command, which basically like you run it, it
+
+00:02:07.599 --> 00:02:17.759
+scans it basically like re-initiates the the cloud MD file. It reads what's there. It looks at the
+
+00:02:17.759 --> 00:02:23.919
+application, sees any new like dependencies or commands or whatever the case is and updates
+
+00:02:23.919 --> 00:02:31.279
+anything that it deems important to add back to that markdown file. And it's just nice if you
+
+00:02:31.279 --> 00:02:37.279
+have like a repo that has a lot of development, a lot of people working in it, and you don't always
+
+00:02:37.279 --> 00:02:44.559
+want to capture every single new like merge or rebase like every other day to it. So maybe your
+
+00:02:44.880 --> 00:02:50.720
+updates running that like the repo refresh like once a week or something like that would be good
+
+00:02:50.720 --> 00:02:55.440
+because then you don't have to type out like, oh, rescan the repo and do this and that and the other
+
+00:02:55.440 --> 00:03:00.720
+thing like now this will just take care of it. So that was I think the first one that I made. So
+
+00:03:00.720 --> 00:03:04.639
+that one's been really helpful refreshing everything because the first time I ran it,
+
+00:03:04.639 --> 00:03:10.080
+it picked up like I think I last time I refreshed it was I don't know, three, four weeks ago.
+
+00:03:10.080 --> 00:03:14.720
+So I found like a whole bunch more stuff. It updated like architecture changes, like a whole
+
+00:03:15.440 --> 00:03:20.240
+bunch of things to it. So that's been really helpful. Probably gonna run that like on a
+
+00:03:20.240 --> 00:03:28.080
+weekly basis now on all the repos that we're working on. The other one is what I just named
+
+00:03:28.080 --> 00:03:33.199
+like a branch context. It's like I'm either switching to a branch that I'm working on
+
+00:03:33.199 --> 00:03:41.199
+or pulling down for a review or something like that of like the repo refreshes for main branch.
+
+00:03:41.199 --> 00:03:45.919
+And then when I'm going into something else like scan for changes, tell me what's in the last
+
+00:03:45.919 --> 00:03:50.960
+handful of commits and kind of refresh your understanding of what has changed in the repo
+
+00:03:50.960 --> 00:03:56.960
+in here. And then we can either work towards something else together or I'm asking you for
+
+00:03:56.960 --> 00:04:01.759
+why did this change or why did that change or whatever the case is. It's just refreshing
+
+00:04:01.759 --> 00:04:06.240
+the immediate context for that branch. So that's been helpful as well.
+
+00:04:06.240 --> 00:04:06.800
+That's sick.
+
+00:04:07.520 --> 00:04:12.559
+Yeah. So I guess I'll pause there because then I have another whole workflow. So any questions
+
+00:04:12.559 --> 00:04:17.440
+on either one of those or any specific details that you want?
+
+00:04:17.440 --> 00:04:21.440
+No, man. I think that sounds great. Like those are very useful things to have as slash commands.
+
+00:04:22.239 --> 00:04:32.880
+Yeah. I'm still personally finding my own use cases for them. I haven't dove too far into it yet.
+
+00:04:34.000 --> 00:04:40.320
+But maybe after Laracon, I'll spend a little time coming up with some stuff. But I think those are
+
+00:04:41.359 --> 00:04:45.839
+I think it serves as some decent inspiration for some other slash commands I'm thinking
+
+00:04:45.839 --> 00:04:47.839
+up right now. So yeah. What else you got?
+
+00:04:48.799 --> 00:04:56.239
+Um, yeah. So the next one, which I do a lot is PR reviews for others and coming into like a new
+
+00:04:56.239 --> 00:05:02.000
+tech stack. Like there's some things I am just not aware about or like best practices or whatever.
+
+00:05:02.000 --> 00:05:09.600
+So there's a default slash review command that comes out of the box and cloud code. And that
+
+00:05:09.600 --> 00:05:16.480
+gives a decent understanding. Like it'll tell you, you know, what's changed, what maybe some of the
+
