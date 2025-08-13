@@ -28,16 +28,29 @@ class ElevenLabs extends Provider
     #[\Override]
     public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
     {
-        // TODO: Implement ElevenLabs text-to-speech functionality
-        $handler = new Audio($this->client());
+        $handler = new Audio(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry()
+            )
+        );
 
-        return $handler->handleTextToSpeech($request);
+        try {
+            return $handler->handleTextToSpeech($request);
+        } catch (RequestException $e) {
+            $this->handleRequestException($request->model(), $e);
+        }
     }
 
     #[\Override]
     public function speechToText(SpeechToTextRequest $request): SpeechToTextResponse
     {
-        $handler = new Audio($this->client());
+        $handler = new Audio(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry()
+            )
+        );
 
         try {
             return $handler->handleSpeechToText($request);
@@ -52,7 +65,10 @@ class ElevenLabs extends Provider
         $body = $response->json() ?? [];
         $status = $response->status();
 
-        $message = $body['detail']['message'] ?? $body['detail'] ?? $body['message'] ?? 'Unknown error from ElevenLabs API';
+        $message = $body['detail']['message']
+            ?? $body['detail']
+            ?? $body['message']
+            ?? 'Unknown error from ElevenLabs API';
 
         if ($status === 429) {
             $retryAfter = $response->header('Retry-After') ? (int) $response->header('Retry-After') : null;
@@ -64,12 +80,18 @@ class ElevenLabs extends Provider
         );
     }
 
-    protected function client(): PendingRequest
+    /**
+     * @param  array<string, mixed>  $options
+     * @param  array<mixed>  $retry
+     */
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
         return $this->baseClient()
-            ->baseUrl($this->url)
             ->withHeaders([
                 'xi-api-key' => $this->apiKey,
-            ]);
+            ])
+            ->withOptions($options)
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

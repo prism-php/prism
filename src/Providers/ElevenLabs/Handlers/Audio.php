@@ -9,14 +9,11 @@ use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
-use Prism\Prism\Providers\ElevenLabs\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\ElevenLabs\Maps\TextToSpeechRequestMapper;
 
 class Audio
 {
-    use ValidatesResponse;
-
-    public function __construct(protected PendingRequest $client) {}
+    public function __construct(protected readonly PendingRequest $client) {}
 
     public function handleTextToSpeech(TextToSpeechRequest $request): AudioResponse
     {
@@ -50,7 +47,7 @@ class Audio
                 'tag_audio_events' => $request->providerOptions('tag_audio_events'),
             ], fn ($value): bool => $value !== null));
 
-        $this->validateResponse($response);
+        $response->throw();
 
         $data = $response->json();
 
