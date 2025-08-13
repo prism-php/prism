@@ -34,12 +34,29 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
-        // TODO: Implement ElevenLabs speech-to-text API call
-        // 1. Prepare multipart form data with audio file
-        // 2. Make POST request to /speech-to-text/convert
-        // 3. Handle JSON response with transcription
-        // 4. Return TextResponse with transcribed text
+        $response = $this
+            ->client
+            ->attach(
+                'file',
+                $request->input()->resource(),
+                'audio',
+                ['Content-Type' => $request->input()->mimeType()]
+            )
+            ->post('speech-to-text', array_filter([
+                'model_id' => $request->model(),
+                'language_code' => $request->providerOptions('language_code'),
+                'num_speakers' => $request->providerOptions('num_speakers'),
+                'diarize' => $request->providerOptions('diarize'),
+                'tag_audio_events' => $request->providerOptions('tag_audio_events'),
+            ], fn ($value): bool => $value !== null));
 
-        throw new \Exception('ElevenLabs speech-to-text not yet implemented');
+        $this->validateResponse($response);
+
+        $data = $response->json();
+
+        return new TextResponse(
+            text: $data['text'] ?? '',
+            additionalContent: $data,
+        );
     }
 }

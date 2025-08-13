@@ -5,20 +5,29 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\ElevenLabs\Concerns;
 
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 
 trait ValidatesResponse
 {
     protected function validateResponse(Response $response): void
     {
-        // TODO: Implement ElevenLabs-specific response validation
-        // - Check for API errors in response body
-        // - Handle rate limiting headers
-        // - Validate expected response structure
-        // - Throw appropriate Prism exceptions for different error types
-
-        if (! $response->successful()) {
-            // TODO: Parse ElevenLabs error format and throw appropriate exceptions
-            // ElevenLabs may return errors in different formats for different endpoints
+        if ($response->successful()) {
+            return;
         }
+
+        $body = $response->json() ?? [];
+        $status = $response->status();
+
+        $message = $body['detail']['message'] ?? $body['detail'] ?? $body['message'] ?? 'Unknown error from ElevenLabs API';
+
+        if ($status === 429) {
+            $retryAfter = $response->header('Retry-After') ? (int) $response->header('Retry-After') : null;
+            throw PrismRateLimitedException::make([], $retryAfter);
+        }
+
+        throw PrismException::providerResponseError(
+            vsprintf('ElevenLabs Error [%s]: %s', [$status, $message])
+        );
     }
 }
