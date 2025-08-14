@@ -193,6 +193,9 @@ class Stream
                 )))->map(),
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => true,
+                ...Arr::whereNotNull([
+                    'think' => $request->providerOptions('thinking'),
+                ]),
                 'options' => Arr::whereNotNull(array_merge([
                     'temperature' => $request->temperature(),
                     'num_predict' => $request->maxTokens() ?? 2048,

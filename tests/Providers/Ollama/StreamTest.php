@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Ollama;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
@@ -119,6 +120,50 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
         // Don't remove me rector!
     }
 })->throws(PrismRateLimitedException::class);
+
+it('includes think parameter when thinking is enabled for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking-enabled');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->withProviderOptions(['thinking' => true])
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->toHaveKey('think');
+        expect($body['think'])->toBe(true);
+
+        return true;
+    });
+});
+
+it('does not include think parameter when not provided for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->not->toHaveKey('think');
+
+        return true;
+    });
+});
 
 it('emits thinking chunks when provider sends thinking field', function (): void {
     \Tests\Fixtures\FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking');
