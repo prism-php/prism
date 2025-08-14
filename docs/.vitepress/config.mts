@@ -173,6 +173,10 @@ export default defineConfig({
                 link: "/providers/deepseek",
               },
               {
+                text: "ElevenLabs",
+                link: "/providers/elevenlabs",
+              },
+              {
                 text: "Groq",
                 link: "/providers/groq",
               },
