@@ -34,8 +34,6 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
-        $request = $this->appendMessageForJsonMode($request);
-
         $data = $this->sendRequest($request);
 
         $this->validateResponse($data);
@@ -44,6 +42,8 @@ class Structured
     }
 
     /**
+     * @see https://openrouter.ai/docs/features/structured-outputs
+     *
      * @return array<string, mixed>
      */
     protected function sendRequest(Request $request): array
@@ -54,10 +54,19 @@ class Structured
                 'model' => $request->model(),
                 'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                 'max_tokens' => $request->maxTokens(),
+                'structured_outputs' => true,
             ], Arr::whereNotNull([
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
-                'response_format' => ['type' => 'json_object'],
+                'reasoning' => $request->providerOptions('reasoning') ?? null,
+                'response_format' => [
+                    'type' => 'json_object',
+                    'json_schema' => [
+                        'name' => $request->schema()->name(),
+                        'strict' => true,
+                        'schema' => $request->schema()->toArray(),
+                    ],
+                ],
             ]))
         );
 
@@ -103,13 +112,5 @@ class Structured
         $this->responseBuilder->addStep($step);
 
         return $this->responseBuilder->toResponse();
-    }
-
-    protected function appendMessageForJsonMode(Request $request): Request
-    {
-        return $request->addMessage(new SystemMessage(sprintf(
-            "You MUST respond EXCLUSIVELY with a JSON object that strictly adheres to the following schema. \n Do NOT explain or add other content. Validate your response against this schema \n %s",
-            json_encode($request->schema()->toArray(), JSON_PRETTY_PRINT)
-        )));
     }
 }
