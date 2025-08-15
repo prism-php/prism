@@ -10,6 +10,7 @@ readonly class GeneratedImage
         public ?string $url = null,
         public ?string $base64 = null,
         public ?string $revisedPrompt = null,
+        public ?string $mimeType = null,
     ) {}
 
     public function hasUrl(): bool
@@ -25,5 +26,10 @@ readonly class GeneratedImage
     public function hasRevisedPrompt(): bool
     {
         return $this->revisedPrompt !== null;
+    }
+
+    public function hasMimeType(): bool
+    {
+        return $this->mimeType !== null;
     }
 }
