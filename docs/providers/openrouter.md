@@ -165,6 +165,28 @@ foreach ($stream as $chunk) {
 }
 ```
 
+#### Reasoning Effort
+
+Control how much reasoning the model performs before generating a response using the `reasoning` parameter. The way this is structured depends on the underlying model you are calling:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'openai/gpt-5-mini')
+    ->withPrompt('Write a PHP function to implement a binary search algorithm with proper error handling')
+    ->withProviderOptions([
+        'reasoning' => [
+            'effort' => 'high',  // Can be "high", "medium", or "low" (OpenAI-style)
+            'max_tokens' =>  2000, // Specific token limit (Gemini / Anthropic-style)
+            
+            // Optional: Default is false. All models support this.
+            'exclude': false, // Set to true to exclude reasoning tokens from response
+            // Or enable reasoning with the default parameters:
+            'enabled': true // Default: inferred from `effort` or `max_tokens`
+        ]
+    ])
+    ->asText();
+```
+
 ## Available Models
 
 OpenRouter supports many models from different providers. Some popular options include:
