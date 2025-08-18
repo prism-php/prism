@@ -265,7 +265,6 @@ it('can process a complete conversation with provider tool', function (): void {
 
     $answerText = '';
     $toolCallCount = 0;
-    $reasoningText = '';
     /** @var Usage[] $usage */
     $usage = [];
 
@@ -339,3 +338,22 @@ it('throws a PrismException on an unknown error', function (): void {
         // Read stream
     }
 })->throws(PrismException::class, 'Sending to model gpt-4 failed. Code: unknown-error. Message: Foobar');
+
+it('sends reasoning effort when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-reasoning-effort');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+            ],
+        ])
+        ->asStream();
+
+    // process stream
+    collect($response);
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+});

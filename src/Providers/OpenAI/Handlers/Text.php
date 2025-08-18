@@ -51,18 +51,23 @@ class Text
         $responseMessage = new AssistantMessage(
             Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
             ToolCallMap::map(
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
+                array_filter(
+                    data_get($data, 'output', []),
+                    fn (array $output): bool => $output['type'] === 'function_call'
+                ),
+                array_filter(
+                    data_get($data, 'output', []),
+                    fn (array $output): bool => $output['type'] === 'reasoning'
+                ),
             ),
         );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
+            FinishReason::Length => throw new PrismException('OpenAI: max tokens excceded'),
             default => throw new PrismException('OpenAI: unknown finish reason'),
         };
     }
@@ -74,7 +79,10 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
+            ToolCallMap::map(array_filter(
+                data_get($data, 'output', []),
+                fn (array $output): bool => $output['type'] === 'function_call')
+            ),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -119,6 +127,7 @@ class Text
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
             ]))
         );
     }
@@ -127,8 +136,12 @@ class Text
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
      */
-    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
-    {
+    protected function addStep(
+        array $data,
+        Request $request,
+        ClientResponse $clientResponse,
+        array $toolResults = []
+    ): void {
         $this->responseBuilder->addStep(new Step(
             text: Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
             finishReason: $this->mapFinishReason($data),

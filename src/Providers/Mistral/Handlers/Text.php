@@ -54,8 +54,6 @@ class Text
             $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {

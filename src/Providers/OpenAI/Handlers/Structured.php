@@ -52,8 +52,6 @@ class Structured
             Arr::last(data_get($data, 'output.*.content.0.text')) ?? '',
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request, $response);
@@ -102,6 +100,7 @@ class Structured
                 'metadata' => $request->providerOptions('metadata'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
                 'text' => [
                     'format' => $responseFormat,
                 ],

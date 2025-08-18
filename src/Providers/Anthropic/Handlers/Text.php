@@ -57,8 +57,6 @@ class Text
             $this->tempResponse->additionalContent,
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $this->request->addMessage($responseMessage);
 
         return match ($this->tempResponse->finishReason) {
@@ -151,7 +149,6 @@ class Text
 
         $this->tempResponse = new Response(
             steps: new Collection,
-            responseMessages: new Collection,
             messages: new Collection,
             text: $this->extractText($data),
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),

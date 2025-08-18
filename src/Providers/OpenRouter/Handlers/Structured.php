@@ -82,7 +82,6 @@ class Structured
         $text = data_get($data, 'choices.0.message.content') ?? '';
 
         $responseMessage = new AssistantMessage($text);
-        $this->responseBuilder->addResponseMessage($responseMessage);
         $request->addMessage($responseMessage);
 
         $step = new Step(

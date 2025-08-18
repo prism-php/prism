@@ -385,3 +385,31 @@ it('uses meta to define strict mode as null', function (): void {
         return true;
     });
 });
+
+it('sends reasoning effort when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-reasoning-effort');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+            ],
+        ])
+        ->withSchema($schema)
+        ->asStructured();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+});

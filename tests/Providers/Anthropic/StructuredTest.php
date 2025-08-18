@@ -182,9 +182,6 @@ it('saves message parts with citations to additionalContent on response steps an
 
     expect($response->steps[0]->additionalContent['messagePartsWithCitations'])->toHaveCount(1);
     expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-
-    expect($response->responseMessages->last()->additionalContent['messagePartsWithCitations'])->toHaveCount(1);
-    expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 });
 
 it('can use extending thinking', function (): void {

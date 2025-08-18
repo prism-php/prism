@@ -80,7 +80,7 @@
       "@php vendor/bin/testbench serve --ansi"
     ],
     "types": [
-      "@php vendor/bin/phpstan analyse --verbose --ansi"
+      "@php vendor/bin/phpstan analyse --verbose --no-ansi"
     ]
   },
   "extra": {

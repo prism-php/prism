@@ -104,6 +104,42 @@ describe('Text generation', function (): void {
     });
 });
 
+describe('Thinking parameter', function (): void {
+    it('includes think parameter when thinking is enabled', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-with-thinking-enabled');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['thinking' => true])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('think');
+            expect($body['think'])->toBe(true);
+
+            return true;
+        });
+    });
+
+    it('does not include think parameter when not provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->not->toHaveKey('think');
+
+            return true;
+        });
+    });
+});
+
 describe('Image support', function (): void {
     it('can send images from path', function (): void {
         FixtureResponse::fakeResponseSequence('api/chat', 'ollama/image-detection');

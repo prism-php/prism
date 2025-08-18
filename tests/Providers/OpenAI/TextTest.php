@@ -427,3 +427,19 @@ it('can analyze documents', function (): void {
         return true;
     });
 });
+
+it('sends reasoning effort when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-reasoning-effort');
+
+    Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+            ],
+        ])
+        ->asText();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+});

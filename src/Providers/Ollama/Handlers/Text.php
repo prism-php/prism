@@ -48,8 +48,6 @@ class Text
             $this->mapToolCalls(data_get($data, 'message.tool_calls', [])),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         // Check for tool calls first, regardless of finish reason
@@ -78,6 +76,9 @@ class Text
                 )))->map(),
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => false,
+                ...Arr::whereNotNull([
+                    'think' => $request->providerOptions('thinking'),
+                ]),
                 'options' => Arr::whereNotNull(array_merge([
                     'temperature' => $request->temperature(),
                     'num_predict' => $request->maxTokens() ?? 2048,

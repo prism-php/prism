@@ -11,7 +11,6 @@ use Prism\Prism\ValueObjects\Usage;
 
 /**
  * @method self withSteps(Collection $steps)
- * @method self withResponseMessages(Collection $responseMessages)
  * @method self withText(string $text)
  * @method self withFinishReason(FinishReason $finishReason)
  * @method self withToolCalls(array $toolCalls)
@@ -29,7 +28,6 @@ readonly class TextResponseFake extends Response
     {
         return new self(
             steps: collect([]),
-            responseMessages: collect([]),
             text: '',
             finishReason: FinishReason::Stop,
             toolCalls: [],

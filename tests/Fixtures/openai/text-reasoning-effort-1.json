@@ -1,0 +1,69 @@
+{
+  "id": "resp_689b7193d1f481999faf30121b14ec390f49e192ec3eba8e",
+  "object": "response",
+  "created_at": 1755017620,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-5-2025-08-07",
+  "output": [
+    {
+      "id": "rs_689b71947cbc8199af51368ed8e14a810f49e192ec3eba8e",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_689b71959da481998b4b6284842788c80f49e192ec3eba8e",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "I\u2019m ChatGPT, an AI assistant from OpenAI. I can help answer questions, explain things, brainstorm, and assist with tasks. I can also analyze images you share. How can I help today?"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "reasoning": {
+    "effort": "low",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "auto",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 10,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 112,
+    "output_tokens_details": {
+      "reasoning_tokens": 64
+    },
+    "total_tokens": 122
+  },
+  "user": null,
+  "metadata": {}
+}
