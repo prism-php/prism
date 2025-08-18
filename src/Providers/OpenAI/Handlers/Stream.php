@@ -28,7 +28,6 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
-use Illuminate\Support\Arr;
 
 class Stream
 {
