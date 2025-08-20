@@ -40,7 +40,7 @@ $response = Prism::structured()
 ```php
 $response = Prism::structured()
     ->withProviderOptions([ // [!code focus]
-        'meta' => [ // [!code focus]
+        'metadata' => [ // [!code focus]
             'project_id' => 23 // [!code focus]
         ] // [!code focus]
     ]) // [!code focus]
