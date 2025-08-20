@@ -285,23 +285,27 @@ $response = Prism::image()
     ->generate();
 
 file_put_contents('image.png', base64_decode($response->firstImage()->base64));
+
+// gemini models return usage and metadata
+echo $response->usage->promptTokens;
+echo $response->meta->id;
 ```
 
 ### Image Editing with Gemini
 
 ```php
+$originalImage = fopen('image/boots.png', 'r');
+
 $response = Prism::image()
     ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
     ->withPrompt('Actually, could we make those boots red?')
     ->withProviderOptions([
-        'image' => 'base64encodedImageHere',
+        'image' => $originalImage,
         'image_mime_type' => 'image/png',
     ])
     ->generate();
 
-// gemini models return usage and metadata
-echo $response->usage->promptTokens;
-echo $response->meta->id;
+file_put_contents('new-boots.png', base64_decode($response->firstImage()->base64));
 ```
 
 ### Image options for Imagen models

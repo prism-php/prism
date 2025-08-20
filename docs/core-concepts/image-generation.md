@@ -167,11 +167,13 @@ Gemini offers customizations, depending on what model is selected. All Gemini im
 Gemini conversational image generation provides the option to edit images:
 
 ```php
+$originalImage = fopen('image/boots.png', 'r');
+
 $response = Prism::image()
     ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
-    ->withPrompt('Could we put my cat on a grey tile background?')
+    ->withPrompt('Actually, could we make those boots red?')
     ->withProviderOptions([
-        'image' => 'base64encodedImageHere',
+        'image' => $originalImage,
         'image_mime_type' => 'image/png',
     ])
     ->generate();

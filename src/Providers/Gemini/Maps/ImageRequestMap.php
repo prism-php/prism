@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
 use Prism\Prism\Images\Request;
 
 class ImageRequestMap
@@ -30,10 +31,16 @@ class ImageRequestMap
         ];
 
         if (isset($providerOptions['image'])) {
+            $resource = $providerOptions['image'];
+            $imageContent = is_resource($resource) ? stream_get_contents($resource) : false;
+            if (! $imageContent) {
+                throw new InvalidArgumentException('Image must be a valid resource.');
+            }
+
             $parts[] = [
                 'inline_data' => Arr::whereNotNull([
                     'mime_type' => $providerOptions['image_mime_type'] ?? null,
-                    'data' => $providerOptions['image'] ?? null,
+                    'data' => base64_encode($imageContent),
                 ]),
             ];
         }
@@ -64,7 +71,7 @@ class ImageRequestMap
         ];
 
         $parameters = Arr::whereNotNull([
-            'numberOfImages' => $providerOptions['n'] ?? null,
+            'sampleCount' => $providerOptions['n'] ?? null,
             'sampleImageSize' => $providerOptions['size'] ?? null,
             'aspectRatio' => $providerOptions['aspect_ratio'] ?? null,
             'personGeneration' => $providerOptions['person_generation'] ?? null,
