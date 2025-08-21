@@ -16,6 +16,7 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
@@ -33,6 +34,7 @@ class Stream
 {
     use BuildsTools;
     use CallsTools;
+    use ProcessRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
