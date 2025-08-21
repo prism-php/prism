@@ -218,6 +218,7 @@ class Tool
     {
         return $this->failedHandler;
     }
+
     /**
      * @param  string|int|float  $args
      *
