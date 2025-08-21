@@ -57,7 +57,6 @@ trait ProcessRateLimits
                 's' => Carbon::now()->addSeconds($value),
                 'm' => Carbon::now()->addMinutes($value),
                 'h' => Carbon::now()->addHours($value),
-                default => null,
             };
         }
 
