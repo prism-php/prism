@@ -5,20 +5,23 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Concerns;
 
 use Illuminate\Support\Arr;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 
 trait ExtractsCitations
 {
     /**
      * @param  array<string, mixed>  $data
-     * @return null|MessagePartWithCitations[]
+     * @return array<int, MessagePartWithCitations>|null
      */
     protected function extractCitations(array $data): ?array
     {
-        if (Arr::whereNotNull(data_get($data, 'content.*.citations')) === []) {
+        if (data_get($data, 'content.*.citations', []) === []) {
             return null;
         }
 
-        return Arr::map(data_get($data, 'content', []), fn ($contentBlock): \Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations => MessagePartWithCitations::fromContentBlock($contentBlock));
+        return array_values(Arr::whereNotNull(
+            Arr::map(data_get($data, 'content', []), fn ($contentBlock): ?MessagePartWithCitations => CitationsMapper::mapFromAnthropic($contentBlock))
+        ));
     }
 }

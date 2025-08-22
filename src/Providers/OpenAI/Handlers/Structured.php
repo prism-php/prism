@@ -7,6 +7,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
@@ -23,6 +24,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use ExtractsCitations;
     use MapsFinishReason;
     use ProcessRateLimits;
     use ValidatesResponse;
@@ -80,7 +82,9 @@ class Structured
                 rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            additionalContent: [],
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->extractCitations($data),
+            ]),
             systemPrompts: $request->systemPrompts(),
         ));
     }

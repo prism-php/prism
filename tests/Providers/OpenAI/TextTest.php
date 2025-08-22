@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
@@ -442,4 +446,53 @@ it('sends reasoning effort when defined', function (): void {
         ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+});
+
+describe('citations', function (): void {
+    it('adds citations to additionalContent on response steps and assistant message for the web search tool', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today? Please provide citations.')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        $citationChunk = Arr::first(
+            $response->additionalContent['citations'],
+            fn (MessagePartWithCitations $part): bool => $part->citations !== [] && $part->citations[0]->sourceType === CitationSourceType::Url
+        );
+
+        expect($citationChunk->outputText)->toContain('temperatures');
+        expect($citationChunk->citations)->toHaveCount(1);
+        expect($citationChunk->citations[0]->sourceType)->toBe(CitationSourceType::Url);
+        expect($citationChunk->citations[0]->sourceTitle)->toContain('weather');
+        expect($citationChunk->citations[0]->source)->toBe('https://www.metcheck.com/WEATHER/dayforecast.asp?dateFor=07%2F06%2F2025&lat=51.508500&location=London&locationID=2364784&lon=-0.125700&utm_source=openai');
+
+        expect($response->steps[0]->additionalContent['citations'])->toHaveCount(1);
+        expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+
+        expect($response->messages->last()->additionalContent['citations'])->toHaveCount(1);
+        expect($response->messages->last()->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+    });
+
+    it('can handle citations on on a previous assistant message with a document', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations-included-in-turn');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today? Please provide citations.')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        $responseTwo = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withMessages([
+                ...$response->steps->last()->messages,
+                new UserMessage('Is the source you have cited reliable?'),
+            ])
+            ->asText();
+
+        expect($responseTwo->text)->toContain('Metcheck');
+    });
 });
