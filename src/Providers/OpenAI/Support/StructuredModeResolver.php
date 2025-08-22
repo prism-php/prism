@@ -37,6 +37,9 @@ class StructuredModeResolver
             'gpt-4.1-mini',
             'gpt-4.5-preview',
             'gpt-4.5-preview-2025-02-27',
+            'gpt-5',
+            'gpt-5-mini',
+            'gpt-5-nano',
         ]);
     }
 

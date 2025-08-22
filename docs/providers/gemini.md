@@ -1,4 +1,5 @@
 # Gemini
+
 ## Configuration
 
 ```php
@@ -57,7 +58,7 @@ $footnoteId = 1;
 
 /** @var MessagePartWithCitations $part */
 foreach ($response->additionalContent['citations'] as $part) {
-    $text .= $part->text;
+    $text .= $part->outputText;
     
     /** @var Citation $citation */
     foreach ($part->citations as $citation) {
@@ -66,9 +67,9 @@ foreach ($response->additionalContent['citations'] as $part) {
             'title' => $citation->sourceTitle,
             'uri' => $citation->source,
         ];
-    
+
         $text .= '<sup><a href="#footnote-'.$footnoteId.'">'.$footnoteId.'</a></sup>';
-    
+
         $footnoteId++;
     }
 }
@@ -78,7 +79,7 @@ foreach ($response->additionalContent['citations'] as $part) {
 
 ## Caching
 
-Prism supports Gemini prompt caching, though due to Gemini requiring you first upload the cached content, it works a little differently to other providers. 
+Prism supports Gemini prompt caching, though due to Gemini requiring you first upload the cached content, it works a little differently to other providers.
 
 To store content in the cache, use the Gemini provider cache method as follows:
 
@@ -151,6 +152,7 @@ Prism::embeddings()
     ->withProviderOptions(['taskType' => 'RETRIEVAL_QUERY'])
     ->asEmbeddings();
 ```
+
 [Available task types](https://ai.google.dev/api/embeddings#tasktype)
 
 ### Output Dimensionality
@@ -183,6 +185,7 @@ $response = Prism::text()
     ->withProviderOptions(['thinkingBudget' => 300])
     ->asText();
 ```
+
 > [!NOTE]
 > Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.
 
@@ -233,6 +236,7 @@ $response = Prism::text()
     ])
     ->asText();
 ```
+
 ### Audio Processing
 
 Gemini can analyze audio files for various tasks like transcription, content analysis, and audio scene understanding. The implementation in Prism uses the `Audio` value object which is specifically designed for Gemini's audio processing capabilities.
@@ -255,3 +259,72 @@ $response = Prism::text()
     ->asText();
 ```
 
+## Image Generation
+
+Prism supports Gemini image generation through Imagen and Gemini models. See Gemini [image generation docs](https://ai.google.dev/gemini-api/docs/image-generation) for full usage.
+
+### Supported Models
+
+| Model                                       | Description                                        |
+| ------------------------------------------- | -------------------------------------------------- |
+| `gemini-2.0-flash-preview-image-generation` | Experimental gemini image generation model.        |
+| `imagen-4.0-generate-001`                   | Latest Imagen model. Good for HD image generation. |
+| `imagen-4.0-ultra-generate-001`             | Highest quality images, only one image per request |
+| `imagen-4.0-fast-generate-001`              | Fastest Imagen 4 model                             |
+| `imagen-3.0-generate-002`                   | Imagen 3                                           |
+
+### Basic Usage
+
+```php
+$response = Prism::image()
+    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->withPrompt('Generate an image of ducklings wearing rubber boots')
+    ->generate();
+
+file_put_contents('image.png', base64_decode($response->firstImage()->base64));
+
+// gemini models return usage and metadata
+echo $response->usage->promptTokens;
+echo $response->meta->id;
+```
+
+### Image Editing with Gemini
+
+```php
+$originalImage = fopen('image/boots.png', 'r');
+
+$response = Prism::image()
+    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->withPrompt('Actually, could we make those boots red?')
+    ->withProviderOptions([
+        'image' => $originalImage,
+        'image_mime_type' => 'image/png',
+    ])
+    ->generate();
+
+file_put_contents('new-boots.png', base64_decode($response->firstImage()->base64));
+```
+
+### Image options for Imagen models
+
+```php
+$response = Prism::image()
+    ->using(Provider::Gemini, 'imagen-4.0-generate-001')
+    ->withPrompt('Generate an image of a magnificent building falling into the ocean')
+    ->withProviderOptions([
+        'n' => 3,                               // number of images to generate
+        'size' => '2K',                         // 1K (default), 2K
+        'aspect_ratio' => '16:9',               // 1:1 (default), 3:4, 4:3, 9:16, 16:9
+        'person_generation' => 'dont_allow',    // dont_allow, allow_adult, allow_all
+    ])
+    ->generate();
+```
+
+Note:
+
+- Imagen 4 Ultra can only generate 1 image at a time.
+- An empty response is sent if the prompt is in violation of the person_generation policy, causing Prism to throw an Exception.
+
+### Response Format
+
+All generated images are returned as base64 encoded strings.
