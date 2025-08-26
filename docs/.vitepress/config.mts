@@ -6,6 +6,13 @@ export default defineConfig({
   title: "Prism",
   head: [
     [
+      "link",
+      {
+        rel: "icon",
+        href: "/favicon.ico",
+      },
+    ],
+    [
       "script",
       {
         src: "https://cdn.tailwindcss.com",
