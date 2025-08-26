@@ -6,15 +6,15 @@ namespace Prism\Prism\Enums;
 
 enum StreamEventType: string
 {
-    case StreamStart = 'stream-start';
-    case TextStart = 'text-start';
-    case TextDelta = 'text-delta';
-    case TextComplete = 'text-complete';
-    case ThinkingStart = 'thinking-start';
-    case ThinkingDelta = 'thinking-delta';
-    case ThinkingComplete = 'thinking-complete';
-    case ToolCall = 'tool-call';
-    case ToolResult = 'tool-result';
+    case StreamStart = 'stream_start';
+    case TextStart = 'text_start';
+    case TextDelta = 'text_delta';
+    case TextComplete = 'text_complete';
+    case ThinkingStart = 'thinking_start';
+    case ThinkingDelta = 'thinking_delta';
+    case ThinkingComplete = 'thinking_complete';
+    case ToolCall = 'tool_call';
+    case ToolResult = 'tool_result';
     case Error = 'error';
-    case StreamEnd = 'stream-end';
+    case StreamEnd = 'stream_end';
 }

@@ -161,9 +161,9 @@ class DataProtocolAdapter
     {
         return [
             'type' => 'tool-input-available',
-            'toolCallId' => $event->toolId,
-            'toolName' => $event->toolName,
-            'input' => $event->arguments,
+            'toolCallId' => $event->toolCall->id,
+            'toolName' => $event->toolCall->name,
+            'input' => $event->toolCall->arguments(),
         ];
     }
 
@@ -174,8 +174,8 @@ class DataProtocolAdapter
     {
         return [
             'type' => 'tool-output-available',
-            'toolCallId' => $event->toolId,
-            'output' => $event->result,
+            'toolCallId' => $event->toolResult->toolCallId,
+            'output' => $event->toolResult->result,
         ];
     }
 

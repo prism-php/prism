@@ -29,6 +29,8 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 /**
@@ -128,18 +130,18 @@ it('broadcasts thinking events correctly', function (): void {
 
 it('broadcasts tool events correctly', function (): void {
     $events = [
-        new ToolCallEvent('evt-1', 1640995200, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
-        new ToolResultEvent('evt-2', 1640995201, 'tool-123', ['result' => 'found'], 'msg-456', true),
+        new ToolCallEvent('evt-1', 1640995200, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
+        new ToolResultEvent('evt-2', 1640995201, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
     ];
 
     $channel = new Channel('test-channel');
     $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
     $adapter->broadcast();
 
-    Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolName === 'search'
-        && $broadcastEvent->event->arguments === ['q' => 'test']);
+    Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolCall->name === 'search'
+        && $broadcastEvent->event->toolCall->arguments() === ['q' => 'test']);
 
-    Event::assertDispatched(ToolResultBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->result === ['result' => 'found']
+    Event::assertDispatched(ToolResultBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolResult->result === ['result' => 'found']
         && $broadcastEvent->event->success === true);
 });
 
@@ -189,8 +191,8 @@ it('broadcasts all event types in comprehensive stream', function (): void {
         new ThinkingStartEvent('evt-4', 1640995203, 'reasoning-123'),
         new ThinkingEvent('evt-5', 1640995204, 'Thinking...', 'reasoning-123'),
         new ThinkingCompleteEvent('evt-6', 1640995205, 'reasoning-123'),
-        new ToolCallEvent('evt-7', 1640995206, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
-        new ToolResultEvent('evt-8', 1640995207, 'tool-123', ['result' => 'found'], 'msg-456', true),
+        new ToolCallEvent('evt-7', 1640995206, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
+        new ToolResultEvent('evt-8', 1640995207, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
         new TextDeltaEvent('evt-9', 1640995208, ' World!', 'msg-456'),
         new TextCompleteEvent('evt-10', 1640995209, 'msg-456'),
         new StreamEndEvent('evt-11', 1640995210, FinishReason::Stop, $usage),
@@ -227,8 +229,8 @@ it('handles all supported event types without errors', function (): void {
         new ThinkingStartEvent('evt-5', 1640995204, 'reasoning-123'),
         new ThinkingEvent('evt-6', 1640995205, 'Thinking...', 'reasoning-123'),
         new ThinkingCompleteEvent('evt-7', 1640995206, 'reasoning-123'),
-        new ToolCallEvent('evt-8', 1640995207, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
-        new ToolResultEvent('evt-9', 1640995208, 'tool-123', ['result' => 'found'], 'msg-456', true),
+        new ToolCallEvent('evt-8', 1640995207, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
+        new ToolResultEvent('evt-9', 1640995208, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
         new ErrorEvent('evt-10', 1640995209, 'test_error', 'Test error', true),
         new StreamEndEvent('evt-11', 1640995210, FinishReason::Stop),
     ];
@@ -268,14 +270,14 @@ it('handles events with complex data structures', function (): void {
         'metadata' => null,
     ];
 
-    $event = new ToolCallEvent('evt-1', 1640995200, 'tool-123', 'complex_search', $complexArgs, 'msg-456');
+    $event = new ToolCallEvent('evt-1', 1640995200, new ToolCall('tool-123', 'complex_search', $complexArgs), 'msg-456');
     $channel = new Channel('test-channel');
 
     $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
     $adapter->broadcast();
 
-    Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolName === 'complex_search'
-        && $broadcastEvent->event->arguments === $complexArgs);
+    Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolCall->name === 'complex_search'
+        && $broadcastEvent->event->toolCall->arguments() === $complexArgs);
 });
 
 it('handles events with unicode and special characters', function (): void {
@@ -302,7 +304,7 @@ it('validates broadcast event structure and data format', function (): void {
         expect($broadcastEvent->channels)->toBe($channel);
 
         // Verify broadcast event methods work correctly
-        expect($broadcastEvent->broadcastAs())->toBe('text-delta');
+        expect($broadcastEvent->broadcastAs())->toBe('text_delta');
         expect($broadcastEvent->broadcastOn())->toBe([$channel]);
 
         // Verify broadcast data contains correct event data
@@ -321,7 +323,7 @@ it('validates broadcast event structure for multiple event types', function (): 
     $usage = new Usage(promptTokens: 10, completionTokens: 5);
     $events = [
         new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
-        new ToolCallEvent('evt-2', 1640995201, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
+        new ToolCallEvent('evt-2', 1640995201, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
         new StreamEndEvent('evt-3', 1640995202, FinishReason::Stop, $usage),
     ];
 
@@ -335,7 +337,7 @@ it('validates broadcast event structure for multiple event types', function (): 
 
     // Verify StreamStartBroadcast structure and data
     Event::assertDispatched(StreamStartBroadcast::class, function ($broadcastEvent) use ($channels): bool {
-        expect($broadcastEvent->broadcastAs())->toBe('stream-start');
+        expect($broadcastEvent->broadcastAs())->toBe('stream_start');
         expect($broadcastEvent->broadcastOn())->toBe($channels);
 
         $data = $broadcastEvent->broadcastWith();
@@ -347,7 +349,7 @@ it('validates broadcast event structure for multiple event types', function (): 
 
     // Verify ToolCallBroadcast structure and data
     Event::assertDispatched(ToolCallBroadcast::class, function ($broadcastEvent) use ($channels): bool {
-        expect($broadcastEvent->broadcastAs())->toBe('tool-call');
+        expect($broadcastEvent->broadcastAs())->toBe('tool_call');
         expect($broadcastEvent->broadcastOn())->toBe($channels);
 
         $data = $broadcastEvent->broadcastWith();
@@ -361,7 +363,7 @@ it('validates broadcast event structure for multiple event types', function (): 
 
     // Verify StreamEndBroadcast structure and data
     Event::assertDispatched(StreamEndBroadcast::class, function ($broadcastEvent) use ($channels): bool {
-        expect($broadcastEvent->broadcastAs())->toBe('stream-end');
+        expect($broadcastEvent->broadcastAs())->toBe('stream_end');
         expect($broadcastEvent->broadcastOn())->toBe($channels);
 
         $data = $broadcastEvent->broadcastWith();

@@ -4,22 +4,29 @@ declare(strict_types=1);
 
 use Prism\Prism\Enums\StreamEventType;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\ToolResult;
 
 it('constructs with required parameters', function (): void {
     $result = ['output' => 'Hello World', 'status' => 'completed'];
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'greeting',
+        args: ['name' => 'World'],
+        result: $result
+    );
 
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: $result,
+        toolResult: $toolResult,
         messageId: 'msg-789'
     );
 
     expect($event->id)->toBe('event-123')
         ->and($event->timestamp)->toBe(1640995200)
-        ->and($event->toolId)->toBe('tool-456')
-        ->and($event->result)->toBe($result)
+        ->and($event->toolResult)->toBe($toolResult)
+        ->and($event->toolResult->toolCallId)->toBe('tool-456')
+        ->and($event->toolResult->result)->toBe($result)
         ->and($event->messageId)->toBe('msg-789')
         ->and($event->success)->toBeTrue()
         ->and($event->error)->toBeNull();
@@ -27,12 +34,17 @@ it('constructs with required parameters', function (): void {
 
 it('constructs with custom success and error', function (): void {
     $result = ['partial_data' => 'some data'];
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'data_fetcher',
+        args: ['source' => 'api'],
+        result: $result
+    );
 
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: $result,
+        toolResult: $toolResult,
         messageId: 'msg-789',
         success: false,
         error: 'Connection timeout'
@@ -43,11 +55,17 @@ it('constructs with custom success and error', function (): void {
 });
 
 it('returns correct stream event type', function (): void {
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'test_tool',
+        args: [],
+        result: []
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: [],
+        toolResult: $toolResult,
         messageId: 'msg-789'
     );
 
@@ -61,11 +79,17 @@ it('converts to array with successful result', function (): void {
         'processing_time' => 0.25,
     ];
 
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'list_processor',
+        args: ['items' => ['item1', 'item2', 'item3']],
+        result: $result
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: $result,
+        toolResult: $toolResult,
         messageId: 'msg-789'
     );
 
@@ -84,12 +108,17 @@ it('converts to array with successful result', function (): void {
 
 it('converts to array with failed result', function (): void {
     $result = ['partial_output' => 'incomplete data'];
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'data_fetcher',
+        args: ['url' => 'https://example.com'],
+        result: $result
+    );
 
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: $result,
+        toolResult: $toolResult,
         messageId: 'msg-789',
         success: false,
         error: 'Network error: unable to fetch complete data'
@@ -109,15 +138,21 @@ it('converts to array with failed result', function (): void {
 });
 
 it('handles empty result array', function (): void {
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'empty_tool',
+        args: [],
+        result: []
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: [],
+        toolResult: $toolResult,
         messageId: 'msg-789'
     );
 
-    expect($event->result)->toBe([])
+    expect($event->toolResult->result)->toBe([])
         ->and($event->toArray()['result'])->toBe([]);
 });
 
@@ -142,15 +177,21 @@ it('handles complex nested result', function (): void {
         ],
     ];
 
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'user_fetcher',
+        args: ['page' => 1, 'per_page' => 50],
+        result: $result
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: $result,
+        toolResult: $toolResult,
         messageId: 'msg-789'
     );
 
-    expect($event->result)->toBe($result)
+    expect($event->toolResult->result)->toBe($result)
         ->and($event->toArray()['result'])->toBe($result);
 });
 
@@ -164,23 +205,35 @@ it('handles mixed data types in result', function (): void {
         'array_value' => [1, 2, 3],
     ];
 
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'mixed_type_tool',
+        args: ['type' => 'mixed'],
+        result: $result
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: $result,
+        toolResult: $toolResult,
         messageId: 'msg-789'
     );
 
-    expect($event->result)->toBe($result);
+    expect($event->toolResult->result)->toBe($result);
 });
 
 it('handles success false with null error', function (): void {
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'failing_tool',
+        args: [],
+        result: ['status' => 'failed']
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: ['status' => 'failed'],
+        toolResult: $toolResult,
         messageId: 'msg-789',
         success: false
     );
@@ -190,11 +243,17 @@ it('handles success false with null error', function (): void {
 });
 
 it('handles empty string error message', function (): void {
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'empty_error_tool',
+        args: [],
+        result: []
+    );
+
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: [],
+        toolResult: $toolResult,
         messageId: 'msg-789',
         success: false,
         error: ''
@@ -205,16 +264,59 @@ it('handles empty string error message', function (): void {
 
 it('handles multiline error message', function (): void {
     $error = "Error occurred:\nLine 1: Connection failed\nLine 2: Retry limit exceeded\nLine 3: Operation aborted";
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'multiline_error_tool',
+        args: ['operation' => 'complex'],
+        result: []
+    );
 
     $event = new ToolResultEvent(
         id: 'event-123',
         timestamp: 1640995200,
-        toolId: 'tool-456',
-        result: [],
+        toolResult: $toolResult,
         messageId: 'msg-789',
         success: false,
         error: $error
     );
 
     expect($event->error)->toBe($error);
+});
+
+it('handles string result', function (): void {
+    $stringResult = 'This is a simple string result';
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'string_tool',
+        args: ['input' => 'test'],
+        result: $stringResult
+    );
+
+    $event = new ToolResultEvent(
+        id: 'event-123',
+        timestamp: 1640995200,
+        toolResult: $toolResult,
+        messageId: 'msg-789'
+    );
+
+    expect($event->toolResult->result)->toBe($stringResult);
+});
+
+it('handles numeric result', function (): void {
+    $numericResult = 42;
+    $toolResult = new ToolResult(
+        toolCallId: 'tool-456',
+        toolName: 'calculation_tool',
+        args: ['expression' => '6 * 7'],
+        result: $numericResult
+    );
+
+    $event = new ToolResultEvent(
+        id: 'event-123',
+        timestamp: 1640995200,
+        toolResult: $toolResult,
+        messageId: 'msg-789'
+    );
+
+    expect($event->toolResult->result)->toBe($numericResult);
 });

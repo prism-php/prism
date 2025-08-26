@@ -5,20 +5,17 @@ declare(strict_types=1);
 namespace Prism\Prism\Streaming\Events;
 
 use Prism\Prism\Enums\StreamEventType;
+use Prism\Prism\ValueObjects\ToolResult;
 
 readonly class ToolResultEvent extends StreamEvent
 {
-    /**
-     * @param  array<string, mixed>  $result
-     */
     public function __construct(
         string $id,
         int $timestamp,
-        public string $toolId,          // Tool call ID this result belongs to
-        public array $result,           // Tool execution result
-        public string $messageId,       // Message this belongs to
-        public bool $success = true,    // Whether tool execution succeeded
-        public ?string $error = null,   // Error message if failed
+        public ToolResult $toolResult,   // Tool result value object
+        public string $messageId,        // Message this belongs to
+        public bool $success = true,     // Whether tool execution succeeded
+        public ?string $error = null,    // Error message if failed
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -36,8 +33,8 @@ readonly class ToolResultEvent extends StreamEvent
         return [
             'id' => $this->id,
             'timestamp' => $this->timestamp,
-            'tool_id' => $this->toolId,
-            'result' => $this->result,
+            'tool_id' => $this->toolResult->toolCallId,
+            'result' => $this->toolResult->result,
             'message_id' => $this->messageId,
             'success' => $this->success,
             'error' => $this->error,

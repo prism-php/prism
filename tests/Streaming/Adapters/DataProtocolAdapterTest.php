@@ -15,6 +15,8 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -71,8 +73,8 @@ it('handles different event types without errors', function (): void {
         new TextStartEvent('evt-2', 1640995201, 'msg-456'),
         new ThinkingStartEvent('evt-3', 1640995202, 'reasoning-123'),
         new ThinkingEvent('evt-4', 1640995203, 'Thinking...', 'reasoning-123'),
-        new ToolCallEvent('evt-5', 1640995204, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
-        new ToolResultEvent('evt-6', 1640995205, 'tool-123', ['result' => 'found'], 'msg-456', true),
+        new ToolCallEvent('evt-5', 1640995204, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
+        new ToolResultEvent('evt-6', 1640995205, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
         new ErrorEvent('evt-7', 1640995206, 'test_error', 'Test error', true),
         new StreamEndEvent('evt-8', 1640995207, FinishReason::Stop),
     ];
@@ -105,8 +107,8 @@ it('processes events with complex data structures', function (): void {
     ];
 
     $events = [
-        new ToolCallEvent('evt-1', 1640995200, 'tool-123', 'complex_search', $complexArgs, 'msg-456'),
-        new ToolResultEvent('evt-2', 1640995201, 'tool-123', ['data' => ['nested' => ['value' => 123]]], 'msg-456', true),
+        new ToolCallEvent('evt-1', 1640995200, new ToolCall('tool-123', 'complex_search', $complexArgs), 'msg-456'),
+        new ToolResultEvent('evt-2', 1640995201, new ToolResult('tool-123', 'complex_search', $complexArgs, ['data' => ['nested' => ['value' => 123]]]), 'msg-456', true),
     ];
 
     $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
@@ -194,9 +196,7 @@ it('handles JSON encoding errors gracefully', function (): void {
     $event = new ToolCallEvent(
         'evt-1',
         1640995200,
-        'tool-123',
-        'test',
-        ['binary' => "\x80\x81\x82"], // Invalid UTF-8 sequence
+        new ToolCall('tool-123', 'test', ['binary' => "\x80\x81\x82"]), // Invalid UTF-8 sequence
         'msg-456'
     );
 
@@ -290,8 +290,8 @@ it('converts events to correct data protocol format', function (): void {
         new ThinkingStartEvent('evt-4', 1640995203, 'reasoning-123'),
         new ThinkingEvent('evt-5', 1640995204, 'Thinking...', 'reasoning-123'),
         new ThinkingCompleteEvent('evt-6', 1640995205, 'reasoning-123'),
-        new ToolCallEvent('evt-7', 1640995206, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
-        new ToolResultEvent('evt-8', 1640995207, 'tool-123', ['result' => 'found'], 'msg-456', true),
+        new ToolCallEvent('evt-7', 1640995206, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
+        new ToolResultEvent('evt-8', 1640995207, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
         new TextCompleteEvent('evt-9', 1640995208, 'msg-456'),
         new StreamEndEvent('evt-10', 1640995209, FinishReason::Stop, $usage),
     ];

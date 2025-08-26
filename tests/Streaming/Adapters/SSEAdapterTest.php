@@ -13,6 +13,8 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -68,8 +70,8 @@ it('handles different event types without errors', function (): void {
         new TextStartEvent('evt-2', 1640995201, 'msg-456'),
         new ThinkingStartEvent('evt-3', 1640995202, 'reasoning-123'),
         new ThinkingEvent('evt-4', 1640995203, 'Thinking...', 'reasoning-123'),
-        new ToolCallEvent('evt-5', 1640995204, 'tool-123', 'search', ['q' => 'test'], 'msg-456'),
-        new ToolResultEvent('evt-6', 1640995205, 'tool-123', ['result' => 'found'], 'msg-456', true),
+        new ToolCallEvent('evt-5', 1640995204, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
+        new ToolResultEvent('evt-6', 1640995205, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
         new ErrorEvent('evt-7', 1640995206, 'test_error', 'Test error', true),
         new StreamEndEvent('evt-8', 1640995207, FinishReason::Stop),
     ];
@@ -102,8 +104,8 @@ it('processes events with complex data structures', function (): void {
     ];
 
     $events = [
-        new ToolCallEvent('evt-1', 1640995200, 'tool-123', 'complex_search', $complexArgs, 'msg-456'),
-        new ToolResultEvent('evt-2', 1640995201, 'tool-123', ['data' => ['nested' => ['value' => 123]]], 'msg-456', true),
+        new ToolCallEvent('evt-1', 1640995200, new ToolCall('tool-123', 'complex_search', $complexArgs), 'msg-456'),
+        new ToolResultEvent('evt-2', 1640995201, new ToolResult('tool-123', 'complex_search', $complexArgs, ['data' => ['nested' => ['value' => 123]]]), 'msg-456', true),
     ];
 
     $adapter = new SSEAdapter(createEventGenerator($events));
@@ -157,7 +159,7 @@ it('maintains correct SSE format structure', function (): void {
         expect(strlen($capturedOutput))->toBeGreaterThan(0);
 
         // Verify correct SSE format
-        expect($capturedOutput)->toContain('event: text-delta');
+        expect($capturedOutput)->toContain('event: text_delta');
         expect($capturedOutput)->toContain('data: ');
         expect($capturedOutput)->toContain('"delta":"Hello world!"');
         expect($capturedOutput)->toContain('"message_id":"msg-456"');
@@ -194,9 +196,9 @@ it('formats multiple events with correct SSE structure', function (): void {
         $capturedOutput = stream_get_contents($outputBuffer);
 
         // Verify each event is properly formatted
-        expect($capturedOutput)->toContain("event: stream-start\ndata: ");
-        expect($capturedOutput)->toContain("event: text-delta\ndata: ");
-        expect($capturedOutput)->toContain("event: stream-end\ndata: ");
+        expect($capturedOutput)->toContain("event: stream_start\ndata: ");
+        expect($capturedOutput)->toContain("event: text_delta\ndata: ");
+        expect($capturedOutput)->toContain("event: stream_end\ndata: ");
 
         // Verify JSON structure in data fields
         expect($capturedOutput)->toContain('"model":"gpt-4"');
