@@ -67,9 +67,17 @@ class DataProtocolAdapter
             default => $this->handleDefault($event),
         };
 
-        return json_encode($data);
+        $encoded = json_encode($data);
+        if ($encoded === false) {
+            throw new \RuntimeException('Failed to encode event data as JSON');
+        }
+
+        return $encoded;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleStreamStart(StreamStartEvent $event): array
     {
         return [
@@ -78,6 +86,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleTextStart(TextStartEvent $event): array
     {
         return [
@@ -86,6 +97,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleTextDelta(TextDeltaEvent $event): array
     {
         return [
@@ -95,6 +109,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleTextComplete(TextCompleteEvent $event): array
     {
         return [
@@ -103,6 +120,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleThinkingStart(ThinkingStartEvent $event): array
     {
         return [
@@ -111,6 +131,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleThinkingDelta(ThinkingEvent $event): array
     {
         return [
@@ -120,6 +143,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleThinkingComplete(ThinkingCompleteEvent $event): array
     {
         return [
@@ -128,6 +154,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleToolCall(ToolCallEvent $event): array
     {
         return [
@@ -138,6 +167,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleToolResult(ToolResultEvent $event): array
     {
         return [
@@ -147,15 +179,27 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleStreamEnd(StreamEndEvent $event): array
     {
         return [
             'type' => 'finish',
-            'finishReason' => $event->finishReason->value,
-            'usage' => $event->usage?->toArray(),
+            'finishReason' => $event->finishReason->name,
+            'usage' => $event->usage instanceof \Prism\Prism\ValueObjects\Usage ? [
+                'promptTokens' => $event->usage->promptTokens,
+                'completionTokens' => $event->usage->completionTokens,
+                'cacheWriteInputTokens' => $event->usage->cacheWriteInputTokens,
+                'cacheReadInputTokens' => $event->usage->cacheReadInputTokens,
+                'thoughtTokens' => $event->usage->thoughtTokens,
+            ] : null,
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleError(ErrorEvent $event): array
     {
         return [
@@ -164,6 +208,9 @@ class DataProtocolAdapter
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function handleDefault(StreamEvent $event): array
     {
         return [
