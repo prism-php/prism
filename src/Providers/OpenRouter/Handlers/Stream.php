@@ -338,6 +338,7 @@ class Stream
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     'stream_options' => ['include_usage' => true],
+                    'provider' => $request->providerOptions('provider') ?? null,
                 ]))
             );
     }
