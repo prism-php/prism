@@ -1,0 +1,26 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "file-abc123",
+      "object": "file",
+      "bytes": 175,
+      "created_at": 1613677385,
+      "expires_at": 1677614202,
+      "filename": "salesOverview.pdf",
+      "purpose": "assistants"
+    },
+    {
+      "id": "file-abc456",
+      "object": "file",
+      "bytes": 140,
+      "created_at": 1613779121,
+      "expires_at": 1677614202,
+      "filename": "puppy.jsonl",
+      "purpose": "fine-tune"
+    }
+  ],
+  "first_id": "file-abc123",
+  "last_id": "file-abc456",
+  "has_more": false
+}
