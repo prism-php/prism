@@ -7,6 +7,7 @@ namespace Prism\Prism\Streaming\Adapters;
 use Generator;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use InvalidArgumentException;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
 use Prism\Prism\Events\Broadcasting\StreamEndBroadcast;
 use Prism\Prism\Events\Broadcasting\StreamStartBroadcast;
@@ -62,6 +63,7 @@ class BroadcastAdapter
             ToolResultEvent::class => new ToolResultBroadcast($event, $this->channels),
             ErrorEvent::class => new ErrorBroadcast($event, $this->channels),
             StreamEndEvent::class => new StreamEndBroadcast($event, $this->channels),
+            default => throw new InvalidArgumentException('Unsupported event type for broadcasting: '.$event::class),
         };
     }
 }
