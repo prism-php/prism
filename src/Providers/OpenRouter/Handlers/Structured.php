@@ -66,6 +66,7 @@ class Structured
                         'schema' => $request->schema()->toArray(),
                     ],
                 ],
+                'provider' => $request->providerOptions('provider') ?? null,
             ]))
         );
 

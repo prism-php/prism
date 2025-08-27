@@ -112,6 +112,7 @@ class Text
                 'reasoning' => $request->providerOptions('reasoning') ?? null,
                 'tools' => ToolMap::map($request->tools()),
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'provider' => $request->providerOptions('provider') ?? null,
             ]))
         );
 
