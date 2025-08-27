@@ -254,8 +254,7 @@ it('formats multiple events with correct data protocol structure', function (): 
         expect($capturedOutput)->toContain('"messageId":"evt-1"'); // StreamStart uses messageId
         expect($capturedOutput)->toContain('"delta":"Hello"');
         expect($capturedOutput)->toContain('"delta":" world!"');
-        expect($capturedOutput)->toContain('"finishReason":"Stop"');
-        expect($capturedOutput)->toContain('"usage":{"promptTokens":10,"completionTokens":5,"cacheWriteInputTokens":null,"cacheReadInputTokens":null,"thoughtTokens":null}');
+        expect($capturedOutput)->toContain('"messageMetadata":{"finishReason":"stop","usage":{"promptTokens":10,"completionTokens":5}}');
 
         // Verify proper Data Protocol format (each line starts with "data: " and ends with newline)
         $lines = explode("\n", trim($capturedOutput));

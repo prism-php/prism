@@ -17,6 +17,8 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\Usage;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataProtocolAdapter
@@ -69,7 +71,7 @@ class DataProtocolAdapter
 
         $encoded = json_encode($data);
         if ($encoded === false) {
-            throw new \RuntimeException('Failed to encode event data as JSON');
+            throw new RuntimeException('Failed to encode event data as JSON');
         }
 
         return $encoded;
@@ -184,16 +186,22 @@ class DataProtocolAdapter
      */
     protected function handleStreamEnd(StreamEndEvent $event): array
     {
-        return [
-            'type' => 'finish',
-            'finishReason' => $event->finishReason->name,
-            'usage' => $event->usage instanceof \Prism\Prism\ValueObjects\Usage ? [
+        $messageMetadata = [];
+
+        if ($event->finishReason) {
+            $messageMetadata['finishReason'] = $event->finishReason->value;
+        }
+
+        if ($event->usage instanceof Usage) {
+            $messageMetadata['usage'] = [
                 'promptTokens' => $event->usage->promptTokens,
                 'completionTokens' => $event->usage->completionTokens,
-                'cacheWriteInputTokens' => $event->usage->cacheWriteInputTokens,
-                'cacheReadInputTokens' => $event->usage->cacheReadInputTokens,
-                'thoughtTokens' => $event->usage->thoughtTokens,
-            ] : null,
+            ];
+        }
+
+        return [
+            'type' => 'finish',
+            'messageMetadata' => $messageMetadata,
         ];
     }
 

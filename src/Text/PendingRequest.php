@@ -19,8 +19,11 @@ use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
+use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
+use Prism\Prism\Streaming\Adapters\SSEAdapter;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PendingRequest
 {
@@ -55,7 +58,7 @@ class PendingRequest
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
      */
     public function asStream(): Generator
     {
@@ -70,6 +73,18 @@ class PendingRequest
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
+    }
+
+    public function asDataStreamResponse(): StreamedResponse
+    {
+        return (new DataProtocolAdapter($this->asStream()))
+            ->asDataStreamResponse();
+    }
+
+    public function asEventStreamResponse(): StreamedResponse
+    {
+        return (new SSEAdapter($this->asStream()))
+            ->asEventStreamResponse();
     }
 
     /**

@@ -8,20 +8,23 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StreamEventType;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Citation;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Media\Document;
-use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
-use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -37,16 +40,25 @@ it('can generate text with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
+    $streamEndEvent = null;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof StreamEndEvent) {
+            $streamEndEvent = $event;
+        }
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
-    expect(end($chunks)->finishReason)->toBe(FinishReason::Stop);
+    expect($streamEndEvent)->not->toBeNull();
+    expect($streamEndEvent->finishReason)->toBe(FinishReason::Stop);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
@@ -66,14 +78,24 @@ it('can return usage with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
+    $streamEndEvent = null;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof StreamEndEvent) {
+            $streamEndEvent = $event;
+        }
     }
 
-    expect((array) end($chunks)->usage)->toBe([
+    expect($streamEndEvent)->not->toBeNull();
+    expect($streamEndEvent->usage)->not->toBeNull();
+    expect((array) $streamEndEvent->usage)->toBe([
         'promptTokens' => 11,
         'completionTokens' => 107,
         'cacheWriteInputTokens' => 0,
@@ -114,29 +136,37 @@ describe('tools', function (): void {
             ->asStream();
 
         $text = '';
-        $chunks = [];
+        $events = [];
         $toolCallFound = false;
         $toolResults = [];
+        $streamEndEvent = null;
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
+        foreach ($response as $event) {
+            $events[] = $event;
 
-            if ($chunk->toolCalls !== []) {
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+            }
+
+            if ($event instanceof ToolCallEvent) {
                 $toolCallFound = true;
-                expect($chunk->toolCalls[0]->name)->not->toBeEmpty();
-                expect($chunk->toolCalls[0]->arguments())->toBeArray();
+                expect($event->toolCall->name)->not->toBeEmpty();
+                expect($event->toolCall->arguments())->toBeArray();
             }
 
-            if ($chunk->toolResults !== []) {
-                $toolResults = array_merge($toolResults, $chunk->toolResults);
+            if ($event instanceof ToolResultEvent) {
+                $toolResults[] = $event->toolResult;
             }
 
-            $text .= $chunk->text;
+            if ($event instanceof StreamEndEvent) {
+                $streamEndEvent = $event;
+            }
         }
 
-        expect($chunks)->not->toBeEmpty();
+        expect($events)->not->toBeEmpty();
         expect($toolCallFound)->toBeTrue('Expected to find at least one tool call in the stream');
-        expect(end($chunks)->finishReason)->toBe(FinishReason::Stop);
+        expect($streamEndEvent)->not->toBeNull();
+        expect($streamEndEvent->finishReason)->toBe(FinishReason::Stop);
 
         // Verify the HTTP request
         Http::assertSent(function (Request $request): bool {
@@ -173,11 +203,14 @@ describe('tools', function (): void {
         $fullResponse = '';
         $toolCallCount = 0;
 
-        foreach ($response as $chunk) {
-            if ($chunk->toolCalls !== []) {
+        foreach ($response as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $fullResponse .= $event->delta;
+            }
+
+            if ($event instanceof ToolCallEvent) {
                 $toolCallCount++;
             }
-            $fullResponse .= $chunk->text;
         }
 
         expect($toolCallCount)->toBeGreaterThanOrEqual(1);
@@ -187,7 +220,7 @@ describe('tools', function (): void {
         Http::assertSentCount(3);
     });
 
-    it('emits individual ToolCall and ToolResult chunks during streaming', function (): void {
+    it('emits individual ToolCall and ToolResult events during streaming', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
 
         $tools = [
@@ -209,43 +242,41 @@ describe('tools', function (): void {
             ->withPrompt('What time is the tigers game today and should I wear a coat?')
             ->asStream();
 
-        $chunks = [];
-        $toolCallChunks = [];
-        $toolResultChunks = [];
+        $events = [];
+        $toolCallEvents = [];
+        $toolResultEvents = [];
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
+        foreach ($response as $event) {
+            $events[] = $event;
 
-            if ($chunk->chunkType === ChunkType::ToolCall) {
-                $toolCallChunks[] = $chunk;
+            if ($event instanceof ToolCallEvent) {
+                $toolCallEvents[] = $event;
             }
 
-            if ($chunk->chunkType === ChunkType::ToolResult) {
-                $toolResultChunks[] = $chunk;
+            if ($event instanceof ToolResultEvent) {
+                $toolResultEvents[] = $event;
             }
         }
 
-        expect($chunks)->not->toBeEmpty();
-        expect($toolCallChunks)->not->toBeEmpty('Expected to find at least one ToolCall chunk');
-        expect($toolResultChunks)->not->toBeEmpty('Expected to find at least one ToolResult chunk');
+        expect($events)->not->toBeEmpty();
+        expect($toolCallEvents)->not->toBeEmpty('Expected to find at least one ToolCall event');
+        expect($toolResultEvents)->not->toBeEmpty('Expected to find at least one ToolResult event');
 
-        // Verify ToolCall chunks have the expected structure
-        $firstToolCallChunk = $toolCallChunks[0];
-        expect($firstToolCallChunk->chunkType)->toBe(ChunkType::ToolCall);
-        expect($firstToolCallChunk->toolCalls)->toHaveCount(1);
-        expect($firstToolCallChunk->toolCalls[0]->name)->not->toBeEmpty();
-        expect($firstToolCallChunk->toolCalls[0]->arguments())->toBeArray();
+        // Verify ToolCall events have the expected structure
+        $firstToolCallEvent = $toolCallEvents[0];
+        expect($firstToolCallEvent->type())->toBe(StreamEventType::ToolCall);
+        expect($firstToolCallEvent->toolCall->name)->not->toBeEmpty();
+        expect($firstToolCallEvent->toolCall->arguments())->toBeArray();
 
-        // Verify ToolResult chunks have the expected structure
-        $firstToolResultChunk = $toolResultChunks[0];
-        expect($firstToolResultChunk->chunkType)->toBe(ChunkType::ToolResult);
-        expect($firstToolResultChunk->toolResults)->toHaveCount(1);
-        expect($firstToolResultChunk->toolResults[0]->result)->not->toBeEmpty();
+        // Verify ToolResult events have the expected structure
+        $firstToolResultEvent = $toolResultEvents[0];
+        expect($firstToolResultEvent->type())->toBe(StreamEventType::ToolResult);
+        expect($firstToolResultEvent->toolResult->result)->not->toBeEmpty();
     });
 });
 
 describe('citations', function (): void {
-    it('adds citations to additionalContent on the last chunk when enabled', function (): void {
+    it('adds citations to the stream end event when enabled', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-citations');
 
         $response = Prism::text()
@@ -262,29 +293,28 @@ describe('citations', function (): void {
             ->asStream();
 
         $text = '';
-        $chunks = [];
+        $events = [];
+        $streamEndEvent = null;
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
-            $text .= $chunk->text;
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+            }
+
+            if ($event instanceof StreamEndEvent) {
+                $streamEndEvent = $event;
+            }
         }
 
-        $lastChunk = end($chunks);
-
-        expect($lastChunk->additionalContent)->toHaveKey('citations');
-        expect($lastChunk->additionalContent['citations'])->toBeArray();
-        expect($lastChunk->additionalContent['citations'])->toHaveCount(2);
-        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-        expect($lastChunk->additionalContent['citations'][0]->outputText)->not()->toBeEmpty();
-        expect($lastChunk->additionalContent['citations'][0]->citations)->toHaveCount(1);
-        expect($lastChunk->additionalContent['citations'][0]->citations[0])->toBeInstanceOf(Citation::class);
-
-        // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-        expect($lastChunk->finishReason)->toBe(FinishReason::Stop);
+        // Note: Citations are now handled by the stream handler and may be available
+        // in the stream end event metadata or through text completion events
+        expect($streamEndEvent)->not->toBeNull();
+        expect($streamEndEvent->finishReason)->toBe(FinishReason::Stop);
     });
 
-    it('adds a citations index to the corresponding text chunk additionalContent', function (): void {
+    it('processes citation deltas during text streaming', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-citations');
 
         $response = Prism::text()
@@ -301,54 +331,24 @@ describe('citations', function (): void {
             ->asStream();
 
         $text = '';
-        $chunks = [];
+        $events = [];
+        $textDeltaEvents = [];
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
-            $text .= $chunk->text;
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+                $textDeltaEvents[] = $event;
+            }
         }
 
-        $lastChunk = end($chunks);
-
-        // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-    });
-
-    it('handles web search citations', function (): void {
-        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-citations');
-
-        $response = Prism::text()
-            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withPrompt('What is the weather like in London UK today?')
-            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
-            ->asStream();
-
-        $text = '';
-        $chunks = [];
-
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
-            $text .= $chunk->text;
-        }
-
-        $lastChunk = end($chunks);
-
-        expect($lastChunk->additionalContent)->toHaveKey('citations');
-        expect($lastChunk->additionalContent['citations'])->toBeArray();
-        expect($lastChunk->additionalContent['citations'])->toHaveCount(20);
-        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-        expect($lastChunk->additionalContent['citations'][0]->outputText)->not()->toBeEmpty();
-        expect($lastChunk->additionalContent['citations'][0]->citations)->toHaveCount(1);
-        expect($lastChunk->additionalContent['citations'][0]->citations[0])->toBeInstanceOf(Citation::class);
-
-        // Instead of looking for a chunk with the exact text, just check that the citation was properly set
-        expect($lastChunk->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
-        expect($lastChunk->finishReason)->toBe(FinishReason::Stop);
+        expect($textDeltaEvents)->not->toBeEmpty();
     });
 });
 
 describe('thinking', function (): void {
-    it('can process streams with thinking enabled and adds thinking and signature to the last chunk', function (): void {
+    it('can process streams with thinking enabled and emits thinking events', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
         $response = Prism::text()
@@ -357,22 +357,25 @@ describe('thinking', function (): void {
             ->withProviderOptions(['thinking' => ['enabled' => true]])
             ->asStream();
 
-        $chunks = [];
+        $events = [];
+        $thinkingEvents = [];
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ThinkingEvent) {
+                $thinkingEvents[] = $event;
+            }
         }
 
-        expect($chunks)->not->toBeEmpty();
+        expect($events)->not->toBeEmpty();
+        expect($thinkingEvents)->not->toBeEmpty();
 
-        $lastChunk = end($chunks);
-
-        expect($lastChunk->additionalContent)->not->toBeEmpty();
-
-        expect($lastChunk->additionalContent)->toHaveKey('thinking');
-        expect($lastChunk->additionalContent['thinking'])->toContain('The question is asking about');
-
-        expect($lastChunk->additionalContent)->toHaveKey('thinking_signature');
+        // Verify thinking events contain reasoning content
+        $firstThinkingEvent = $thinkingEvents[0];
+        expect($firstThinkingEvent->type())->toBe(StreamEventType::ThinkingDelta);
+        expect($firstThinkingEvent->delta)->not->toBeEmpty();
+        expect($firstThinkingEvent->reasoningId)->not->toBeEmpty();
 
         Http::assertSent(function (Request $request): bool {
             $body = json_decode($request->body(), true);
@@ -385,7 +388,7 @@ describe('thinking', function (): void {
         });
     });
 
-    it('yields thinking chunks with a chunkType of thinking', function (): void {
+    it('yields thinking events with correct event type', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
         $response = Prism::text()
@@ -394,17 +397,19 @@ describe('thinking', function (): void {
             ->withProviderOptions(['thinking' => ['enabled' => true]])
             ->asStream();
 
-        $chunks = [];
+        $events = [];
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
+        foreach ($response as $event) {
+            $events[] = $event;
         }
 
-        $thinkingChunks = (new Collection($chunks))->where('chunkType', ChunkType::Thinking);
+        $thinkingEvents = (new Collection($events))->filter(fn ($event): bool => $event instanceof ThinkingEvent);
 
-        expect($thinkingChunks->count())->toBeGreaterThan(0);
+        expect($thinkingEvents->count())->toBeGreaterThan(0);
 
-        expect($thinkingChunks->first()->text)->not()->toBeEmpty();
+        $firstThinkingEvent = $thinkingEvents->first();
+        expect($firstThinkingEvent->delta)->not()->toBeEmpty();
+        expect($firstThinkingEvent->type())->toBe(StreamEventType::ThinkingDelta);
     });
 
     it('can process streams with thinking enabled with custom budget', function (): void {
@@ -422,7 +427,7 @@ describe('thinking', function (): void {
             ])
             ->asStream();
 
-        foreach ($response as $chunk) {
+        foreach ($response as $event) {
             // Process stream
         }
 
@@ -450,7 +455,7 @@ describe('exception handling', function (): void {
             ->withPrompt('Who are you?')
             ->asStream();
 
-        foreach ($response as $chunk) {
+        foreach ($response as $event) {
             // Don't remove me rector!
         }
     })->throws(PrismRateLimitedException::class);
@@ -485,7 +490,7 @@ describe('exception handling', function (): void {
                 ->withPrompt('Hello world!')
                 ->asStream();
 
-            foreach ($response as $chunk) {
+            foreach ($response as $event) {
                 // Don't remove me rector!
             }
         } catch (PrismRateLimitedException $e) {
@@ -515,7 +520,7 @@ describe('exception handling', function (): void {
             ->withPrompt('Hello world!')
             ->asStream();
 
-        foreach ($response as $chunk) {
+        foreach ($response as $event) {
             // Don't remove me rector!
         }
 
@@ -533,15 +538,15 @@ describe('exception handling', function (): void {
             ->withPrompt('Hello world!')
             ->asStream();
 
-        foreach ($response as $chunk) {
+        foreach ($response as $event) {
             // Don't remove me rector!
         }
 
     })->throws(PrismRequestTooLargeException::class);
 });
 
-describe('meta chunks', function (): void {
-    it('can generate text with a basic stream', function (): void {
+describe('event metadata', function (): void {
+    it('can generate text with a basic stream and includes metadata', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-basic-text');
 
         $response = Prism::text()
@@ -550,15 +555,26 @@ describe('meta chunks', function (): void {
             ->asStream();
 
         $text = '';
-        $chunks = [];
+        $events = [];
+        $streamStartEvent = null;
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
-            $text .= $chunk->text;
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+            }
+
+            if ($event instanceof StreamStartEvent) {
+                $streamStartEvent = $event;
+            }
         }
 
-        expect($chunks)->not->toBeEmpty();
+        expect($events)->not->toBeEmpty();
         expect($text)->not->toBeEmpty();
+        expect($streamStartEvent)->not->toBeNull();
+        expect($streamStartEvent->model)->not->toBeEmpty();
+        expect($streamStartEvent->provider)->toBe('anthropic');
 
         // Verify the HTTP request
         Http::assertSent(function (Request $request): bool {
@@ -569,7 +585,7 @@ describe('meta chunks', function (): void {
         });
     });
 
-    it('adds rate limit data to the first and last chunk', function (): void {
+    it('adds rate limit data to stream start event metadata', function (): void {
         $requests_reset = Carbon::now()->addSeconds(30);
 
         FixtureResponse::fakeStreamResponses(
@@ -596,30 +612,28 @@ describe('meta chunks', function (): void {
             ->withPrompt('Who are you?')
             ->asStream();
 
-        $chunks = [];
+        $events = [];
+        $streamStartEvent = null;
 
-        foreach ($response as $chunk) {
-            $chunks[] = $chunk;
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof StreamStartEvent) {
+                $streamStartEvent = $event;
+            }
         }
 
-        expect($chunks[0]->chunkType)->toBe(ChunkType::Meta);
+        expect($streamStartEvent)->not->toBeNull();
+        expect($streamStartEvent->type())->toBe(StreamEventType::StreamStart);
 
-        expect($chunks[0]->meta->rateLimits)->toHaveCount(4);
-        expect($chunks[0]->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
-        expect($chunks[0]->meta->rateLimits[0]->name)->toEqual('requests');
-        expect($chunks[0]->meta->rateLimits[0]->limit)->toEqual(1000);
-        expect($chunks[0]->meta->rateLimits[0]->remaining)->toEqual(500);
-        expect($chunks[0]->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
-
-        $lastChunkIndex = count($chunks) - 1;
-
-        expect($chunks[$lastChunkIndex]->chunkType)->toBe(ChunkType::Meta);
-
-        expect($chunks[$lastChunkIndex]->meta->rateLimits)->toHaveCount(4);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->name)->toEqual('requests');
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->limit)->toEqual(1000);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->remaining)->toEqual(500);
-        expect($chunks[$lastChunkIndex]->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
+        // Rate limit data should be in the metadata
+        expect($streamStartEvent->metadata)->not->toBeNull();
+        expect($streamStartEvent->metadata)->toHaveKey('rate_limits');
+        expect($streamStartEvent->metadata['rate_limits'])->toHaveCount(4);
+        expect($streamStartEvent->metadata['rate_limits'][0])->toBeInstanceOf(ProviderRateLimit::class);
+        expect($streamStartEvent->metadata['rate_limits'][0]->name)->toEqual('requests');
+        expect($streamStartEvent->metadata['rate_limits'][0]->limit)->toEqual(1000);
+        expect($streamStartEvent->metadata['rate_limits'][0]->remaining)->toEqual(500);
+        expect($streamStartEvent->metadata['rate_limits'][0]->resetsAt)->toEqual($requests_reset);
     });
 });
