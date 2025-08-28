@@ -41,34 +41,31 @@ $response->additionalContent['searchEntryPoint'];
 // The search queries made by the model
 $response->additionalContent['searchQueries'];
 
-// The detail needed to build your citations
-$response->additionalContent['groundingSupports'];
+// The citations data is available as an array of MessagePartWithCitations
+$response->additionalContent['citations'];
 ```
 
-`groundingSupports` is an array of `MessagePartWithSearchGroundings`, which you can use to build up footnotes as follows:
+`citations` is an array of `MessagePartWithCitations`, which you can use to build up footnotes as follows:
 
 ```php
-use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
-use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Citation;
 
 $text = '';
 $footnotes = [];
 
 $footnoteId = 1;
 
-/** @var MessagePartWithSearchGrounding $part */
-foreach ($response->additionalContent['groundingSupports'] as $part) {
-    $text .= $part->text;
-
-    /** @var SearchGrounding $grounding */
-    foreach ($part->groundings as $grounding) {
+/** @var MessagePartWithCitations $part */
+foreach ($response->additionalContent['citations'] as $part) {
+    $text .= $part->outputText;
+    
+    /** @var Citation $citation */
+    foreach ($part->citations as $citation) {
         $footnotes[] = [
             'id' => $footnoteId,
-            'firstCharacter' => $part->startIndex,
-            'lastCharacter' => $part->endIndex,
-            'title' => $grounding->title,
-            'uri' => $grounding->uri,
-            'confidence' => $grounding->confidence // Float 0-1
+            'title' => $citation->sourceTitle,
+            'uri' => $citation->source,
         ];
 
         $text .= '<sup><a href="#footnote-'.$footnoteId.'">'.$footnoteId.'</a></sup>';

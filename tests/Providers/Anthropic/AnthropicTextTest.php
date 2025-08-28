@@ -7,6 +7,8 @@ namespace Tests\Providers\Anthropic;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Citations\CitationSourcePositionType;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -14,8 +16,8 @@ use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -267,7 +269,7 @@ describe('Anthropic citations', function (): void {
         ]]);
     });
 
-    it('saves message parts with citations to additionalContent on response steps and assistant message for PDF documents', function (): void {
+    it('adds citations to additionalContent on response steps and assistant message for PDF documents', function (): void {
         FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-pdf-citations');
 
         $response = Prism::text()
@@ -285,29 +287,30 @@ describe('Anthropic citations', function (): void {
 
         expect($response->text)->toEqual('According to the text, the grass is green and the sky is blue.');
 
-        expect($response->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->additionalContent['citations'])->toHaveCount(5);
+        expect($response->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
         /** @var MessagePartWithCitations */
-        $messagePart = $response->additionalContent['messagePartsWithCitations'][1];
+        $messagePart = $response->additionalContent['citations'][1];
 
-        expect($messagePart->text)->toBe('the grass is green');
+        expect($messagePart->outputText)->toBe('the grass is green');
         expect($messagePart->citations)->toHaveCount(1);
-        expect($messagePart->citations[0]->type)->toBe('page_location');
-        expect($messagePart->citations[0]->citedText)->toBe('The grass is green. ');
-        expect($messagePart->citations[0]->startIndex)->toBe(1);
-        expect($messagePart->citations[0]->endIndex)->toBe(2);
-        expect($messagePart->citations[0]->documentIndex)->toBe(0);
-        expect($messagePart->citations[0]->documentTitle)->toBe('All aboout the grass and the sky');
+        expect($messagePart->citations[0]->sourceType)->toBe(CitationSourceType::Document);
+        expect($messagePart->citations[0]->sourceText)->toBe('The grass is green. ');
+        expect($messagePart->citations[0]->sourceStartIndex)->toBe(1);
+        expect($messagePart->citations[0]->sourceEndIndex)->toBe(2);
+        expect($messagePart->citations[0]->source)->toBe(0);
+        expect($messagePart->citations[0]->sourceTitle)->toBe('All aboout the grass and the sky');
+        expect($messagePart->citations[0]->sourcePositionType)->toBe(CitationSourcePositionType::Page);
 
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->steps[0]->additionalContent['citations'])->toHaveCount(5);
+        expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
-        expect($response->messages->last()->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->messages->last()->additionalContent['citations'])->toHaveCount(5);
+        expect($response->messages->last()->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
     });
 
-    it('saves message parts with citations to additionalContent on response steps and assistant message for text documents', function (): void {
+    it('adds citations to additionalContent on response steps and assistant message for text documents', function (): void {
         FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-text-document-citations');
 
         $response = Prism::text()
@@ -325,29 +328,30 @@ describe('Anthropic citations', function (): void {
 
         expect($response->text)->toBe("According to the documents:\nThe grass is green and the sky is blue.");
 
-        expect($response->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->additionalContent['citations'])->toHaveCount(5);
+        expect($response->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
         /** @var MessagePartWithCitations */
-        $messagePart = $response->additionalContent['messagePartsWithCitations'][1];
+        $messagePart = $response->additionalContent['citations'][1];
 
-        expect($messagePart->text)->toBe('The grass is green');
+        expect($messagePart->outputText)->toBe('The grass is green');
         expect($messagePart->citations)->toHaveCount(1);
-        expect($messagePart->citations[0]->type)->toBe('char_location');
-        expect($messagePart->citations[0]->citedText)->toBe('The grass is green. ');
-        expect($messagePart->citations[0]->startIndex)->toBe(0);
-        expect($messagePart->citations[0]->endIndex)->toBe(20);
-        expect($messagePart->citations[0]->documentIndex)->toBe(0);
-        expect($messagePart->citations[0]->documentTitle)->toBe('All aboout the grass and the sky');
+        expect($messagePart->citations[0]->sourceType)->toBe(CitationSourceType::Document);
+        expect($messagePart->citations[0]->sourceText)->toBe('The grass is green. ');
+        expect($messagePart->citations[0]->sourceStartIndex)->toBe(0);
+        expect($messagePart->citations[0]->sourceEndIndex)->toBe(20);
+        expect($messagePart->citations[0]->source)->toBe(0);
+        expect($messagePart->citations[0]->sourceTitle)->toBe('All aboout the grass and the sky');
+        expect($messagePart->citations[0]->sourcePositionType)->toBe(CitationSourcePositionType::Character);
 
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->steps[0]->additionalContent['citations'])->toHaveCount(5);
+        expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
-        expect($response->messages->last()->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->messages->last()->additionalContent['citations'])->toHaveCount(5);
+        expect($response->messages->last()->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
     });
 
-    it('saves message parts with citations to additionalContent on response steps and assistant message for custom content documents', function (): void {
+    it('adds citations to additionalContent on response steps and assistant message for custom content documents', function (): void {
         FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-custom-content-document-citations');
 
         $response = Prism::text()
@@ -365,27 +369,30 @@ describe('Anthropic citations', function (): void {
 
         expect($response->text)->toBe('According to the documents, the grass is green and the sky is blue.');
 
-        expect($response->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->additionalContent['citations'])->toHaveCount(5);
+        expect($response->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
         /** @var MessagePartWithCitations */
-        $messagePart = $response->additionalContent['messagePartsWithCitations'][1];
+        $messagePart = $response->additionalContent['citations'][1];
 
-        expect($messagePart->text)->toBe('the grass is green');
+        expect($messagePart->outputText)->toBe('the grass is green');
         expect($messagePart->citations)->toHaveCount(1);
-        expect($messagePart->citations[0]->type)->toBe('content_block_location');
-        expect($messagePart->citations[0]->citedText)->toBe('The grass is green.');
-        expect($messagePart->citations[0]->startIndex)->toBe(0);
-        expect($messagePart->citations[0]->endIndex)->toBe(1);
+        expect($messagePart->citations[0]->sourceType)->toBe(CitationSourceType::Document);
+        expect($messagePart->citations[0]->sourceText)->toBe('The grass is green.');
+        expect($messagePart->citations[0]->sourceStartIndex)->toBe(0);
+        expect($messagePart->citations[0]->sourceEndIndex)->toBe(1);
+        expect($messagePart->citations[0]->source)->toBe(0);
+        expect($messagePart->citations[0]->sourceTitle)->toBeNull();
+        expect($messagePart->citations[0]->sourcePositionType)->toBe(CitationSourcePositionType::Chunk);
 
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->steps[0]->additionalContent['citations'])->toHaveCount(5);
+        expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
-        expect($response->messages->last()->additionalContent['messagePartsWithCitations'])->toHaveCount(5);
-        expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+        expect($response->messages->last()->additionalContent['citations'])->toHaveCount(5);
+        expect($response->messages->last()->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
     });
 
-    it('works with the web search tool', function (): void {
+    it('adds citations to additionalContent on response steps and assistant message for the web search tool', function (): void {
         FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-web-search-citations');
 
         $response = Prism::text()
@@ -395,16 +402,49 @@ describe('Anthropic citations', function (): void {
             ->asText();
 
         $citationChunk = Arr::first(
-            $response->additionalContent['messagePartsWithCitations'],
-            fn (MessagePartWithCitations $part): bool => $part->citations !== [] && $part->citations[0]->type === 'web_search_result_location'
+            $response->additionalContent['citations'],
+            fn (MessagePartWithCitations $part): bool => $part->citations !== [] && $part->citations[0]->sourceType === CitationSourceType::Url
         );
 
-        expect($citationChunk->text)->toContain('temperatures');
+        expect($citationChunk->outputText)->toContain('temperatures');
         expect($citationChunk->citations)->toHaveCount(1);
-        expect($citationChunk->citations[0]->type)->toBe('web_search_result_location');
-        expect($citationChunk->citations[0]->citedText)->toContain('temperatures');
-        expect($citationChunk->citations[0]->documentTitle)->toContain('Weather');
-        expect($citationChunk->citations[0]->url)->toBe('https://www.easeweather.com/europe/united-kingdom/england/greater-london/london/july');
+        expect($citationChunk->citations[0]->sourceType)->toBe(CitationSourceType::Url);
+        expect($citationChunk->citations[0]->sourceText)->toContain('temperatures');
+        expect($citationChunk->citations[0]->sourceTitle)->toContain('Weather');
+        expect($citationChunk->citations[0]->source)->toBe('https://www.easeweather.com/europe/united-kingdom/england/greater-london/london/july');
+
+        expect($response->steps[0]->additionalContent['citations'])->toHaveCount(13);
+        expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+
+        expect($response->messages->last()->additionalContent['citations'])->toHaveCount(13);
+        expect($response->messages->last()->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+    });
+
+    it('can handle citations on on a previous assistant message with a document', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-text-document-citations-on-followup');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withMessages([
+                (new UserMessage(
+                    content: 'What color is the grass and sky?',
+                    additionalContent: [
+                        Document::fromText('The grass is green. The sky is blue.', 'All aboout the grass and the sky'),
+                    ]
+                )),
+            ])
+            ->withProviderOptions(['citations' => true])
+            ->asText();
+
+        $responseTwo = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withMessages([
+                ...$response->steps->last()->messages,
+                new UserMessage('Is the source you have cited reliable?'),
+            ])
+            ->asText();
+
+        expect($responseTwo->text)->toContain('spelling error');
     });
 });
 

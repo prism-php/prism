@@ -8,7 +8,6 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
@@ -16,8 +15,8 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Providers\Anthropic\ValueObjects\StreamState;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
@@ -215,7 +214,7 @@ class Stream
         }
 
         if ($deltaType === 'citations_delta') {
-            $this->state->setTempCitation($this->extractCitationsFromChunk($chunk));
+            $this->state->setTempCitation(data_get($chunk, 'delta.citation', null));
         }
 
         return null;
@@ -229,10 +228,13 @@ class Stream
         $additionalContent = [];
 
         if ($this->state->tempCitation() !== null) {
-            $this->state->addCitation(MessagePartWithCitations::fromContentBlock([
+            $messagePartWithCitations = CitationsMapper::mapFromAnthropic([
+                'type' => 'text',
                 'text' => $this->state->text(),
                 'citations' => [$this->state->tempCitation()],
-            ]));
+            ]);
+
+            $this->state->addCitation($messagePartWithCitations);
 
             $additionalContent['citationIndex'] = count($this->state->citations()) - 1;
         }
@@ -659,46 +661,6 @@ class Stream
         }
 
         return $buffer;
-    }
-
-    /**
-     * @param  array<string, mixed>  $chunk
-     * @return array<string, mixed>
-     */
-    protected function extractCitationsFromChunk(array $chunk): array
-    {
-        $citation = data_get($chunk, 'delta.citation', null);
-
-        $type = $this->determineCitationType($citation);
-
-        return [
-            'type' => $type,
-            ...$citation,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $citation
-     */
-    protected function determineCitationType(?array $citation): string
-    {
-        if ($citation === null) {
-            throw new InvalidArgumentException('Citation cannot be null.');
-        }
-
-        if (Arr::has($citation, 'start_page_number')) {
-            return 'page_location';
-        }
-
-        if (Arr::has($citation, 'start_char_index')) {
-            return 'char_location';
-        }
-
-        if (Arr::has($citation, 'start_block_index')) {
-            return 'content_block_location';
-        }
-
-        throw new InvalidArgumentException('Citation type could not be detected from signature.');
     }
 
     /**
