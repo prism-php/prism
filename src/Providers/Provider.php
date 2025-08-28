@@ -10,6 +10,7 @@ use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse as SpeechToTextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\HasFileFunctionality;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -26,6 +27,8 @@ use Prism\Prism\Text\Response as TextResponse;
 
 abstract class Provider
 {
+    use HasFileFunctionality;
+
     public function text(TextRequest $request): TextResponse
     {
         throw PrismException::unsupportedProviderAction('text', class_basename($this));
