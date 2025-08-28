@@ -9,14 +9,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SSEAdapter
 {
-    public function __construct(
-        protected Generator $events
-    ) {}
-
-    public function asEventStreamResponse(): StreamedResponse
+    public function __invoke(Generator $events): StreamedResponse
     {
-        return response()->stream(function (): void {
-            foreach ($this->events as $event) {
+        return response()->stream(function () use ($events): void {
+            foreach ($events as $event) {
                 if (connection_aborted() !== 0) {
                     break;
                 }

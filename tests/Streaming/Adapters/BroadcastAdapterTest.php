@@ -47,28 +47,20 @@ beforeEach(function (): void {
     Event::fake();
 });
 
-it('accepts event generator and channel configuration', function (): void {
-    $events = [
-        new TextDeltaEvent('evt-123', 1640995200, 'Hello', 'msg-456'),
-    ];
-
+it('accepts channel configuration', function (): void {
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
+    $adapter = new BroadcastAdapter($channel);
 
     expect($adapter)->toBeInstanceOf(BroadcastAdapter::class);
 });
 
 it('accepts multiple channels', function (): void {
-    $events = [
-        new TextDeltaEvent('evt-123', 1640995200, 'Hello', 'msg-456'),
-    ];
-
     $channels = [
         new Channel('channel-1'),
         new PrivateChannel('private-channel-1'),
     ];
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channels);
+    $adapter = new BroadcastAdapter($channels);
 
     expect($adapter)->toBeInstanceOf(BroadcastAdapter::class);
 });
@@ -77,8 +69,8 @@ it('broadcasts text delta events correctly', function (): void {
     $event = new TextDeltaEvent('evt-123', 1640995200, 'Hello world', 'msg-456');
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(TextDeltaBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->id === $event->id
         && $broadcastEvent->event->delta === $event->delta
@@ -89,8 +81,8 @@ it('broadcasts stream start events correctly', function (): void {
     $event = new StreamStartEvent('evt-123', 1640995200, 'gpt-4', 'openai');
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(StreamStartBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->id === $event->id
         && $broadcastEvent->event->model === $event->model
@@ -103,8 +95,8 @@ it('broadcasts stream end events correctly', function (): void {
     $event = new StreamEndEvent('evt-123', 1640995200, FinishReason::Stop, $usage);
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(StreamEndBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->id === $event->id
         && $broadcastEvent->event->finishReason === $event->finishReason
@@ -120,8 +112,8 @@ it('broadcasts thinking events correctly', function (): void {
     ];
 
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator($events));
 
     Event::assertDispatched(ThinkingStartBroadcast::class);
     Event::assertDispatched(ThinkingBroadcast::class);
@@ -135,8 +127,8 @@ it('broadcasts tool events correctly', function (): void {
     ];
 
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator($events));
 
     Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolCall->name === 'search'
         && $broadcastEvent->event->toolCall->arguments() === ['q' => 'test']);
@@ -149,8 +141,8 @@ it('broadcasts error events correctly', function (): void {
     $event = new ErrorEvent('evt-123', 1640995200, 'rate_limit', 'Rate limit exceeded', false);
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(ErrorBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->errorType === $event->errorType
         && $broadcastEvent->event->message === $event->message
@@ -164,18 +156,18 @@ it('broadcasts to multiple channels', function (): void {
         new PrivateChannel('private-channel-1'),
     ];
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channels);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channels);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(TextDeltaBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->channels === $channels);
 });
 
 it('handles empty event stream', function (): void {
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([]), $channel);
+    $adapter = new BroadcastAdapter($channel);
 
     // Should not throw any errors
-    $adapter->broadcast();
+    ($adapter)(createBroadcastEventGenerator([]));
 
     // No events should be dispatched
     Event::assertNothingDispatched();
@@ -199,8 +191,8 @@ it('broadcasts all event types in comprehensive stream', function (): void {
     ];
 
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator($events));
 
     // Verify all broadcast event types are dispatched
     Event::assertDispatched(StreamStartBroadcast::class);
@@ -236,10 +228,10 @@ it('handles all supported event types without errors', function (): void {
     ];
 
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
+    $adapter = new BroadcastAdapter($channel);
 
     // Should not throw any exceptions
-    $adapter->broadcast();
+    ($adapter)(createBroadcastEventGenerator($events));
 
     // Verify all events were processed and dispatched
     expect(true)->toBeTrue(); // Test passes if no exceptions thrown
@@ -252,8 +244,8 @@ it('maintains event order when broadcasting', function (): void {
     }
 
     $channel = new Channel('test-channel');
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator($events));
 
     // Verify all events were dispatched in order
     Event::assertDispatchedTimes(TextDeltaBroadcast::class, 5);
@@ -273,8 +265,8 @@ it('handles events with complex data structures', function (): void {
     $event = new ToolCallEvent('evt-1', 1640995200, new ToolCall('tool-123', 'complex_search', $complexArgs), 'msg-456');
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolCall->name === 'complex_search'
         && $broadcastEvent->event->toolCall->arguments() === $complexArgs);
@@ -284,8 +276,8 @@ it('handles events with unicode and special characters', function (): void {
     $event = new TextDeltaEvent('evt-1', 1640995200, '🚀 Hello 世界! "quoted" text', 'msg-456');
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(TextDeltaBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->delta === '🚀 Hello 世界! "quoted" text');
 });
@@ -294,8 +286,8 @@ it('validates broadcast event structure and data format', function (): void {
     $event = new TextDeltaEvent('evt-123', 1640995200, 'Hello world!', 'msg-456');
     $channel = new Channel('test-channel');
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator([$event]), $channel);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
 
     Event::assertDispatched(TextDeltaBroadcast::class, function ($broadcastEvent) use ($event, $channel): bool {
         // Verify the broadcast event has the correct structure
@@ -332,8 +324,8 @@ it('validates broadcast event structure for multiple event types', function (): 
         new PrivateChannel('private-channel-1'),
     ];
 
-    $adapter = new BroadcastAdapter(createBroadcastEventGenerator($events), $channels);
-    $adapter->broadcast();
+    $adapter = new BroadcastAdapter($channels);
+    ($adapter)(createBroadcastEventGenerator($events));
 
     // Verify StreamStartBroadcast structure and data
     Event::assertDispatched(StreamStartBroadcast::class, function ($broadcastEvent) use ($channels): bool {

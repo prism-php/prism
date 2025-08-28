@@ -32,8 +32,8 @@ it('creates SSE response with correct headers and structure', function (): void 
         new TextDeltaEvent('evt-123', 1640995200, 'Hello', 'msg-456'),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator($events));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
@@ -53,13 +53,13 @@ it('accepts event generator and maintains event types', function (): void {
         new StreamEndEvent('evt-3', 1640995202, FinishReason::Stop),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
+    $adapter = new SSEAdapter;
 
     // Test that adapter accepts the generator without error
     expect($adapter)->toBeInstanceOf(SSEAdapter::class);
 
     // Test that we can create a response
-    $response = $adapter->asEventStreamResponse();
+    $response = ($adapter)(createEventGenerator($events));
     expect($response)->toBeInstanceOf(StreamedResponse::class);
 });
 
@@ -76,16 +76,16 @@ it('handles different event types without errors', function (): void {
         new StreamEndEvent('evt-8', 1640995207, FinishReason::Stop),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator($events));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
 });
 
 it('handles empty event stream without errors', function (): void {
-    $adapter = new SSEAdapter(createEventGenerator([]));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator([]));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
@@ -108,8 +108,8 @@ it('processes events with complex data structures', function (): void {
         new ToolResultEvent('evt-2', 1640995201, new ToolResult('tool-123', 'complex_search', $complexArgs, ['data' => ['nested' => ['value' => 123]]]), 'msg-456', true),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator($events));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
@@ -121,8 +121,8 @@ it('handles events with unicode and special characters', function (): void {
         new ThinkingEvent('evt-2', 1640995201, 'Thinking with émojis 🤔', 'reasoning-123'),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator($events));
 
     // Should handle unicode without throwing errors
     expect($response)->toBeInstanceOf(StreamedResponse::class);
@@ -131,9 +131,9 @@ it('handles events with unicode and special characters', function (): void {
 
 it('maintains correct SSE format structure', function (): void {
     $event = new TextDeltaEvent('evt-123', 1640995200, 'Hello world!', 'msg-456');
-    $adapter = new SSEAdapter(createEventGenerator([$event]));
+    $adapter = new SSEAdapter;
 
-    $response = $adapter->asEventStreamResponse();
+    $response = ($adapter)(createEventGenerator([$event]));
     $callback = $response->getCallback();
 
     // Test that the callback is properly structured for SSE
@@ -177,8 +177,8 @@ it('formats multiple events with correct SSE structure', function (): void {
         new StreamEndEvent('evt-4', 1640995203, FinishReason::Stop),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator($events));
     $callback = $response->getCallback();
 
     $outputBuffer = fopen('php://memory', 'r+');
@@ -225,8 +225,8 @@ it('integrates with Laravel response system', function (): void {
         new StreamEndEvent('evt-2', 1640995201, FinishReason::Stop),
     ];
 
-    $adapter = new SSEAdapter(createEventGenerator($events));
-    $response = $adapter->asEventStreamResponse();
+    $adapter = new SSEAdapter;
+    $response = ($adapter)(createEventGenerator($events));
 
     // Test integration with Laravel's response system
     expect($response)->toBeInstanceOf(StreamedResponse::class);

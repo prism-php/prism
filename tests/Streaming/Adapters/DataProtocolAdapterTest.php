@@ -35,8 +35,8 @@ it('creates data protocol response with correct headers and structure', function
         new TextDeltaEvent('evt-123', 1640995200, 'Hello', 'msg-456'),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
@@ -56,13 +56,13 @@ it('accepts event generator and maintains event types', function (): void {
         new StreamEndEvent('evt-3', 1640995202, FinishReason::Stop),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
+    $adapter = new DataProtocolAdapter;
 
     // Test that adapter accepts the generator without error
     expect($adapter)->toBeInstanceOf(DataProtocolAdapter::class);
 
     // Test that we can create a response
-    $response = $adapter->asDataStreamResponse();
+    $response = ($adapter)(createDataEventGenerator($events));
     expect($response)->toBeInstanceOf(StreamedResponse::class);
 });
 
@@ -79,16 +79,16 @@ it('handles different event types without errors', function (): void {
         new StreamEndEvent('evt-8', 1640995207, FinishReason::Stop),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
 });
 
 it('handles empty event stream without errors', function (): void {
-    $adapter = new DataProtocolAdapter(createDataEventGenerator([]));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator([]));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
@@ -111,8 +111,8 @@ it('processes events with complex data structures', function (): void {
         new ToolResultEvent('evt-2', 1640995201, new ToolResult('tool-123', 'complex_search', $complexArgs, ['data' => ['nested' => ['value' => 123]]]), 'msg-456', true),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
 
     expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->getStatusCode())->toBe(200);
@@ -124,8 +124,8 @@ it('handles events with unicode and special characters', function (): void {
         new ThinkingEvent('evt-2', 1640995201, 'Thinking with émojis 🤔', 'reasoning-123'),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
 
     // Should handle unicode without throwing errors
     expect($response)->toBeInstanceOf(StreamedResponse::class);
@@ -134,9 +134,9 @@ it('handles events with unicode and special characters', function (): void {
 
 it('maintains correct data protocol format structure', function (): void {
     $event = new TextDeltaEvent('evt-123', 1640995200, 'Hello world!', 'msg-456');
-    $adapter = new DataProtocolAdapter(createDataEventGenerator([$event]));
+    $adapter = new DataProtocolAdapter;
 
-    $response = $adapter->asDataStreamResponse();
+    $response = ($adapter)(createDataEventGenerator([$event]));
     $callback = $response->getCallback();
 
     // Test that the callback is properly structured
@@ -177,8 +177,8 @@ it('integrates with Laravel response system', function (): void {
         new StreamEndEvent('evt-2', 1640995201, FinishReason::Stop),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
 
     // Test integration with Laravel's response system
     expect($response)->toBeInstanceOf(StreamedResponse::class);
@@ -200,8 +200,8 @@ it('handles JSON encoding errors gracefully', function (): void {
         'msg-456'
     );
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator([$event]));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator([$event]));
     $callback = $response->getCallback();
 
     // Should throw RuntimeException due to JSON encoding failure
@@ -226,8 +226,8 @@ it('formats multiple events with correct data protocol structure', function (): 
         new StreamEndEvent('evt-4', 1640995203, FinishReason::Stop, $usage),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
     $callback = $response->getCallback();
 
     $outputBuffer = fopen('php://memory', 'r+');
@@ -295,8 +295,8 @@ it('converts events to correct data protocol format', function (): void {
         new StreamEndEvent('evt-10', 1640995209, FinishReason::Stop, $usage),
     ];
 
-    $adapter = new DataProtocolAdapter(createDataEventGenerator($events));
-    $response = $adapter->asDataStreamResponse();
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
     $callback = $response->getCallback();
 
     // Test that conversion doesn't throw errors and produces expected format

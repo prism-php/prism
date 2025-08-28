@@ -77,14 +77,12 @@ class PendingRequest
 
     public function asDataStreamResponse(): StreamedResponse
     {
-        return (new DataProtocolAdapter($this->asStream()))
-            ->asDataStreamResponse();
+        return (new DataProtocolAdapter)($this->asStream());
     }
 
     public function asEventStreamResponse(): StreamedResponse
     {
-        return (new SSEAdapter($this->asStream()))
-            ->asEventStreamResponse();
+        return (new SSEAdapter)($this->asStream());
     }
 
     /**
@@ -92,7 +90,7 @@ class PendingRequest
      */
     public function asBroadcast(Channel|array $channels): void
     {
-        (new BroadcastAdapter($this->asStream(), $channels))->broadcast();
+        (new BroadcastAdapter($channels))($this->asStream());
     }
 
     public function toRequest(): Request

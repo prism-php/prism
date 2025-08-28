@@ -38,13 +38,12 @@ class BroadcastAdapter
      * @param  Channel|Channel[]  $channels
      */
     public function __construct(
-        protected Generator $events,
         protected Channel|array $channels
     ) {}
 
-    public function broadcast(): void
+    public function __invoke(Generator $events): void
     {
-        foreach ($this->events as $event) {
+        foreach ($events as $event) {
             event($this->broadcastEvent($event));
         }
     }
