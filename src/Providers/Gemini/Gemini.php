@@ -12,6 +12,8 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
@@ -90,6 +92,15 @@ class Gemini extends Provider
         );
 
         return $handler->handle($request);
+    }
+
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make([]),
+            503 => throw PrismProviderOverloadedException::make(class_basename($this)),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
     }
 
     /**
