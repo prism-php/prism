@@ -92,6 +92,15 @@ class Gemini extends Provider
         return $handler->handle($request);
     }
 
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make([]),
+            503 => throw PrismProviderOverloadedException::make(class_basename($this)),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
+    }
+
     /**
      * @param  Message[]  $messages
      * @param  array<SystemMessage|string>  $systemPrompts
