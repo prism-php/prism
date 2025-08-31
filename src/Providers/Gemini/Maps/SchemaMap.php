@@ -21,29 +21,32 @@ class SchemaMap
     {
         $schemaArray = $this->schema->toArray();
 
-        // Remove additionalProperties from the schema array since Gemini doesn't support it
-        unset($schemaArray['additionalProperties']);
+        // Remove unsupported fields
+        unset($schemaArray['additionalProperties'], $schemaArray['description'], $schemaArray['name']);
 
-        return array_merge([
-            ...array_filter([
+        $result = array_merge(
+            array_filter([
                 ...$schemaArray,
                 'type' => $this->mapType(),
             ]),
-        ], array_filter([
-            'items' => property_exists($this->schema, 'items') ?
-                (new self($this->schema->items))->toArray() :
-                null,
-            // Only include 'properties' field for ObjectSchema
-            'properties' => $this->schema instanceof ObjectSchema && property_exists($this->schema, 'properties') ?
-                array_reduce($this->schema->properties, fn (array $carry, Schema $property) => [
-                    ...$carry,
-                    $property->name() => (new self($property))->toArray(),
-                ], []) :
-                null,
-            'nullable' => property_exists($this->schema, 'nullable')
-                ? $this->schema->nullable
-                : null,
-        ]));
+            array_filter([
+                'items' => property_exists($this->schema, 'items') && $this->schema->items
+                    ? (new self($this->schema->items))->toArray()
+                    : null,
+                'properties' => $this->schema instanceof ObjectSchema && property_exists($this->schema, 'properties')
+                    ? array_reduce($this->schema->properties, function(array $carry, Schema $property) {
+                        // Use property name as the key, but do NOT include "name" inside the value
+                        $carry[$property->name()] = (new self($property))->toArray();
+                        return $carry;
+                    }, [])
+                    : null,
+                'nullable' => property_exists($this->schema, 'nullable') && $this->schema->nullable
+                    ? true
+                    : null,
+            ])
+        );
+
+        return $result;
     }
 
     protected function mapType(): string
