@@ -24,7 +24,7 @@ class SchemaMap
         // Remove unsupported fields
         unset($schemaArray['additionalProperties'], $schemaArray['description'], $schemaArray['name']);
 
-        $result = array_merge(
+        return array_merge(
             array_filter([
                 ...$schemaArray,
                 'type' => $this->mapType(),
@@ -34,9 +34,10 @@ class SchemaMap
                     ? (new self($this->schema->items))->toArray()
                     : null,
                 'properties' => $this->schema instanceof ObjectSchema && property_exists($this->schema, 'properties')
-                    ? array_reduce($this->schema->properties, function(array $carry, Schema $property) {
+                    ? array_reduce($this->schema->properties, function (array $carry, Schema $property) {
                         // Use property name as the key, but do NOT include "name" inside the value
                         $carry[$property->name()] = (new self($property))->toArray();
+
                         return $carry;
                     }, [])
                     : null,
@@ -45,8 +46,6 @@ class SchemaMap
                     : null,
             ])
         );
-
-        return $result;
     }
 
     protected function mapType(): string
