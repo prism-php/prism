@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
-class MessagePartWithCitations
+class LegacyAnthropicMessagePartWithCitations
 {
     /**
-     * @param  Citation[]  $citations
+     * @param  LegacyAnthropicCitation[]  $citations
      */
     public function __construct(
         public readonly ?string $text,
@@ -21,7 +21,7 @@ class MessagePartWithCitations
     {
         return new self(
             $data['text'] ?? null,
-            array_map(function (array $citation): Citation {
+            array_map(function (array $citation): LegacyAnthropicCitation {
                 $indexPropertyCommonPart = match ($citation['type']) {
                     'page_location' => 'page_number',
                     'char_location' => 'char_index',
@@ -30,7 +30,7 @@ class MessagePartWithCitations
                     default => throw new \InvalidArgumentException("Unknown citation type: {$citation['type']}"),
                 };
 
-                return new Citation(
+                return new LegacyAnthropicCitation(
                     type: $citation['type'],
                     citedText: data_get($citation, 'cited_text'),
                     startIndex: $indexPropertyCommonPart ? data_get($citation, "start_$indexPropertyCommonPart", null) : null,
@@ -51,7 +51,7 @@ class MessagePartWithCitations
         return [
             'type' => 'text',
             'text' => $this->text,
-            'citations' => array_map(function (Citation $citation): array {
+            'citations' => array_map(function (LegacyAnthropicCitation $citation): array {
                 $indexPropertyCommonPart = match ($citation->type) {
                     'page_location' => 'page_number',
                     'char_location' => 'char_index',

@@ -122,13 +122,13 @@ class Stream
             if (data_get($data, 'type') === 'response.completed') {
                 yield new Chunk(
                     text: '',
+                    chunkType: ChunkType::Meta,
                     usage: new Usage(
                         promptTokens: data_get($data, 'response.usage.input_tokens'),
                         completionTokens: data_get($data, 'response.usage.output_tokens'),
                         cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
                         thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
                     ),
-                    chunkType: ChunkType::Meta,
                 );
             }
         }

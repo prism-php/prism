@@ -149,7 +149,6 @@ class Text
 
         $this->tempResponse = new Response(
             steps: new Collection,
-            messages: new Collection,
             text: $this->extractText($data),
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
             toolCalls: $this->extractToolCalls($data),
@@ -165,8 +164,9 @@ class Text
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
+            messages: new Collection,
             additionalContent: Arr::whereNotNull([
-                'messagePartsWithCitations' => $this->extractCitations($data),
+                'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])
         );

@@ -14,7 +14,7 @@ class ToolMap
      */
     public static function map(array $tools): array
     {
-        return array_map(fn (Tool $tool): array => array_filter([
+        return array_map(fn (Tool $tool): array => [
             'type' => 'function',
             'function' => [
                 'name' => $tool->name(),
@@ -25,6 +25,6 @@ class ToolMap
                     'required' => $tool->requiredParameters(),
                 ],
             ],
-        ]), $tools);
+        ], $tools);
     }
 }

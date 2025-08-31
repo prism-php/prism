@@ -63,19 +63,19 @@ class PendingRequest
         }
 
         return new Request(
+            systemPrompts: $this->systemPrompts,
             model: $this->model,
             providerKey: $this->providerKey(),
-            systemPrompts: $this->systemPrompts,
             prompt: $this->prompt,
             messages: $messages,
-            temperature: $this->temperature,
             maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
             topP: $this->topP,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
-            providerOptions: $this->providerOptions,
             schema: $this->schema,
             mode: $this->structuredMode,
+            providerOptions: $this->providerOptions,
         );
     }
 }

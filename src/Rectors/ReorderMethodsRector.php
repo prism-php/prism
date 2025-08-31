@@ -1,13 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Rectors;
 
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use Rector\Rector\AbstractRector;
-use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
-use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 
 class ReorderMethodsRector extends AbstractRector
 {
@@ -36,64 +36,11 @@ class ReorderMethodsRector extends AbstractRector
         }
 
         $node->stmts = array_merge(
-            array_filter($node->stmts, fn ($stmt): bool => ! $stmt instanceof ClassMethod),
+            array_filter($node->stmts, fn (\PhpParser\Node\Stmt $stmt): bool => ! $stmt instanceof ClassMethod),
             $reorderedMethods
         );
 
         return $node;
-    }
-
-    #[\Override]
-    public function getRuleDefinition(): RuleDefinition
-    {
-        return new RuleDefinition(
-            'Reorders class methods: magic methods first, then public, protected, and private.',
-            [
-                new CodeSample(
-                    <<<'CODE_SAMPLE'
-class SomeClass
-{
-    private function privateMethod()
-    {
-    }
-
-    public function publicMethod()
-    {
-    }
-
-    protected function protectedMethod()
-    {
-    }
-
-    public function __construct()
-    {
-    }
-}
-CODE_SAMPLE
-                    ,
-                    <<<'CODE_SAMPLE'
-class SomeClass
-{
-    public function __construct()
-    {
-    }
-
-    public function publicMethod()
-    {
-    }
-
-    protected function protectedMethod()
-    {
-    }
-
-    private function privateMethod()
-    {
-    }
-}
-CODE_SAMPLE
-                ),
-            ]
-        );
     }
 
     /**

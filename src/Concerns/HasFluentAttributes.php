@@ -9,7 +9,7 @@ use InvalidArgumentException;
 trait HasFluentAttributes
 {
     /**
-     * @param  list<mixed>  $arguments
+     * @param  array<mixed>  $arguments
      */
     public function __call(string $name, array $arguments): self
     {

@@ -21,9 +21,9 @@ class ToolCallMap
 
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
             id: data_get($toolCall, 'id'),
-            resultId: data_get($toolCall, 'call_id'),
             name: data_get($toolCall, 'name'),
             arguments: data_get($toolCall, 'arguments'),
+            resultId: data_get($toolCall, 'call_id'),
             reasoningId: data_get($reasonings, '0.id'),
             reasoningSummary: data_get($reasonings, '0.summary'),
         ), $toolCalls);

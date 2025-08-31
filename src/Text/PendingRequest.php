@@ -86,7 +86,7 @@ class PendingRequest
 
         if (! $this->toolErrorHandlingEnabled && filled($tools)) {
             $tools = array_map(
-                callback: fn ($tool): Tool => $tool instanceof Tool && ! is_null($tool->failedHandler()) ? $tool->withoutErrorHandling() : $tool,
+                callback: fn (Tool $tool): Tool => is_null($tool->failedHandler()) ? $tool : $tool->withoutErrorHandling(),
                 array: $tools
             );
         }
@@ -97,9 +97,9 @@ class PendingRequest
             systemPrompts: $this->systemPrompts,
             prompt: $this->prompt,
             messages: $messages,
-            temperature: $this->temperature,
-            maxTokens: $this->maxTokens,
             maxSteps: $this->maxSteps,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
             topP: $this->topP,
             tools: $tools,
             clientOptions: $this->clientOptions,

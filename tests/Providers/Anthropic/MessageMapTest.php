@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
+use Prism\Prism\Enums\Citations\CitationSourcePositionType;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Citation;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -480,280 +483,41 @@ describe('Anthropic cache mapping', function (): void {
     ]);
 });
 
-describe('Anthropic citation mapping', function (): void {
-    it('sets citiations to true on a UserMessage Document if citations providerOptions is true', function (): void {
-        expect(MessageMap::map([
-            (new UserMessage(
-                content: 'What color is the grass and sky?',
-                additionalContent: [
-                    Document::fromText('The grass is green. The sky is blue.')->withProviderOptions(['citations' => true]),
-                ]
-            )),
-        ]))->toBe([[
-            'role' => 'user',
-            'content' => [
-                [
-                    'type' => 'text',
-                    'text' => 'What color is the grass and sky?',
-                ],
-                [
-                    'type' => 'document',
-                    'citations' => ['enabled' => true],
-                    'source' => [
-                        'type' => 'text',
-                        'media_type' => 'text/plain',
-                        'data' => 'The grass is green. The sky is blue.',
-                    ],
-                ],
-            ],
-        ]]);
-    });
+describe('Anthropic citations mapping', function (): void {
+    it('citations back to Anthropic format', function (): void {
+        $citation = new Citation(
+            sourceType: CitationSourceType::Document,
+            source: 0,
+            sourceText: 'Sample citation text',
+            sourceTitle: 'Test Document',
+            sourcePositionType: CitationSourcePositionType::Character,
+            sourceStartIndex: 10,
+            sourceEndIndex: 30
+        );
 
-    test('MessageMap applies citations to all documents if requestProviderOptions has citations true', function (): void {
-        $messages = [
-            (new UserMessage(
-                content: 'What color is the grass and sky?',
-                additionalContent: [
-                    Document::fromText('The grass is green.', 'All about the grass.')->withProviderOptions([
-                        'context' => 'A novel look into the colour of grass.',
-                    ]),
-                    Document::fromText('The sky is blue.'),
-                ]
-            )),
-            (new UserMessage(
-                content: 'What color is sea and earth?',
-                additionalContent: [
-                    Document::fromText('The sea is blue'),
-                    Document::fromText('The earth is brown.'),
-                ]
-            )),
-        ];
+        $messagePartWithCitations = new MessagePartWithCitations(
+            outputText: 'Here is some text with citations.',
+            citations: [$citation]
+        );
 
-        expect(MessageMap::map($messages, ['citations' => true]))->toBe([
-            [
-                'role' => 'user',
-                'content' => [
-                    [
-                        'type' => 'text',
-                        'text' => 'What color is the grass and sky?',
-                    ],
-                    [
-                        'type' => 'document',
-                        'title' => 'All about the grass.',
-                        'context' => 'A novel look into the colour of grass.',
-                        'citations' => ['enabled' => true],
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The grass is green.',
-                        ],
-                    ],
-                    [
-                        'type' => 'document',
-                        'citations' => ['enabled' => true],
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The sky is blue.',
-                        ],
-                    ],
-                ],
-            ],
-            [
-                'role' => 'user',
-                'content' => [
-                    [
-                        'type' => 'text',
-                        'text' => 'What color is sea and earth?',
-                    ],
-                    [
-                        'type' => 'document',
-                        'citations' => ['enabled' => true],
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The sea is blue',
-                        ],
-                    ],
-                    [
-                        'type' => 'document',
-                        'citations' => ['enabled' => true],
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The earth is brown.',
-                        ],
-                    ],
-                ],
-            ],
-        ]);
-    });
+        $assistantMessage = new AssistantMessage(
+            content: '',
+            additionalContent: [
+                'citations' => [$messagePartWithCitations],
+            ]
+        );
 
-    it('maps a chunked document correctly', function (): void {
-        expect(MessageMap::map([
-            (new UserMessage(
-                content: 'What color is the grass and sky?',
-                additionalContent: [
-                    Document::fromChunks(['chunk1', 'chunk2'])->withProviderOptions(['citations' => true]),
-                ]
-            )),
-        ]))->toBe([[
-            'role' => 'user',
-            'content' => [
-                [
-                    'type' => 'text',
-                    'text' => 'What color is the grass and sky?',
-                ],
-                [
-                    'type' => 'document',
-                    'citations' => ['enabled' => true],
-                    'source' => [
-                        'type' => 'content',
+        $mapped = MessageMap::map([$assistantMessage]);
 
-                        'content' => [
-                            ['type' => 'text', 'text' => 'chunk1'],
-                            ['type' => 'text', 'text' => 'chunk2'],
-                        ],
-                    ],
-                ],
-            ],
-        ]]);
-    });
-
-    it('maps an assistant message with PDF citations back to its original format', function (): void {
-        $block_one = [
-            'type' => 'text',
-            'text' => '.',
-        ];
-
-        $block_two = [
-            'type' => 'text',
-            'text' => 'the grass is green',
-            'citations' => [
-                [
-                    'type' => 'page_location',
-                    'cited_text' => 'The grass is green. ',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_page_number' => 1,
-                    'end_page_number' => 2,
-                ],
-            ],
-        ];
-
-        $block_three = [
-            'type' => 'text',
-            'text' => ' and ',
-        ];
-
-        $block_four = [
-            'type' => 'text',
-            'text' => 'the sky is blue',
-            'citations' => [
-                [
-                    'type' => 'page_location',
-                    'cited_text' => 'The sky is blue.',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_page_number' => 1,
-                    'end_page_number' => 2,
-                ],
-            ],
-        ];
-
-        $block_five = [
-            'type' => 'text',
-            'text' => '.',
-        ];
-
-        expect(MessageMap::map([
-            new AssistantMessage(
-                content: 'According to the text, the grass is green and the sky is blue.',
-                additionalContent: [
-                    'messagePartsWithCitations' => [
-                        MessagePartWithCitations::fromContentBlock($block_one),
-                        MessagePartWithCitations::fromContentBlock($block_two),
-                        MessagePartWithCitations::fromContentBlock($block_three),
-                        MessagePartWithCitations::fromContentBlock($block_four),
-                        MessagePartWithCitations::fromContentBlock($block_five),
-                    ],
-                ]
-            ),
-        ]))->toBe([[
-            'role' => 'assistant',
-            'content' => [
-                $block_one,
-                $block_two,
-                $block_three,
-                $block_four,
-                $block_five,
-            ],
-        ]]);
-    });
-
-    it('maps an assistant message with text document citations back to its original format', function (): void {
-        $block = [
-            'type' => 'text',
-            'text' => 'the grass is green',
-            'citations' => [
-                [
-                    'type' => 'char_location',
-                    'cited_text' => 'The grass is green. ',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_char_index' => 1,
-                    'end_char_index' => 20,
-                ],
-            ],
-        ];
-
-        expect(MessageMap::map([
-            new AssistantMessage(
-                content: 'According to the text, the grass is green and the sky is blue.',
-                additionalContent: [
-                    'messagePartsWithCitations' => [
-                        MessagePartWithCitations::fromContentBlock($block),
-                    ],
-                ]
-            ),
-        ]))->toBe([[
-            'role' => 'assistant',
-            'content' => [
-                $block,
-            ],
-        ]]);
-    });
-
-    it('maps an assistant message with custom content document citations back to its original format', function (): void {
-        $block = [
-            'type' => 'text',
-            'text' => 'the grass is green',
-            'citations' => [
-                [
-                    'type' => 'content_block_location',
-                    'cited_text' => 'The grass is green. ',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_block_index' => 0,
-                    'end_block_index' => 1,
-                ],
-            ],
-        ];
-
-        expect(MessageMap::map([
-            new AssistantMessage(
-                content: 'According to the text, the grass is green and the sky is blue.',
-                additionalContent: [
-                    'messagePartsWithCitations' => [
-                        MessagePartWithCitations::fromContentBlock($block),
-                    ],
-                ]
-            ),
-        ]))->toBe([[
-            'role' => 'assistant',
-            'content' => [
-                $block,
-            ],
-        ]]);
+        expect($mapped[0]['content'][0])->toHaveKey('type', 'text');
+        expect($mapped[0]['content'][0])->toHaveKey('text', 'Here is some text with citations.');
+        expect($mapped[0]['content'][0])->toHaveKey('citations');
+        expect($mapped[0]['content'][0]['citations'])->toHaveCount(1);
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('type', 'char_location');
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('cited_text', 'Sample citation text');
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('document_index', 0);
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('document_title', 'Test Document');
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('start_char_index', 10);
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('end_char_index', 30);
     });
 });

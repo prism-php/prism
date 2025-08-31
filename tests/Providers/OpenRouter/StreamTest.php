@@ -62,7 +62,7 @@ it('can stream text with a prompt', function (): void {
     expect($chunks[19]->finishReason)->toBe(FinishReason::Stop);
 
     // Verify full text can be reconstructed
-    $fullText = implode('', array_map(fn ($chunk): string => $chunk->text, $chunks));
+    $fullText = implode('', array_map(fn (\Prism\Prism\Text\Chunk $chunk): string => $chunk->text, $chunks));
     expect($fullText)->toBe("Hello! I'm an AI assistant powered by OpenRouter. How can I help you today?");
 });
 
@@ -103,7 +103,7 @@ it('can stream text with tool calls', function (): void {
     expect($chunks[9]->text)->toBe('.');
 
     // Check for tool call chunks
-    $toolCallChunks = array_filter($chunks, fn ($chunk): bool => $chunk->chunkType === ChunkType::ToolCall);
+    $toolCallChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolCall);
     expect($toolCallChunks)->toHaveCount(1);
 
     $toolCallChunk = array_values($toolCallChunks)[0];
@@ -112,7 +112,7 @@ it('can stream text with tool calls', function (): void {
     expect($toolCallChunk->toolCalls[0]->arguments())->toBe(['city' => 'San Francisco']);
 
     // Check for tool result chunks
-    $toolResultChunks = array_filter($chunks, fn ($chunk): bool => $chunk->chunkType === ChunkType::ToolResult);
+    $toolResultChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolResult);
     expect($toolResultChunks)->toHaveCount(1);
 
     $toolResultChunk = array_values($toolResultChunks)[0];
@@ -120,7 +120,7 @@ it('can stream text with tool calls', function (): void {
     expect($toolResultChunk->toolResults[0]->result)->toBe('The weather in San Francisco is 75°F and sunny');
 
     // Check usage chunk
-    $usageChunks = array_filter($chunks, fn ($chunk): bool => $chunk->chunkType === ChunkType::Meta && $chunk->usage instanceof \Prism\Prism\ValueObjects\Usage);
+    $usageChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::Meta && $chunk->usage instanceof \Prism\Prism\ValueObjects\Usage);
     expect($usageChunks)->toHaveCount(1);
 
     $usageChunk = array_values($usageChunks)[0];
@@ -128,7 +128,7 @@ it('can stream text with tool calls', function (): void {
     expect($usageChunk->usage->completionTokens)->toBe(25);
 
     // Check final chunk with finish reason
-    $finishChunks = array_filter($chunks, fn ($chunk): bool => $chunk->finishReason === FinishReason::ToolCalls);
+    $finishChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->finishReason === FinishReason::ToolCalls);
     expect($finishChunks)->toHaveCount(1);
 });
 
@@ -144,7 +144,7 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
     $chunks = iterator_to_array($stream);
 
     // Check for thinking chunks
-    $thinkingChunks = array_filter($chunks, fn ($chunk): bool => $chunk->chunkType === ChunkType::Thinking);
+    $thinkingChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::Thinking);
 
     if ($thinkingChunks !== []) {
         expect($thinkingChunks)->toHaveCount(1);

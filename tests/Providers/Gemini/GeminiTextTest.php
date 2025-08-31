@@ -6,12 +6,11 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
-use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
-use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\NumberSchema;
@@ -21,6 +20,7 @@ use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -413,7 +413,7 @@ describe('provider tools', function (): void {
             ->asText();
     })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
 
-    it('maps search groundings into additional content', function (): void {
+    it('creates citations in additionalContent from search groundings', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         $response = Prism::text()
@@ -422,23 +422,22 @@ describe('provider tools', function (): void {
             ->withProviderOptions(['searchGrounding' => true])
             ->asText();
 
-        expect($response->additionalContent)->toHaveKey('searchEntryPoint');
-        expect($response->additionalContent)->toHaveKey('searchQueries');
-        expect($response->additionalContent)->toHaveKey('groundingSupports');
+        expect($response->additionalContent)->toHaveKey('citations');
+        expect($response->additionalContent['citations'])->toHaveCount(6);
 
-        expect($response->additionalContent['searchEntryPoint'])->not()->toBe('');
+        $concatenatedPartLength = collect($response->additionalContent['citations'])
+            ->sum(fn (MessagePartWithCitations $messagePart): int => strlen($messagePart->outputText));
+
+        expect(strlen($response->text))->toBe($concatenatedPartLength);
+
+        expect($response->additionalContent['citations'][1]->citations)->toHaveCount(1);
+        expect($response->additionalContent['citations'][1]->citations[0])
+            ->sourceTitle->toBe('ft.com')
+            ->source->toBe('https://vertexaisearch.cloud.google.com/grounding-api-redirect/AQXblrzVmdvQ-8RyZbo6knG4xQpbHhzoZtCKui-qEXo7n-Gda_UaV5RNo3GuuAV7OBLY8oRmb0giKvPjP0FXgI8gktbMyJOx9yUkSYbBUJpfbLaHQy13zjpVAC596HzWEfbPjoh1_5EtEinrM1LW0D0_6OwQ_iDClBsm62K-L-I=')
+            ->sourceType->toBe(CitationSourceType::Url);
+
         expect($response->additionalContent['searchQueries'])->toHaveCount(1);
-        expect($response->additionalContent['groundingSupports'])->toHaveCount(4);
-
-        expect($response->additionalContent['groundingSupports'][0])->toBeInstanceOf(MessagePartWithSearchGroundings::class);
-        expect($response->additionalContent['groundingSupports'][0]->text)->not()->toBe('');
-        expect($response->additionalContent['groundingSupports'][0]->startIndex)->not()->toBe(0);
-        expect($response->additionalContent['groundingSupports'][0]->endIndex)->not()->toBe(0);
-        expect($response->additionalContent['groundingSupports'][0]->groundings)->toHaveCount(1);
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0])->toBeInstanceOf(SearchGrounding::class);
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->title)->not()->toBe('');
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->uri)->not()->toBe('');
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->confidence)->not()->toBe(0.0);
+        expect($response->additionalContent['searchEntryPoint'])->toHaveKey('renderedContent');
     });
 });
 

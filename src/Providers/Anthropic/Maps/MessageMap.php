@@ -143,10 +143,10 @@ class MessageMap
             ];
         }
 
-        if (isset($message->additionalContent['messagePartsWithCitations'])) {
-            foreach ($message->additionalContent['messagePartsWithCitations'] as $part) {
+        if (isset($message->additionalContent['citations'])) {
+            foreach ($message->additionalContent['citations'] as $part) {
                 $content[] = array_filter([
-                    ...$part->toContentBlock(),
+                    ...CitationsMapper::mapToAnthropic($part),
                     'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
                 ]);
             }

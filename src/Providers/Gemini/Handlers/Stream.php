@@ -185,7 +185,7 @@ class Stream
     {
         return collect($toolCalls)
             ->map(fn ($toolCall): ToolCall => new ToolCall(
-                (string) array_key_exists('id', $toolCall) !== '' && (string) array_key_exists('id', $toolCall) !== '0' ? $toolCall['id'] : 'gm-'.Str::random(20),
+                empty($toolCall['id']) ? 'gm-'.Str::random(20) : $toolCall['id'],
                 data_get($toolCall, 'name'),
                 data_get($toolCall, 'arguments'),
             ))

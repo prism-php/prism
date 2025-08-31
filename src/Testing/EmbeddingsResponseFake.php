@@ -4,11 +4,12 @@ namespace Prism\Prism\Testing;
 
 use Prism\Prism\Concerns\HasFluentAttributes;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 
 /**
- * @method self withEmbeddings(array $embeddings)
+ * @method self withEmbeddings(Embedding[] $embeddings)
  * @method self withUsage(EmbeddingsUsage $usage)
  * @method self withMeta(Meta $meta)
  */

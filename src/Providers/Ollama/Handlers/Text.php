@@ -145,8 +145,8 @@ class Text
                 model: $request->model(),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 

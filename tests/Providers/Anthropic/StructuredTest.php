@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic;
 
 use Illuminate\Support\Carbon;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
@@ -166,22 +167,22 @@ it('saves message parts with citations to additionalContent on response steps an
 
     expect($response->structured)->toBe(['answer' => true]);
 
-    expect($response->additionalContent['messagePartsWithCitations'])->toHaveCount(1);
-    expect($response->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+    expect($response->additionalContent['citations'])->toHaveCount(1);
+    expect($response->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 
     /** @var MessagePartWithCitations */
-    $messagePart = $response->additionalContent['messagePartsWithCitations'][0];
+    $messagePart = $response->additionalContent['citations'][0];
 
-    expect($messagePart->text)->toBe('{"answer": true}');
+    expect($messagePart->outputText)->toBe('{"answer": true}');
     expect($messagePart->citations)->toHaveCount(2);
-    expect($messagePart->citations[0]->type)->toBe('content_block_location');
-    expect($messagePart->citations[0]->citedText)->toBe('The grass is green.');
-    expect($messagePart->citations[0]->startIndex)->toBe(0);
-    expect($messagePart->citations[0]->endIndex)->toBe(1);
-    expect($messagePart->citations[0]->documentIndex)->toBe(0);
+    expect($messagePart->citations[0]->sourceType)->toBe(CitationSourceType::Document);
+    expect($messagePart->citations[0]->sourceText)->toBe('The grass is green.');
+    expect($messagePart->citations[0]->sourceStartIndex)->toBe(0);
+    expect($messagePart->citations[0]->sourceEndIndex)->toBe(1);
+    expect($messagePart->citations[0]->source)->toBe(0);
 
-    expect($response->steps[0]->additionalContent['messagePartsWithCitations'])->toHaveCount(1);
-    expect($response->steps[0]->additionalContent['messagePartsWithCitations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+    expect($response->steps[0]->additionalContent['citations'])->toHaveCount(1);
+    expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
 });
 
 it('can use extending thinking', function (): void {
