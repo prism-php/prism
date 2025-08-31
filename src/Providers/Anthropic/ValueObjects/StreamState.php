@@ -24,7 +24,7 @@ class StreamState
         protected string $thinkingSignature = '',
         protected array $citations = [],
         protected string $stopReason = '',
-        protected ?array $usage = [],
+        protected array $usage = [],
         protected ?string $tempContentBlockType = null,
         protected ?int $tempContentBlockIndex = null,
         protected ?array $tempCitation = null,

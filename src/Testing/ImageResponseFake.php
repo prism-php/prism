@@ -11,10 +11,10 @@ use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
 /**
- * @method self withImages(array $images)
+ * @method self withImages(GeneratedImage[] $images)
  * @method self withUsage(Usage $usage)
  * @method self withMeta(Meta $meta)
- * @method self withAdditionalContent(array $additionalContent)
+ * @method self withAdditionalContent(array<string,mixed> $additionalContent)
  */
 readonly class ImageResponseFake extends Response
 {

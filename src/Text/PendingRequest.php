@@ -86,7 +86,7 @@ class PendingRequest
 
         if (! $this->toolErrorHandlingEnabled && filled($tools)) {
             $tools = array_map(
-                callback: fn (\Prism\Prism\Tool $tool): Tool => $tool instanceof Tool && ! is_null($tool->failedHandler()) ? $tool->withoutErrorHandling() : $tool,
+                callback: fn (Tool $tool): Tool => is_null($tool->failedHandler()) ? $tool : $tool->withoutErrorHandling(),
                 array: $tools
             );
         }

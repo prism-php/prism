@@ -29,7 +29,6 @@ class ToolCall
                 return [];
             }
 
-            /** @var string $arguments */
             $arguments = $this->arguments;
 
             return json_decode(

@@ -122,7 +122,7 @@ class Stream
                 );
             }
 
-            if (isset($data['choices'][0]['finish_reason']) && $data['choices'][0]['finish_reason'] !== null) {
+            if (isset($data['choices'][0]['finish_reason'])) {
                 if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
                     yield new Chunk(
                         text: '',

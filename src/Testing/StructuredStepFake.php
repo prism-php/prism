@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Prism\Prism\Testing;
 
 use Prism\Prism\Concerns\HasFluentAttributes;
+use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Structured\Step;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -15,9 +17,9 @@ use Prism\Prism\ValueObjects\Usage;
  * @method self withFinishReason(FinishReason $finishReason)
  * @method self withUsage(Usage $usage)
  * @method self withMeta(Meta $meta)
- * @method self withMessages(array $messages)
- * @method self withSystemPrompts(array $systemPrompts)
- * @method self withAdditionalContent(array $additionalContent)
+ * @method self withMessages(Message[] $messages)
+ * @method self withSystemPrompts(SystemMessage[] $systemPrompts)
+ * @method self withAdditionalContent(array<string,mixed> $additionalContent)
  */
 readonly class StructuredStepFake extends Step
 {
