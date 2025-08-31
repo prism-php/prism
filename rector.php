@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Prism\Prism\Rectors\ReorderMethodsRector;
-use Rector\CodeQuality\Rector\Class_\InlineConstructorDefaultToPropertyRector;
 use Rector\Config\RectorConfig;
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
@@ -15,7 +14,6 @@ return RectorConfig::configure()
         __DIR__.'/tests',
     ])
     ->withRules([
-        InlineConstructorDefaultToPropertyRector::class,
         ReorderMethodsRector::class,
     ])
     ->withSets([
