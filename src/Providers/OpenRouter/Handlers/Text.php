@@ -138,8 +138,8 @@ class Text
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 }

@@ -110,10 +110,21 @@ class MessageMap
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
         if ($message->content !== '' && $message->content !== '0') {
-            $this->mappedMessages[] = [
+            $mappedMessage = [
                 'role' => 'assistant',
-                'content' => $message->content,
+                'content' => [
+                    [
+                        'type' => 'output_text',
+                        'text' => $message->content,
+                    ],
+                ],
             ];
+
+            if (isset($message->additionalContent['citations'])) {
+                $mappedMessage['content'][0]['annotations'] = CitationsMapper::mapToOpenAI($message->additionalContent['citations'][0])['annotations'];
+            }
+
+            $this->mappedMessages[] = $mappedMessage;
         }
 
         if ($message->toolCalls !== []) {

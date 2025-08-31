@@ -16,9 +16,9 @@ use Prism\Prism\Tool as BaseTool;
  * @method static BaseTool withStringParameter(string $name, string $description, bool $required = true)
  * @method static BaseTool withNumberParameter(string $name, string $description, bool $required = true)
  * @method static BaseTool withBooleanParameter(string $name, string $description, bool $required = true)
- * @method static BaseTool withEnumParameter(string $name, string $description, array $options, bool $required = true)
+ * @method static BaseTool withEnumParameter(string $name, string $description, array<string> $options, bool $required = true)
  * @method static BaseTool withArrayParameter(string $name, string $description, Schema $items, bool $required = true)
- * @method static BaseTool withObjectParameter(string $name, string $description, array $properties, array $requiredFields = [], bool $allowAdditionalProperties = false, bool $required = true)
+ * @method static BaseTool withObjectParameter(string $name, string $description, array<string, Schema> $properties, array<string> $requiredFields = [], bool $allowAdditionalProperties = false, bool $required = true)
  */
 class Tool
 {

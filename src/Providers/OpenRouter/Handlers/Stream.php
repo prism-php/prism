@@ -122,12 +122,12 @@ class Stream
                 );
             }
 
-            if (isset($data['choices'][0]['finish_reason']) && $data['choices'][0]['finish_reason'] !== null) {
+            if (isset($data['choices'][0]['finish_reason'])) {
                 if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
                     yield new Chunk(
                         text: '',
-                        usage: $usage,
                         chunkType: ChunkType::Meta,
+                        usage: $usage,
                     );
                 }
 
@@ -299,7 +299,7 @@ class Stream
      */
     protected function mapToolCalls(array $toolCalls): array
     {
-        return array_map(function ($toolCall): ToolCall {
+        return array_map(function (array $toolCall): ToolCall {
             $arguments = data_get($toolCall, 'function.arguments', '');
 
             // Try to decode JSON arguments

@@ -63,8 +63,8 @@ class Structured
                 model: $request->model(),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 

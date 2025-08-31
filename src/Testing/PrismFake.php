@@ -223,7 +223,7 @@ class PrismFake extends Provider
 
     protected function nextTextResponse(): ?TextResponse
     {
-        if (! isset($this->responses)) {
+        if ($this->responses === []) {
             return null;
         }
 
@@ -242,7 +242,7 @@ class PrismFake extends Provider
 
     protected function nextStructuredResponse(): ?StructuredResponse
     {
-        if (! isset($this->responses)) {
+        if ($this->responses === []) {
             return null;
         }
 
@@ -261,7 +261,7 @@ class PrismFake extends Provider
 
     protected function nextEmbeddingResponse(): ?EmbeddingResponse
     {
-        if (! isset($this->responses)) {
+        if ($this->responses === []) {
             return null;
         }
 
@@ -280,7 +280,7 @@ class PrismFake extends Provider
 
     protected function nextImageResponse(): ?ImageResponse
     {
-        if (! isset($this->responses)) {
+        if ($this->responses === []) {
             return null;
         }
 
@@ -299,7 +299,7 @@ class PrismFake extends Provider
 
     protected function nextAudioResponse(): ?AudioResponse
     {
-        if (! isset($this->responses)) {
+        if ($this->responses === []) {
             return null;
         }
 
@@ -318,7 +318,7 @@ class PrismFake extends Provider
 
     protected function nextAudioTextResponse(): ?AudioTextResponse
     {
-        if (! isset($this->responses)) {
+        if ($this->responses === []) {
             return null;
         }
 

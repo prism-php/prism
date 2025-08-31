@@ -45,12 +45,12 @@ class TestProvider extends Provider
         $this->request = $request;
 
         return $this->responses[$this->callCount - 1] ?? new TextResponse(
-            text: "I'm nyx!",
             steps: collect([]),
+            text: "I'm nyx!",
+            finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
             usage: new Usage(10, 10),
-            finishReason: FinishReason::Stop,
             meta: new Meta('123', 'claude-3-5-sonnet-20240620'),
             messages: collect([]),
         );
@@ -64,11 +64,11 @@ class TestProvider extends Provider
         $this->request = $request;
 
         return $this->responses[$this->callCount - 1] ?? new StructuredResponse(
+            steps: collect([]),
             text: json_encode([]),
             structured: [],
-            steps: collect([]),
-            usage: new Usage(10, 10),
             finishReason: FinishReason::Stop,
+            usage: new Usage(10, 10),
             meta: new Meta('123', 'claude-3-5-sonnet-20240620')
         );
     }
