@@ -16,6 +16,14 @@ class AudioVideoMapper extends ProviderMediaMapper
      */
     public function toPayload(): array
     {
+        if ($this->media->isUrl()) {
+            return [
+                'file_data' => [
+                    'file_uri' => $this->media->url(),
+                ],
+            ];
+        }
+
         return [
             'inline_data' => [
                 'mime_type' => $this->media->mimeType(),
