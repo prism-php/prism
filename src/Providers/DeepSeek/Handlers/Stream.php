@@ -110,8 +110,8 @@ class Stream
 
                 yield new Chunk(
                     text: '',
-                    usage: $usageData,
-                    chunkType: ChunkType::Meta
+                    chunkType: ChunkType::Meta,
+                    usage: $usageData
                 );
             }
 

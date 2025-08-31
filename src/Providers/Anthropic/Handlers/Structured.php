@@ -63,13 +63,13 @@ class Structured
 
         $this->responseBuilder->addStep(new Step(
             text: $this->tempResponse->text,
-            structured: $this->tempResponse->structured ?? [],
             finishReason: $this->tempResponse->finishReason,
             usage: $this->tempResponse->usage,
             meta: $this->tempResponse->meta,
             messages: $this->request->messages(),
             systemPrompts: $this->request->systemPrompts(),
             additionalContent: $this->tempResponse->additionalContent,
+            structured: $this->tempResponse->structured ?? [],
         ));
 
         return $this->responseBuilder->toResponse();

@@ -171,8 +171,8 @@ class PrismManager
     protected function createGroqProvider(array $config): Groq
     {
         return new Groq(
-            url: $config['url'],
             apiKey: $config['api_key'],
+            url: $config['url'],
         );
     }
 
@@ -182,8 +182,8 @@ class PrismManager
     protected function createXaiProvider(array $config): XAI
     {
         return new XAI(
-            url: $config['url'],
             apiKey: $config['api_key'],
+            url: $config['url'],
         );
     }
 
@@ -193,8 +193,8 @@ class PrismManager
     protected function createGeminiProvider(array $config): Gemini
     {
         return new Gemini(
-            url: $config['url'],
             apiKey: $config['api_key'],
+            url: $config['url'],
         );
     }
 

@@ -207,8 +207,8 @@ class Stream
                 return new Chunk(
                     text: $textDelta,
                     finishReason: null,
-                    chunkType: ChunkType::Text,
-                    additionalContent: $additionalContent
+                    additionalContent: $additionalContent,
+                    chunkType: ChunkType::Text
                 );
             }
         }
@@ -388,15 +388,15 @@ class Stream
                 model: $this->state->model(),
                 rateLimits: $this->processRateLimits($response)
             ),
+            additionalContent: $this->state->buildAdditionalContent(),
+            chunkType: ChunkType::Meta,
             usage: new Usage(
                 promptTokens: $usage['input_tokens'] ?? 0,
                 completionTokens: $usage['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usage['cache_creation_input_tokens'] ?? 0,
                 cacheReadInputTokens: $usage['cache_read_input_tokens'] ?? 0,
                 thoughtTokens: $usage['cache_read_input_tokens'] ?? 0,
-            ),
-            additionalContent: $this->state->buildAdditionalContent(),
-            chunkType: ChunkType::Meta
+            )
         );
     }
 

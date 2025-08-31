@@ -81,8 +81,8 @@ class Structured
                 rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         );
 
         $this->responseBuilder->addStep($step);

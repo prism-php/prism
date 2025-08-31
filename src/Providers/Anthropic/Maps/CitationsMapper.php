@@ -198,6 +198,6 @@ class CitationsMapper
         return array_filter([
             "start_$indexPropertyCommonPart" => $citation->sourceStartIndex,
             "end_$indexPropertyCommonPart" => $citation->sourceEndIndex,
-        ], fn ($value): bool => $value !== null);
+        ], fn (?int $value): bool => $value !== null);
     }
 }

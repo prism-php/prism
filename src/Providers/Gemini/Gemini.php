@@ -103,7 +103,7 @@ class Gemini extends Provider
         }
 
         $systemPrompts = array_map(
-            fn ($prompt): SystemMessage => $prompt instanceof SystemMessage ? $prompt : new SystemMessage($prompt),
+            fn (\Prism\Prism\ValueObjects\Messages\SystemMessage|string $prompt): SystemMessage => $prompt instanceof SystemMessage ? $prompt : new SystemMessage($prompt),
             $systemPrompts
         );
 

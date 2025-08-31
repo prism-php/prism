@@ -132,8 +132,8 @@ class Structured
                 usage: new Usage(
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
                     completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                     cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
+                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

@@ -166,10 +166,10 @@ class Text
                 rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
+            systemPrompts: $request->systemPrompts(),
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->citations,
             ]),
-            systemPrompts: $request->systemPrompts(),
         ));
     }
 }
