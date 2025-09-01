@@ -24,6 +24,7 @@ it('maps tools to gemini format', function (): void {
 
     expect(ToolMap::map([$tool]))->toBe([[
         'name' => $tool->name(),
+        'description' => $tool->description(),
         'parameters' => [
             'type' => 'object',
             'properties' => [
