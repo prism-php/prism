@@ -159,7 +159,12 @@ class Stream
         yield new Chunk(
             text: '',
             toolCalls: $toolCalls,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
             chunkType: ChunkType::ToolCall,
+            usage: $this->extractUsage($data, $request),
         );
 
         $toolResults = $this->callTools($request->tools(), $toolCalls);
@@ -167,7 +172,12 @@ class Stream
         yield new Chunk(
             text: '',
             toolResults: $toolResults,
+            meta: new Meta(
+                id: data_get($data, 'responseId'),
+                model: data_get($data, 'modelVersion'),
+            ),
             chunkType: ChunkType::ToolResult,
+            usage: $this->extractUsage($data, $request),
         );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));
