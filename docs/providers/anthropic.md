@@ -52,7 +52,7 @@ If you prefer, you can use the `AnthropicCacheType` Enum like so:
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 (new UserMessage('I am a long re-usable user message.'))->withProviderOptions(['cacheType' => AnthropicCacheType::ephemeral])
 ```
@@ -182,7 +182,7 @@ Custom content documents are primarily for use with citations (see below), if yo
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -204,6 +204,8 @@ Prism supports [Anthropic's citations feature](https://docs.anthropic.com/en/doc
 Please note however that due to Anthropic not supporting "native" structured output, and Prism's workaround for this, the output can be unreliable. You should therefore ensure you implement proper error handling for the scenario where Anthropic does not return a valid decodable schema.
 
 ## Code execution
+
+Anthropic offers built-in code execution capabilities that allow your AI to run code in a secure environment. This is a provider tool that executes code using Anthropic's infrastructure. For more information about the difference between custom tools and provider tools, see [Tools & Function Calling](/core-concepts/tools-function-calling#provider-tools).
 
 To enable code execution, you will first need to enable the beta feature.
 
@@ -245,7 +247,7 @@ Anthropic require citations to be enabled on all documents in a request. To enab
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
@@ -267,15 +269,15 @@ $response = Prism::text()
 
 ### Accessing citations
 
-You can access the chunked output with its citations via the additionalContent property on a response, which returns an array of `Providers\Anthropic\ValueObjects\MessagePartWithCitations`s.
+You can access the chunked output with its citations via the additionalContent property on a response, which returns an array of `MessagePartWithCitations`s.
 
 As a rough worked example, let's assume you want to implement footnotes. You'll need to loop through those chunks and (1) re-construct the message with links to the footnotes; and (2) build an array of footnotes to loop through in your frontend.
 
 ```php
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
-use Prism\Prism\Providers\Anthropic\ValueObjects\Citation;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Citation;
 
-$messageChunks = $response->additionalContent['messagePartsWithCitations'];
+$messageChunks = $response->additionalContent['citations'];
 
 $text = '';
 $footnotes = [];
@@ -284,15 +286,15 @@ $footnoteId = 1;
 
 /** @var MessagePartWithCitations $messageChunk  */
 foreach ($messageChunks as $messageChunk) {
-    $text .= $messageChunk->text;
+    $text .= $messageChunk->outputText;
     
     /** @var Citation $citation */
     foreach ($messageChunk->citations as $citation) {
         $footnotes[] = [
             'id' => $footnoteId,
-            'document_title' => $citation->documentTitle,
-            'reference_start' => $citation->startIndex,
-            'reference_end' => $citation->endIndex
+            'document_title' => $citation->sourceTitle,
+            'reference_start' => $citation->sourceStartIndex,
+            'reference_end' => $citation->sourceEndIndex
         ];
     
         $text .= '<sup><a href="#footnote-'.$footnoteId.'">'.$footnoteId.'</a></sup>';

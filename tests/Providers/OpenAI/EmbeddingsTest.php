@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Providers\OpenAI;
 
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\ValueObjects\Embedding;
-use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -90,34 +89,32 @@ it('works with multiple embeddings', function (): void {
     expect($response->usage->tokens)->toBeNumeric();
 });
 
-it('sets the rate limits on the response', function (): void {
-    $this->freezeTime(function (Carbon $time): void {
-        $time = $time->toImmutable();
+it('allows setting provider options like dimensions', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/embeddings', 'openai/embeddings-with-dimensions');
 
-        FixtureResponse::fakeResponseSequence('v1/embeddings', 'openai/embeddings-input', [
-            'x-ratelimit-limit-requests' => 60,
-            'x-ratelimit-limit-tokens' => 150000,
-            'x-ratelimit-remaining-requests' => 0,
-            'x-ratelimit-remaining-tokens' => 149984,
-            'x-ratelimit-reset-requests' => '1s',
-            'x-ratelimit-reset-tokens' => '6m30s',
-        ]);
+    $model = 'text-embedding-3-small';
+    $input = 'The food was delicious and the waiter...';
 
-        $response = Prism::embeddings()
-            ->using(Provider::OpenAI, 'text-embedding-ada-002')
-            ->fromInput('The food was delicious and the waiter...')
-            ->asEmbeddings();
+    $response = Prism::embeddings()
+        ->using(Provider::OpenAI, $model)
+        ->withProviderOptions([
+            'dimensions' => 256,
+        ])
+        ->fromInput($input)
+        ->asEmbeddings();
 
-        expect($response->meta->rateLimits)->toHaveCount(2);
-        expect($response->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
-        expect($response->meta->rateLimits[0]->name)->toEqual('requests');
-        expect($response->meta->rateLimits[0]->limit)->toEqual(60);
-        expect($response->meta->rateLimits[0]->remaining)->toEqual(0);
-        expect($response->meta->rateLimits[0]->resetsAt->equalTo($time->addSeconds(1)))->toBeTrue();
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://api.openai.com/v1/embeddings'
+        && $request['model'] === $model
+        && $request['input'] === [$input]
+        && $request['dimensions'] === 256);
 
-        expect($response->meta->rateLimits[1]->name)->toEqual('tokens');
-        expect($response->meta->rateLimits[1]->limit)->toEqual(150000);
-        expect($response->meta->rateLimits[1]->remaining)->toEqual(149984);
-        expect($response->meta->rateLimits[1]->resetsAt->equalTo($time->addMinutes(6)->addSeconds(30)))->toBeTrue();
-    });
+    $embeddings = json_decode(
+        file_get_contents('tests/Fixtures/openai/embeddings-with-dimensions-1.json'),
+        true
+    );
+    $embedding = Embedding::fromArray(data_get($embeddings, 'data.0.embedding'));
+
+    expect($response->embeddings)->toBeArray();
+    expect($response->embeddings[0]->embedding)->toBe($embedding->embedding);
+    expect($response->usage->tokens)->toBeNumeric();
 });

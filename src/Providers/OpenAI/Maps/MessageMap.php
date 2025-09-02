@@ -6,10 +6,9 @@ namespace Prism\Prism\Providers\OpenAI\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -85,7 +84,6 @@ class MessageMap
                 ['type' => 'input_text', 'text' => $message->text()],
                 ...self::mapImageParts($message->images()),
                 ...self::mapDocumentParts($message->documents()),
-                ...self::mapFileParts($message->files()),
             ],
             ...$message->additionalAttributes,
         ];
@@ -109,37 +107,41 @@ class MessageMap
         return array_map(fn (Document $document): array => (new DocumentMapper($document))->toPayload(), $documents);
     }
 
-    /**
-     * @param  OpenAIFile[]  $files
-     * @return array<int, mixed>
-     */
-    protected static function mapFileParts(array $files): array
-    {
-        return array_map(fn (OpenAIFile $file): array => [
-            'type' => 'input_file',
-            'file_id' => $file->fileId,
-        ], $files);
-    }
-
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
         if ($message->content !== '' && $message->content !== '0') {
-            $this->mappedMessages[] = [
+            $mappedMessage = [
                 'role' => 'assistant',
-                'content' => $message->content,
+                'content' => [
+                    [
+                        'type' => 'output_text',
+                        'text' => $message->content,
+                    ],
+                ],
             ];
+
+            if (isset($message->additionalContent['citations'])) {
+                $mappedMessage['content'][0]['annotations'] = CitationsMapper::mapToOpenAI($message->additionalContent['citations'][0])['annotations'];
+            }
+
+            $this->mappedMessages[] = $mappedMessage;
         }
 
         if ($message->toolCalls !== []) {
+            $reasoningBlocks = collect($message->toolCalls)
+                ->whereNotNull('reasoningId')
+                ->unique('reasoningId')
+                ->map(fn (ToolCall $toolCall): array => [
+                    'type' => 'reasoning',
+                    'id' => $toolCall->reasoningId,
+                    'summary' => $toolCall->reasoningSummary,
+                ])
+                ->values()
+                ->all();
+
             array_push(
                 $this->mappedMessages,
-                ...array_filter(
-                    array_map(fn (ToolCall $toolCall): ?array => is_null($toolCall->reasoningId) ? null : [
-                        'type' => 'reasoning',
-                        'id' => $toolCall->reasoningId,
-                        'summary' => $toolCall->reasoningSummary,
-                    ], $message->toolCalls)
-                ),
+                ...$reasoningBlocks,
                 ...array_map(fn (ToolCall $toolCall): array => [
                     'id' => $toolCall->id,
                     'call_id' => $toolCall->resultId,

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
@@ -211,48 +210,6 @@ it('throws an exception for o1 models', function (string $model): void {
     'o1-preview-2024-09-12',
 ]);
 
-it('sets the rate limits on meta', function (): void {
-    $this->freezeTime(function (Carbon $time): void {
-        $time = $time->toImmutable();
-
-        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-structured-mode', [
-            'x-ratelimit-limit-requests' => 60,
-            'x-ratelimit-limit-tokens' => 150000,
-            'x-ratelimit-remaining-requests' => 0,
-            'x-ratelimit-remaining-tokens' => 149984,
-            'x-ratelimit-reset-requests' => '1s',
-            'x-ratelimit-reset-tokens' => '6m30s',
-        ]);
-
-        $schema = new ObjectSchema(
-            'output',
-            'the output object',
-            [
-                new StringSchema('weather', 'The weather forecast'),
-                new StringSchema('game_time', 'The tigers game time'),
-                new BooleanSchema('coat_required', 'whether a coat is required'),
-            ],
-            ['weather', 'game_time', 'coat_required']
-        );
-
-        $response = Prism::structured()
-            ->withSchema($schema)
-            ->using(Provider::OpenAI, 'gpt-4o')
-            ->withPrompt('What time is the tigers game today and should I wear a coat?')
-            ->asStructured();
-
-        expect($response->meta->rateLimits)->toHaveCount(2);
-        expect($response->meta->rateLimits[0]->name)->toEqual('requests');
-        expect($response->meta->rateLimits[0]->limit)->toEqual(60);
-        expect($response->meta->rateLimits[0]->remaining)->toEqual(0);
-        expect($response->meta->rateLimits[0]->resetsAt->equalTo(now()->addSeconds(1)))->toBeTrue();
-        expect($response->meta->rateLimits[1]->name)->toEqual('tokens');
-        expect($response->meta->rateLimits[1]->limit)->toEqual(150000);
-        expect($response->meta->rateLimits[1]->remaining)->toEqual(149984);
-        expect($response->meta->rateLimits[1]->resetsAt->equalTo(now()->addMinutes(6)->addSeconds(30)))->toBeTrue();
-    });
-});
-
 it('sets usage correctly with automatic caching', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/responses',
@@ -359,4 +316,100 @@ it('uses meta to set auto truncation', function (): void {
 
         return true;
     });
+});
+
+it('uses meta to define strict mode as false', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withSchema($schema)
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->withProviderOptions([
+            'schema' => ['strict' => false],
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'text.format.strict'))->toBeFalse();
+
+        return true;
+    });
+});
+
+it('uses meta to define strict mode as null', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withSchema($schema)
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->withProviderOptions()
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(array_keys(data_get($body, 'text.format')))->not->toContain('strict');
+
+        return true;
+    });
+});
+
+it('sends reasoning effort when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-reasoning-effort');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+            ],
+        ])
+        ->withSchema($schema)
+        ->asStructured();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
 });

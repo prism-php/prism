@@ -7,6 +7,10 @@ namespace Prism\Prism\Providers\OpenAI;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as SpeechToTextResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -17,7 +21,8 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\OpenAI\Handlers\Audio;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
@@ -31,13 +36,14 @@ use Prism\Prism\Text\Response as TextResponse;
 
 class OpenAI extends Provider
 {
-    use InitializesClient, ProcessesRateLimits;
+    use InitializesClient;
+    use ProcessRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] readonly public string $apiKey,
-        readonly public string $url,
-        readonly public ?string $organization,
-        readonly public ?string $project,
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $url,
+        public readonly ?string $organization,
+        public readonly ?string $project,
     ) {}
 
     #[\Override]
@@ -85,6 +91,28 @@ class OpenAI extends Provider
     }
 
     #[\Override]
+    public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
+    {
+        $handler = new Audio($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handleTextToSpeech($request);
+    }
+
+    #[\Override]
+    public function speechToText(SpeechToTextRequest $request): SpeechToTextResponse
+    {
+        $handler = new Audio($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handleSpeechToText($request);
+    }
+
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
         $handler = new Stream($this->client(
@@ -100,12 +128,10 @@ class OpenAI extends Provider
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make(
                 rateLimits: $this->processRateLimits($e->response),
-                retryAfter: $e->response->header('retry-after') === ''
-                    ? null
-                    : (int) $e->response->header('retry-after'),
+                retryAfter: (int) $e->response->header('retry-after')
             ),
-            529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
-            413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::OpenAI),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::OpenAI),
             default => throw PrismException::providerRequestError($model, $e),
         };
     }

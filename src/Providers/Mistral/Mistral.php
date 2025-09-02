@@ -7,6 +7,8 @@ namespace Prism\Prism\Providers\Mistral;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as AudioTextResponse;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
@@ -16,6 +18,7 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\Mistral\Handlers\Audio;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
 use Prism\Prism\Providers\Mistral\Handlers\OCR;
 use Prism\Prism\Providers\Mistral\Handlers\Stream;
@@ -27,15 +30,15 @@ use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 class Mistral extends Provider
 {
     use InitializesClient, ProcessRateLimits;
 
     public function __construct(
-        #[\SensitiveParameter] readonly public string $apiKey,
-        readonly public string $url,
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $url,
     ) {}
 
     #[\Override]
@@ -106,6 +109,19 @@ class Mistral extends Provider
         return $handler->handle($request);
     }
 
+    #[\Override]
+    public function speechToText(SpeechToTextRequest $request): AudioTextResponse
+    {
+        $handler = new Audio(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry()
+            )
+        );
+
+        return $handler->handleSpeechToText($request);
+    }
+
     public function handleRequestException(string $model, RequestException $e): never
     {
         match ($e->response->getStatusCode()) {
@@ -113,8 +129,8 @@ class Mistral extends Provider
                 rateLimits: $this->processRateLimits($e->response),
                 retryAfter: null
             ),
-            529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
-            413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::Mistral),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::Mistral),
             default => throw PrismException::providerRequestError($model, $e),
         };
     }

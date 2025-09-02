@@ -1,0 +1,90 @@
+{
+  "id": "resp_686e6e3d6810819d8a8df409b49fcb6a034e2410358c31f8",
+  "object": "response",
+  "created_at": 1752067645,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-4.1-2025-04-14",
+  "output": [
+    {
+      "id": "ws_686e6e3de318819da96c80a2e811984f034e2410358c31f8",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "search",
+        "query": "London weather forecast today"
+      }
+    },
+    {
+      "id": "msg_686e6e406c08819d891c6821dfa2ee32034e2410358c31f8",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "end_index": 1120,
+              "start_index": 950,
+              "title": "What will the weather be like in London on 09 July 2025",
+              "url": "https://www.metcheck.com/WEATHER/dayforecast.asp?dateFor=07%2F06%2F2025&lat=51.508500&location=London&locationID=2364784&lon=-0.125700&utm_source=openai"
+            }
+          ],
+          "logprobs": [],
+          "text": "As of 1:27 PM on Wednesday, July 9, 2025, in London, the current conditions are mostly cloudy with a temperature of 79\u00b0F (26\u00b0C).\n\n## Weather for London, Greater London, United Kingdom:\nCurrent Conditions: Mostly cloudy, 79\u00b0F (26\u00b0C)\n\nHourly Forecast:\n* 3:00\u202fPM: 77\u00b0F (25\u00b0C), Intermittent clouds\n* 4:00\u202fPM: 78\u00b0F (26\u00b0C), Mostly sunny\n* 5:00\u202fPM: 79\u00b0F (26\u00b0C), Partly sunny\n* 6:00\u202fPM: 80\u00b0F (27\u00b0C), Intermittent clouds\n* 7:00\u202fPM: 78\u00b0F (26\u00b0C), Partly sunny\n* 8:00\u202fPM: 76\u00b0F (24\u00b0C), Partly sunny\n* 9:00\u202fPM: 73\u00b0F (23\u00b0C), Mostly sunny\n* 10:00\u202fPM: 71\u00b0F (22\u00b0C), Mostly clear\n* 11:00\u202fPM: 70\u00b0F (21\u00b0C), Mostly clear\n* 12:00\u202fAM: 69\u00b0F (20\u00b0C), Mostly clear\n* 1:00\u202fAM: 68\u00b0F (20\u00b0C), Mostly clear\n* 2:00\u202fAM: 67\u00b0F (20\u00b0C), Mostly clear\n\n\nAccording to Metcheck, the weather forecast for London on July 9, 2025, indicates temperatures ranging from 16\u00b0C (61\u00b0F) in the early morning to 25\u00b0C (77\u00b0F) in the late afternoon, with minimal chances of precipitation throughout the day. ([metcheck.com](https://www.metcheck.com/WEATHER/dayforecast.asp?dateFor=07%2F06%2F2025&lat=51.508500&location=London&locationID=2364784&lon=-0.125700&utm_source=openai))\n\nPlease note that weather conditions can change, so it's advisable to check for the latest updates from reliable sources. "
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "web_search_preview",
+      "search_context_size": "medium",
+      "user_location": {
+        "type": "approximate",
+        "city": null,
+        "country": "US",
+        "region": null,
+        "timezone": null
+      }
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 317,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 443,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 760
+  },
+  "user": null,
+  "metadata": {}
+}

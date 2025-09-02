@@ -66,7 +66,6 @@ class Structured
         $text = data_get($data, 'choices.0.message.content') ?? '';
 
         $responseMessage = new AssistantMessage($text);
-        $this->responseBuilder->addResponseMessage($responseMessage);
         $request->addMessage($responseMessage);
 
         $step = new Step(
@@ -82,8 +81,8 @@ class Structured
                 rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         );
 
         $this->responseBuilder->addStep($step);

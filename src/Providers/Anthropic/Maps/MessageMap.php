@@ -8,9 +8,9 @@ use BackedEnum;
 use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -143,10 +143,10 @@ class MessageMap
             ];
         }
 
-        if (isset($message->additionalContent['messagePartsWithCitations'])) {
-            foreach ($message->additionalContent['messagePartsWithCitations'] as $part) {
+        if (isset($message->additionalContent['citations'])) {
+            foreach ($message->additionalContent['citations'] as $part) {
                 $content[] = array_filter([
-                    ...$part->toContentBlock(),
+                    ...CitationsMapper::mapToAnthropic($part),
                     'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
                 ]);
             }

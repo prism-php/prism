@@ -54,8 +54,6 @@ class Text
             $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
@@ -114,6 +112,8 @@ class Text
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
+            toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolResults: $toolResults,
             usage: new Usage(
                 data_get($data, 'usage.prompt_tokens'),
                 data_get($data, 'usage.completion_tokens'),
@@ -124,10 +124,8 @@ class Text
                 rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            toolResults: $toolResults,
-            toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 

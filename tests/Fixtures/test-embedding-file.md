@@ -75,7 +75,7 @@ $response = Prism::text()
 Prism supports including images in your messages for visual analysis:
 
 ```php
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 
 // From a local file
 $message = new UserMessage(

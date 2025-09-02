@@ -1,0 +1,228 @@
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_01Ed44F5KK4MEReKTLLMpPh5","type":"message","role":"assistant","model":"claude-3-7-sonnet-20250219","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":2685,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":2,"service_tier":"standard"}}             }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"I'll"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" check the current weather in"}       }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" London, UK for you."}       }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0 }
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"server_tool_use","id":"srvtoolu_0139j7rJZHEbtYzj9w9pvobp","name":"web_search","input":{}}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":""}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"quer"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"y\""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":": \"L"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"ondon UK "}   }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"we"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"ather foreca"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"st "}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"today July 1"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"0 2025\"}"}  }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1   }
+
+event: content_block_start
+data: {"type":"content_block_start","index":2,"content_block":{"type":"web_search_tool_result","tool_use_id":"srvtoolu_0139j7rJZHEbtYzj9w9pvobp","content":[{"type":"web_search_result","title":"London (Greater London) weather - Met Office","url":"https://weather.metoffice.gov.uk/forecast/gcpvj0v07","encrypted_content":"EukICioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDH9Vda7fKTAEG2KPnhoMyqc1r9haRbNQ1rBWIjAifnovKtpEsv2N5Ijmp84v1k+WCQFyonJdBquoDjrEAnqrrl8KVUcTyu+PNc+ibq4q7AfvU4q7cl6RfP9WyJPeiTxEww24hPn+b/JD8uK5UzofdZ8lmOZN5+Bzv0BcAiwsNFQD+z2U8maZj70k1Cn12tHbFhBCcpVZp2zu8Ks7veiyiG1eeBSpTSH3qRZpt8GI0vYKMOWzrDhJB54dQWTgM8ok7ujVAkSkgGNrgdziFfFZma/wbOQ8WtqufB52yYhkqTH2aQWRdcbCNbGKV8eM8Az1nDD7pFPrte5dw3ETaqvstR94/1NmUN/8+xpYGyJn8fQcG6nljMbTxP7OxolrOSdAKYZPsV8H7mcO66uWYInhg8TqaZbKwDjA4VxpHjggSPdCsl62yPfn/DciiLaYlDkM/8Kkz4KbnFO6soKqSAqISLYy0X7WIoWd8PKp8AveyoTatog3uOt1n+77pRzfw/xCi53MwZG2gxJF62xy7Tw/pA6M1BMK0V1xhfcZq3elotEKoz7yKniwpk2JbjifWgSHE22I932GFS5stm1hiHHv/i5qhPP3/2fnFApc28VkkRkjJu2BoB8/95DOL9yQr2WxwiyZuUwvkq4Nb/jFEtLgPx/iCfgkGtVMqwPLsF534ViBT73dSYjT1SFJLzgYTcTPAY2n8DiE3JzYpv/uMY4iCLidHorzaRNDGte2Fa3tiqOxYGOaqwz2R2X1ZBbIJdpLeIcmSWXVYqmCO90l4RNnGJRI/IFzc4vpQoYBOAJbS9ry0inJl0ROcZs7tUHZeSFGbF8d+t9Wl0ka3uvoJNFfyGFtBihrisT/FqtfQ1Mfb4XyU7JcgehLuSjoTMsUXMgoiUrDtZttZuIz3P9SjfKQUo/2MJdUNKqUubPKxU+EFzUcItigsp1CLUi7G8KPqgp7mYB4j9ID6KTrYOMODw0MunJrf/FeQMpCAEdDKQlmo3pmAt7LvPUgHbJ3/DHT7oxWpyeNgVzs/43brjqfDyK2bVpb5qZSHTC05xTSi/RO+cArXBYj8iwzgzNouSRehEilfGpzkYE0YoYSLq0NpcNLVgfaLKcaaBS69feXpWwBAuyAl5OHqUkjjWbU3FkQnx+QtZT0qT0b2qi7iO9xbW31h86MSQUHVSZic82aY2CJA6uNFe3N0+H/fKmNfvnNzN3MrT0v378LvCwKd2yjF9ULb2/8x8+7e7TSZKEQxodniBU8SgURrkvl0F9YWHhFmDdxSbIjbH68U4t+JHtOijOXkrAfoCbkL+ZFF0rgqKNA62erda0E+dk13hpBEn3rRDHWtPxrZ7LqqiDTdTZ5EY8ncAHLEUWhgg1VULtjsdUXjvvClMkIQrQKynTUobXudoC6CuUQkhE4hsJiaAWYSIopCWQ3auglhUwF0kUTSRgD","page_age":null},{"type":"web_search_result","title":"Weather in London in July 2025 (England) - detailed Weather Forecast for a month","url":"https://world-weather.info/forecast/united_kingdom/london/july-2025/","encrypted_content":"EuoDCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDALoflmG318lR+BMMxoMw5kaTrXleWFWRzkoIjBkRo4NaxjqNn7rroYHeGQsMqKwXKmkrblvMXKhStFz5MLSK7gMZB91BBz412WvvWEq7QKvfJ4MyHrV2ZhqAlvt5uM2A9tSt+N2dyPyb95xJXnCDMonoQgOgtmethqUOXJOU62FbfCL2ttQWGJjswyyT1uV6owa88CkauJUr3wuc7B9y8EkgGSZcfalguJpnohBvX5KwUFwcgzH6QXL35AKAWI9/4e8cTorMO8hBwZ9AYs63JQeY/urQbOS3P+jkPvc2Kx5UGU1w4s0j9YFzp/qLDifHGSMSPVF2fm9NhuhNfuvR+nSP/i7YowIpVsw0leS/Rbb2DaIOi2SUUx5ll3HXBFEVE8lCXYjM8qb1i7Nilm3Uvkb79ZtEpG7rmv/ucb+1W3H5WHMWsoD8HgrSEvbp5l4wOwT2B8ht6WKnwu6Vmbop7qZuq3u2jUaPS6i3IsZlEVjXdd1doq7x1VbXbTmUGDRwynXEzWO67ePIbny3uvLXsLCg3co6EE9JalIIjd11ftpJ9rru7n3N1+dw8wY2zsC3iSzrwjmrzStihjOQhgD","page_age":null},{"type":"web_search_result","title":"London, London, United Kingdom Monthly Weather | AccuWeather","url":"https://www.accuweather.com/en/gb/london/ec4a-2/july-weather/328328","encrypted_content":"EpsCCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDEA1wzr7iZFj9omAYRoMCgwiVoxuldeg7468IjB5p3kkyr8WtXHj9LEmj8+Fxx5Mr7mK3gR8NkF82i5G118MglZVqhLkbR2Q2ESCxLcqngEe3hBK1Vhbgnj/L/4GzQhV5nOR8V0B3LRCLzOYlvzhBNTcADADFnUuEWoExVf4GLCIy/dDh5rM+4/sUsy2kpSPEEXo1E8s+iprl1EuzxT5VGA2g+oqoaHnmqHVuE72agPfOJOdhcPQn5OxR1gnUacqHV5UaWMCigGj9uArzr7XwVZSCjpdEfAPgHbqkkkHXGrewYzU/yNQ1YkTossu9xgD","page_age":null},{"type":"web_search_result","title":"London weather in July 2025 | London 14 day weather","url":"https://www.weather25.com/europe/united-kingdom/london?page=month&month=July","encrypted_content":"EtMHCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDBJSqYfE0GQHoTA2JRoM4Ngi1otcHB37e3VYIjDJM0vQsrfRFvaCPsKB0xfkOZtA0AItxt8Zzc0BWpgSl5/4Vm4tY+vGBTvEJonhd9oq1gYRHsO2GkK+PdHJYdmpQLlI2sdZU7hGgEFX6u2DbfyyGeehEB0SYuNhWEryOz0HN41vVh4XGvjUP7avui++7PRizdJ7lIZE+rkHH4w33/mVeYyVV+mPQI+lJDEQ0fbjVQ3Zj7/kdOKtuB/7XSl+oZmerosC+2GLfdut3aNxYYO0mUcaWjgp4Ujwu1QKlvxKrYcQ7tRcv4b8Szk5oQyCDFb+ESVBP2x7fSJBzbxbimeMcKlug8hCD+1SozMGE316jhq2ie/eijod1I+BCHVrC5CUxHb0TuyoLvseL09a++fZ7DR1QrWG//6qd8/H9vGY3XoLqiVi9zFj4YOQLlEasX4oUqezA1uGUBK8x4Z1iF3B5jtxAu5NkhBFrJVL1UcocvtSz0JJcGAKEnCneZ9+NFYboz69SiyDpjuktawMN2+Mqlpp5Q36lcQKKMNjnG1t21cab1PYU979PIzCyK7DEnvVUI/GppUMJx+zA0Rb0jVzoFh/xuiGvDWWiM/dNw+AxQ6FGXBwAER4X2dSboEFPErCRduYGgFVs2IN09uJo14mRDzAu2qPm22qBAai9vkVLfE0rdfaLItLGHHFzVbu9PvWIlC2s433YRpC+SSStMarAPD6qtiLtuCxYaH1XeodQmY4iC8PDObsLsEWtIxglpX6QJcj97YUj4mPramgm5E5ArDYpt0MKf6eHEFetmr0ReMgOpIPe0EiwmJWf9vcbutvcBYqnP4V84CV2vanLGTxO9z0pCSy56gg7H31hREhIlGomDJ3BC0KOxmEKKEQKQOVsxYTzGE1nqiTFuxbG6tPr2wUfYFYQTYDYIR3CERg+/dbBKowOmGex9eTe4R8xv+IqDKyC0V93CjFr8WJbwtDpGsTcVSpt0tI5m49peLauiThZea8sLRC7Tn3ls8F1h8Aaq7BZ3a27Nz1d1zP4kIkWVrzB1xJ+tz9piy7mI+RF447vd96Mp4CfW8XZPlOR+9aCXouLZPF5Mjqq8C/Ez4Mnf43g40lK5lvqJQExPJtA3z7pxvIhDKaLvJOcZ3lMpTRsR0pWaI0j8105d+3FetH0JiusElrAeEkNTPBWW2ulsA57mhBfGf6nbrJcX9OolpfjahXjnKaqscKP0dVrcWc+6U1vyquDBgD","page_age":null},{"type":"web_search_result","title":"Weather in London in June 2025 (England) - detailed Weather Forecast for a month","url":"https://world-weather.info/forecast/united_kingdom/london/june-2025/","encrypted_content":"EsIDCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDKjYzINnb17aERWWiBoMi0JfEvKY0W1+JPYlIjCE0V3QQpWfl3rVWwpNJ1Hq9hU90TzsxPr5Qq+6yiLuOx9nFYBVov45od1mhZkimJ8qxQKXxVPpHSMVAKhfnZYcq2KmuM0GCby8PJE7Be70nYZikPYeBt8MbvOD7SnnDvAQZtSPs3Wsc3yDsagk/M4bb/rQe9uVizD+NkA+IJPOsSsf+ZTbHtf6lciTOjekP1FLnU+FLL36fAQ+ET6V5/gDpFpeikArLtvOSuYFJm4cK9hSIgHVvO4yKbzQN78WwufV6FjKEZCx52RDXPI52zlRwycLvyL53A7ZbeyGIIUDYKvIc2zskJfyajgta/YXhYCJR8s95+oOgiN0aV1B3yPwDSUrjHfAB8Q6fseIbeES9qiOyGsjd1clkbDEwYQCfkw9GGaykHzmlwycgYVOFT3epxV/Xn0PCgw80kEVCfCl7qMEytb6e6eD7+nqjG4/iHglVvoVchL0RN4iPC0CKrAWUZBzc9ELz/JC2UmPZV+PGdo/F3sUwo/rGAM=","page_age":null},{"type":"web_search_result","title":"Weather in London in July 2025 - Detailed Forecast","url":"https://www.easeweather.com/north-america/canada/ontario/london/july","encrypted_content":"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","page_age":"2 weeks ago"},{"type":"web_search_result","title":"10-Day Weather Forecast for London, England, United Kingdom - The Weather Channel | weather.com","url":"https://weather.com/weather/tenday/l/London+England+United+Kingdom?canonicalCityId=ffd92542da4b5e64d021e579afb563e9","encrypted_content":"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","page_age":null},{"type":"web_search_result","title":"July 2025 Daily Weather Forecast for London, England – Plan Ahead","url":"https://www.weathertab.com/en/d/07/united-kingdom-of-great-britain-and-northern-ireland/england/london/","encrypted_content":"Ep4FCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDJa9eI1NPSOfRuuiERoMqSNd0gecQkrETwZ/IjA1ywc7/KCkmR0/udq/2u/+z3LRDc2G2H0FZbAYnblhzlk7ZB782iUo63A1UTJXZPkqoQRlzCjOuw2UAfLABmacCjn1wa5uAIQFoh7xMDFDVQjUp+yn+6voYzOzmwQigbpVPnHjSlAKDJaJPUuuCouT/hm+1zMRHn9ZjsvqvKLv5+hkMKVl8aEczIDUSU116Rl7Noti5+ixn/4DL5RVtNPXw9YqbeIj3rgnrZ0ENTf2HaXWMk92e5wAZfHKG/3zYbf+d80iFqhpOG4cwTMZG5iRvygwQ4d9qGVBQiio74Su/Ek7t5upctZ6spcZSVzUHFejNe70gKw1Wz0R+L3yB/QlPxpHT0ye163MQPMG/mAQh51Pb+uzG2VRkqdPvdlYQZ4les/SW5dvUUYwgQVsspDU9vdNHaQ1Ou6YLDBkGHMsxs5TWZngYMtkt8IBvmm4t2oXq3njE7A87gFaHAkEbkF8cGpSVurU5S9wooMeO4wSjDDhZwMKVUPLga+l2FExkYTvFMwkM3Oox1C0GTkVw51+1W3GWtiEVmeIKqMPcR/D0a7pnw/NHu5dpIVlOSvL6Gnp4Xk28nV7HLM6cE+iwIPIC8VB+AyCTvAE03YBfoQ3MHkIuK3X0nErIjYW5cFGayFs/X4/9mFQt/MfxO/ft2oeorfGXt8sek/HHtcXSEZtYO+XVfcdu3cZ928Ysl4cgdlF8t3zc2I/lqfhSNd0HwZCd72phxUTn59DlWzX2JNv/o9yhLrt5u5Uu4MZ+bf1YwrdJW9sm4ohniCEocXUlioNbTEw/hgD","page_age":null},{"type":"web_search_result","title":"London weather in July 2025 | England: How hot?","url":"https://www.weather2travel.com/england/london/july/","encrypted_content":"EtkKCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDJlXpiSMi42UtjAQfhoMDW3MLQyRiVW6CI7cIjCxVzlomsKBIFX3B+1x24C1mXI3K/pVs6JjYhy69xUK+RfZjM4dlHnt3FDkVZD2w/gq3AlscyHbXarCEE3Cy/LAxtkdy8qj5J85tC5dIL4I2G6Gtnn70N+dUEvjY0O7VSIWM1obU1kIT/XtUytblWzxR09DkwcvUNEN94S43FkMgmDHEBNsZ2TP1x2R+tn4qdQwV6Q1yjGzonXp3XhRCwF1/SW+Ad7ASOvyRXcmIZNk4CQjrzPln5M9qeY/kc+SGVflfqaYTCQRtTWEGaWbstjIaRm/qz4v7IgvCm3DqUPuZdvJdomeoFaCd5amtEI70AXWNxONTaO078fFMa+t9Syth7z9VYht8G1INlhbvSFd0JueA3ZGTefLuIcIP2aZELU5c83iQVmnlVEtLljd0n1AWyy7urrQvmKhcU6i3p76X1xB/HbYKyScx0E1MxDbpCDDnISeRWKnPA7Z042Vljkh9ac14/1O9ZhceXbNr4Q7m9xKf4mmKeBfux6r/9lAPekEmtpmqLVyBJ2XngT0dDSGja8gZ/kJ0T+4hnbqtMAjm35hvUqIMsogL96SnHk4QprIQ1ZUDHV3JjeoOcnlmkZu+hz+czxP5Qug1W9x7PQI7yxmPjg3HtEFHW56yntWvlTne/TWdIhxav+cJPxg+Cl2Y5BEt1Iy9AgYjSieRBIMkKM2qB8D8QfYbsYtmFV1FPcez7i7NK3L45tyI+8yPuPGqwwzQpivfuG9NXSZDA7kqZ4BiL9QN+mj3gZ83NQvo4PA7bjaOgr5OYbue3HBYaxg2ePsCLzqtLbUarGvqguugeIeLRCfpBwcuWEZe/wHWIVNhwL/8k3kFh58Fp/6mnP9WxlMGicSvMJnJa6EVP7r4XCdPuz1knaBp56P2VKWBcSf1VSj+EcdnvPYmOcTo4BhRQPSf0N6azA4PJupdCrJiLgqW4Xe6Y5qieTX/1y0sihBfwrtBCcbiyFvML/5apwzOFSvgWk9+U4FCYLnj+Vy6rsweymcNRTGbCwgrC6X9flkn6YmNksUjJV8o4T/1pRikd2SPkOqo2E3kwItY7YicUQgbphcMIB/dSOTv7AQ/6+nQTIZO9IyTpnFbXegZIqryO+l7UpkZafwSrNmYz9D/rfbV5zX+yyiCg/AjxQhmFM+i0ed/X9DCyVzDw5t3HYIfJRhyPivULWcWuvN7QvD3ok2iv78h3d09k4qZ6EclXk7inZgWUO/U0Kn4uj60+nToomC+hPvpQTS8YmYD7P8ZgFP81/quQ+29KI3A0XIZSECNW94BtO8FBNS3V2wfNIBJiLeGcWTGCYyfXTkITWCLw23XRc3fZtBRFh+Sor5rIx9H5S/CM2Htax9cl1VZKYqvQxUlIyVY5o9s/iRjjzXE8e8b0uAwX0HOB8TldC7y9+PU4CAgpFn/jVxFayvSxAIzMLJ8IQe3nW3/rQdAbUXzuXMQLX9jb5jISIIYLDRHaQqCYQswkSEWoUKDm43PTYcBLoZNzspmXmbAMmzh0da3EMZdX2gTd5JYLw/nMondtEfvaFAkyt2ij67FNTQeVHAtGyP7rVSnvicZkcQEnrxKJoK0xaEd2TNEcq6Zs4oCxkuwxejQ+KwVqzs725W2IdH4WHwbqkdrvkTydq+m/GdvYcb0ygYZ7xWjD2SX0lhD8XpBGDu7lLgwK9Uck9Yjc3eGNgr0TrsL0AzgzzdSQWeYkts6VSDFPlCBr6tgP+GnRgD","page_age":null},{"type":"web_search_result","title":"Greater London weather in July 2025: How hot?","url":"https://www.weather2travel.com/greater-london/july/","encrypted_content":"EpUJCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDA0UqqxO7FsBtzde5RoMeTlHJvjUjvrm6XmcIjDwy8OULfIEIL2Pf5q6+MW02aqd9ydTLLPBY9oMoTDg3ksNNBD5I75g40UPavyaNQ0qmAiBlyeZJy7PaOqERWUujouOzCj5pd9kdhHi4E3hQJxjHt/VrCXVbtcCaixJvOb+ul/AIUQIJvftfkLHZzrwYWx1Pc8JKnQmdgSU3OJdOdJpth6nMKSHODZfsb7IL6t7WRDM0PnEBuml0ZkE1Y4I0ygiMiAxOGq2yvaRxGvmlqQH4g7OC3Yv/2eLId77vKyos1DAXPato0xqccc1mdBwpuMfshSLz7myvAE+e411uJsAtyAE9KjxzUZCvk7TyEvBRd54XjLmkNp406ktg1u27hjYdb1T5fPKOAKPm9D9xOH9vWepJRZshB3Q9dgK682ryS0XYi+QxmBqQwJ/KT2RcGmZMN/Pm0Rq4i2u4QJDWBclR9AkIbZkccVQq367GWzwl0I68e1KEHj548FKPpXSt+xqlmcNGDaBAqun9/J8Q3OIbTIfn8kqS9TKX6b5GTB2OKaFGn2KFGSECzWrgBNrG1/+cA2pv8aoyQhNkmXSFVHXLn8WuuHMjc7AJFL40ObXp1zkJwgsvWyBacKLZ106LSkfw1uU+3QaiSefs9i/nh42H4SGgVSRQH5JmRl5OE/KWG9gNUbMBJqnofxwxsbKXzOMIbRybDEKqdEQZhAho1hWKEhgWEGfzbFXdbcxSPue1NAe/5bjS31iTKelePDw1JMe5UTTWpE7WxbkaLFiF1AT0O/qG51KzCd8nMHpwGYGCDM6+B4b1KPkwM5oASkONXUg1Vj8f/NvbIw2kSGXyIrwFi2/aisp7/BMSH2ecfHzCr0NsrW1yDkk8VODF+eBep20hgpOkK7CGbQ/Im4+m8wpez1dXKdX2E2sGe/4Rk8gTvVP24C18+z2WLVEVay8avTHCw/sh/Nlti9bZiQch1PF6UYvLqx+rTI4iz81qnScdMu4suxZhb2On+urlvtQtF6qbTEghRzrROQYN/2hzMZllFwi+EELf7j+Hr5GLZy+hqTBKftPrqgjZpu41e0Eij2UgoBMJJk0poDwuxQctLAMzwj3DpmFJXq7GZi0tNjMQWlLGcnLrpT8+YdfHYpcM2qnflr7HBtJ3VInpl+DkH3RQVGZ1+zbMEtADFaO8RzMOrvpuv0mfWt2XLf3z2O9EtpZ5E0uuN0j2/ZrlhZTaqO09zJAMMkAqG+szJCjmWwfWSEWPuMbqOOcmFUqCVXPa7xjk1T2cALa3fcA+oZL3nmLOSqcDErYaWOX580VpcYbaRWs2jO6djsPBzIXrSjEMIVFFYTh8xbheEsFaneOj09eMYAdgWjKnUf1jeZ8QPhbecJbqWURLJNM7NnXYaISK+KHUpY7S9Y6Ug/VhCw0hDggg18XHF3bcAvJKXvMaUeHsXj5ADZiBfcjM5hhQqiEQxgtOkSGbU2PeJzw1iXSj9++T/l8DQlQrj4yGAM=","page_age":null}]}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":2     }
+
+event: content_block_start
+data: {"type":"content_block_start","index":3,"content_block":{"type":"text","text":""}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"Base"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"d on the search results, here"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"'s the current weather in London,"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" UK today (July 10"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":", 2025):"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"\n\n"}         }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":3   }
+
+event: content_block_start
+data: {"type":"content_block_start","index":4,"content_block":{"citations":[],"type":"text","text":""}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"citations_delta","citation":{"type":"web_search_result_location","cited_text":"A sunny start across the region. Some high cloud may drift in at times, but for many it will be a day of prolonged sunshine. ","url":"https://weather.metoffice.gov.uk/forecast/gcpvj0v07","title":"London (Greater London) weather - Met Office","encrypted_index":"EpEBCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDHsI1f8GVyD5wj9xihoMqASw3FCBOa6HKL67IjAuTdDn7ACYHnoCt6LhuXRRwGK0wTGgSJWRqTE4hX8lCkGBsXUH60HFEH4kL7ZfSXcqFSE2BOvmVpAQ99Gjfgwy+BdMIxzYixgE"}}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"text_delta","text":"London is experiencing a sunny start across"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"text_delta","text":" the region today. Some"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"text_delta","text":" high cloud may drift in at"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"text_delta","text":" times, but for many"}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"text_delta","text":" it will be a day"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"text_delta","text":" of prolonged sunshine."}            }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":4              }
+
+event: content_block_start
+data: {"type":"content_block_start","index":5,"content_block":{"type":"text","text":""}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":5,"delta":{"type":"text_delta","text":"\n\n"}      }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":5  }
+
+event: content_block_start
+data: {"type":"content_block_start","index":6,"content_block":{"citations":[],"type":"text","text":""}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":6,"delta":{"type":"citations_delta","citation":{"type":"web_search_result_location","cited_text":"Feeling very warm or hot in light winds, slightly cooler along the coast. Maximum temperature 30 °C.","url":"https://weather.metoffice.gov.uk/forecast/gcpvj0v07","title":"London (Greater London) weather - Met Office","encrypted_index":"EpEBCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDLjhmNEA+ksfwKEs2hoM7/utBZr8NeCe1bArIjCZKPf4hjjJtN4/QVO7H7TzhNWLBRi7OSHlxbbtepdIiadZ1AI1cGinQSoKkdW3k2IqFWyk/IkhM2aI/n11KMNbi7DW42izkxgE"}}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":6,"delta":{"type":"text_delta","text":"It's feeling very warm or hot in"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":6,"delta":{"type":"text_delta","text":" light winds, though slightly coo"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":6,"delta":{"type":"text_delta","text":"ler along the coast. The"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":6,"delta":{"type":"text_delta","text":" maximum temperature today is expected to reach 30"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":6,"delta":{"type":"text_delta","text":"°C (86°F)."}       }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":6             }
+
+event: content_block_start
+data: {"type":"content_block_start","index":7,"content_block":{"type":"text","text":""}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":7,"delta":{"type":"text_delta","text":"\n\n"}             }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":7             }
+
+event: content_block_start
+data: {"type":"content_block_start","index":8,"content_block":{"citations":[],"type":"text","text":""}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"citations_delta","citation":{"type":"web_search_result_location","cited_text":"Skip to Show full forecast · Today (10 July 2025) Friday (11 July 2025) Saturday (12 July 2025) Sunday (13 July 2025) Monday (14 July 2025) Tuesday (1...","url":"https://weather.metoffice.gov.uk/forecast/gcpvj0v07","title":"London (Greater London) weather - Met Office","encrypted_index":"EpEBCioIBRgCIiRkYmNjYmM1Ni1jN2M3LTQ0MDQtODgwZi1lNzZjOTkyN2FhMWUSDIXONrLMGfUy9m5euRoMlXp7ZwEFiSENdomAIjC0wI5jkRxKcA6yaMY7Oc+UM5yZgQTMSXsmWtpV5xz8L6mVR07taVoKuqPY4+Jrb8YqFVivyX0OjUlGSqOv5/oEkXXUJHXWFBgE"}}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":"According to the Met Office forecast (updated at 06"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":":29 UTC+1 "} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":"on Thursday, July 10, "}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":"2025), conditions are"}             }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":" warming up, with h"}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":"eatwave criteria expected to be reache"}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":"d in parts of the UK by"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":" the end of the week"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":8,"delta":{"type":"text_delta","text":"."}    }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":8             }
+
+event: content_block_start
+data: {"type":"content_block_start","index":9,"content_block":{"type":"text","text":""}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":"\n\nIn summary, London is experiencing a hot"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":" summer day with plenty of sunshine an"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":"d a maximum temperature of "}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":"30°C. If"}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":" you're planning to be outdoors,"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":" you might want to take"}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":" precautions against the"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":9,"delta":{"type":"text_delta","text":" heat and sun exposure."}       }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":9       }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":9911,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":343,"server_tool_use":{"web_search_requests":1}}           }
+
+event: message_stop
+data: {"type":"message_stop"    }
+

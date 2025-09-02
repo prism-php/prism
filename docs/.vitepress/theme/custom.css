@@ -31,6 +31,10 @@
   /* Custom vaporwave gradients */
   --vaporwave-gradient-1: linear-gradient(90deg, #ff71ce, #b967ff);
   --vaporwave-gradient-2: linear-gradient(90deg, #01cdfe, #05ffa1);
+
+  /* Banner/Image */
+  --vp-home-hero-image-background-image: linear-gradient(325deg, var(--vp-c-brand-1) 50%, #01cdfe 50%);
+  --vp-home-hero-image-filter: blur(71px);
 }
 
 .dark {
@@ -158,6 +162,20 @@ div[class*="language-"] {
   background: var(--vaporwave-gradient-2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.VPHero.has-image.VPHomeHero .image-bg {
+  width: 372px;
+	height: 182px;
+}
+
+.VPHero.has-image.VPHomeHero .VPImage {
+  filter: drop-shadow(-4px 8px 7px #0003);
+  transition: all 0.3s ease;
+}
+
+.VPHero.has-image.VPHomeHero .image-container:hover .VPImage {
+  filter: drop-shadow(-4px 8px 7px rgba(255, 113, 206, 0.5));
 }
 
 /* Main content area styling */

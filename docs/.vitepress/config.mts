@@ -6,6 +6,13 @@ export default defineConfig({
   title: "Prism",
   head: [
     [
+      "link",
+      {
+        rel: "icon",
+        href: "/favicon.ico",
+      },
+    ],
+    [
       "script",
       {
         src: "https://cdn.tailwindcss.com",
@@ -119,6 +126,10 @@ export default defineConfig({
                 link: "/core-concepts/image-generation",
               },
               {
+                text: "Audio",
+                link: "/core-concepts/audio",
+              },
+              {
                 text: "Schemas",
                 link: "/core-concepts/schemas",
               },
@@ -143,6 +154,14 @@ export default defineConfig({
                 text: "Documents",
                 link: "/input-modalities/documents",
               },
+              {
+                text: "Audio",
+                link: "/input-modalities/audio",
+              },
+              {
+                text: "Video",
+                link: "/input-modalities/video",
+              },
             ],
           },
           {
@@ -159,6 +178,10 @@ export default defineConfig({
               {
                 text: "DeepSeek",
                 link: "/providers/deepseek",
+              },
+              {
+                text: "ElevenLabs",
+                link: "/providers/elevenlabs",
               },
               {
                 text: "Groq",

@@ -36,8 +36,6 @@ class Structured
 
         $responseMessage = new AssistantMessage(data_get($data, 'candidates.0.content.parts.0.text') ?? '');
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request);
@@ -88,6 +86,36 @@ class Structured
                 ]
             ));
         }
+
+        // Check for token exhaustion patterns
+        $finishReason = data_get($data, 'candidates.0.finishReason');
+        $content = data_get($data, 'candidates.0.content.parts.0.text', '');
+        $thoughtTokens = data_get($data, 'usageMetadata.thoughtsTokenCount', 0);
+
+        if ($finishReason === 'MAX_TOKENS') {
+            $promptTokens = data_get($data, 'usageMetadata.promptTokenCount', 0);
+            $candidatesTokens = data_get($data, 'usageMetadata.candidatesTokenCount', 0);
+            $totalTokens = data_get($data, 'usageMetadata.totalTokenCount', 0);
+            $outputTokens = $candidatesTokens - $thoughtTokens;
+
+            // Check if content is empty or likely truncated/invalid JSON
+            $isEmpty = in_array(trim((string) $content), ['', '0'], true);
+            $isInvalidJson = ! empty($content) && json_decode((string) $content) === null;
+            $contentLength = strlen((string) $content);
+
+            if (($isEmpty || $isInvalidJson) && $thoughtTokens > 0) {
+                $errorDetail = $isEmpty
+                    ? 'no tokens remained for structured output'
+                    : "output was truncated at {$contentLength} characters resulting in invalid JSON";
+
+                throw PrismException::providerResponseError(
+                    'Gemini hit token limit with high thinking token usage. '.
+                    "Token usage: {$promptTokens} prompt + {$thoughtTokens} thinking + {$outputTokens} output = {$totalTokens} total. ".
+                    "The {$errorDetail}. ".
+                    'Try increasing maxTokens to at least '.($totalTokens + 1000).' (suggested: '.($totalTokens * 2).' for comfortable margin).'
+                );
+            }
+        }
     }
 
     /**
@@ -104,8 +132,8 @@ class Structured
                 usage: new Usage(
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
                     completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                     cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
+                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

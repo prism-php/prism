@@ -16,7 +16,7 @@ First, make sure Prism Server is enabled in your `config/prism.php` file:
 'prism_server' => [
     // The middleware that will be applied to the Prism Server routes.
     'middleware' => [],
-    'enabled' => env('PRISM_SERVER_ENABLED', true),
+    'enabled' => env('PRISM_SERVER_ENABLED', false),
 ]
 ```
 

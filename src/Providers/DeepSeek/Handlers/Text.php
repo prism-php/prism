@@ -50,8 +50,6 @@ class Text
             []
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request = $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
@@ -107,11 +105,11 @@ class Text
             array_merge([
                 'model' => $request->model(),
                 'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_completion_tokens' => $request->maxTokens(),
+                'max_tokens' => $request->maxTokens(),
             ], Arr::whereNotNull([
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
-                'tools' => ToolMap::map($request->tools()),
+                'tools' => ToolMap::map($request->tools()) ?: null,
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             ]))
         );
@@ -139,8 +137,8 @@ class Text
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 }

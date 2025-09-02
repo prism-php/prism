@@ -7,8 +7,8 @@ use Prism\Prism\Exceptions\PrismServerException;
 use Prism\Prism\Facades\PrismServer;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Symfony\Component\HttpFoundation\Response;
@@ -118,9 +118,7 @@ class PrismChatController
 
     protected function textFromResponse(TextResponse $response): string
     {
-        return $response->responseMessages
-            ->whereInstanceOf(AssistantMessage::class)
-            ->implode(fn (AssistantMessage $message): string => $message->content);
+        return $response->text;
     }
 
     /**

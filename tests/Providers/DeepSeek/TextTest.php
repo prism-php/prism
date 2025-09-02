@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
@@ -20,6 +22,12 @@ it('can generate text with a prompt', function (): void {
         ->using(Provider::DeepSeek, 'deepseek-chat')
         ->withPrompt('Who are you?')
         ->generate();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data())->not->toHaveKeys(['tools']);
+
+        return true;
+    });
 
     // Assert response type
     expect($response)->toBeInstanceOf(TextResponse::class);

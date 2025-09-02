@@ -1,0 +1,25 @@
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"reasoning":"I need to solve this simple math problem: 2 + 2. This is basic arithmetic."},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":"The"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" answer"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" to"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" 2"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" +"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" 2"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" is"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":" 4"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{"content":"."},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-reasoning-1","object":"chat.completion.chunk","created":1737243487,"model":"openai/o1-preview","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25,"completion_tokens_details":{"reasoning_tokens":12}}}
+
+data: [DONE] 

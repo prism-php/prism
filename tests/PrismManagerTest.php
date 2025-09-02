@@ -14,6 +14,7 @@ use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
+use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider as ContractsProvider;
 use Prism\Prism\Providers\XAI\XAI;
 
@@ -64,6 +65,13 @@ it('can resolve DeepSeek', function (): void {
 
     expect($manager->resolve(Provider::DeepSeek))->toBeInstanceOf(DeepSeek::class);
     expect($manager->resolve('deepseek'))->toBeInstanceOf(DeepSeek::class);
+});
+
+it('can resolve OpenRouter', function (): void {
+    $manager = new PrismManager($this->app);
+
+    expect($manager->resolve(Provider::OpenRouter))->toBeInstanceOf(OpenRouter::class);
+    expect($manager->resolve('openrouter'))->toBeInstanceOf(OpenRouter::class);
 });
 
 it('allows for custom provider configuration', function (): void {

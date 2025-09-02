@@ -9,7 +9,7 @@ use Prism\Prism\Prism;
 use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRPageResponse;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {

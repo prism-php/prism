@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
+use Illuminate\Support\Arr;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
+
 class StreamState
 {
     /**
@@ -21,7 +24,7 @@ class StreamState
         protected string $thinkingSignature = '',
         protected array $citations = [],
         protected string $stopReason = '',
-        protected ?array $usage = [],
+        protected array $usage = [],
         protected ?string $tempContentBlockType = null,
         protected ?int $tempContentBlockIndex = null,
         protected ?array $tempCitation = null,
@@ -132,8 +135,12 @@ class StreamState
         return $this->citations;
     }
 
-    public function addCitation(MessagePartWithCitations $citation): self
+    public function addCitation(?MessagePartWithCitations $citation): self
     {
+        if (! $citation instanceof \Prism\Prism\ValueObjects\MessagePartWithCitations) {
+            return $this;
+        }
+
         $this->citations[] = $citation;
 
         return $this;
@@ -167,8 +174,8 @@ class StreamState
         if ($this->usage === []) {
             $this->usage = $usage;
         } else {
-            foreach ($usage as $key => $value) {
-                $this->usage[$key] = ($this->usage[$key] ?? 0) + $value;
+            foreach (Arr::dot($usage) as $key => $value) {
+                Arr::set($this->usage, $key, Arr::get($this->usage, $key, 0) + $value);
             }
         }
 
@@ -261,7 +268,7 @@ class StreamState
         }
 
         if ($this->citations !== []) {
-            $additionalContent['messagePartsWithCitations'] = $this->citations;
+            $additionalContent['citations'] = $this->citations;
         }
 
         return $additionalContent;

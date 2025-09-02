@@ -4,7 +4,7 @@ return [
     'prism_server' => [
         // The middleware that will be applied to the Prism Server routes.
         'middleware' => [],
-        'enabled' => env('PRISM_SERVER_ENABLED', true),
+        'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
     'providers' => [
         'openai' => [
@@ -43,9 +43,17 @@ return [
             'api_key' => env('DEEPSEEK_API_KEY', ''),
             'url' => env('DEEPSEEK_URL', 'https://api.deepseek.com/v1'),
         ],
+        'elevenlabs' => [
+            'api_key' => env('ELEVENLABS_API_KEY', ''),
+            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1/'),
+        ],
         'voyageai' => [
             'api_key' => env('VOYAGEAI_API_KEY', ''),
             'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
+        ],
+        'openrouter' => [
+            'api_key' => env('OPENROUTER_API_KEY', ''),
+            'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
         ],
     ],
 ];

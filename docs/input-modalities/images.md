@@ -8,43 +8,73 @@ Note however that provider support may differ by model. If you receive error mes
 
 ## Getting started
 
-To add an image to your message, add an `Image` value object to the `additionalContent` property:
+To add an image to your prompt, use the `withPrompt` method with an `Image` value object:
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Image;
+
+// From a local path
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        "What's in this image?",
+        [Image::fromLocalPath(path: '/path/to/image.jpg')]
+    )
+    ->asText();
+
+// From a path on a storage disk
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        "What's in this image?",
+        [Image::fromStoragePath(
+            path: '/path/to/image.jpg',
+            diskName: 'my-disk' // optional - omit/null for default disk
+        )]
+    )
+    ->asText();
+
+// From a URL
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Analyze this diagram:',
+        [Image::fromUrl(url: 'https://example.com/diagram.png')]
+    )
+    ->asText();
+
+// From base64
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Analyze this diagram:',
+        [Image::fromBase64(base64: base64_encode(file_get_contents('/path/to/image.jpg')))]
+    )
+    ->asText();
+
+// From raw content
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Analyze this diagram:',
+        [Image::fromRawContent(rawContent: file_get_contents('/path/to/image.jpg'))]
+    )
+    ->asText();
+```
+
+## Alternative: Using withMessages
+
+You can also include images using the message-based approach:
 
 ```php
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 
-// From a local path
 $message = new UserMessage(
     "What's in this image?",
     [Image::fromLocalPath(path: '/path/to/image.jpg')]
-);
-
-// From a path on a storage disk
-$message = new UserMessage(
-    "What's in this image?",
-    [Image::fromStoragePath(
-        path: '/path/to/image.jpg', 
-        disk: 'my-disk' // optional - omit/null for default disk
-    )]
-);
-
-// From a URL
-$message = new UserMessage(
-    'Analyze this diagram:',
-    [Image::fromUrl(url: 'https://example.com/diagram.png')]
-);
-
-// From base64
-$message = new UserMessage(
-    'Analyze this diagram:',
-    [Image::fromBase64(base64: base64_encode(file_get_contents('/path/to/image.jpg')))]
-);
-
-// From raw content
-$message = new UserMessage(
-    'Analyze this diagram:',
-    [Image::fromRawContent(rawContent: file_get_contents('/path/to/image.jpg'))]
 );
 
 $response = Prism::text()
@@ -53,9 +83,9 @@ $response = Prism::text()
     ->asText();
 ```
 
-## Transfer mediums 
+## Transfer mediums
 
-Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above). 
+Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above).
 
 Prism tries to smooth over these rough edges, but its not always possible.
 

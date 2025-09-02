@@ -74,8 +74,15 @@ class Stream
                 return;
             }
 
-            $content = data_get($data, 'message.content', '') ?? '';
-            $text .= $content;
+            $thinking = data_get($data, 'message.thinking', '');
+            $isThinking = $thinking !== '';
+
+            $chunkType = $isThinking ? ChunkType::Thinking : ChunkType::Text;
+            $content = $isThinking ? $thinking : data_get($data, 'message.content', '');
+
+            if (! $isThinking) {
+                $text .= $content;
+            }
 
             $finishReason = (bool) data_get($data, 'done', false)
                 ? FinishReason::Stop
@@ -83,7 +90,8 @@ class Stream
 
             yield new Chunk(
                 text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
+                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
+                chunkType: $chunkType,
             );
         }
     }
@@ -174,19 +182,20 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        if (count($request->systemPrompts()) > 1) {
-            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
-        }
-
         return $this
             ->client
             ->withOptions(['stream' => true])
             ->post('api/chat', [
                 'model' => $request->model(),
-                'system' => data_get($request->systemPrompts(), '0.content', ''),
-                'messages' => (new MessageMap($request->messages()))->map(),
+                'messages' => (new MessageMap(array_merge(
+                    $request->systemPrompts(),
+                    $request->messages()
+                )))->map(),
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => true,
+                ...Arr::whereNotNull([
+                    'think' => $request->providerOptions('thinking'),
+                ]),
                 'options' => Arr::whereNotNull(array_merge([
                     'temperature' => $request->temperature(),
                     'num_predict' => $request->maxTokens() ?? 2048,

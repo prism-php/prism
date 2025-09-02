@@ -10,11 +10,13 @@ use InvalidArgumentException;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Providers\Anthropic\Anthropic;
 use Prism\Prism\Providers\DeepSeek\DeepSeek;
+use Prism\Prism\Providers\ElevenLabs\ElevenLabs;
 use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\Providers\Groq\Groq;
 use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
+use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
@@ -169,8 +171,8 @@ class PrismManager
     protected function createGroqProvider(array $config): Groq
     {
         return new Groq(
-            url: $config['url'],
             apiKey: $config['api_key'],
+            url: $config['url'],
         );
     }
 
@@ -180,8 +182,8 @@ class PrismManager
     protected function createXaiProvider(array $config): XAI
     {
         return new XAI(
-            url: $config['url'],
             apiKey: $config['api_key'],
+            url: $config['url'],
         );
     }
 
@@ -191,8 +193,30 @@ class PrismManager
     protected function createGeminiProvider(array $config): Gemini
     {
         return new Gemini(
-            url: $config['url'],
             apiKey: $config['api_key'],
+            url: $config['url'],
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createOpenrouterProvider(array $config): OpenRouter
+    {
+        return new OpenRouter(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? 'https://openrouter.ai/api/v1',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createElevenlabsProvider(array $config): ElevenLabs
+    {
+        return new ElevenLabs(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
         );
     }
 }

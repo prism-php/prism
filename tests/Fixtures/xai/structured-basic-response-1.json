@@ -1,0 +1,41 @@
+{
+  "id": "chatcmpl-AZaPUjMBtN3XS1RKGvkI7ZfnNPpJU",
+  "object": "chat.completion",
+  "created": 1752364699,
+  "model": "grok-4",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"title\":\"Inception\",\"rating\":\"4.5\",\"summary\":\"A mind-bending masterpiece by Christopher Nolan that explores dreams within dreams, featuring stunning visuals, a complex plot, and exceptional performances, though it can be a bit convoluted at times.\"}",
+        "parsed": {
+          "title": "Inception",
+          "rating": "4.5",
+          "summary": "A mind-bending masterpiece by Christopher Nolan that explores dreams within dreams, featuring stunning visuals, a complex plot, and exceptional performances, though it can be a bit convoluted at times."
+        },
+        "refusal": null
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 49,
+    "completion_tokens": 32,
+    "total_tokens": 264,
+    "prompt_tokens_details": {
+      "text_tokens": 49,
+      "audio_tokens": 0,
+      "image_tokens": 0,
+      "cached_tokens": 7
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 183,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "num_sources_used": 0
+  },
+  "system_fingerprint": "fp_acdceb26fb"
+}

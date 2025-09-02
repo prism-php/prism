@@ -1,0 +1,8 @@
+{
+  "text": "This is a sample transcription with usage data.",
+  "usage": {
+    "prompt_tokens": 5,
+    "completion_tokens": 8,
+    "total_tokens": 13
+  }
+}

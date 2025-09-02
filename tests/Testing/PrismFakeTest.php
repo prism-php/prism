@@ -32,15 +32,14 @@ describe('fake text, structured, and embedding responses', function (): void {
     it('fake responses using the prism fake for text', function (): void {
         $fake = Prism::fake([
             new TextResponse(
-                text: 'The meaning of life is 42',
                 steps: collect([]),
-                responseMessages: collect([]),
-                messages: collect([]),
+                text: 'The meaning of life is 42',
+                finishReason: FinishReason::Stop,
                 toolCalls: [],
                 toolResults: [],
                 usage: new Usage(42, 42),
-                finishReason: FinishReason::Stop,
-                meta: new Meta('cpl_1234', 'claude-3-sonnet')
+                meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+                messages: collect([])
             ),
         ]);
 
@@ -62,10 +61,9 @@ describe('fake text, structured, and embedding responses', function (): void {
             new StructuredResponse(
                 steps: collect([]),
                 text: json_encode(['foo' => 'bar']),
-                responseMessages: collect([]),
                 structured: ['foo' => 'bar'],
-                usage: new Usage(42, 42),
                 finishReason: FinishReason::Stop,
+                usage: new Usage(42, 42),
                 meta: new Meta('cpl_1234', 'claude-3-sonnet'),
                 additionalContent: [],
             ),
@@ -391,14 +389,13 @@ it("throws an exception when it can't runs out of responses", function (): void 
     Prism::fake([
         new TextResponse(
             steps: collect([]),
-            messages: collect([]),
-            responseMessages: collect([]),
             text: 'The meaning of life is 42',
+            finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
             usage: new Usage(42, 42),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('cpl_1234', 'claude-3-sonnet')
+            meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+            messages: collect([])
         ),
     ]);
 
@@ -417,14 +414,13 @@ it('asserts provider config', function (): void {
     $fake = Prism::fake([
         new TextResponse(
             steps: collect([]),
-            messages: collect([]),
-            responseMessages: collect([]),
             text: 'The meaning of life is 42',
+            finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
             usage: new Usage(42, 42),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('cpl_1234', 'claude-3-sonnet')
+            meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+            messages: collect([])
         ),
     ]);
 

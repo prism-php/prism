@@ -13,7 +13,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
@@ -36,9 +36,6 @@ describe('Text generation for Groq', function (): void {
             ->and($response->meta->id)->toBe('chatcmpl-ea37c181-ed35-4bd4-af20-c1fcf203e0d8')
             ->and($response->meta->model)->toBe('llama3-8b-8192')
             ->and($response->text)->toBe(
-                'I am LLaMA, an AI assistant developed by Meta AI.'
-            )
-            ->and($response->responseMessages->first()->content)->toBe(
                 'I am LLaMA, an AI assistant developed by Meta AI.'
             );
     });
@@ -156,7 +153,7 @@ describe('Image support with grok', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/diamond.png'),
                     ],
                 ),
             ])
@@ -172,7 +169,7 @@ describe('Image support with grok', function (): void {
 
             expect($message[1]['image_url']['url'])->toStartWith('data:image/png;base64,');
             expect($message[1]['image_url']['url'])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -189,7 +186,7 @@ describe('Image support with grok', function (): void {
                     'What is this image',
                     additionalContent: [
                         Image::fromBase64(
-                            base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                            base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                             'image/png'
                         ),
                     ],
@@ -207,7 +204,7 @@ describe('Image support with grok', function (): void {
 
             expect($message[1]['image_url']['url'])->toStartWith('data:image/png;base64,');
             expect($message[1]['image_url']['url'])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -217,7 +214,7 @@ describe('Image support with grok', function (): void {
     it('can send images from url', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/text-image-from-url');
 
-        $image = 'https://prismphp.com/storage/dimond.png';
+        $image = 'https://prismphp.com/storage/diamond.png';
 
         Prism::text()
             ->using(Provider::Groq, 'llama-3.2-90b-vision-preview')

@@ -47,7 +47,7 @@ class Embeddings
             Arr::whereNotNull([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
-                'options' => Arr::whereNotNull($request->providerOptions()),
+                'options' => $request->providerOptions() ?: null,
             ])
         );
     }

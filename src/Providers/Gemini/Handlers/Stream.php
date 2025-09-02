@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -93,12 +94,7 @@ class Stream
                     id: data_get($data, 'responseId'),
                     model: data_get($data, 'modelVersion'),
                 ),
-                usage: new Usage(
-                    promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
-                    // completion tokens will grow as more chunks are produced
-                    completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
-                ),
+                usage: $this->extractUsage($data, $request),
             );
         }
     }
@@ -158,32 +154,25 @@ class Stream
         int $depth,
         array $data
     ): Generator {
-        // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        // Call the tools and get results
+        yield new Chunk(
+            text: '',
+            toolCalls: $toolCalls,
+            chunkType: ChunkType::ToolCall,
+        );
+
         $toolResults = $this->callTools($request->tools(), $toolCalls);
+
+        yield new Chunk(
+            text: '',
+            toolResults: $toolResults,
+            chunkType: ChunkType::ToolResult,
+        );
 
         $request->addMessage(new AssistantMessage($text, $toolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        // Yield the tool call chunk
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            toolResults: $toolResults,
-            meta: new Meta(
-                id: data_get($data, 'responseId'),
-                model: data_get($data, 'modelVersion'),
-            ),
-            usage: new Usage(
-                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
-                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
-            ),
-        );
-
-        // Continue the conversation with tool results
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
     }
@@ -198,7 +187,7 @@ class Stream
     {
         return collect($toolCalls)
             ->map(fn ($toolCall): ToolCall => new ToolCall(
-                (string) array_key_exists('id', $toolCall) !== '' && (string) array_key_exists('id', $toolCall) !== '0' ? $toolCall['id'] : 'gm-'.Str::random(20),
+                empty($toolCall['id']) ? 'gm-'.Str::random(20) : $toolCall['id'],
                 data_get($toolCall, 'name'),
                 data_get($toolCall, 'arguments'),
             ))
@@ -219,6 +208,23 @@ class Stream
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function extractUsage(array $data, Request $request): Usage
+    {
+        $providerOptions = $request->providerOptions();
+
+        return new Usage(
+            promptTokens: isset($providerOptions['cachedContentName'])
+                ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
+                : data_get($data, 'usageMetadata.promptTokenCount', 0),
+            completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
+            cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
+            thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+        );
     }
 
     /**

@@ -33,10 +33,10 @@ trait CallsTools
 
                     return new ToolResult(
                         toolCallId: $toolCall->id,
-                        toolCallResultId: $toolCall->resultId,
                         toolName: $toolCall->name,
                         args: $toolCall->arguments(),
                         result: $result,
+                        toolCallResultId: $toolCall->resultId,
                     );
                 } catch (Throwable $e) {
                     if ($e instanceof PrismException) {

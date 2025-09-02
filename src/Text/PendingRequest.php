@@ -17,6 +17,7 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class PendingRequest
@@ -78,7 +79,16 @@ class PendingRequest
         $messages = $this->messages;
 
         if ($this->prompt) {
-            $messages[] = new UserMessage($this->prompt);
+            $messages[] = new UserMessage($this->prompt, $this->additionalContent);
+        }
+
+        $tools = $this->tools;
+
+        if (! $this->toolErrorHandlingEnabled && filled($tools)) {
+            $tools = array_map(
+                callback: fn (Tool $tool): Tool => is_null($tool->failedHandler()) ? $tool : $tool->withoutErrorHandling(),
+                array: $tools
+            );
         }
 
         return new Request(
@@ -87,11 +97,11 @@ class PendingRequest
             systemPrompts: $this->systemPrompts,
             prompt: $this->prompt,
             messages: $messages,
-            temperature: $this->temperature,
-            maxTokens: $this->maxTokens,
             maxSteps: $this->maxSteps,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
             topP: $this->topP,
-            tools: $this->tools,
+            tools: $tools,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,

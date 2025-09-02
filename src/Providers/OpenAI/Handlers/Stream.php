@@ -13,11 +13,13 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -30,7 +32,9 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, ProcessesRateLimits;
+    use BuildsTools;
+    use CallsTools;
+    use ProcessRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -58,6 +62,10 @@ class Stream
 
             if ($data === null) {
                 continue;
+            }
+
+            if ($data['type'] === 'error') {
+                $this->handleErrors($data, $request);
             }
 
             if ($data['type'] === 'response.created') {
@@ -114,13 +122,13 @@ class Stream
             if (data_get($data, 'type') === 'response.completed') {
                 yield new Chunk(
                     text: '',
+                    chunkType: ChunkType::Meta,
                     usage: new Usage(
                         promptTokens: data_get($data, 'response.usage.input_tokens'),
                         completionTokens: data_get($data, 'response.usage.output_tokens'),
                         cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
                         thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
                     ),
-                    chunkType: ChunkType::Meta,
                 );
             }
         }
@@ -368,7 +376,7 @@ class Stream
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'metadata' => $request->providerOptions('metadata'),
-                    'tools' => ToolMap::map($request->tools()),
+                    'tools' => $this->buildTools($request),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     'previous_response_id' => $request->providerOptions('previous_response_id'),
                     'truncation' => $request->providerOptions('truncation'),
@@ -396,5 +404,24 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleErrors(array $data, Request $request): void
+    {
+        $code = data_get($data, 'error.code', 'unknown_error');
+
+        if ($code === 'rate_limit_exceeded') {
+            throw new PrismRateLimitedException([]);
+        }
+
+        throw new PrismException(sprintf(
+            'Sending to model %s failed. Code: %s. Message: %s',
+            $request->model(),
+            $code,
+            data_get($data, 'error.message', 'No error message provided')
+        ));
     }
 }
