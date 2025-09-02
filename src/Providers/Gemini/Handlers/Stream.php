@@ -146,23 +146,15 @@ class Stream
         array $toolCalls,
         int $depth
     ): Generator {
-        // Convert collected tool call data to ToolCall objects
         $toolCalls = $this->mapToolCalls($toolCalls);
 
-        // Call the tools and get results
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
-
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
-
-        // Yield the tool call chunk
         yield new Chunk(
             text: '',
             toolCalls: $toolCalls,
-            toolResults: $toolResults,
             chunkType: ChunkType::ToolCall,
-            usage: $this->extractUsage([], $request),
         );
+
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
         yield new Chunk(
             text: '',
@@ -170,7 +162,9 @@ class Stream
             chunkType: ChunkType::ToolResult,
         );
 
-        // Continue the conversation with tool results
+        $request->addMessage(new AssistantMessage($text, $toolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
+
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
     }

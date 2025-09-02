@@ -165,3 +165,53 @@ it('can generate text stream using tools ', function (): void {
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
         && isset($request->data()['contents']));
 });
+
+it('yields ToolCall chunks before ToolResult chunks', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withTools($tools)
+        ->withMaxSteps(3)
+        ->withPrompt('What\'s the current weather in San Francisco?')
+        ->asStream();
+
+    $chunks = [];
+    $chunkOrder = [];
+
+    foreach ($response as $chunk) {
+        $chunks[] = $chunk;
+        if ($chunk->chunkType === ChunkType::ToolCall) {
+            $chunkOrder[] = 'ToolCall';
+        }
+        if ($chunk->chunkType === ChunkType::ToolResult) {
+            $chunkOrder[] = 'ToolResult';
+        }
+    }
+
+    expect($chunkOrder)
+        ->not->toBeEmpty()
+        ->and($chunkOrder[0])->toBe('ToolCall')
+        ->and($chunkOrder[1])->toBe('ToolResult');
+
+    $toolCallChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolCall);
+    $toolResultChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolResult);
+
+    expect($toolCallChunks)->not->toBeEmpty();
+    expect($toolResultChunks)->not->toBeEmpty();
+
+    $firstToolCall = array_values($toolCallChunks)[0];
+    expect($firstToolCall->toolCalls)->not->toBeEmpty();
+    expect($firstToolCall->toolResults)->toBeEmpty();
+
+    $firstToolResult = array_values($toolResultChunks)[0];
+    expect($firstToolResult->toolCalls)->toBeEmpty();
+    expect($firstToolResult->toolResults)->not->toBeEmpty();
+});
