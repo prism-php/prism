@@ -128,15 +128,20 @@ class MessageMap
         }
 
         if ($message->toolCalls !== []) {
+            $reasoningBlocks = collect($message->toolCalls)
+                ->whereNotNull('reasoningId')
+                ->unique('reasoningId')
+                ->map(fn (ToolCall $toolCall): array => [
+                    'type' => 'reasoning',
+                    'id' => $toolCall->reasoningId,
+                    'summary' => $toolCall->reasoningSummary,
+                ])
+                ->values()
+                ->all();
+
             array_push(
                 $this->mappedMessages,
-                ...array_filter(
-                    array_map(fn (ToolCall $toolCall): ?array => is_null($toolCall->reasoningId) ? null : [
-                        'type' => 'reasoning',
-                        'id' => $toolCall->reasoningId,
-                        'summary' => $toolCall->reasoningSummary,
-                    ], $message->toolCalls)
-                ),
+                ...$reasoningBlocks,
                 ...array_map(fn (ToolCall $toolCall): array => [
                     'id' => $toolCall->id,
                     'call_id' => $toolCall->resultId,
