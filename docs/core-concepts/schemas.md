@@ -6,6 +6,9 @@ Schemas are the blueprints that help you define the shape of your data in Prism.
 
 Let's dive right in with a practical example:
 
+> [!IMPORTANT]
+> **Structured Output Requirement**: When using schemas for structured output with providers like OpenAI (especially in strict mode), the root schema should be an `ObjectSchema`. Other schema types can only be used as properties within an ObjectSchema, not as the top-level schema. Different providers may have varying requirements.
+
 ```php
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\ObjectSchema;
@@ -107,6 +110,9 @@ $statusSchema = new EnumSchema(
 ### ObjectSchema
 
 For complex, nested data structures. The Swiss Army knife of schemas!
+
+> [!NOTE]
+> ObjectSchema is typically required as the root schema for structured output operations with providers like OpenAI. It's the recommended schema type to use directly with `withSchema()` in structured output requests, though different providers may have varying requirements.
 
 ```php
 use Prism\Prism\Schema\ObjectSchema;
