@@ -8,33 +8,21 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
-use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
-use Prism\Prism\Providers\Anthropic\Handlers\Text as AnthropicTextHandler;
+use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\Providers\Anthropic\ValueObjects\StreamState;
-use Prism\Prism\Streaming\Events\ErrorEvent;
-use Prism\Prism\Streaming\Events\StreamEndEvent;
-use Prism\Prism\Streaming\Events\StreamEvent;
-use Prism\Prism\Streaming\Events\StreamStartEvent;
-use Prism\Prism\Streaming\Events\TextCompleteEvent;
-use Prism\Prism\Streaming\Events\TextDeltaEvent;
-use Prism\Prism\Streaming\Events\TextStartEvent;
-use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
-use Prism\Prism\Streaming\Events\ThinkingEvent;
-use Prism\Prism\Streaming\Events\ThinkingStartEvent;
-use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -47,24 +35,13 @@ class Stream
 
     protected StreamState $state;
 
-    protected string $sessionId;
-
-    protected ?string $currentMessageId = null;
-
-    protected ?string $currentReasoningId = null;
-
-    protected bool $textStarted = false;
-
-    protected bool $thinkingStarted = false;
-
     public function __construct(protected PendingRequest $client)
     {
         $this->state = new StreamState;
-        $this->sessionId = 'anthropic_stream_'.Str::random(16);
     }
 
     /**
-     * @return Generator<StreamEvent>
+     * @return Generator<Chunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -78,7 +55,7 @@ class Stream
     }
 
     /**
-     * @return Generator<StreamEvent>
+     * @return Generator<Chunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -86,10 +63,6 @@ class Stream
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
         $this->state->reset();
-        $this->currentMessageId = null;
-        $this->currentReasoningId = null;
-        $this->textStarted = false;
-        $this->thinkingStarted = false;
 
         yield from $this->processStreamChunks($response, $request, $depth);
 
@@ -104,7 +77,7 @@ class Stream
     }
 
     /**
-     * @return Generator<StreamEvent>
+     * @return Generator<Chunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -124,7 +97,7 @@ class Stream
                 yield from $outcome;
             }
 
-            if ($outcome instanceof StreamEvent) {
+            if ($outcome instanceof Chunk) {
                 yield $outcome;
             }
         }
@@ -137,7 +110,7 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function processChunk(array $chunk, Response $response, Request $request, int $depth): Generator|StreamEvent|null
+    protected function processChunk(array $chunk, Response $response, Request $request, int $depth): Generator|Chunk|null
     {
         return match ($chunk['type'] ?? null) {
             'message_start' => $this->handleMessageStart($response, $chunk),
@@ -154,31 +127,29 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleMessageStart(Response $response, array $chunk): StreamStartEvent
+    protected function handleMessageStart(Response $response, array $chunk): Chunk
     {
         $this->state
             ->setModel(data_get($chunk, 'message.model', ''))
             ->setRequestId(data_get($chunk, 'message.id', ''))
             ->setUsage(data_get($chunk, 'message.usage', []));
 
-        $this->currentMessageId = $this->state->requestId();
-
-        return new StreamStartEvent(
-            id: $this->generateEventId(),
-            timestamp: time(),
-            model: $this->state->model(),
-            provider: 'anthropic',
-            metadata: [
-                'request_id' => $this->state->requestId(),
-                'rate_limits' => $this->processRateLimits($response),
-            ]
+        return new Chunk(
+            text: '',
+            finishReason: null,
+            meta: new Meta(
+                id: $this->state->requestId(),
+                model: $this->state->model(),
+                rateLimits: $this->processRateLimits($response)
+            ),
+            chunkType: ChunkType::Meta
         );
     }
 
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleContentBlockStart(array $chunk): ?StreamEvent
+    protected function handleContentBlockStart(array $chunk): null
     {
         $blockType = data_get($chunk, 'content_block.type');
         $blockIndex = (int) data_get($chunk, 'index');
@@ -186,27 +157,6 @@ class Stream
         $this->state
             ->setTempContentBlockType($blockType)
             ->setTempContentBlockIndex($blockIndex);
-
-        if ($blockType === 'text') {
-            $this->textStarted = true;
-
-            return new TextStartEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                messageId: $this->currentMessageId ?? $this->generateEventId()
-            );
-        }
-
-        if ($blockType === 'thinking') {
-            $this->thinkingStarted = true;
-            $this->currentReasoningId = $this->generateEventId();
-
-            return new ThinkingStartEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                reasoningId: $this->currentReasoningId
-            );
-        }
 
         if ($blockType === 'tool_use') {
             $this->state->addToolCall($blockIndex, [
@@ -222,7 +172,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleContentBlockDelta(array $chunk): ?StreamEvent
+    protected function handleContentBlockDelta(array $chunk): ?Chunk
     {
         $deltaType = data_get($chunk, 'delta.type');
         $blockType = $this->state->tempContentBlockType();
@@ -245,39 +195,51 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleTextBlockDelta(array $chunk, ?string $deltaType): ?StreamEvent
+    protected function handleTextBlockDelta(array $chunk, ?string $deltaType): ?Chunk
     {
         if ($deltaType === 'text_delta') {
             $textDelta = $this->extractTextDelta($chunk);
 
             if ($textDelta !== '' && $textDelta !== '0') {
                 $this->state->appendText($textDelta);
+                $additionalContent = $this->buildCitationContent();
 
-                // Handle citations in metadata
-                $metadata = [];
-                if ($this->state->tempCitation() !== null) {
-                    $this->state->addCitation(MessagePartWithCitations::fromContentBlock([
-                        'text' => $this->state->text(),
-                        'citations' => [$this->state->tempCitation()],
-                    ]));
-
-                    $metadata['citation_index'] = count($this->state->citations()) - 1;
-                }
-
-                return new TextDeltaEvent(
-                    id: $this->generateEventId(),
-                    timestamp: time(),
-                    delta: $textDelta,
-                    messageId: $this->currentMessageId ?? $this->generateEventId()
+                return new Chunk(
+                    text: $textDelta,
+                    finishReason: null,
+                    additionalContent: $additionalContent,
+                    chunkType: ChunkType::Text
                 );
             }
         }
 
         if ($deltaType === 'citations_delta') {
-            $this->state->setTempCitation($this->extractCitationsFromChunk($chunk));
+            $this->state->setTempCitation(data_get($chunk, 'delta.citation', null));
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildCitationContent(): array
+    {
+        $additionalContent = [];
+
+        if ($this->state->tempCitation() !== null) {
+            $messagePartWithCitations = CitationsMapper::mapFromAnthropic([
+                'type' => 'text',
+                'text' => $this->state->text(),
+                'citations' => [$this->state->tempCitation()],
+            ]);
+
+            $this->state->addCitation($messagePartWithCitations);
+
+            $additionalContent['citationIndex'] = count($this->state->citations()) - 1;
+        }
+
+        return $additionalContent;
     }
 
     /**
@@ -301,7 +263,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleToolInputDelta(array $chunk): ?StreamEvent
+    protected function handleToolInputDelta(array $chunk): ?Chunk
     {
         $jsonDelta = data_get($chunk, 'delta.partial_json', '');
 
@@ -321,7 +283,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $chunk
      */
-    protected function handleThinkingBlockDelta(array $chunk, ?string $deltaType): ?StreamEvent
+    protected function handleThinkingBlockDelta(array $chunk, ?string $deltaType): ?Chunk
     {
         if ($deltaType === 'thinking_delta') {
             $thinkingDelta = data_get($chunk, 'delta.thinking', '');
@@ -332,11 +294,10 @@ class Stream
 
             $this->state->appendThinking($thinkingDelta);
 
-            return new ThinkingEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                delta: $thinkingDelta,
-                reasoningId: $this->currentReasoningId ?? $this->generateEventId()
+            return new Chunk(
+                text: $thinkingDelta,
+                finishReason: null,
+                chunkType: ChunkType::Thinking
             );
         }
 
@@ -353,36 +314,12 @@ class Stream
         return null;
     }
 
-    protected function handleContentBlockStop(): ?StreamEvent
+    protected function handleContentBlockStop(): ?Chunk
     {
         $blockType = $this->state->tempContentBlockType();
         $blockIndex = $this->state->tempContentBlockIndex();
 
-        $event = null;
-
-        if ($blockType === 'text' && $this->textStarted) {
-            $event = new TextCompleteEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                messageId: $this->currentMessageId ?? $this->generateEventId()
-            );
-            $this->textStarted = false;
-        }
-
-        if ($blockType === 'thinking' && $this->thinkingStarted) {
-            $metadata = [];
-            if ($this->state->thinkingSignature() !== '') {
-                $metadata['signature'] = $this->state->thinkingSignature();
-            }
-
-            $event = new ThinkingCompleteEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                reasoningId: $this->currentReasoningId ?? $this->generateEventId(),
-                summary: $metadata
-            );
-            $this->thinkingStarted = false;
-        }
+        $chunk = null;
 
         if ($blockType === 'tool_use' && $blockIndex !== null && isset($this->state->toolCalls()[$blockIndex])) {
             $toolCallData = $this->state->toolCalls()[$blockIndex];
@@ -395,20 +332,19 @@ class Stream
             $toolCall = new ToolCall(
                 id: data_get($toolCallData, 'id'),
                 name: data_get($toolCallData, 'name'),
-                arguments: $input ?? []
+                arguments: $input
             );
 
-            $event = new ToolCallEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                toolCall: $toolCall,
-                messageId: $this->currentMessageId ?? $this->generateEventId()
+            $chunk = new Chunk(
+                text: '',
+                toolCalls: [$toolCall],
+                chunkType: ChunkType::ToolCall
             );
         }
 
         $this->state->resetContentBlock();
 
-        return $event;
+        return $chunk;
     }
 
     /**
@@ -440,14 +376,20 @@ class Stream
      * @throws PrismException
      * @throws PrismRateLimitedException
      */
-    protected function handleMessageStop(Response $response, Request $request, int $depth): StreamEndEvent
+    protected function handleMessageStop(Response $response, Request $request, int $depth): Generator|Chunk
     {
         $usage = $this->state->usage();
 
-        return new StreamEndEvent(
-            id: $this->generateEventId(),
-            timestamp: time(),
+        return new Chunk(
+            text: '',
             finishReason: FinishReasonMap::map($this->state->stopReason()),
+            meta: new Meta(
+                id: $this->state->requestId(),
+                model: $this->state->model(),
+                rateLimits: $this->processRateLimits($response)
+            ),
+            additionalContent: $this->state->buildAdditionalContent(),
+            chunkType: ChunkType::Meta,
             usage: new Usage(
                 promptTokens: $usage['input_tokens'] ?? 0,
                 completionTokens: $usage['output_tokens'] ?? 0,
@@ -459,7 +401,7 @@ class Stream
     }
 
     /**
-     * @return Generator<StreamEvent>
+     * @return Generator<Chunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -467,11 +409,15 @@ class Stream
      */
     protected function handleToolUseFinish(Request $request, int $depth): Generator
     {
-        // Tool calls have already been yielded in handleContentBlockStop
-        // This method exists for compatibility but doesn't yield additional events
-        if (false) {
-            yield; // Make this a generator but never execute
-        }
+        $mappedToolCalls = $this->mapToolCalls();
+        $additionalContent = $this->state->buildAdditionalContent();
+
+        yield new Chunk(
+            text: '',
+            toolCalls: $mappedToolCalls,
+            finishReason: null,
+            additionalContent: $additionalContent
+        );
     }
 
     /**
@@ -607,7 +553,7 @@ class Stream
     /**
      * @param  array<int, ToolCall>  $toolCalls
      * @param  array<string, mixed>|null  $additionalContent
-     * @return Generator<StreamEvent>
+     * @return Generator<Chunk>
      *
      * @throws PrismChunkDecodeException
      * @throws PrismException
@@ -635,30 +581,12 @@ class Stream
 
                 $toolResults[] = $toolResult;
 
-                yield new ToolResultEvent(
-                    id: $this->generateEventId(),
-                    timestamp: time(),
-                    toolResult: $toolResult,
-                    messageId: $this->currentMessageId ?? $this->generateEventId(),
-                    success: true
+                yield new Chunk(
+                    text: '',
+                    toolResults: [$toolResult],
+                    chunkType: ChunkType::ToolResult
                 );
             } catch (Throwable $e) {
-                $errorToolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: $e->getMessage(),
-                );
-
-                yield new ToolResultEvent(
-                    id: $this->generateEventId(),
-                    timestamp: time(),
-                    toolResult: $errorToolResult,
-                    messageId: $this->currentMessageId ?? $this->generateEventId(),
-                    success: false,
-                    error: $e->getMessage()
-                );
-
                 if ($e instanceof PrismException) {
                     throw $e;
                 }
@@ -710,7 +638,7 @@ class Stream
             ->withOptions(['stream' => true])
             ->post('messages', Arr::whereNotNull([
                 'stream' => true,
-                ...AnthropicTextHandler::buildHttpRequestPayload($request),
+                ...Text::buildHttpRequestPayload($request),
             ]));
     }
 
@@ -737,78 +665,22 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $chunk
-     * @return array<string, mixed>
-     */
-    protected function extractCitationsFromChunk(array $chunk): array
-    {
-        $citation = data_get($chunk, 'delta.citation', null);
-
-        $type = $this->determineCitationType($citation);
-
-        return [
-            'type' => $type,
-            ...$citation,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $citation
-     */
-    protected function determineCitationType(?array $citation): string
-    {
-        if ($citation === null) {
-            throw new InvalidArgumentException('Citation cannot be null.');
-        }
-
-        if (Arr::has($citation, 'start_page_number')) {
-            return 'page_location';
-        }
-
-        if (Arr::has($citation, 'start_char_index')) {
-            return 'char_location';
-        }
-
-        if (Arr::has($citation, 'start_block_index')) {
-            return 'content_block_location';
-        }
-
-        throw new InvalidArgumentException('Citation type could not be detected from signature.');
-    }
-
-    /**
-     * @param  array<string, mixed>  $chunk
      *
      * @throws PrismProviderOverloadedException
      * @throws PrismException
      */
-    protected function handleError(array $chunk): ErrorEvent
+    protected function handleError(array $chunk): void
     {
-        $errorType = data_get($chunk, 'error.type', 'unknown');
-        $errorMessage = data_get($chunk, 'error.message', 'Unknown error occurred');
-
-        if ($errorType === 'overloaded_error') {
-            return new ErrorEvent(
-                id: $this->generateEventId(),
-                timestamp: time(),
-                errorType: 'provider_overloaded',
-                message: $errorMessage,
-                recoverable: true,
-                metadata: ['provider' => 'anthropic']
-            );
+        if (data_get($chunk, 'error.type') === 'overloaded_error') {
+            throw new PrismProviderOverloadedException('Anthropic');
         }
 
-        return new ErrorEvent(
-            id: $this->generateEventId(),
-            timestamp: time(),
-            errorType: $errorType,
-            message: $errorMessage,
-            recoverable: false,
-            metadata: ['provider' => 'anthropic']
-        );
-    }
-
-    protected function generateEventId(): string
-    {
-        return 'anthropic_evt_'.Str::random(16);
+        throw PrismException::providerResponseError(vsprintf(
+            'Anthropic Error: [%s] %s',
+            [
+                data_get($chunk, 'error.type', 'unknown'),
+                data_get($chunk, 'error.message'),
+            ]
+        ));
     }
 }

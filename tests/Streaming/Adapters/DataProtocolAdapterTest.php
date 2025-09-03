@@ -258,7 +258,7 @@ it('formats multiple events with correct data protocol structure', function (): 
 
         // Verify proper Data Protocol format (each line starts with "data: " and ends with newline)
         $lines = explode("\n", trim($capturedOutput));
-        $dataLines = array_filter($lines, fn ($line): bool => str_starts_with($line, 'data: '));
+        $dataLines = array_filter($lines, fn (string $line): bool => str_starts_with($line, 'data: '));
         expect(count($dataLines))->toBeGreaterThanOrEqual(5); // 4 events + [DONE]
 
         foreach ($dataLines as $line) {
