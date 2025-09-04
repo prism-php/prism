@@ -413,3 +413,29 @@ it('sends reasoning effort when defined', function (): void {
 
     Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
 });
+
+it('sends conversation when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-conversation');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'conversation' => 'conv_abc123',
+        ])
+        ->withSchema($schema)
+        ->asStructured();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['conversation'] === 'conv_abc123');
+});

@@ -48,12 +48,19 @@ $response = Prism::structured()
 
 ### Previous Responses
 
-Prism supports OpenAI's [conversation state](https://platform.openai.com/docs/guides/conversation-state#openai-apis-for-conversation-state) with the `previous_response_id` parameter.
+Prism supports OpenAI's [conversation state](https://platform.openai.com/docs/guides/conversation-state#openai-apis-for-conversation-state) with either the `conversation` or the `previous_response_id` parameter.
 
 ```php
 $response = Prism::structured()
     ->withProviderOptions([ // [!code focus]
-        'previous_response_id' => 'response_id' // [!code focus]
+        'conversation' => 'conv_abc123' // [!code focus]
+    ]) // [!code focus]
+```
+
+```php
+$response = Prism::structured()
+    ->withProviderOptions([ // [!code focus]
+        'previous_response_id' => 'resp_abc123' // [!code focus]
     ]) // [!code focus]
 ```
 

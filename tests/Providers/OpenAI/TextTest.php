@@ -448,6 +448,20 @@ it('sends reasoning effort when defined', function (): void {
     Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
 });
 
+it('sends conversation when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-conversation');
+
+    Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Tell me a 3-sentence bedtime story.')
+        ->withProviderOptions([
+            'conversation' => 'conv_abc123',
+        ])
+        ->asText();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['conversation'] === 'conv_abc123');
+});
+
 describe('citations', function (): void {
     it('adds citations to additionalContent on response steps and assistant message for the web search tool', function (): void {
         FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
