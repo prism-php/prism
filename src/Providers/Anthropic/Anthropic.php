@@ -61,6 +61,9 @@ class Anthropic extends Provider
         return $handler->handle();
     }
 
+    /**
+     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     */
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
