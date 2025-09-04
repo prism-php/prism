@@ -39,7 +39,7 @@ class ToolMap
      */
     public static function mapProperties(array $properties): array
     {
-        return Arr::mapWithKeys($properties, fn (Schema $schema, string $name) => [
+        return Arr::mapWithKeys($properties, fn (Schema $schema, string $name): array => [
             $name => (new SchemaMap($schema))->toArray(),
         ]);
     }

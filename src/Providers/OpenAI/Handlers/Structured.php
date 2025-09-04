@@ -104,6 +104,7 @@ class Structured
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
                 'metadata' => $request->providerOptions('metadata'),
+                'conversation' => $request->providerOptions('conversation'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),

@@ -134,7 +134,7 @@ describe('Speech-to-Text', function (): void {
 
         Http::assertSent(function (Request $request): bool {
             $data = collect($request->data())
-                ->flatMap(fn ($content) => [$content['name'] => $content['contents']])
+                ->flatMap(fn ($content): array => [$content['name'] => $content['contents']])
                 ->toArray();
 
             return $data['language_code'] === 'es'

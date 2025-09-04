@@ -132,6 +132,7 @@ class Text
                 'metadata' => $request->providerOptions('metadata'),
                 'tools' => $this->buildTools($request),
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'conversation' => $request->providerOptions('conversation'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),

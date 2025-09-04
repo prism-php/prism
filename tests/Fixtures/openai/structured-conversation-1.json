@@ -1,0 +1,85 @@
+{
+    "id": "resp_68ba1008a17481959a76d0d17c72e06d051fbc5e5c8d680a",
+    "object": "response",
+    "created_at": 1757024264,
+    "status": "completed",
+    "background": false,
+    "conversation": {
+        "id": "conv_68ba1008458c8195a272b1a5e303283d051fbc5e5c8d680a"
+    },
+    "error": null,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": null,
+    "max_tool_calls": null,
+    "model": "gpt-4.1-2025-04-14",
+    "output": [
+        {
+            "id": "msg_68ba10097b2481958998143f9956a003051fbc5e5c8d680a",
+            "type": "message",
+            "status": "completed",
+            "content": [
+                {
+                    "type": "output_text",
+                    "annotations": [],
+                    "logprobs": [],
+                    "text": "{\"steps\":[\"Once upon a time, three clever pigs built cozy houses in a peaceful forest, each choosing a different style: straw, sticks, and sturdy bricks.\",\"One blustery night, a curious wolf politely knocked on their doors, just wanting to join in a friendly game of cards.\",\"By the next morning, everyone was laughing together, discovering that friendship was much stronger than fear.\"]}"
+                }
+            ],
+            "role": "assistant"
+        }
+    ],
+    "parallel_tool_calls": true,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "reasoning": {
+        "effort": null,
+        "summary": null
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": true,
+    "temperature": 1.0,
+    "text": {
+        "format": {
+            "type": "json_schema",
+            "description": null,
+            "name": "story",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "steps"
+                ],
+                "additionalProperties": false
+            },
+            "strict": true
+        },
+        "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tools": [],
+    "top_logprobs": 0,
+    "top_p": 1.0,
+    "truncation": "disabled",
+    "usage": {
+        "input_tokens": 57,
+        "input_tokens_details": {
+            "cached_tokens": 0
+        },
+        "output_tokens": 81,
+        "output_tokens_details": {
+            "reasoning_tokens": 0
+        },
+        "total_tokens": 138
+    },
+    "user": null,
+    "metadata": {}
+}
