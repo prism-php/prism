@@ -74,7 +74,7 @@ class Text
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
-            FinishReason::Length => throw new PrismException('OpenAI: max tokens excceded'),
+            FinishReason::Length => throw new PrismException('OpenAI: max tokens exceeded'),
             default => throw new PrismException('OpenAI: unknown finish reason'),
         };
     }
