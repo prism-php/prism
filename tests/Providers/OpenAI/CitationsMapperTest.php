@@ -97,3 +97,31 @@ it('maps back to OpenAI format', function (): void {
 
     expect($roundTripResult)->toEqual($originalData);
 });
+
+it('maps OpenAI file citations to Prism format', function (): void {
+    $contentBlock = [
+        'type' => 'output_text',
+        'text' => 'On March 6, 2025, several news sources reported...',
+        'annotations' => [
+            [
+                'type' => 'file_citation',
+                'index' => 1176,
+                'file_id' => 'file-2dtbBZdjtDKS8eqWxqbgDi',
+                'filename' => 'deep_research_blog.pdf',
+            ],
+        ],
+    ];
+
+    $messagePartWithCitations = CitationsMapper::mapFromOpenAI($contentBlock);
+
+    expect($messagePartWithCitations)->toBeInstanceOf(MessagePartWithCitations::class);
+    expect($messagePartWithCitations->outputText)->toBe('On March 6, 2025, several news sources reported...');
+    expect($messagePartWithCitations->citations)->toHaveCount(1);
+
+    $citation = $messagePartWithCitations->citations[0];
+
+    expect($citation)->toBeInstanceOf(Citation::class);
+    expect($citation->sourceType)->toBe(CitationSourceType::Document);
+    expect($citation->source)->toBe('deep_research_blog.pdf:1176');
+    expect($citation->sourceTitle)->toBeNull;
+});

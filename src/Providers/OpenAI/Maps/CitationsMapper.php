@@ -67,6 +67,7 @@ class CitationsMapper
     protected static function mapSourceType(string $openaiType): CitationSourceType
     {
         return match ($openaiType) {
+            'file_citation' => CitationSourceType::Document,
             'url_citation' => CitationSourceType::Url,
             default => throw new InvalidArgumentException("Unknown citation source type: {$openaiType}"),
         };
@@ -77,11 +78,13 @@ class CitationsMapper
      */
     protected static function mapSource(array $citationData, CitationSourceType $sourceType): string|int
     {
-        if ($sourceType === CitationSourceType::Url) {
-            return $citationData['url'] ?? '';
+        if ($sourceType === CitationSourceType::Document) {
+            return isset($citationData['filename'], $citationData['index'])
+                ? $citationData['filename'].':'.$citationData['index']
+                : $citationData['filename'] ?? '';
         }
 
-        throw new InvalidArgumentException('Unknown source type.');
+        return $citationData['url'] ?? '';
     }
 
     /**
