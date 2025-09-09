@@ -34,7 +34,7 @@ class SchemaMap
                     ? (new self($this->schema->items))->toArray()
                     : null,
                 'properties' => $this->schema instanceof ObjectSchema && property_exists($this->schema, 'properties')
-                    ? array_reduce($this->schema->properties, function (array $carry, Schema $property) {
+                    ? array_reduce($this->schema->properties, function (array $carry, Schema $property): array {
                         // Use property name as the key, but do NOT include "name" inside the value
                         $carry[$property->name()] = (new self($property))->toArray();
 
