@@ -105,6 +105,7 @@ class Structured
             'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
+            'mcp_servers' => $request->providerOptions('mcp_servers'),
         ]);
 
         return $structuredStrategy->mutatePayload($basePayload);

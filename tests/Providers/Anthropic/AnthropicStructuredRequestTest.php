@@ -248,6 +248,49 @@ it('sends correct thinking mode in payload', function (): void {
     });
 });
 
+it('sends correct mcp_servers', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured');
+
+    $schema = new ObjectSchema(
+        'simple',
+        'Simple object',
+        [
+            'data' => new StringSchema('data', 'Some data'),
+        ],
+        ['data']
+    );
+
+    Prism::structured()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Generate simple data')])
+        ->withSchema($schema)
+        ->withProviderOptions([
+            'mcp_servers' => [
+                [
+                    'name' => 'external-mcp',
+                    'type' => 'url',
+                    'url' => 'https://mcp-server.co/mcp',
+                ],
+            ],
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->toHaveKey('mcp_servers');
+        expect($payload['mcp_servers'])->toBe([
+            [
+                'name' => 'external-mcp',
+                'type' => 'url',
+                'url' => 'https://mcp-server.co/mcp',
+            ],
+        ]);
+
+        return true;
+    });
+});
+
 it('omits null values from payload', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured');
 
@@ -273,6 +316,7 @@ it('omits null values from payload', function (): void {
         expect($payload)->not->toHaveKey('thinking');
         expect($payload)->not->toHaveKey('temperature');
         expect($payload)->not->toHaveKey('top_p');
+        expect($payload)->not->toHaveKey('mcp_servers');
 
         return true;
     });
