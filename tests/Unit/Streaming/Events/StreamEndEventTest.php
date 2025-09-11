@@ -63,6 +63,7 @@ it('converts to array without usage', function (): void {
         'timestamp' => 1640995200,
         'finish_reason' => 'ContentFilter',
         'usage' => null,
+        'citations' => null,
     ]);
 });
 
@@ -95,6 +96,7 @@ it('converts to array with complete usage information', function (): void {
             'cache_read_input_tokens' => 10,
             'thought_tokens' => 5,
         ],
+        'citations' => null,
     ]);
 });
 
@@ -124,6 +126,7 @@ it('converts to array with partial usage information', function (): void {
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
         ],
+        'citations' => null,
     ]);
 });
 

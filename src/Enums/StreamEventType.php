@@ -15,6 +15,7 @@ enum StreamEventType: string
     case ThinkingComplete = 'thinking_complete';
     case ToolCall = 'tool_call';
     case ToolResult = 'tool_result';
+    case Citation = 'citation';
     case Error = 'error';
     case StreamEnd = 'stream_end';
 }
