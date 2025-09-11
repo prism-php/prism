@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Enums;
 
-enum FinishReason
+enum FinishReason: string
 {
-    case Stop;
-    case Length;
-    case ContentFilter;
-    case ToolCalls;
-    case Error;
-    case Other;
-    case Unknown;
+    case Stop = 'stop';
+    case Length = 'length';
+    case ContentFilter = 'content-filter';
+    case ToolCalls = 'tool-calls';
+    case Error = 'error';
+    case Other = 'other';
+    case Unknown = 'unknown';
 }

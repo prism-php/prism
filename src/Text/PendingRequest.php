@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Text;
 
 use Generator;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresGeneration;
@@ -17,8 +18,12 @@ use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
+use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
+use Prism\Prism\Streaming\Adapters\SSEAdapter;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PendingRequest
 {
@@ -53,7 +58,7 @@ class PendingRequest
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
      */
     public function asStream(): Generator
     {
@@ -68,6 +73,24 @@ class PendingRequest
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
+    }
+
+    public function asDataStreamResponse(): StreamedResponse
+    {
+        return (new DataProtocolAdapter)($this->asStream());
+    }
+
+    public function asEventStreamResponse(): StreamedResponse
+    {
+        return (new SSEAdapter)($this->asStream());
+    }
+
+    /**
+     * @param  Channel|Channel[]  $channels
+     */
+    public function asBroadcast(Channel|array $channels): void
+    {
+        (new BroadcastAdapter($channels))($this->asStream());
     }
 
     public function toRequest(): Request

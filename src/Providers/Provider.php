@@ -18,9 +18,9 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 
@@ -57,7 +57,7 @@ abstract class Provider
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     public function stream(TextRequest $request): Generator
     {

@@ -6,10 +6,15 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -26,51 +31,39 @@ it('can generate text stream with a basic prompt', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-
-    $responseId = null;
+    $events = [];
     $model = null;
 
-    foreach ($response as $chunk) {
-        if ($chunk->meta) {
-            $responseId = $chunk->meta?->id;
-            $model = $chunk->meta?->model;
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof StreamStartEvent) {
+            $model = $event->model;
         }
 
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
-
-        // Verify usage information for each chunk
-        expect($chunk->usage)->not->toBeNull()
-            ->and($chunk->usage->promptTokens)->toBeGreaterThanOrEqual(0)
-            ->and($chunk->usage->completionTokens)->toBeGreaterThanOrEqual(0);
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
     }
 
-    expect($chunks[0]->usage)
-        ->not
-        ->toBeNull()
-        ->and($chunks[0]->usage->promptTokens)
-        ->toBeGreaterThan(0)
-        ->and($chunks[0]->usage->promptTokens)
-        ->toEqual(last($chunks)->usage->promptTokens);
+    expect($events)->not->toBeEmpty();
+    expect($text)->not->toBeEmpty();
 
-    expect($responseId)
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
+
+    expect($model)->toEqual($origModel);
+
+    expect($text)->toContain(
+        'AI? It\'s simple! We just feed a computer a HUGE pile of information, tell it to find patterns, and then it pretends to be smart! Like teaching a parrot to say cool things. Mostly magic, though.'
+    );
+
+    // Verify usage information in the final event
+    expect($lastEvent->usage)
         ->not->toBeNull()
-        ->not->toBeEmpty();
-
-    expect($model)
-        ->toEqual($origModel);
-
-    expect($chunks)
-        ->not->toBeEmpty()
-        ->and($text)->not->toBeEmpty()
-        ->and($text)->toContain(
-            'AI? It\'s simple! We just feed a computer a HUGE pile of information, tell it to find patterns, and then it pretends to be smart! Like teaching a parrot to say cool things. Mostly magic, though.'
-        )
-        ->and($chunks[0]->usage->promptTokens)->toBe(21)
-        ->and($chunks[0]->usage->completionTokens)->toBe(0)
-        ->and($chunks[3]->usage->promptTokens)->toBe(21)  // Last chunk
-        ->and($chunks[3]->usage->completionTokens)->toBe(47);  // Completion tokens in last chunk
+        ->and($lastEvent->usage->promptTokens)->toBe(21)
+        ->and($lastEvent->usage->completionTokens)->toBe(47);
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
@@ -88,25 +81,25 @@ it('can generate text stream using searchGrounding', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
+    $toolCalls = [];
     $toolResults = [];
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->toolCalls !== []) {
-            expect($chunk->toolCalls[0]->name)->not
-                ->toBeEmpty()
-                ->and($chunk->toolCalls[0]->arguments())->toBeArray();
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
         }
 
-        if ($chunk->toolResults !== []) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        if ($event instanceof ToolCallEvent) {
+            $toolCalls[] = $event->toolCall;
+            expect($event->toolCall->name)->not->toBeEmpty();
         }
 
-        expect($chunk->meta)->not->toBeNull();
-
-        $text .= $chunk->text;
+        if ($event instanceof ToolResultEvent) {
+            $toolResults[] = $event->toolResult;
+        }
     }
 
     // Verify that the request was sent with the correct tools configuration
@@ -127,12 +120,13 @@ it('can generate text stream using searchGrounding', function (): void {
         return $endpointCorrect && $hasGoogleSearch && $toolsConfigCorrect;
     });
 
-    expect($chunks)
-        ->not->toBeEmpty()
-        ->and($chunks)->not->toBeEmpty()
-        ->and($text)->toContain('The current weather in San Francisco is cloudy with a temperature of 56°F (13°C), and it feels like 54°F (12°C). There\'s a 0% chance of rain currently, though light rain is forecast for today and tonight with a 20% chance.')
-        ->and($chunks[0]->usage->promptTokens)->toBe(22)
-        ->and($chunks[0]->usage->completionTokens)->toBe(27);
+    expect($events)->not->toBeEmpty();
+    expect($text)->toContain('The current weather in San Francisco is cloudy with a temperature of 56°F (13°C), and it feels like 54°F (12°C). There\'s a 0% chance of rain currently, though light rain is forecast for today and tonight with a 20% chance.');
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->usage->promptTokens)->toBe(22);
+    expect($lastEvent->usage->completionTokens)->toBe(161);
 });
 
 it('can generate text stream using tools ', function (): void {
@@ -158,42 +152,47 @@ it('can generate text stream using tools ', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
     $toolCalls = [];
     $toolResults = [];
-    $meta = null;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        expect($chunk->meta)->not->toBeNull();
-        $text .= $chunk->text;
-        if ($chunk->chunkType === ChunkType::ToolCall) {
-            $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
         }
-        if ($chunk->chunkType === ChunkType::ToolResult) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+
+        if ($event instanceof ToolCallEvent) {
+            $toolCalls[] = $event->toolCall;
         }
-        dump($chunk);
+
+        if ($event instanceof ToolResultEvent) {
+            $toolResults[] = $event->toolResult;
+        }
     }
 
-    expect($chunks)
+    expect($events)
         ->not->toBeEmpty()
         ->and($text)->not->toBeEmpty()
         ->and($toolCalls)->not->toBeEmpty()
         ->and($toolCalls[0]->name)->toBe('weather')
         ->and($toolCalls[0]->arguments())->toBe(['city' => 'San Francisco'])
         ->and($toolResults)->not->toBeEmpty()
-        ->and($toolResults[0]->result)->toBe('The weather will be 75° and sunny in San Francisco')
-        ->and($text)->toContain('It is 75° and sunny in San Francisco, so you likely do not need to wear a coat.')
-        ->and(last($chunks)->usage->promptTokens)->toBe(159)
-        ->and(last($chunks)->usage->completionTokens)->toBe(22);
+        ->and($toolResults[0]->result)->toBe(['result' => 'The weather will be 75° and sunny in San Francisco'])
+        ->and($text)->toContain('It is 75° and sunny in San Francisco, so you likely do not need to wear a coat.');
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->usage->promptTokens)->toBe(159);
+    expect($lastEvent->usage->completionTokens)->toBe(22);
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
         && isset($request->data()['contents']));
 });
 
-it('yields ToolCall chunks before ToolResult chunks', function (): void {
+it('yields ToolCall events before ToolResult events', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
 
     $tools = [
@@ -210,35 +209,35 @@ it('yields ToolCall chunks before ToolResult chunks', function (): void {
         ->withPrompt('What\'s the current weather in San Francisco?')
         ->asStream();
 
-    $chunks = [];
-    $chunkOrder = [];
+    $events = [];
+    $eventOrder = [];
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        if ($chunk->chunkType === ChunkType::ToolCall) {
-            $chunkOrder[] = 'ToolCall';
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof ToolCallEvent) {
+            $eventOrder[] = 'ToolCall';
         }
-        if ($chunk->chunkType === ChunkType::ToolResult) {
-            $chunkOrder[] = 'ToolResult';
+
+        if ($event instanceof ToolResultEvent) {
+            $eventOrder[] = 'ToolResult';
         }
     }
 
-    expect($chunkOrder)
+    expect($eventOrder)
         ->not->toBeEmpty()
-        ->and($chunkOrder[0])->toBe('ToolCall')
-        ->and($chunkOrder[1])->toBe('ToolResult');
+        ->and($eventOrder[0])->toBe('ToolCall')
+        ->and($eventOrder[1])->toBe('ToolResult');
 
-    $toolCallChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolCall);
-    $toolResultChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolResult);
+    $toolCallEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolCallEvent);
+    $toolResultEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolResultEvent);
 
-    expect($toolCallChunks)->not->toBeEmpty();
-    expect($toolResultChunks)->not->toBeEmpty();
+    expect($toolCallEvents)->not->toBeEmpty();
+    expect($toolResultEvents)->not->toBeEmpty();
 
-    $firstToolCall = array_values($toolCallChunks)[0];
-    expect($firstToolCall->toolCalls)->not->toBeEmpty();
-    expect($firstToolCall->toolResults)->toBeEmpty();
+    $firstToolCallEvent = array_values($toolCallEvents)[0];
+    expect($firstToolCallEvent->toolCall)->not->toBeNull();
 
-    $firstToolResult = array_values($toolResultChunks)[0];
-    expect($firstToolResult->toolCalls)->toBeEmpty();
-    expect($firstToolResult->toolResults)->not->toBeEmpty();
+    $firstToolResultEvent = array_values($toolResultEvents)[0];
+    expect($firstToolResultEvent->toolResult)->not->toBeNull();
 });

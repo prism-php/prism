@@ -11,12 +11,12 @@ class FinishReasonMap
     public static function map(?string $reason): FinishReason
     {
         return match ($reason) {
-            'stop', => FinishReason::Stop,
+            'stop' => FinishReason::Stop,
             'tool_calls' => FinishReason::ToolCalls,
             'length' => FinishReason::Length,
             'content_filter' => FinishReason::ContentFilter,
-            null => FinishReason::Other,
-            default => FinishReason::Unknown,
+            null => FinishReason::Unknown,
+            default => FinishReason::Other,
         };
     }
 }

@@ -11,6 +11,10 @@ use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -27,19 +31,26 @@ it('can generate text with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
     }
 
-    expect($chunks)
+    expect($events)
         ->not->toBeEmpty()
         ->and($text)->not->toBeEmpty()
         ->and($text)->toContain(
             'Hello! I\'m Groq AI, your incredibly fast and efficient AI assistant. I\'m here to help you with any questions you might have. How can I assist you today?'
         );
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
 });
 
 it('can generate text using tools with streaming', function (): void {
@@ -67,33 +78,39 @@ it('can generate text using tools with streaming', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-    $toolResults = [];
+    $events = [];
+    $toolCallEvents = [];
+    $toolResultEvents = [];
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->toolCalls !== []) {
-            expect($chunk->toolCalls[0]->name)
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
+            expect($event->toolCall->name)
                 ->toBeString()
-                ->and($chunk->toolCalls[0]->name)->not
+                ->and($event->toolCall->name)->not
                 ->toBeEmpty()
-                ->and($chunk->toolCalls[0]->arguments())->toBeArray();
+                ->and($event->toolCall->arguments())->toBeArray();
         }
 
-        if ($chunk->toolResults !== []) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        if ($event instanceof ToolResultEvent) {
+            $toolResultEvents[] = $event;
         }
 
-        if ($chunk->finishReason !== null) {
-            expect($chunk->finishReason)->toBeInstanceOf(FinishReason::class);
+        if ($event instanceof StreamEndEvent) {
+            expect($event->finishReason)->toBeInstanceOf(FinishReason::class);
         }
-
-        $text .= $chunk->text;
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
+    expect($toolCallEvents)->not->toBeEmpty();
+    expect($toolResultEvents)->not->toBeEmpty();
 });
 
 it('handles maximum tool call depth exceeded', function (): void {
@@ -221,7 +238,7 @@ it('verifies correct request structure for streaming', function (): void {
     });
 });
 
-it('can handle chunk types correctly', function (): void {
+it('can handle event types correctly', function (): void {
     FixtureResponse::fakeStreamResponses('openai/v1/chat/completions', 'groq/stream-with-tools');
 
     $tools = [
@@ -242,30 +259,27 @@ it('can handle chunk types correctly', function (): void {
         ->withPrompt('Get weather for Detroit')
         ->asStream();
 
-    $hasToolCallChunk = false;
-    $hasToolResultChunk = false;
-    $hasTextChunk = false;
+    $hasToolCallEvent = false;
+    $hasToolResultEvent = false;
+    $hasTextEvent = false;
 
-    foreach ($response as $chunk) {
-        if ($chunk->chunkType !== null) {
-            switch ($chunk->chunkType) {
-                case \Prism\Prism\Enums\ChunkType::ToolCall:
-                    $hasToolCallChunk = true;
-                    break;
-                case \Prism\Prism\Enums\ChunkType::ToolResult:
-                    $hasToolResultChunk = true;
-                    break;
-            }
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $hasToolCallEvent = true;
         }
 
-        if ($chunk->text !== '') {
-            $hasTextChunk = true;
+        if ($event instanceof ToolResultEvent) {
+            $hasToolResultEvent = true;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $hasTextEvent = true;
         }
     }
 
-    expect($hasToolCallChunk)->toBe(true);
-    expect($hasToolResultChunk)->toBe(true);
-    expect($hasTextChunk)->toBe(true);
+    expect($hasToolCallEvent)->toBe(true);
+    expect($hasToolResultEvent)->toBe(true);
+    expect($hasTextEvent)->toBe(true);
 });
 
 it('handles rate limiting correctly', function (): void {
@@ -322,4 +336,26 @@ it('handles empty stream response correctly', function (): void {
 
     expect($chunks)->toBeArray();
     // Should be empty since only [DONE] was sent
+});
+
+it('includes correct token counts in StreamEndEvent', function (): void {
+    FixtureResponse::fakeStreamResponses('openai/v1/chat/completions', 'groq/stream-basic-text');
+
+    $response = Prism::text()
+        ->using(Provider::Groq, 'llama-3.1-70b-versatile')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $streamEndEvent = null;
+
+    foreach ($response as $event) {
+        if ($event instanceof StreamEndEvent) {
+            $streamEndEvent = $event;
+        }
+    }
+
+    expect($streamEndEvent)->not->toBeNull();
+    expect($streamEndEvent->usage)->not->toBeNull();
+    expect($streamEndEvent->usage->promptTokens)->toBe(7);
+    expect($streamEndEvent->usage->completionTokens)->toBe(50);
 });
