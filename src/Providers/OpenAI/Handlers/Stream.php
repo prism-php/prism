@@ -19,6 +19,7 @@ use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
+use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -61,7 +62,7 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
-        $messageId = $this->generateEventId();
+        $messageId = EventID::generate();
         $text = '';
         $toolCalls = [];
         $reasoningItems = [];
@@ -94,7 +95,7 @@ class Stream
 
             if ($data['type'] === 'response.created' && ! $streamStarted) {
                 yield new StreamStartEvent(
-                    id: $this->generateEventId(),
+                    id: EventID::generate(),
                     timestamp: time(),
                     model: $data['response']['model'] ?? 'unknown',
                     provider: 'openai',
@@ -110,16 +111,16 @@ class Stream
 
                 if ($reasoningDelta !== '') {
                     if ($currentReasoningId === null) {
-                        $currentReasoningId = $this->generateEventId();
+                        $currentReasoningId = EventID::generate();
                         yield new ThinkingStartEvent(
-                            id: $this->generateEventId(),
+                            id: EventID::generate(),
                             timestamp: time(),
                             reasoningId: $currentReasoningId
                         );
                     }
 
                     yield new ThinkingEvent(
-                        id: $this->generateEventId(),
+                        id: EventID::generate(),
                         timestamp: time(),
                         delta: $reasoningDelta,
                         reasoningId: $currentReasoningId
@@ -134,7 +135,7 @@ class Stream
 
                 if ($currentReasoningId !== null) {
                     yield new ThinkingCompleteEvent(
-                        id: $this->generateEventId(),
+                        id: EventID::generate(),
                         timestamp: time(),
                         reasoningId: $currentReasoningId
                     );
@@ -151,7 +152,7 @@ class Stream
                     $completedToolCall = $this->getCompletedToolCall($data, $toolCalls);
                     if ($completedToolCall instanceof \Prism\Prism\ValueObjects\ToolCall) {
                         yield new ToolCallEvent(
-                            id: $this->generateEventId(),
+                            id: EventID::generate(),
                             timestamp: time(),
                             toolCall: $completedToolCall,
                             messageId: $messageId
@@ -167,7 +168,7 @@ class Stream
             if ($content !== '') {
                 if (! $textStarted) {
                     yield new TextStartEvent(
-                        id: $this->generateEventId(),
+                        id: EventID::generate(),
                         timestamp: time(),
                         messageId: $messageId
                     );
@@ -177,7 +178,7 @@ class Stream
                 $text .= $content;
 
                 yield new TextDeltaEvent(
-                    id: $this->generateEventId(),
+                    id: EventID::generate(),
                     timestamp: time(),
                     delta: $content,
                     messageId: $messageId
@@ -186,7 +187,7 @@ class Stream
 
             if (data_get($data, 'type') === 'response.output_text.done' && $textStarted) {
                 yield new TextCompleteEvent(
-                    id: $this->generateEventId(),
+                    id: EventID::generate(),
                     timestamp: time(),
                     messageId: $messageId
                 );
@@ -194,7 +195,7 @@ class Stream
 
             if (data_get($data, 'type') === 'response.completed') {
                 yield new StreamEndEvent(
-                    id: $this->generateEventId(),
+                    id: EventID::generate(),
                     timestamp: time(),
                     finishReason: $this->mapFinishReason($data),
                     usage: new Usage(
@@ -300,10 +301,10 @@ class Stream
 
         foreach ($toolResults as $result) {
             yield new ToolResultEvent(
-                id: $this->generateEventId(),
+                id: EventID::generate(),
                 timestamp: time(),
                 toolResult: $result,
-                messageId: $this->generateEventId()
+                messageId: EventID::generate()
             );
         }
 
@@ -394,11 +395,6 @@ class Stream
         $lastOutputType = data_get($data, 'response.output.{last}.type');
 
         return FinishReasonMap::map($eventType, $lastOutputType);
-    }
-
-    protected function generateEventId(): string
-    {
-        return sprintf('evt_', (string) Str::ulid());
     }
 
     /**
