@@ -8,11 +8,11 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
+use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -132,7 +132,7 @@ class Stream
     protected function handleMessageStart(array $event): StreamStartEvent
     {
         $message = $event['message'] ?? [];
-        $this->messageId = $message['id'] ?? $this->generateEventId();
+        $this->messageId = $message['id'] ?? EventID::generate();
 
         // Capture initial usage data
         $usageData = $message['usage'] ?? [];
@@ -146,7 +146,7 @@ class Stream
         }
 
         return new StreamStartEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             model: $message['model'] ?? 'unknown',
             provider: 'anthropic'
@@ -164,7 +164,7 @@ class Stream
 
         return match ($this->currentBlockType) {
             'text' => new TextStartEvent(
-                id: $this->generateEventId(),
+                id: EventID::generate(),
                 timestamp: time(),
                 messageId: $this->messageId
             ),
@@ -199,12 +199,12 @@ class Stream
     {
         $result = match ($this->currentBlockType) {
             'text' => new TextCompleteEvent(
-                id: $this->generateEventId(),
+                id: EventID::generate(),
                 timestamp: time(),
                 messageId: $this->messageId
             ),
             'thinking' => new ThinkingCompleteEvent(
-                id: $this->generateEventId(),
+                id: EventID::generate(),
                 timestamp: time(),
                 reasoningId: $this->reasoningId
             ),
@@ -243,7 +243,7 @@ class Stream
     protected function handleMessageStop(array $event): StreamEndEvent
     {
         return new StreamEndEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             finishReason: FinishReason::Stop, // Default, will be updated by message_delta
             usage: $this->usage,
@@ -257,7 +257,7 @@ class Stream
     protected function handleError(array $event): ErrorEvent
     {
         return new ErrorEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             errorType: $event['error']['type'] ?? 'unknown_error',
             message: $event['error']['message'] ?? 'Unknown error occurred',
@@ -267,10 +267,10 @@ class Stream
 
     protected function handleThinkingStart(): ThinkingStartEvent
     {
-        $this->reasoningId = $this->generateEventId();
+        $this->reasoningId = EventID::generate();
 
         return new ThinkingStartEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             reasoningId: $this->reasoningId
         );
@@ -290,7 +290,7 @@ class Stream
         $this->currentText .= $text;
 
         return new TextDeltaEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             delta: $text,
             messageId: $this->messageId
@@ -321,7 +321,7 @@ class Stream
         $this->citations[] = $messagePartWithCitations;
 
         return new CitationEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             citation: $citation,
             messageId: $this->messageId,
@@ -343,7 +343,7 @@ class Stream
         $this->currentThinking .= $thinking;
 
         return new ThinkingEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             delta: $thinking,
             reasoningId: $this->reasoningId
@@ -367,7 +367,7 @@ class Stream
     {
         if ($this->currentBlockIndex !== null) {
             $this->toolCalls[$this->currentBlockIndex] = [
-                'id' => $contentBlock['id'] ?? $this->generateEventId(),
+                'id' => $contentBlock['id'] ?? EventID::generate(),
                 'name' => $contentBlock['name'] ?? 'unknown',
                 'input' => '',
             ];
@@ -417,7 +417,7 @@ class Stream
         );
 
         return new ToolCallEvent(
-            id: $this->generateEventId(),
+            id: EventID::generate(),
             timestamp: time(),
             toolCall: $toolCallObj,
             messageId: $this->messageId
@@ -473,7 +473,7 @@ class Stream
                 );
 
                 yield new ToolResultEvent(
-                    id: $this->generateEventId(),
+                    id: EventID::generate(),
                     timestamp: time(),
                     toolResult: $resultObj,
                     messageId: $this->messageId,
@@ -488,7 +488,7 @@ class Stream
                 );
 
                 yield new ToolResultEvent(
-                    id: $this->generateEventId(),
+                    id: EventID::generate(),
                     timestamp: time(),
                     toolResult: $errorResultObj,
                     messageId: $this->messageId,
@@ -630,11 +630,6 @@ class Stream
                 'stream' => true,
                 ...Text::buildHttpRequestPayload($request),
             ]));
-    }
-
-    protected function generateEventId(): string
-    {
-        return 'evt_'.Str::random(16);
     }
 
     protected function resetState(): void
