@@ -216,4 +216,4 @@ test('can generate images', function () {
 });
 ```
 
-Need help with a specific provider or use case? Check the [openai documentation](/providers/openai) or [gemini documentation](/providers/gemini/) for detailed configuration options and examples.
+Need help with a specific provider or use case? Check the [openai documentation](/providers/openai) or [gemini documentation](/providers/gemini) for detailed configuration options and examples.
