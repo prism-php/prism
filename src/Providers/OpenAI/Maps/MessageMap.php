@@ -68,10 +68,18 @@ class MessageMap
     protected function mapToolResultMessage(ToolResultMessage $message): void
     {
         foreach ($message->toolResults as $toolResult) {
+            $output = $toolResult->result;
+            if (! is_string($output)) {
+                $output = is_array($output) ? json_encode(
+                    $output,
+                    JSON_THROW_ON_ERROR,
+                ) : strval($output);
+            }
+
             $this->mappedMessages[] = [
                 'type' => 'function_call_output',
                 'call_id' => $toolResult->toolCallResultId,
-                'output' => $toolResult->result,
+                'output' => $output,
             ];
         }
     }

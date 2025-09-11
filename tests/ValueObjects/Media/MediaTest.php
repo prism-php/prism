@@ -153,6 +153,16 @@ describe('conversion', function (): void {
         expect($media->rawContent())->toBe(file_get_contents('tests/Fixtures/diamond.png'));
     });
 
+    it('converts url to a resource', function (): void {
+        Http::fake([
+            'https://prismphp.com/storage/diamond.png' => Http::response(file_get_contents('tests/Fixtures/diamond.png')),
+        ])->preventStrayRequests();
+
+        $media = Media::fromUrl('https://prismphp.com/storage/diamond.png');
+
+        expect($media->resource())->toBeResource();
+    });
+
     it('converts base64 to rawContent', function (): void {
         $media = Media::fromBase64(base64_encode('content'), 'text/plain');
 

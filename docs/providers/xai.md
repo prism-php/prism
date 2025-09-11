@@ -57,6 +57,9 @@ foreach ($stream as $chunk) {
 
 xAI supports structured output through JSON schema validation. The following models support structured output:
 
+> [!NOTE]
+> xAI uses an OpenAI-compatible API. For strict schema validation, the root schema should be an `ObjectSchema`.
+
 - `grok-3`
 - `grok-4`
 

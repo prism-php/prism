@@ -94,6 +94,7 @@ class Text
             'top_p' => $request->topP(),
             'tools' => static::buildTools($request) ?: null,
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            'mcp_servers' => $request->providerOptions('mcp_servers'),
         ]);
     }
 

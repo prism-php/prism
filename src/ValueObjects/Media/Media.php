@@ -247,7 +247,7 @@ class Media
         if ($this->url) {
             $this->fetchUrlContent();
 
-            return $this->resource();
+            return $this->createStreamFromContent($this->rawContent());
         }
 
         if ($this->rawContent || $this->base64) {

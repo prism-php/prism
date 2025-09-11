@@ -6,6 +6,9 @@ Want your AI responses as neat and tidy as a Marie Kondo-approved closet? Struct
 
 Here's how to get structured data from your AI:
 
+> [!IMPORTANT]
+> **Schema Requirement for OpenAI**: When using OpenAI's structured output (especially strict mode), the root schema must be an `ObjectSchema`. Other schema types (StringSchema, NumberSchema, etc.) can only be used as properties within an ObjectSchema, not as the top-level schema. Other providers may have different requirements.
+
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;

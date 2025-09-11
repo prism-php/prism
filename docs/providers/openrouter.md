@@ -42,6 +42,9 @@ echo $response->text;
 
 ### Structured Output
 
+> [!NOTE]
+> OpenRouter uses OpenAI-compatible structured outputs. For strict schema validation, the root schema should be an `ObjectSchema`.
+
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;

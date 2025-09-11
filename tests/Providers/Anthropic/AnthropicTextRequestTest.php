@@ -236,6 +236,7 @@ it('omits null values from payload', function (): void {
         expect($payload)->not->toHaveKey('thinking');
         expect($payload)->not->toHaveKey('temperature');
         expect($payload)->not->toHaveKey('top_p');
+        expect($payload)->not->toHaveKey('mcp_servers');
 
         return true;
     });
@@ -269,6 +270,39 @@ it('can send images from file', function (): void {
             base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
         );
         expect($message[1]['source']['media_type'])->toBe('image/png');
+
+        return true;
+    });
+});
+
+it('sends correct mcp_servers', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Think about this')])
+        ->withProviderOptions([
+            'mcp_servers' => [
+                [
+                    'name' => 'external-mcp',
+                    'type' => 'url',
+                    'url' => 'https://mcp-server.co/mcp',
+                ],
+            ],
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->toHaveKey('mcp_servers');
+        expect($payload['mcp_servers'])->toBe([
+            [
+                'name' => 'external-mcp',
+                'type' => 'url',
+                'url' => 'https://mcp-server.co/mcp',
+            ],
+        ]);
 
         return true;
     });
