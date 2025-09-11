@@ -12,6 +12,8 @@ return [
             'api_key' => env('OPENAI_API_KEY', ''),
             'organization' => env('OPENAI_ORGANIZATION', null),
             'project' => env('OPENAI_PROJECT', null),
+            'files_endpoint' => env('OPENAI_FILES_ENDPOINT', 'files'),
+            'batches_endpoint' => env('OPENAI_BATCHES_ENDPOINT', 'batches'),
         ],
         'anthropic' => [
             'api_key' => env('ANTHROPIC_API_KEY', ''),
