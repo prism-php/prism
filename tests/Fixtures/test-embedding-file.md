@@ -7,7 +7,7 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
