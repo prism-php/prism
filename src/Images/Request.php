@@ -17,6 +17,7 @@ class Request implements PrismRequest
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, mixed>  $files
      */
     public function __construct(
         protected string $model,
@@ -25,6 +26,7 @@ class Request implements PrismRequest
         protected array $clientOptions,
         protected array $clientRetry,
         array $providerOptions = [],
+        protected array $files = [],
     ) {
         $this->providerOptions = $providerOptions;
     }
@@ -43,6 +45,14 @@ class Request implements PrismRequest
     public function clientOptions(): array
     {
         return $this->clientOptions;
+    }
+
+    /**
+     * @return array<int, \Prism\Prism\ValueObjects\Media\Media> $files
+     */
+    public function files(): array
+    {
+        return $this->files;
     }
 
     public function prompt(): string
