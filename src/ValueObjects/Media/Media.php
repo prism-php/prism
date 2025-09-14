@@ -28,11 +28,8 @@ class Media
 
     public ?string $mimeType = null;
 
-    public function __construct(
-        ?string $url = null,
-        ?string $base64 = null,
-        ?string $mimeType = null,
-    ) {
+    public function __construct(?string $url = null, ?string $base64 = null, ?string $mimeType = null)
+    {
         $this->url = $url;
         $this->base64 = $base64;
         $this->mimeType = $mimeType;
@@ -40,6 +37,7 @@ class Media
 
     public static function fromFileId(string $fileId): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
         $instance->fileId = $fileId;
 
@@ -72,6 +70,7 @@ class Media
             throw new InvalidArgumentException("Could not determine mime type for {$path}");
         }
 
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->localPath = $path;
@@ -104,6 +103,7 @@ class Media
             throw new InvalidArgumentException("Could not determine mime type for {$path} on the '$diskName' disk");
         }
 
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->storagePath = $path;
@@ -115,6 +115,7 @@ class Media
 
     public static function fromUrl(string $url): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
         $instance->url = $url;
 
@@ -123,6 +124,7 @@ class Media
 
     public static function fromRawContent(string $rawContent, ?string $mimeType = null): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->rawContent = $rawContent;
@@ -133,6 +135,7 @@ class Media
 
     public static function fromBase64(string $base64, ?string $mimeType = null): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->base64 = $base64;

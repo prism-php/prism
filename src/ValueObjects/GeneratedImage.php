@@ -6,13 +6,12 @@ namespace Prism\Prism\ValueObjects;
 
 class GeneratedImage extends Media\Media
 {
-    public function __construct(
-        ?string $url = null,
-        ?string $base64 = null,
-        public ?string $revisedPrompt = null,
-        ?string $mimeType = null,
-    ) {
+    public ?string $revisedPrompt;
+
+    public function __construct(?string $url = null, ?string $base64 = null, ?string $revisedPrompt = null, ?string $mimeType = null)
+    {
         parent::__construct($url, $base64, $mimeType);
+        $this->revisedPrompt = $revisedPrompt;
     }
 
     public function hasRevisedPrompt(): bool
