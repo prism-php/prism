@@ -20,15 +20,23 @@ class Media
 
     protected ?string $storagePath = null;
 
-    protected ?string $url = null;
+    public ?string $url = null;
 
     protected ?string $rawContent = null;
 
-    protected ?string $base64 = null;
+    public ?string $base64 = null;
 
-    protected ?string $mimeType = null;
+    public ?string $mimeType = null;
 
-    final public function __construct() {}
+    public function __construct(
+        ?string $url = null,
+        ?string $base64 = null,
+        ?string $mimeType = null,
+    ) {
+        $this->url = $url;
+        $this->base64 = $base64;
+        $this->mimeType = $mimeType;
+    }
 
     public static function fromFileId(string $fileId): static
     {
@@ -153,6 +161,11 @@ class Media
         return $this->hasRawContent();
     }
 
+    public function hasMimeType(): bool
+    {
+        return $this->mimeType !== null;
+    }
+
     public function hasRawContent(): bool
     {
         if ($this->base64 !== null) {
@@ -166,6 +179,11 @@ class Media
         }
 
         return $this->isUrl();
+    }
+
+    public function hasUrl(): bool
+    {
+        return $this->url !== null;
     }
 
     public function fileId(): ?string
