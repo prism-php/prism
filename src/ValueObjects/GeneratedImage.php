@@ -4,32 +4,18 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-readonly class GeneratedImage
+class GeneratedImage extends Media\Media
 {
-    public function __construct(
-        public ?string $url = null,
-        public ?string $base64 = null,
-        public ?string $revisedPrompt = null,
-        public ?string $mimeType = null,
-    ) {}
+    public ?string $revisedPrompt;
 
-    public function hasUrl(): bool
+    public function __construct(?string $url = null, ?string $base64 = null, ?string $revisedPrompt = null, ?string $mimeType = null)
     {
-        return $this->url !== null;
-    }
-
-    public function hasBase64(): bool
-    {
-        return $this->base64 !== null;
+        parent::__construct($url, $base64, $mimeType);
+        $this->revisedPrompt = $revisedPrompt;
     }
 
     public function hasRevisedPrompt(): bool
     {
         return $this->revisedPrompt !== null;
-    }
-
-    public function hasMimeType(): bool
-    {
-        return $this->mimeType !== null;
     }
 }

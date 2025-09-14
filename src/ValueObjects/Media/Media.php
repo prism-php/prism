@@ -20,18 +20,24 @@ class Media
 
     protected ?string $storagePath = null;
 
-    protected ?string $url = null;
+    public ?string $url = null;
 
     protected ?string $rawContent = null;
 
-    protected ?string $base64 = null;
+    public ?string $base64 = null;
 
-    protected ?string $mimeType = null;
+    public ?string $mimeType = null;
 
-    final public function __construct() {}
+    public function __construct(?string $url = null, ?string $base64 = null, ?string $mimeType = null)
+    {
+        $this->url = $url;
+        $this->base64 = $base64;
+        $this->mimeType = $mimeType;
+    }
 
     public static function fromFileId(string $fileId): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
         $instance->fileId = $fileId;
 
@@ -64,6 +70,7 @@ class Media
             throw new InvalidArgumentException("Could not determine mime type for {$path}");
         }
 
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->localPath = $path;
@@ -96,6 +103,7 @@ class Media
             throw new InvalidArgumentException("Could not determine mime type for {$path} on the '$diskName' disk");
         }
 
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->storagePath = $path;
@@ -107,6 +115,7 @@ class Media
 
     public static function fromUrl(string $url): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
         $instance->url = $url;
 
@@ -115,6 +124,7 @@ class Media
 
     public static function fromRawContent(string $rawContent, ?string $mimeType = null): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->rawContent = $rawContent;
@@ -125,6 +135,7 @@ class Media
 
     public static function fromBase64(string $base64, ?string $mimeType = null): static
     {
+        /** @phpstan-ignore-next-line */
         $instance = new static;
 
         $instance->base64 = $base64;
@@ -153,6 +164,11 @@ class Media
         return $this->hasRawContent();
     }
 
+    public function hasMimeType(): bool
+    {
+        return $this->mimeType !== null;
+    }
+
     public function hasRawContent(): bool
     {
         if ($this->base64 !== null) {
@@ -166,6 +182,11 @@ class Media
         }
 
         return $this->isUrl();
+    }
+
+    public function hasUrl(): bool
+    {
+        return $this->url !== null;
     }
 
     public function fileId(): ?string
