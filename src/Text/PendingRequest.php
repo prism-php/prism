@@ -15,6 +15,7 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
+use Prism\Prism\Concerns\HasSuccessHandlers;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Tool;
@@ -31,6 +32,7 @@ class PendingRequest
     use HasPrompts;
     use HasProviderOptions;
     use HasProviderTools;
+    use HasSuccessHandlers;
     use HasTools;
 
     /**
@@ -46,7 +48,10 @@ class PendingRequest
         $request = $this->toRequest();
 
         try {
-            return $this->provider->text($request);
+            $response = $this->provider->text($request);
+            $this->processSuccessHandlers($request, $response);
+
+            return $response;
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
