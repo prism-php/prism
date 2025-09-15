@@ -13,6 +13,7 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasSchema;
+use Prism\Prism\Concerns\HasSuccessHandlers;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -26,6 +27,7 @@ class PendingRequest
     use HasPrompts;
     use HasProviderOptions;
     use HasSchema;
+    use HasSuccessHandlers;
 
     /**
      * @deprecated Use `asStructured` instead.
@@ -40,7 +42,10 @@ class PendingRequest
         $request = $this->toRequest();
 
         try {
-            return $this->provider->structured($request);
+            $response = $this->provider->structured($request);
+            $this->processSuccessHandlers($request, $response);
+
+            return $response;
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
