@@ -13,7 +13,7 @@ trait HasSuccessHandlers
     /** @var array<int, callable> */
     protected array $handlers = [];
 
-    public function onSuccess(callable $callable)
+    public function onSuccess(callable $callable): self
     {
         $this->handlers[] = $callable;
 
