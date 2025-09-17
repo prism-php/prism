@@ -48,6 +48,22 @@ class Stream
     }
 
     /**
+     * @return bool
+     */
+    protected function isThinking(array $data): bool
+    {
+        $parts = data_get($data, 'candidates.0.content.parts', []);
+
+        foreach ($parts as $part) {
+            if (($part['thought'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return Generator<Chunk>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
@@ -83,6 +99,7 @@ class Stream
             // Handle content
             $content = data_get($data, 'candidates.0.content.parts.0.text') ?? '';
             $text .= $content;
+            $isThinking = $this->isThinking($data);
 
             $finishReason = $this->mapFinishReason($data);
 
@@ -95,6 +112,7 @@ class Stream
                     model: data_get($data, 'modelVersion'),
                 ),
                 usage: $this->extractUsage($data, $request),
+                chunkType: $isThinking ? ChunkType::Thinking : ChunkType::Text,
             );
         }
     }
@@ -283,6 +301,7 @@ class Stream
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
                         'thinkingConfig' => Arr::whereNotNull([
+                            'includeThoughts' => is_bool($providerOptions['includeThoughts']) ? $providerOptions['includeThoughts'] : null,
                             'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
                         ]) ?: null,
                     ]),
@@ -314,3 +333,4 @@ class Stream
         return $buffer;
     }
 }
+
