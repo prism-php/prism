@@ -301,7 +301,7 @@ class Stream
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
                         'thinkingConfig' => Arr::whereNotNull([
-                            'includeThoughts' => is_bool($providerOptions['includeThoughts']) ? $providerOptions['includeThoughts'] : null,
+                            'includeThoughts' => is_bool($providerOptions['includeThoughts'] ?? null) ? $providerOptions['includeThoughts'] : null,
                             'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
                         ]) ?: null,
                     ]),
