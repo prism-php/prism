@@ -107,14 +107,30 @@ class Stream
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
                 // gemini writes metadata in each chunk
-                meta: new Meta(
-                    id: data_get($data, 'responseId'),
-                    model: data_get($data, 'modelVersion'),
-                ),
+                meta: $this->extractMeta($data),
                 usage: $this->extractUsage($data, $request),
                 chunkType: $isThinking ? ChunkType::Thinking : ChunkType::Text,
             );
         }
+    }
+
+    /**
+     * @return Meta|null
+     */
+    protected function extractMeta(array $data): ?Meta
+    {
+        $meta = null;
+        $responseId = data_get($data, 'responseId');
+        $modelVersion = data_get($data, 'modelVersion');
+
+        if (!empty($responseId) && !empty($modelVersion)) {
+            $meta = new Meta(
+                id: $responseId,
+                model: $modelVersion
+            );
+        }
+
+        return $meta;
     }
 
     /**
