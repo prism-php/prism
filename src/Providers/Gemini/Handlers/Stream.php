@@ -48,6 +48,22 @@ class Stream
     }
 
     /**
+     * @return bool
+     */
+    protected function isThinking(array $data): bool
+    {
+        $parts = data_get($data, 'candidates.0.content.parts', []);
+
+        foreach ($parts as $part) {
+            if (($part['thought'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return Generator<Chunk>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
@@ -83,6 +99,7 @@ class Stream
             // Handle content
             $content = data_get($data, 'candidates.0.content.parts.0.text') ?? '';
             $text .= $content;
+            $isThinking = $this->isThinking($data);
 
             $finishReason = $this->mapFinishReason($data);
 
@@ -90,13 +107,30 @@ class Stream
                 text: $content,
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
                 // gemini writes metadata in each chunk
-                meta: new Meta(
-                    id: data_get($data, 'responseId'),
-                    model: data_get($data, 'modelVersion'),
-                ),
+                meta: $this->extractMeta($data),
                 usage: $this->extractUsage($data, $request),
+                chunkType: $isThinking ? ChunkType::Thinking : ChunkType::Text,
             );
         }
+    }
+
+    /**
+     * @return Meta|null
+     */
+    protected function extractMeta(array $data): ?Meta
+    {
+        $meta = null;
+        $responseId = data_get($data, 'responseId');
+        $modelVersion = data_get($data, 'modelVersion');
+
+        if (!empty($responseId) && !empty($modelVersion)) {
+            $meta = new Meta(
+                id: $responseId,
+                model: $modelVersion
+            );
+        }
+
+        return $meta;
     }
 
     /**
@@ -283,6 +317,7 @@ class Stream
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
                         'thinkingConfig' => Arr::whereNotNull([
+                            'includeThoughts' => is_bool($providerOptions['includeThoughts'] ?? null) ? $providerOptions['includeThoughts'] : null,
                             'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
                         ]) ?: null,
                     ]),
@@ -314,3 +349,4 @@ class Stream
         return $buffer;
     }
 }
+
