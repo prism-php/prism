@@ -54,7 +54,7 @@ class Text
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop => $this->handleStop($data, $request),
+            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request),
             default => throw new PrismException('OpenRouter: unknown finish reason'),
         };
     }
