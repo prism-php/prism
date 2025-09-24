@@ -255,6 +255,29 @@ it('supports StringSchema format and pattern', function (): void {
 
     expect($schema->toArray())->toBe($expected);
 });
+
+it('supports NumberSchema restrictions', function (): void {
+    $schema = new NumberSchema(
+        name: 'score',
+        description: 'User score',
+        multipleOf: 0.5,
+        maximum: 10,
+        exclusiveMaximum: 10,
+        minimum: 0,
+        exclusiveMinimum: 0
+    );
+    $expected = [
+        'description' => 'User score',
+        'type' => 'number',
+        'multipleOf' => 0.5,
+        'maximum' => 10.0,
+        'exclusiveMaximum' => 10.0,
+        'minimum' => 0.0,
+        'exclusiveMinimum' => 0.0,
+    ];
+    expect($schema->toArray())->toBe($expected);
+});
+
 it('supports ArraySchema minItems and maxItems', function (): void {
     $schema = new ArraySchema(
         name: 'tags',
