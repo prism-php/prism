@@ -239,6 +239,22 @@ it('non-nullable enum with single type returns single type', function (): void {
         'type' => 'string',
     ]);
 });
+it('supports StringSchema format and pattern', function (): void {
+    $schema = new StringSchema(
+        name: 'email',
+        description: 'User email',
+        pattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$',
+        format: 'email'
+    );
+    $expected = [
+        'description' => 'User email',
+        'type' => 'string',
+        'pattern' => '^[^@\s]+@[^@\s]+\.[^@\s]+$',
+        'format' => 'email',
+    ];
+
+    expect($schema->toArray())->toBe($expected);
+});
 it('supports ArraySchema minItems and maxItems', function (): void {
     $schema = new ArraySchema(
         name: 'tags',
