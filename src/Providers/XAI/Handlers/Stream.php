@@ -144,7 +144,7 @@ class Stream
      */
     protected function isInitialChunk(array $data): bool
     {
-        return isset($data['id']) && isset($data['model']) && ! data_get($data, 'choices.0.delta.content');
+        return isset($data['id']) && isset($data['model']) && data_get($data, 'choices.0.delta.content') === null;
     }
 
     /**
