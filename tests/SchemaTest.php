@@ -239,3 +239,23 @@ it('non-nullable enum with single type returns single type', function (): void {
         'type' => 'string',
     ]);
 });
+it('supports ArraySchema minItems and maxItems', function (): void {
+    $schema = new ArraySchema(
+        name: 'tags',
+        description: 'User tags',
+        items: new StringSchema('tag', 'A tag'),
+        minItems: 1,
+        maxItems: 5
+    );
+    $expected = [
+        'description' => 'User tags',
+        'type' => 'array',
+        'items' => [
+            'description' => 'A tag',
+            'type' => 'string',
+        ],
+        'minItems' => 1,
+        'maxItems' => 5,
+    ];
+    expect($schema->toArray())->toBe($expected);
+});
