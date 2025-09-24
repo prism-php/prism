@@ -239,6 +239,98 @@ it('non-nullable enum with single type returns single type', function (): void {
         'type' => 'string',
     ]);
 });
+
+it('supports anyOf composition for OpenAI schemas', function (): void {
+    $userSchema = new ObjectSchema(
+        name: 'user',
+        description: 'The user object to insert into the database',
+        properties: [
+            new StringSchema('name', 'The name of the user'),
+            new NumberSchema('age', 'The age of the user'),
+        ],
+        requiredFields: ['name', 'age'],
+        allowAdditionalProperties: false
+    );
+
+    $addressSchema = new ObjectSchema(
+        name: 'address',
+        description: 'The address object to insert into the database',
+        properties: [
+            new StringSchema('number', 'The number of the address. Eg. for 123 main st, this would be 123'),
+            new StringSchema('street', 'The street name. Eg. for 123 main st, this would be main st'),
+            new StringSchema('city', 'The city of the address'),
+        ],
+        requiredFields: ['number', 'street', 'city'],
+        allowAdditionalProperties: false
+    );
+
+    $itemSchema = new \Prism\Prism\Schema\AnyOfSchema([
+        $userSchema,
+        $addressSchema,
+    ]);
+
+    $parentSchema = new ObjectSchema(
+        name: 'root',
+        description: 'The root schema that can contain either a user or an address',
+        properties: [
+            $itemSchema,
+        ],
+        requiredFields: ['item'],
+        allowAdditionalProperties: false
+    );
+
+    $expected = [
+        'description' => 'The root schema that can contain either a user or an address',
+        'type' => 'object',
+        'properties' => [
+            'item' => [
+                'anyOf' => [
+                    [
+                        'description' => 'The user object to insert into the database',
+                        'type' => 'object',
+                        'properties' => [
+                            'name' => [
+                                'description' => 'The name of the user',
+                                'type' => 'string',
+                            ],
+                            'age' => [
+                                'description' => 'The age of the user',
+                                'type' => 'number',
+                            ],
+                        ],
+                        'required' => ['name', 'age'],
+                        'additionalProperties' => false,
+                    ],
+                    [
+                        'description' => 'The address object to insert into the database',
+                        'type' => 'object',
+                        'properties' => [
+                            'number' => [
+                                'description' => 'The number of the address. Eg. for 123 main st, this would be 123',
+                                'type' => 'string',
+                            ],
+                            'street' => [
+                                'description' => 'The street name. Eg. for 123 main st, this would be main st',
+                                'type' => 'string',
+                            ],
+                            'city' => [
+                                'description' => 'The city of the address',
+                                'type' => 'string',
+                            ],
+                        ],
+                        'required' => ['number', 'street', 'city'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ],
+        ],
+        'required' => ['item'],
+        'additionalProperties' => false,
+    ];
+
+    expect($parentSchema->toArray())->toBe($expected);
+});
+
 it('supports StringSchema format and pattern', function (): void {
     $schema = new StringSchema(
         name: 'email',
