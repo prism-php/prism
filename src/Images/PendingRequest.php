@@ -20,9 +20,18 @@ class PendingRequest
 
     protected string $prompt = '';
 
-    public function withPrompt(string|View $prompt): self
+    /**
+     * @var Image[]
+     */
+    protected array $additionalContent = [];
+
+    /**
+     * @param  Image[]  $additionalContent
+     */
+    public function withPrompt(string|View $prompt, array $additionalContent = []): self
     {
         $this->prompt = is_string($prompt) ? $prompt : $prompt->render();
+        $this->additionalContent = $additionalContent;
 
         return $this;
     }
@@ -46,6 +55,7 @@ class PendingRequest
             prompt: $this->prompt,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
+            additionalContent: $this->additionalContent,
             providerOptions: $this->providerOptions,
         );
     }

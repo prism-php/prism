@@ -7,6 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -367,6 +368,31 @@ it('can edit images', function (): void {
         ])
         ->withClientOptions(['timeout' => 9999])
         ->generate();
+
+    expect($response->firstImage()->base64)->not->toBeEmpty();
+});
+
+it('can edit with multiple images', function (): void {
+    // FixtureResponse::fakeResponseSequence(
+    //     'api.openai.com/v1/images/edits',
+    //     'openai/image-edit-multiple'
+    // );
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+            Image::fromUrl('https://i.imgur.com/UrBsQB1.jpeg'),
+        ])
+        ->withProviderOptions([
+            'size' => '1024x1024',
+            'output_format' => 'png',
+            'quality' => 'high',
+        ])
+        ->withClientOptions(['timeout' => 9999])
+        ->generate();
+
+    file_put_contents('diamond.png', base64_decode($response->firstImage()->base64));
 
     expect($response->firstImage()->base64)->not->toBeEmpty();
 });

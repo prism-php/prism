@@ -13,6 +13,7 @@ use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\ImageRequestMap;
 use Prism\Prism\ValueObjects\GeneratedImage;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -51,7 +52,7 @@ class Images
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        if ($request->providerOptions('image')) {
+        if ($request->additionalContent()) {
             return $this->sendImageEditRequest($request);
         }
 
@@ -60,12 +61,16 @@ class Images
 
     protected function sendImageEditRequest(Request $request): ClientResponse
     {
-        $this
-            ->client
-            ->attach(
-                'image',
-                $request->providerOptions('image'),
-            );
+        /** @var Image $image */
+        foreach ($request->additionalContent() as $image) {
+            $this
+                ->client
+                ->dontTruncateExceptions()
+                ->attach(
+                    'image[]',
+                    $image->rawContent(),
+                );
+        }
 
         if ($request->providerOptions('mask')) {
             $this
