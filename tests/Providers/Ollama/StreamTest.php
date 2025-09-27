@@ -6,11 +6,16 @@ namespace Tests\Providers\Ollama;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -26,25 +31,31 @@ it('can generate text with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-    $lastChunkHasFinishReason = false;
+    $events = [];
+    $model = null;
+    $hasStreamEndEvent = false;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->finishReason !== null) {
-            $lastChunkHasFinishReason = true;
+        if ($event instanceof StreamStartEvent) {
+            $model = $event->model;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof StreamEndEvent) {
+            $hasStreamEndEvent = true;
+            expect($event->finishReason)->toBe(FinishReason::Stop);
         }
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
-    expect($lastChunkHasFinishReason)->toBeTrue();
-
-    // Last chunk should have a finish reason of "stop"
-    $lastChunk = $chunks[count($chunks) - 1];
-    expect($lastChunk->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::Stop);
+    expect($model)->toBe('granite3-dense:8b');
+    expect($hasStreamEndEvent)->toBeTrue();
 });
 
 it('can generate text using tools with streaming', function (): void {
@@ -70,35 +81,37 @@ it('can generate text using tools with streaming', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-    $toolCalls = [];
-    $toolResults = [];
+    $events = [];
+    $toolCallEvents = [];
+    $toolResultEvents = [];
     $finishReasonFound = false;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->chunkType === ChunkType::ToolCall) {
-            $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
         }
 
-        if ($chunk->chunkType === ChunkType::ToolResult) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
         }
 
-        if ($chunk->finishReason !== null) {
+        if ($event instanceof ToolResultEvent) {
+            $toolResultEvents[] = $event;
+        }
+
+        if ($event instanceof StreamEndEvent) {
             $finishReasonFound = true;
-            expect($chunk->finishReason)->toBe(FinishReason::Stop);
+            expect($event->finishReason)->toBe(FinishReason::Stop);
         }
-
-        $text .= $chunk->text;
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
 
-    expect($toolCalls)->toHaveCount(2);
-    expect($toolResults)->toHaveCount(2);
+    expect($toolCallEvents)->toHaveCount(2);
+    expect($toolResultEvents)->toHaveCount(2);
 
     // For the basic tools test, validate completion state
     expect($finishReasonFound)->toBeTrue();
@@ -179,19 +192,19 @@ it('emits thinking chunks when provider sends thinking field', function (): void
     $finalText = '';
     $lastFinishReason = null;
 
-    foreach ($response as $chunk) {
-        if ($chunk->chunkType === ChunkType::Thinking) {
+    foreach ($response as $event) {
+        if ($event instanceof ThinkingEvent) {
             $sawThinking = true;
-            $thinkingTexts[] = $chunk->text;
+            $thinkingTexts[] = $event->delta;
         }
 
-        if ($chunk->chunkType === ChunkType::Text) {
+        if ($event instanceof TextDeltaEvent) {
             $sawText = true;
-            $finalText .= $chunk->text;
+            $finalText .= $event->delta;
         }
 
-        if ($chunk->finishReason !== null) {
-            $lastFinishReason = $chunk->finishReason;
+        if ($event instanceof StreamEndEvent) {
+            $lastFinishReason = $event->finishReason;
         }
     }
 

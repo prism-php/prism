@@ -10,7 +10,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
@@ -20,11 +19,21 @@ use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
-use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
@@ -39,7 +48,7 @@ class Stream
     public function __construct(protected PendingRequest $client) {}
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     public function handle(Request $request): Generator
     {
@@ -49,13 +58,17 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $messageId = EventID::generate();
         $text = '';
         $toolCalls = [];
         $reasoningItems = [];
+        $streamStarted = false;
+        $textStarted = false;
+        $currentReasoningId = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -65,19 +78,30 @@ class Stream
             }
 
             if ($data['type'] === 'error') {
-                $this->handleErrors($data, $request);
+                $code = data_get($data, 'error.code', 'unknown_error');
+                $message = data_get($data, 'error.message', 'No error message provided');
+
+                if ($code === 'rate_limit_exceeded') {
+                    throw new PrismRateLimitedException([]);
+                }
+
+                throw new PrismException(sprintf(
+                    'Sending to model %s failed. Code: %s. Message: %s',
+                    $request->model(),
+                    $code,
+                    $message
+                ));
             }
 
-            if ($data['type'] === 'response.created') {
-                yield new Chunk(
-                    text: '',
-                    finishReason: null,
-                    meta: new Meta(
-                        id: $data['response']['id'] ?? null,
-                        model: $data['response']['model'] ?? null,
-                    ),
-                    chunkType: ChunkType::Meta,
+            if ($data['type'] === 'response.created' && ! $streamStarted) {
+                yield new StreamStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    model: $data['response']['model'] ?? 'unknown',
+                    provider: 'openai',
                 );
+
+                $streamStarted = true;
 
                 continue;
             }
@@ -86,10 +110,20 @@ class Stream
                 $reasoningDelta = $this->extractReasoningSummaryDelta($data);
 
                 if ($reasoningDelta !== '') {
-                    yield new Chunk(
-                        text: $reasoningDelta,
-                        finishReason: null,
-                        chunkType: ChunkType::Thinking
+                    if ($currentReasoningId === null) {
+                        $currentReasoningId = EventID::generate();
+                        yield new ThinkingStartEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            reasoningId: $currentReasoningId
+                        );
+                    }
+
+                    yield new ThinkingEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        delta: $reasoningDelta,
+                        reasoningId: $currentReasoningId
                     );
                 }
 
@@ -99,36 +133,77 @@ class Stream
             if ($this->hasReasoningItems($data)) {
                 $reasoningItems = $this->extractReasoningItems($data, $reasoningItems);
 
+                if ($currentReasoningId !== null) {
+                    yield new ThinkingCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $currentReasoningId
+                    );
+                    $currentReasoningId = null;
+                }
+
                 continue;
             }
 
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls, $reasoningItems);
 
+                if ($this->isToolCallComplete($data)) {
+                    $completedToolCall = $this->getCompletedToolCall($data, $toolCalls);
+                    if ($completedToolCall instanceof \Prism\Prism\ValueObjects\ToolCall) {
+                        yield new ToolCallEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            toolCall: $completedToolCall,
+                            messageId: $messageId
+                        );
+                    }
+                }
+
                 continue;
             }
 
             $content = $this->extractOutputTextDelta($data);
 
-            $text .= $content;
+            if ($content !== '') {
+                if (! $textStarted) {
+                    yield new TextStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        messageId: $messageId
+                    );
+                    $textStarted = true;
+                }
 
-            $finishReason = $this->mapFinishReason($data);
+                $text .= $content;
 
-            yield new Chunk(
-                text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null
-            );
+                yield new TextDeltaEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $content,
+                    messageId: $messageId
+                );
+            }
+
+            if (data_get($data, 'type') === 'response.output_text.done' && $textStarted) {
+                yield new TextCompleteEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    messageId: $messageId
+                );
+            }
 
             if (data_get($data, 'type') === 'response.completed') {
-                yield new Chunk(
-                    text: '',
-                    chunkType: ChunkType::Meta,
+                yield new StreamEndEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    finishReason: $this->mapFinishReason($data),
                     usage: new Usage(
                         promptTokens: data_get($data, 'response.usage.input_tokens'),
                         completionTokens: data_get($data, 'response.usage.output_tokens'),
                         cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
                         thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
-                    ),
+                    )
                 );
             }
         }
@@ -213,7 +288,7 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     protected function handleToolCalls(
         Request $request,
@@ -221,23 +296,19 @@ class Stream
         array $toolCalls,
         int $depth
     ): Generator {
-        $toolCalls = $this->mapToolCalls($toolCalls);
+        $mappedToolCalls = $this->mapToolCalls($toolCalls);
+        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            chunkType: ChunkType::ToolCall,
-        );
+        foreach ($toolResults as $result) {
+            yield new ToolResultEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolResult: $result,
+                messageId: EventID::generate()
+            );
+        }
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
-
-        yield new Chunk(
-            text: '',
-            toolResults: $toolResults,
-            chunkType: ChunkType::ToolResult,
-        );
-
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
+        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
         $depth++;
@@ -329,6 +400,38 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      */
+    protected function isToolCallComplete(array $data): bool
+    {
+        return data_get($data, 'type') === 'response.function_call_arguments.done';
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<int, array<string, mixed>>  $toolCalls
+     */
+    protected function getCompletedToolCall(array $data, array $toolCalls): ?ToolCall
+    {
+        $callId = data_get($data, 'item_id');
+
+        foreach ($toolCalls as $call) {
+            if (($call['id'] ?? null) === $callId) {
+                return new ToolCall(
+                    id: $call['id'],
+                    name: $call['name'],
+                    arguments: $call['arguments'] ?? '',
+                    resultId: $call['call_id'] ?? null,
+                    reasoningId: $call['reasoning_id'] ?? null,
+                    reasoningSummary: $call['reasoning_summary'] ?? []
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function hasReasoningSummaryDelta(array $data): bool
     {
         $type = data_get($data, 'type', '');
@@ -404,24 +507,5 @@ class Stream
         }
 
         return $buffer;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function handleErrors(array $data, Request $request): void
-    {
-        $code = data_get($data, 'error.code', 'unknown_error');
-
-        if ($code === 'rate_limit_exceeded') {
-            throw new PrismRateLimitedException([]);
-        }
-
-        throw new PrismException(sprintf(
-            'Sending to model %s failed. Code: %s. Message: %s',
-            $request->model(),
-            $code,
-            data_get($data, 'error.message', 'No error message provided')
-        ));
     }
 }
