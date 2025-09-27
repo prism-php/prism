@@ -355,13 +355,12 @@ it('can edit images', function (): void {
         'openai/image-edit'
     );
 
-    $originalImage = fopen('tests/Fixtures/diamond.png', 'r');
-
     $response = Prism::image()
         ->using('openai', 'gpt-image-1')
-        ->withPrompt('Add a vaporwave sunset to the background')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        ])
         ->withProviderOptions([
-            'image' => $originalImage,
             'size' => '1024x1024',
             'output_format' => 'png',
             'quality' => 'high',
@@ -373,16 +372,16 @@ it('can edit images', function (): void {
 });
 
 it('can edit with multiple images', function (): void {
-    // FixtureResponse::fakeResponseSequence(
-    //     'api.openai.com/v1/images/edits',
-    //     'openai/image-edit-multiple'
-    // );
+    FixtureResponse::fakeResponseSequence(
+        'api.openai.com/v1/images/edits',
+        'openai/image-edit-multiple'
+    );
 
     $response = Prism::image()
         ->using('openai', 'gpt-image-1')
         ->withPrompt('Add a vaporwave sunset to the background', [
             Image::fromLocalPath('tests/Fixtures/diamond.png'),
-            Image::fromUrl('https://i.imgur.com/UrBsQB1.jpeg'),
+            Image::fromLocalPath('tests/Fixtures/sunset.png'),
         ])
         ->withProviderOptions([
             'size' => '1024x1024',
@@ -391,8 +390,6 @@ it('can edit with multiple images', function (): void {
         ])
         ->withClientOptions(['timeout' => 9999])
         ->generate();
-
-    file_put_contents('diamond.png', base64_decode($response->firstImage()->base64));
 
     expect($response->firstImage()->base64)->not->toBeEmpty();
 });

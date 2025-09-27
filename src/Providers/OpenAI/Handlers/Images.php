@@ -62,13 +62,12 @@ class Images
     protected function sendImageEditRequest(Request $request): ClientResponse
     {
         /** @var Image $image */
-        foreach ($request->additionalContent() as $image) {
+        foreach ($request->additionalContent() as $index => $image) {
             $this
                 ->client
-                ->dontTruncateExceptions()
                 ->attach(
-                    'image[]',
-                    $image->rawContent(),
+                    "image[{$index}]",
+                    $image->resource()
                 );
         }
 
@@ -81,7 +80,9 @@ class Images
                 );
         }
 
-        return $this->client->post('images/edits', ImageRequestMap::map($request));
+        return $this
+            ->client
+            ->post('images/edits', ImageRequestMap::map($request));
     }
 
     /**

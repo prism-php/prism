@@ -287,9 +287,9 @@ class Media
             throw new InvalidArgumentException('Cannot create stream from null content');
         }
 
-        $stream = fopen('php://temp', 'r+');
+        $stream = fopen('php://memory', 'r+');
         if ($stream === false) {
-            throw new InvalidArgumentException('Cannot create temporary stream');
+            throw new InvalidArgumentException('Cannot create memory stream');
         }
 
         fwrite($stream, $content);
