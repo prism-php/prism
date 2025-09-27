@@ -264,6 +264,27 @@ $response = Prism::image()
 file_put_contents('edited-image.png', base64_decode($response->firstImage()->base64));
 ```
 
+#### Using Masks for Targeted Editing
+
+For precise control over which parts of the image to edit, use a mask image:
+
+```php
+$mask = fopen('tests/Fixtures/diamond-mask.png', 'r');
+
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->withPrompt('Add a vaporwave sunset to the background', [
+        Image::fromLocalPath('tests/Fixtures/diamond.png'),
+    ])
+    ->withProviderOptions([
+        'mask' => $mask,
+        'size' => '1024x1024',
+        'output_format' => 'png',
+        'quality' => 'high',
+    ])
+    ->generate();
+```
+
 #### Editing with Multiple Images
 
 You can also edit with multiple images for more complex operations:
