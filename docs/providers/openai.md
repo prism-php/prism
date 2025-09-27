@@ -306,7 +306,6 @@ $audioData = base64_decode($response->audio->base64);
 file_put_contents('welcome.mp3', $audioData);
 ```
 
-\
 #### High-Definition Audio
 
 For higher quality audio output, use the model:
