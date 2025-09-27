@@ -243,18 +243,17 @@ $response = Prism::image()
 
 ### Image Editing with GPT-Image-1
 
-GPT-Image-1 supports sophisticated image editing operations:
+GPT-Image-1 supports sophisticated image editing operations using the `withPrompt` method with Image value objects:
 
 ```php
-$originalImage = fopen('tests/Fixtures/diamond.png', 'r');
-$mask = fopen('tests/Fixtures/diamond-mask.png', 'r');
+use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
-    ->withPrompt('Add a vaporwave sunset to the background')
+    ->withPrompt('Add a vaporwave sunset to the background', [
+        Image::fromLocalPath('tests/Fixtures/diamond.png'),
+    ])
     ->withProviderOptions([
-        'image' => $originalImage,
-        'mask' => $mask,
         'size' => '1024x1024',
         'output_format' => 'png',
         'quality' => 'high',
@@ -263,6 +262,25 @@ $response = Prism::image()
     ->generate();
 
 file_put_contents('edited-image.png', base64_decode($response->firstImage()->base64));
+```
+
+#### Editing with Multiple Images
+
+You can also edit with multiple images for more complex operations:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->withPrompt('Combine these images with a futuristic theme', [
+        Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        Image::fromLocalPath('tests/Fixtures/sunset.png'),
+    ])
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'output_format' => 'png',
+        'quality' => 'high',
+    ])
+    ->generate();
 ```
 
 ### Response Format
