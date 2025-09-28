@@ -265,13 +265,13 @@ class Media
 
         $content = Http::get($this->url)->body();
 
-        if (!$content) {
+        if (! $content) {
             throw new InvalidArgumentException("{$this->url} returns no content.");
         }
 
         $mimeType = (new finfo(FILEINFO_MIME_TYPE))->buffer($content);
 
-        if (!$mimeType) {
+        if (! $mimeType) {
             throw new InvalidArgumentException("Could not determine mime type for {$this->url}.");
         }
 
@@ -288,7 +288,7 @@ class Media
         }
 
         $stream = fopen('php://temp', 'r+');
-        if (!$stream) {
+        if (! $stream) {
             throw new InvalidArgumentException('Cannot create temporary stream');
         }
 
