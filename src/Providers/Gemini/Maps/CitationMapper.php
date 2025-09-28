@@ -26,8 +26,8 @@ class CitationMapper
         $groundingChunks = data_get($candidate, 'groundingMetadata.groundingChunks', []);
 
         foreach ($groundingSupports as $groundingSupport) {
-            $startIndex = data_get($groundingSupport, 'segment.startIndex');
-            $endIndex = data_get($groundingSupport, 'segment.endIndex');
+            $startIndex = data_get($groundingSupport, 'segment.startIndex') ?? 0;
+            $endIndex = data_get($groundingSupport, 'segment.endIndex') ?? strlen($originalOutput);
 
             if ($startIndex - 1 > $lastWrittenCharacter) {
                 $messageParts[] = new MessagePartWithCitations(
