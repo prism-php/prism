@@ -54,7 +54,7 @@ class Media
 
         $content = file_get_contents($path) ?: '';
 
-        if (! $content) {
+        if ($content === '' || $content === '0') {
             throw new InvalidArgumentException("$path is empty");
         }
 
