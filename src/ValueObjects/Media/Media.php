@@ -54,11 +54,11 @@ class Media
 
         $content = file_get_contents($path) ?: '';
 
-        if (!$content) {
+        if (! $content) {
             throw new InvalidArgumentException("$path is empty");
         }
 
-        if (!$mimeType && !($mimeType = File::mimeType($path))) {
+        if (! $mimeType && ! ($mimeType = File::mimeType($path))) {
             throw new InvalidArgumentException("Could not determine mime type for {$path}");
         }
 
@@ -78,19 +78,19 @@ class Media
 
         $diskName ??= 'default';
 
-        if (!$disk->exists($path)) {
+        if (! $disk->exists($path)) {
             throw new InvalidArgumentException("$path does not exist on the '$diskName' disk");
         }
 
         $content = $disk->get($path);
 
-        if (!$content) {
+        if (! $content) {
             throw new InvalidArgumentException("$path on the '$diskName' disk is empty.");
         }
 
         $mimeType = $disk->mimeType($path);
 
-        if (!$mimeType) {
+        if (! $mimeType) {
             throw new InvalidArgumentException("Could not determine mime type for {$path} on the '$diskName' disk");
         }
 
