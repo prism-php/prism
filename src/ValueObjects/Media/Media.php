@@ -46,7 +46,7 @@ class Media
         return self::fromLocalPath($path);
     }
 
-    public static function fromLocalPath(string $path): static
+    public static function fromLocalPath(string $path, ?string $mimeType = null): static
     {
         if (! is_file($path)) {
             throw new InvalidArgumentException("$path is not a file");
@@ -54,13 +54,11 @@ class Media
 
         $content = file_get_contents($path) ?: '';
 
-        if (in_array(trim($content), ['', '0'], true)) {
+        if (!$content) {
             throw new InvalidArgumentException("$path is empty");
         }
 
-        $mimeType = File::mimeType($path);
-
-        if ($mimeType === false) {
+        if (!$mimeType && !($mimeType = File::mimeType($path))) {
             throw new InvalidArgumentException("Could not determine mime type for {$path}");
         }
 
@@ -80,19 +78,19 @@ class Media
 
         $diskName ??= 'default';
 
-        if ($disk->exists($path) === false) {
+        if (!$disk->exists($path)) {
             throw new InvalidArgumentException("$path does not exist on the '$diskName' disk");
         }
 
         $content = $disk->get($path);
 
-        if (in_array(trim($content ?? ''), ['', '0'], true)) {
+        if (!$content) {
             throw new InvalidArgumentException("$path on the '$diskName' disk is empty.");
         }
 
         $mimeType = $disk->mimeType($path);
 
-        if ($mimeType === false) {
+        if (!$mimeType) {
             throw new InvalidArgumentException("Could not determine mime type for {$path} on the '$diskName' disk");
         }
 
@@ -105,10 +103,12 @@ class Media
         return $instance;
     }
 
-    public static function fromUrl(string $url): static
+    public static function fromUrl(string $url, ?string $mimeType = null): static
     {
         $instance = new static;
+
         $instance->url = $url;
+        $instance->mimeType = $mimeType;
 
         return $instance;
     }
@@ -265,13 +265,13 @@ class Media
 
         $content = Http::get($this->url)->body();
 
-        if (in_array(trim($content), ['', '0'], true)) {
+        if (!$content) {
             throw new InvalidArgumentException("{$this->url} returns no content.");
         }
 
         $mimeType = (new finfo(FILEINFO_MIME_TYPE))->buffer($content);
 
-        if ($mimeType === false) {
+        if (!$mimeType) {
             throw new InvalidArgumentException("Could not determine mime type for {$this->url}.");
         }
 
@@ -288,7 +288,7 @@ class Media
         }
 
         $stream = fopen('php://temp', 'r+');
-        if ($stream === false) {
+        if (!$stream) {
             throw new InvalidArgumentException('Cannot create temporary stream');
         }
 
