@@ -27,7 +27,7 @@ class CitationMapper
 
         foreach ($groundingSupports as $groundingSupport) {
             $startIndex = data_get($groundingSupport, 'segment.startIndex') ?? 0;
-            $endIndex = data_get($groundingSupport, 'segment.endIndex') ?? strlen($originalOutput);
+            $endIndex = data_get($groundingSupport, 'segment.endIndex') ?? strlen((string) $originalOutput);
 
             if ($startIndex - 1 > $lastWrittenCharacter) {
                 $messageParts[] = new MessagePartWithCitations(
