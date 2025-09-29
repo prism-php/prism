@@ -269,15 +269,13 @@ file_put_contents('edited-image.png', base64_decode($response->firstImage()->bas
 For precise control over which parts of the image to edit, use a mask image:
 
 ```php
-$mask = fopen('tests/Fixtures/diamond-mask.png', 'r');
-
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
     ->withPrompt('Add a vaporwave sunset to the background', [
         Image::fromLocalPath('tests/Fixtures/diamond.png'),
     ])
     ->withProviderOptions([
-        'mask' => $mask,
+        'mask' => Image::fromLocalPath('tests/Fixtures/diamond-mask.png'),
         'size' => '1024x1024',
         'output_format' => 'png',
         'quality' => 'high',

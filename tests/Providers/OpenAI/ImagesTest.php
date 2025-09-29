@@ -393,3 +393,41 @@ it('can edit with multiple images', function (): void {
 
     expect($response->firstImage()->base64)->not->toBeEmpty();
 });
+
+it('can edit images with mask using Image value object', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'api.openai.com/v1/images/edits',
+        'openai/image-edit'
+    );
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        ])
+        ->withProviderOptions([
+            'mask' => Image::fromLocalPath('tests/Fixtures/sunset.png'),
+            'size' => '1024x1024',
+            'output_format' => 'png',
+            'quality' => 'high',
+        ])
+        ->withClientOptions(['timeout' => 9999])
+        ->generate();
+
+    expect($response->firstImage()->base64)->not->toBeEmpty();
+});
+
+it('throws exception when mask is not Image value object', function (): void {
+    $mask = fopen('tests/Fixtures/diamond.png', 'r');
+
+    Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        ])
+        ->withProviderOptions([
+            'mask' => $mask,
+            'size' => '1024x1024',
+        ])
+        ->generate();
+})->throws(\InvalidArgumentException::class, 'Mask must be an instance of Image value object');

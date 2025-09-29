@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use InvalidArgumentException;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 use Prism\Prism\Images\ResponseBuilder;
@@ -71,12 +72,16 @@ class Images
                 );
         }
 
-        if ($request->providerOptions('mask')) {
+        if ($mask = $request->providerOptions('mask')) {
+            if (! $mask instanceof Image) {
+                throw new InvalidArgumentException('Mask must be an instance of Image value object');
+            }
+
             $this
                 ->client
                 ->attach(
                     'mask',
-                    $request->providerOptions('mask'),
+                    $mask->resource(),
                 );
         }
 
