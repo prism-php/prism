@@ -2,12 +2,19 @@
 
 declare(strict_types=1);
 
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -17,53 +24,51 @@ beforeEach(function (): void {
 it('can stream text with a prompt', function (): void {
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-a-prompt');
 
-    $stream = Prism::text()
+    $response = Prism::text()
         ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
         ->withPrompt('Who are you?')
         ->asStream();
 
-    $chunks = iterator_to_array($stream);
+    $text = '';
+    $events = [];
 
-    // Check we have chunks
-    expect($chunks)->toHaveCount(20);
+    foreach ($response as $event) {
+        $events[] = $event;
 
-    // Check first chunk has metadata
-    expect($chunks[0])->toBeInstanceOf(Chunk::class);
-    expect($chunks[0]->chunkType)->toBe(ChunkType::Meta);
-    expect($chunks[0]->meta->id)->toBe('gen-12345');
-    expect($chunks[0]->meta->model)->toBe('openai/gpt-4-turbo');
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+    }
 
-    // Check content chunks
-    expect($chunks[1]->text)->toBe('Hello');
-    expect($chunks[2]->text)->toBe('!');
-    expect($chunks[3]->text)->toBe(" I'm");
-    expect($chunks[4]->text)->toBe(' an');
-    expect($chunks[5]->text)->toBe(' AI');
-    expect($chunks[6]->text)->toBe(' assistant');
-    expect($chunks[7]->text)->toBe(' powered');
-    expect($chunks[8]->text)->toBe(' by');
-    expect($chunks[9]->text)->toBe(' OpenRouter');
-    expect($chunks[10]->text)->toBe('.');
-    expect($chunks[11]->text)->toBe(' How');
-    expect($chunks[12]->text)->toBe(' can');
-    expect($chunks[13]->text)->toBe(' I');
-    expect($chunks[14]->text)->toBe(' help');
-    expect($chunks[15]->text)->toBe(' you');
-    expect($chunks[16]->text)->toBe(' today');
-    expect($chunks[17]->text)->toBe('?');
+    expect($events)->not->toBeEmpty();
 
-    // Check usage chunk
-    expect($chunks[18]->chunkType)->toBe(ChunkType::Meta);
-    expect($chunks[18]->usage->promptTokens)->toBe(7);
-    expect($chunks[18]->usage->completionTokens)->toBe(35);
+    // Check first event is StreamStartEvent
+    expect($events[0])->toBeInstanceOf(StreamStartEvent::class);
+    expect($events[0]->model)->toBe('openai/gpt-4-turbo');
+    expect($events[0]->provider)->toBe('openrouter');
 
-    // Check final chunk with finish reason
-    expect($chunks[19]->chunkType)->toBe(ChunkType::Meta);
-    expect($chunks[19]->finishReason)->toBe(FinishReason::Stop);
+    // Check we have TextStartEvent
+    $textStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextStartEvent);
+    expect($textStartEvents)->toHaveCount(1);
+
+    // Check we have TextDeltaEvents
+    $textDeltaEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextDeltaEvent);
+    expect($textDeltaEvents)->not->toBeEmpty();
+
+    // Check we have TextCompleteEvent
+    $textCompleteEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextCompleteEvent);
+    expect($textCompleteEvents)->toHaveCount(1);
+
+    // Check last event is StreamEndEvent
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
+    expect($lastEvent->usage)->not->toBeNull();
+    expect($lastEvent->usage->promptTokens)->toBe(7);
+    expect($lastEvent->usage->completionTokens)->toBe(35);
 
     // Verify full text can be reconstructed
-    $fullText = implode('', array_map(fn (\Prism\Prism\Text\Chunk $chunk): string => $chunk->text, $chunks));
-    expect($fullText)->toBe("Hello! I'm an AI assistant powered by OpenRouter. How can I help you today?");
+    expect($text)->toBe("Hello! I'm an AI assistant powered by OpenRouter. How can I help you today?");
 });
 
 it('can stream text with tool calls', function (): void {
@@ -74,84 +79,96 @@ it('can stream text with tool calls', function (): void {
         ->withStringParameter('city', 'The city name')
         ->using(fn (string $city): string => "The weather in {$city} is 75°F and sunny");
 
-    $stream = Prism::text()
+    $response = Prism::text()
         ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
         ->withTools([$weatherTool])
+        ->withMaxSteps(3)
         ->withPrompt('What is the weather in San Francisco?')
         ->asStream();
 
-    $chunks = iterator_to_array($stream);
+    $text = '';
+    $events = [];
+    $toolCallEvents = [];
+    $toolResultEvents = [];
 
-    // Check we have chunks
-    expect($chunks)->toHaveCount(14);
+    foreach ($response as $event) {
+        $events[] = $event;
 
-    // Check first chunk has metadata
-    expect($chunks[0])->toBeInstanceOf(Chunk::class);
-    expect($chunks[0]->chunkType)->toBe(ChunkType::Meta);
-    expect($chunks[0]->meta->id)->toBe('gen-tool-1');
-    expect($chunks[0]->meta->model)->toBe('openai/gpt-4-turbo');
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
 
-    // Check content chunks
-    expect($chunks[1]->text)->toBe("I'll");
-    expect($chunks[2]->text)->toBe(' help');
-    expect($chunks[3]->text)->toBe(' you');
-    expect($chunks[4]->text)->toBe(' get');
-    expect($chunks[5]->text)->toBe(' the');
-    expect($chunks[6]->text)->toBe(' weather');
-    expect($chunks[7]->text)->toBe(' for');
-    expect($chunks[8]->text)->toBe(' you');
-    expect($chunks[9]->text)->toBe('.');
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
+            expect($event->toolCall->name)->toBe('weather');
+            expect($event->toolCall->arguments())->toBe(['city' => 'San Francisco']);
+        }
 
-    // Check for tool call chunks
-    $toolCallChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolCall);
-    expect($toolCallChunks)->toHaveCount(1);
+        if ($event instanceof ToolResultEvent) {
+            $toolResultEvents[] = $event;
+            expect($event->toolResult->result)->toBe('The weather in San Francisco is 75°F and sunny');
+        }
+    }
 
-    $toolCallChunk = array_values($toolCallChunks)[0];
-    expect($toolCallChunk->toolCalls)->toHaveCount(1);
-    expect($toolCallChunk->toolCalls[0]->name)->toBe('weather');
-    expect($toolCallChunk->toolCalls[0]->arguments())->toBe(['city' => 'San Francisco']);
+    expect($events)->not->toBeEmpty();
+    expect($toolCallEvents)->toHaveCount(1);
+    expect($toolResultEvents)->toHaveCount(1);
 
-    // Check for tool result chunks
-    $toolResultChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::ToolResult);
-    expect($toolResultChunks)->toHaveCount(1);
+    // Verify text from first response
+    expect($text)->toContain("I'll help you get the weather for you.");
 
-    $toolResultChunk = array_values($toolResultChunks)[0];
-    expect($toolResultChunk->toolResults)->toHaveCount(1);
-    expect($toolResultChunk->toolResults[0]->result)->toBe('The weather in San Francisco is 75°F and sunny');
+    // Check for StreamEndEvent with usage
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
+    expect($streamEndEvents)->not->toBeEmpty();
 
-    // Check usage chunk
-    $usageChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::Meta && $chunk->usage instanceof \Prism\Prism\ValueObjects\Usage);
-    expect($usageChunks)->toHaveCount(1);
-
-    $usageChunk = array_values($usageChunks)[0];
-    expect($usageChunk->usage->promptTokens)->toBe(50);
-    expect($usageChunk->usage->completionTokens)->toBe(25);
-
-    // Check final chunk with finish reason
-    $finishChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->finishReason === FinishReason::ToolCalls);
-    expect($finishChunks)->toHaveCount(1);
+    $lastStreamEnd = array_values($streamEndEvents)[array_key_last(array_values($streamEndEvents))];
+    expect($lastStreamEnd->usage)->not->toBeNull();
+    expect($lastStreamEnd->usage->promptTokens)->toBeGreaterThan(0);
+    expect($lastStreamEnd->usage->completionTokens)->toBeGreaterThan(0);
 });
 
 it('can handle reasoning/thinking tokens in streaming', function (): void {
-    // Create a fixture with reasoning tokens
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-reasoning');
 
-    $stream = Prism::text()
+    $response = Prism::text()
         ->using(Provider::OpenRouter, 'openai/o1-preview')
         ->withPrompt('Solve this math problem: 2 + 2 = ?')
         ->asStream();
 
-    $chunks = iterator_to_array($stream);
+    $events = [];
+    $thinkingEvents = [];
+    $text = '';
 
-    // Check for thinking chunks
-    $thinkingChunks = array_filter($chunks, fn (\Prism\Prism\Text\Chunk $chunk): bool => $chunk->chunkType === ChunkType::Thinking);
+    foreach ($response as $event) {
+        $events[] = $event;
 
-    if ($thinkingChunks !== []) {
-        expect($thinkingChunks)->toHaveCount(1);
-        $thinkingChunk = array_values($thinkingChunks)[0];
-        expect($thinkingChunk->text)->toContain('math problem');
+        if ($event instanceof ThinkingEvent) {
+            $thinkingEvents[] = $event;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
     }
 
-    // If no thinking chunks, that's also valid for models without reasoning
-    expect(true)->toBe(true);
+    expect($events)->not->toBeEmpty();
+
+    // Check for ThinkingStartEvent
+    $thinkingStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof ThinkingStartEvent);
+    expect($thinkingStartEvents)->toHaveCount(1);
+
+    // Check for ThinkingEvent
+    expect($thinkingEvents)->toHaveCount(1);
+    expect($thinkingEvents[0]->delta)->toContain('math problem');
+
+    // Check text was assembled
+    expect($text)->toBe('The answer to 2 + 2 is 4.');
+
+    // Check for usage with reasoning tokens
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
+    expect($streamEndEvents)->toHaveCount(1);
+
+    $streamEndEvent = array_values($streamEndEvents)[0];
+    expect($streamEndEvent->usage)->not->toBeNull();
+    expect($streamEndEvent->usage->thoughtTokens)->toBe(12);
 });
