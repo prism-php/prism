@@ -7,7 +7,8 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\PrismServer;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -88,15 +89,16 @@ it('handles streaming requests', function (): void {
             && $messages[0]->text() === 'Who are you?')
         ->andReturnSelf();
 
-    $meta = new Meta('cmp_asdf123', 'gpt-4');
-    $chunk = new Chunk(
-        text: "I'm Nyx!",
-        meta: $meta
+    $event = new TextDeltaEvent(
+        id: 'cmp_asdf123',
+        timestamp: time(),
+        delta: "I'm Nyx!",
+        messageId: EventID::generate()
     );
 
     $generator->expects('asStream')
-        ->andReturn((function () use ($chunk) {
-            yield $chunk;
+        ->andReturn((function () use ($event) {
+            yield $event;
         })());
 
     PrismServer::register(
@@ -122,7 +124,7 @@ it('handles streaming requests', function (): void {
         'id' => 'cmp_asdf123',
         'object' => 'chat.completion.chunk',
         'created' => now()->timestamp,
-        'model' => 'gpt-4',
+        'model' => 'unknown',
         'choices' => [
             [
                 'delta' => [

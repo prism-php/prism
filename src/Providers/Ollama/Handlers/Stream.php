@@ -129,7 +129,7 @@ class Stream
             }
 
             // If we were emitting thinking and it's now stopped, mark it complete
-            if ($this->thinkingStarted && $thinking === '') {
+            if ($this->thinkingStarted) {
                 yield new ThinkingCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),

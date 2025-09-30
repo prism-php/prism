@@ -182,11 +182,9 @@ class DataProtocolAdapter
      */
     protected function handleStreamEnd(StreamEndEvent $event): array
     {
-        $messageMetadata = [];
-
-        if ($event->finishReason) {
-            $messageMetadata['finishReason'] = $event->finishReason->value;
-        }
+        $messageMetadata = [
+            'finishReason' => $event->finishReason->value,
+        ];
 
         if ($event->usage instanceof Usage) {
             $messageMetadata['usage'] = [
