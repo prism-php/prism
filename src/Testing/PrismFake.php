@@ -228,6 +228,7 @@ class PrismFake extends Provider
 
         PHPUnit::assertSame($expectedCount, $actualCount, "Expected {$expectedCount} calls, got {$actualCount}");
     }
+
     /**
      * @return Generator<StreamEvent>
      */
