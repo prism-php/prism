@@ -10,20 +10,30 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismChunkDecodeException;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\XAI\Concerns\ExtractsThinking;
 use Prism\Prism\Providers\XAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\XAI\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\XAI\Maps\MessageMap;
 use Prism\Prism\Providers\XAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\XAI\Maps\ToolMap;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
-use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
@@ -31,15 +41,22 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools;
-    use ExtractsThinking;
-    use MapsFinishReason;
-    use ValidatesResponses;
+    use CallsTools, ExtractsThinking, MapsFinishReason, ValidatesResponses;
+
+    protected string $messageId = '';
+
+    protected string $reasoningId = '';
+
+    protected bool $streamStarted = false;
+
+    protected bool $textStarted = false;
+
+    protected bool $thinkingStarted = false;
 
     public function __construct(protected PendingRequest $client) {}
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     public function handle(Request $request): Generator
     {
@@ -49,12 +66,22 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        if ($depth >= $request->maxSteps()) {
+            throw new PrismException('Maximum tool call chain depth exceeded');
+        }
+
+        if ($depth === 0) {
+            $this->resetState();
+        }
+
         $text = '';
         $toolCalls = [];
+        $finishReason = null;
+        $usage = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -62,17 +89,49 @@ class Stream
             if ($data === null) {
                 continue;
             }
+
+            if (! $this->streamStarted) {
+                $this->messageId = EventID::generate();
+
+                yield new StreamStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    model: data_get($data, 'model', $request->model()),
+                    provider: 'xai'
+                );
+                $this->streamStarted = true;
+            }
+
             $thinkingContent = $this->extractThinking($data, $request);
 
             if ($thinkingContent !== '' && $thinkingContent !== '0') {
+                if (! $this->thinkingStarted) {
+                    $this->reasoningId = EventID::generate();
+                    yield new ThinkingStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->reasoningId
+                    );
+                    $this->thinkingStarted = true;
+                }
 
-                yield new Chunk(
-                    text: $thinkingContent,
-                    finishReason: null,
-                    chunkType: ChunkType::Thinking,
+                yield new ThinkingEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $thinkingContent,
+                    reasoningId: $this->reasoningId
                 );
 
                 continue;
+            }
+
+            if ($this->thinkingStarted && $thinkingContent === '') {
+                yield new ThinkingCompleteEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    reasoningId: $this->reasoningId
+                );
+                $this->thinkingStarted = false;
             }
 
             if ($this->hasToolCalls($data)) {
@@ -81,38 +140,63 @@ class Stream
                 continue;
             }
 
-            if ($this->isInitialChunk($data)) {
-                $meta = new Meta(
-                    id: data_get($data, 'id'),
-                    model: data_get($data, 'model'),
-                );
-
-                yield new Chunk(
-                    text: '',
-                    finishReason: null,
-                    meta: $meta,
-                    chunkType: ChunkType::Meta,
-                );
-
-                continue;
-            }
-
-            // Extract text content
             $content = $this->extractContent($data);
-            $text .= $content;
 
             if ($content !== '') {
-                yield new Chunk(
-                    text: $content,
-                    finishReason: null,
-                    chunkType: ChunkType::Text,
+                if (! $this->textStarted) {
+                    yield new TextStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        messageId: $this->messageId
+                    );
+                    $this->textStarted = true;
+                }
+
+                $text .= $content;
+
+                yield new TextDeltaEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $content,
+                    messageId: $this->messageId
                 );
+            }
+
+            $rawFinishReason = data_get($data, 'choices.0.finish_reason');
+            if ($rawFinishReason !== null) {
+                $finishReason = $this->extractFinishReason($data);
+                $usage = $this->extractUsage($data);
             }
         }
 
         if ($toolCalls !== []) {
+            if ($this->textStarted && $text !== '') {
+                yield new TextCompleteEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    messageId: $this->messageId
+                );
+            }
+
             yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+
+            return;
         }
+
+        if ($this->textStarted && $text !== '') {
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->messageId
+            );
+        }
+
+        yield new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $finishReason ?? FinishReason::Stop,
+            usage: $usage
+        );
     }
 
     /**
@@ -137,14 +221,6 @@ class Stream
         } catch (Throwable $e) {
             throw new PrismChunkDecodeException('XAI', $e);
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function isInitialChunk(array $data): bool
-    {
-        return isset($data['id']) && isset($data['model']) && ! data_get($data, 'choices.0.delta.content');
     }
 
     /**
@@ -232,39 +308,43 @@ class Stream
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     protected function handleToolCalls(
         Request $request,
         string $text,
         array $toolCalls,
-        int $depth,
+        int $depth
     ): Generator {
         $mappedToolCalls = $this->mapToolCalls($toolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolCalls: $mappedToolCalls,
-            chunkType: ChunkType::ToolCall,
-        );
+        foreach ($mappedToolCalls as $toolCall) {
+            yield new ToolCallEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolCall: $toolCall,
+                messageId: $this->messageId
+            );
+        }
 
         $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
 
-        yield new Chunk(
-            text: '',
-            toolResults: $toolResults,
-            chunkType: ChunkType::ToolResult,
-        );
+        foreach ($toolResults as $result) {
+            yield new ToolResultEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolResult: $result,
+                messageId: $this->messageId
+            );
+        }
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        $depth++;
+        $this->resetTextState();
 
-        if ($depth < $request->maxSteps()) {
-            $nextResponse = $this->sendRequest($request);
-            yield from $this->processStream($nextResponse, $request, $depth);
-        }
+        $nextResponse = $this->sendRequest($request);
+        yield from $this->processStream($nextResponse, $request, $depth + 1);
     }
 
     /**
@@ -319,5 +399,20 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    protected function resetState(): void
+    {
+        $this->messageId = '';
+        $this->reasoningId = '';
+        $this->streamStarted = false;
+        $this->textStarted = false;
+        $this->thinkingStarted = false;
+    }
+
+    protected function resetTextState(): void
+    {
+        $this->textStarted = false;
+        $this->messageId = EventID::generate();
     }
 }
