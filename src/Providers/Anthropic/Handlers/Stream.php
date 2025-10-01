@@ -10,7 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismChunkDecodeException;
+use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\CitationEvent;
@@ -597,7 +597,7 @@ class Stream
 
             return $data;
         } catch (Throwable $e) {
-            throw new PrismChunkDecodeException('Anthropic', $e);
+            throw new PrismStreamDecodeException('Anthropic', $e);
         }
     }
 

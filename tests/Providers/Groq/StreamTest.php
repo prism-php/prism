@@ -7,8 +7,8 @@ namespace Tests\Providers\Groq;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -167,11 +167,11 @@ it('handles invalid stream data correctly', function (): void {
         foreach ($response as $chunk) {
             // The test should throw before completing
         }
-    } catch (PrismChunkDecodeException $e) {
+    } catch (PrismStreamDecodeException $e) {
         $exception = $e;
     }
 
-    expect($exception)->toBeInstanceOf(PrismChunkDecodeException::class);
+    expect($exception)->toBeInstanceOf(PrismStreamDecodeException::class);
 });
 
 it('respects system prompts in the requests', function (): void {

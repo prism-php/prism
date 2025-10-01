@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Parsers;
 
-use Prism\Prism\Exceptions\PrismChunkDecodeException;
+use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -94,7 +94,7 @@ class StreamEventParser
 
             return $data;
         } catch (Throwable $e) {
-            throw new PrismChunkDecodeException('Anthropic', $e);
+            throw new PrismStreamDecodeException('Anthropic', $e);
         }
     }
 

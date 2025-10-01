@@ -150,20 +150,20 @@ Some models (like OpenAI's o1 series) support reasoning tokens that show the mod
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
     ->using(Provider::OpenRouter, 'openai/o1-preview')
     ->withPrompt('Solve this complex math problem: What is the derivative of x^3 + 2x^2 - 5x + 1?')
     ->asStream();
 
-foreach ($stream as $chunk) {
-    if ($chunk->chunkType === ChunkType::Thinking) {
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::ThinkingDelta) {
         // This is the model's reasoning/thinking process
-        echo "Thinking: " . $chunk->text . "\n";
-    } else {
+        echo "Thinking: " . $event->delta . "\n";
+    } elseif ($event->type() === StreamEventType::TextDelta) {
         // This is the final answer
-        echo $chunk->text;
+        echo $event->delta;
     }
 }
 ```

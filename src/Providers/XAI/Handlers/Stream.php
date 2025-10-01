@@ -11,8 +11,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\XAI\Concerns\ExtractsThinking;
 use Prism\Prism\Providers\XAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\XAI\Concerns\ValidatesResponses;
@@ -219,7 +219,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismChunkDecodeException('XAI', $e);
+            throw new PrismStreamDecodeException('XAI', $e);
         }
     }
 
