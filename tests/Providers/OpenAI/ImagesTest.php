@@ -381,7 +381,8 @@ it('can edit with multiple images', function (): void {
         ->using('openai', 'gpt-image-1')
         ->withPrompt('Add a vaporwave sunset to the background', [
             Image::fromLocalPath('tests/Fixtures/diamond.png'),
-            Image::fromLocalPath('tests/Fixtures/sunset.png'),
+            Image::fromLocalPath('tests/Fixtures/sunset.png')
+                ->as('sunset.png'),
         ])
         ->withProviderOptions([
             'size' => '1024x1024',
@@ -392,6 +393,20 @@ it('can edit with multiple images', function (): void {
         ->generate();
 
     expect($response->firstImage()->base64)->not->toBeEmpty();
+
+    Http::assertSent(function (Request $request): true {
+        $images = collect($request->data())
+            ->where(fn ($data): bool => $data['name'] === 'image[]')
+            ->pluck('filename')
+            ->toArray();
+
+        expect($images)->toBe([
+            'image-0',
+            'sunset.png',
+        ]);
+
+        return true;
+    });
 });
 
 it('can edit images with mask using Image value object', function (): void {

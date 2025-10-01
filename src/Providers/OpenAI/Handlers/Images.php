@@ -67,8 +67,9 @@ class Images
             $this
                 ->client
                 ->attach(
-                    "image[{$index}]",
-                    $image->resource()
+                    'image[]',
+                    $image->resource(),
+                    $image->filename() ?: "image-{$index}",
                 );
         }
 

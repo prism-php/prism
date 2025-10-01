@@ -28,6 +28,8 @@ class Media
 
     protected ?string $mimeType = null;
 
+    protected ?string $filename = null;
+
     final public function __construct() {}
 
     public static function fromFileId(string $fileId): static
@@ -131,6 +133,18 @@ class Media
         $instance->mimeType = $mimeType;
 
         return $instance;
+    }
+
+    public function as(string $name): self
+    {
+        $this->filename = $name;
+
+        return $this;
+    }
+
+    public function filename(): ?string
+    {
+        return $this->filename;
     }
 
     public function isFileId(): bool
