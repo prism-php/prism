@@ -285,14 +285,14 @@ $response = Prism::image()
 
 #### Editing with Multiple Images
 
-You can also edit with multiple images for more complex operations:
+You can also edit with multiple images for more complex operations. Use the `as()` method to provide custom filenames for better readability:
 
 ```php
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
     ->withPrompt('Combine these images with a futuristic theme', [
-        Image::fromLocalPath('tests/Fixtures/diamond.png'),
-        Image::fromLocalPath('tests/Fixtures/sunset.png'),
+        Image::fromLocalPath('tests/Fixtures/diamond.png')->as('diamond.png'),
+        Image::fromLocalPath('tests/Fixtures/sunset.png')->as('sunset-background.png'),
     ])
     ->withProviderOptions([
         'size' => '1024x1024',
