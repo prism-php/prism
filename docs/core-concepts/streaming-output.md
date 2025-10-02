@@ -253,12 +253,11 @@ Based on actual streaming output:
     }
 }
 
-// text_start event  
+// text_start event
 {
     "id": "anthropic_evt_8YI9ULcftpFtHzh3",
     "timestamp": 1756412888,
-    "message_id": "msg_01BS7MKgXvUESY8yAEugphV2",
-    "turn_id": null
+    "message_id": "msg_01BS7MKgXvUESY8yAEugphV2"
 }
 
 // text_delta event
@@ -266,8 +265,7 @@ Based on actual streaming output:
     "id": "anthropic_evt_NbS3LIP0QDl5whYu",
     "timestamp": 1756412888,
     "delta": "💠🌐 Well hello there! You want to know",
-    "message_id": "msg_01BS7MKgXvUESY8yAEugphV2",
-    "turn_id": null
+    "message_id": "msg_01BS7MKgXvUESY8yAEugphV2"
 }
 
 // tool_call event

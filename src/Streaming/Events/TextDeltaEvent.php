@@ -11,9 +11,8 @@ readonly class TextDeltaEvent extends StreamEvent
     public function __construct(
         string $id,
         int $timestamp,
-        public string $delta,          // Text chunk/delta
-        public string $messageId,      // Message ID for aggregation
-        public ?string $turnId = null, // Turn ID for multi-turn conversations
+        public string $delta,
+        public string $messageId,
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -33,7 +32,6 @@ readonly class TextDeltaEvent extends StreamEvent
             'timestamp' => $this->timestamp,
             'delta' => $this->delta,
             'message_id' => $this->messageId,
-            'turn_id' => $this->turnId,
         ];
     }
 }

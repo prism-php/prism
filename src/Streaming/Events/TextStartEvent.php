@@ -11,8 +11,7 @@ readonly class TextStartEvent extends StreamEvent
     public function __construct(
         string $id,
         int $timestamp,
-        public string $messageId,      // Message ID that's starting
-        public ?string $turnId = null, // Turn ID for multi-turn conversations
+        public string $messageId,
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -31,7 +30,6 @@ readonly class TextStartEvent extends StreamEvent
             'id' => $this->id,
             'timestamp' => $this->timestamp,
             'message_id' => $this->messageId,
-            'turn_id' => $this->turnId,
         ];
     }
 }

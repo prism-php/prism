@@ -16,20 +16,7 @@ it('constructs with required parameters', function (): void {
     expect($event->id)->toBe('event-123')
         ->and($event->timestamp)->toBe(1640995200)
         ->and($event->delta)->toBe('Hello')
-        ->and($event->messageId)->toBe('msg-456')
-        ->and($event->turnId)->toBeNull();
-});
-
-it('constructs with turn id', function (): void {
-    $event = new TextDeltaEvent(
-        id: 'event-123',
-        timestamp: 1640995200,
-        delta: ' world!',
-        messageId: 'msg-456',
-        turnId: 'turn-789'
-    );
-
-    expect($event->turnId)->toBe('turn-789');
+        ->and($event->messageId)->toBe('msg-456');
 });
 
 it('returns correct stream event type', function (): void {
@@ -48,26 +35,6 @@ it('converts to array with all properties', function (): void {
         id: 'event-123',
         timestamp: 1640995200,
         delta: 'Hello world!',
-        messageId: 'msg-456',
-        turnId: 'turn-789'
-    );
-
-    $array = $event->toArray();
-
-    expect($array)->toBe([
-        'id' => 'event-123',
-        'timestamp' => 1640995200,
-        'delta' => 'Hello world!',
-        'message_id' => 'msg-456',
-        'turn_id' => 'turn-789',
-    ]);
-});
-
-it('converts to array with null turn id', function (): void {
-    $event = new TextDeltaEvent(
-        id: 'event-123',
-        timestamp: 1640995200,
-        delta: 'Hello world!',
         messageId: 'msg-456'
     );
 
@@ -78,7 +45,6 @@ it('converts to array with null turn id', function (): void {
         'timestamp' => 1640995200,
         'delta' => 'Hello world!',
         'message_id' => 'msg-456',
-        'turn_id' => null,
     ]);
 });
 

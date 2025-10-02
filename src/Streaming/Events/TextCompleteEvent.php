@@ -11,8 +11,7 @@ readonly class TextCompleteEvent extends StreamEvent
     public function __construct(
         string $id,
         int $timestamp,
-        public string $messageId,      // Message ID that's now complete
-        public ?string $turnId = null,
+        public string $messageId,
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -31,7 +30,6 @@ readonly class TextCompleteEvent extends StreamEvent
             'id' => $this->id,
             'timestamp' => $this->timestamp,
             'message_id' => $this->messageId,
-            'turn_id' => $this->turnId,
         ];
     }
 }
