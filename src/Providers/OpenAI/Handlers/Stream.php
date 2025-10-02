@@ -150,7 +150,7 @@ class Stream
 
                 if ($this->isToolCallComplete($data)) {
                     $completedToolCall = $this->getCompletedToolCall($data, $toolCalls);
-                    if ($completedToolCall instanceof \Prism\Prism\ValueObjects\ToolCall) {
+                    if ($completedToolCall instanceof ToolCall) {
                         yield new ToolCallEvent(
                             id: EventID::generate(),
                             timestamp: time(),

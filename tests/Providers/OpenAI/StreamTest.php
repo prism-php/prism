@@ -9,8 +9,10 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -234,7 +236,7 @@ it('can process a complete conversation with multiple tool calls for reasoning m
             $toolCallCount++;
         }
 
-        if ($event instanceof \Prism\Prism\Streaming\Events\ThinkingEvent) {
+        if ($event instanceof ThinkingEvent) {
             $reasoningText .= $event->delta;
         }
 
@@ -242,7 +244,7 @@ it('can process a complete conversation with multiple tool calls for reasoning m
             $answerText .= $event->delta;
         }
 
-        if ($event instanceof \Prism\Prism\Streaming\Events\StreamEndEvent && $event->usage) {
+        if ($event instanceof StreamEndEvent && $event->usage) {
             $usage[] = $event->usage;
         }
     }
@@ -285,7 +287,7 @@ it('can process a complete conversation with provider tool', function (): void {
             $answerText .= $event->delta;
         }
 
-        if ($event instanceof \Prism\Prism\Streaming\Events\StreamEndEvent && $event->usage) {
+        if ($event instanceof StreamEndEvent && $event->usage) {
             $usage[] = $event->usage;
         }
     }
@@ -306,7 +308,7 @@ it('emits usage information', function (): void {
         ->asStream();
 
     foreach ($response as $event) {
-        if ($event instanceof \Prism\Prism\Streaming\Events\StreamEndEvent && $event->usage) {
+        if ($event instanceof StreamEndEvent && $event->usage) {
             expect($event->usage->promptTokens)->toBeGreaterThan(0);
             expect($event->usage->completionTokens)->toBeGreaterThan(0);
         }

@@ -60,7 +60,7 @@ class PrismManager
      */
     public function extend(string $provider, Closure $callback): self
     {
-        if (($callback = $callback->bindTo($this, $this)) instanceof \Closure) {
+        if (($callback = $callback->bindTo($this, $this)) instanceof Closure) {
             $this->customCreators[$provider] = $callback;
 
             return $this;

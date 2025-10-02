@@ -6,6 +6,7 @@ namespace Prism\Prism\Streaming\Events;
 
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\StreamEventType;
+use Prism\Prism\ValueObjects\Citation;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -38,7 +39,7 @@ readonly class StreamEndEvent extends StreamEvent
             'id' => $this->id,
             'timestamp' => $this->timestamp,
             'finish_reason' => $this->finishReason->name,
-            'usage' => $this->usage instanceof \Prism\Prism\ValueObjects\Usage ? [
+            'usage' => $this->usage instanceof Usage ? [
                 'prompt_tokens' => $this->usage->promptTokens,
                 'completion_tokens' => $this->usage->completionTokens,
                 'cache_write_input_tokens' => $this->usage->cacheWriteInputTokens,
@@ -49,7 +50,7 @@ readonly class StreamEndEvent extends StreamEvent
                 fn (MessagePartWithCitations $citationPart): array => [
                     'output_text' => $citationPart->outputText,
                     'citations' => array_map(
-                        fn (\Prism\Prism\ValueObjects\Citation $citation): array => [
+                        fn (Citation $citation): array => [
                             'source_type' => $citation->sourceType->value,
                             'source' => $citation->source,
                             'source_text' => $citation->sourceText,

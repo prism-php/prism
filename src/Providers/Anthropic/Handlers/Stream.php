@@ -225,7 +225,7 @@ class Stream
         // Update usage with final data from message_delta
         $usageData = $event['usage'] ?? [];
         // Update completion tokens if provided
-        if (! empty($usageData) && $this->usage instanceof \Prism\Prism\ValueObjects\Usage && isset($usageData['output_tokens'])) {
+        if (! empty($usageData) && $this->usage instanceof Usage && isset($usageData['output_tokens'])) {
             $this->usage = new Usage(
                 promptTokens: $this->usage->promptTokens,
                 completionTokens: $usageData['output_tokens'],

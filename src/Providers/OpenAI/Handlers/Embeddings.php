@@ -30,7 +30,7 @@ class Embeddings
         $data = $response->json();
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
+            embeddings: array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
             usage: new EmbeddingsUsage(data_get($data, 'usage.total_tokens', null)),
             meta: new Meta(
                 id: '',

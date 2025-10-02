@@ -137,7 +137,7 @@ class StreamState
 
     public function addCitation(?MessagePartWithCitations $citation): self
     {
-        if (! $citation instanceof \Prism\Prism\ValueObjects\MessagePartWithCitations) {
+        if (! $citation instanceof MessagePartWithCitations) {
             return $this;
         }
 
