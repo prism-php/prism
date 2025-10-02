@@ -93,14 +93,17 @@ echo $response->text;
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
     ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
     ->withPrompt('Tell me a long story about AI.')
     ->asStream();
 
-foreach ($stream as $chunk) {
-    echo $chunk->text;
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
 }
 ```
 
@@ -124,22 +127,13 @@ $stream = Prism::text()
     ->withTools([$weatherTool])
     ->asStream();
 
-foreach ($stream as $chunk) {
-    echo $chunk->text;
-    
-    // Handle tool calls
-    if ($chunk->toolCalls) {
-        foreach ($chunk->toolCalls as $toolCall) {
-            echo "Tool called: {$toolCall->name}\n";
-        }
-    }
-    
-    // Handle tool results
-    if ($chunk->toolResults) {
-        foreach ($chunk->toolResults as $result) {
-            echo "Tool result: {$result->result}\n";
-        }
-    }
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::TextDelta => echo $event->delta,
+        StreamEventType::ToolCall => echo "Tool called: {$event->toolName}\n",
+        StreamEventType::ToolResult => echo "Tool result: " . json_encode($event->result) . "\n",
+        default => null,
+    };
 }
 ```
 
