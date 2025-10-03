@@ -1,0 +1,30 @@
+{
+  "id": "resp_nullable_anyof_test_1",
+  "object": "response",
+  "created_at": 1741990325,
+  "status": "completed",
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "msg_nullable_anyof_test_1",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "{\"name\":\"debug_config\",\"flexible_value\":null}",
+          "refusal": null
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 120,
+    "output_tokens": 25,
+    "total_tokens": 145
+  },
+  "service_tier": "default",
+  "system_fingerprint": "fp_eb9dce56a8"
+}
