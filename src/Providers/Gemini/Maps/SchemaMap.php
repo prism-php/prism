@@ -3,6 +3,7 @@
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\NumberSchema;
@@ -23,6 +24,14 @@ class SchemaMap
 
         // Remove unsupported fields
         unset($schemaArray['additionalProperties'], $schemaArray['description'], $schemaArray['name']);
+
+        // Handle AnyOfSchema - Gemini doesn't support anyOf, so we'll return the schema as-is
+        // or we could choose the first schema type as a fallback
+        if ($this->schema instanceof AnyOfSchema) {
+            // For Gemini, we'll just return the raw anyOf structure
+            // This might not be ideal, but it preserves the intent
+            return $schemaArray;
+        }
 
         return array_merge(
             array_filter([
@@ -61,6 +70,11 @@ class SchemaMap
         }
         if ($this->schema instanceof ObjectSchema) {
             return 'object';
+        }
+        if ($this->schema instanceof AnyOfSchema) {
+            // Gemini doesn't support anyOf directly, so we fallback to a generic type
+            // This could be improved by choosing the most common type from the schemas
+            return 'string';
         }
 
         return 'string';
