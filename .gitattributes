@@ -1,0 +1,11 @@
+/.github        export-ignore
+/assets         export-ignore
+/bin            export-ignore
+/docs           export-ignore
+/tests          export-ignore
+/workbench      export-ignore
+.gitignore      export-ignore
+LICENSE         export-ignore
+README.md       export-ignore
+testbench.yaml  export-ignore
+whisky.json     export-ignore
