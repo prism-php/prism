@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\Concerns;
+namespace Prism\Prism\Providers\OpenAI\Concerns;
 
 trait ConfiguresFile
 {
-    protected ?string $purpose = null;
+    protected string $purpose;
 
     protected ?string $fileName = null;
 
     protected ?string $fileOutputId = null;
+
+    private function initializeDefaultConfiguresFileTrait(): void
+    {
+        $this->purpose = config('prism.open_ai_file_storage.file_purpose');
+    }
 
     public function withPurpose(string $purpose): self
     {

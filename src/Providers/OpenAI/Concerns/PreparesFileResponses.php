@@ -3,9 +3,9 @@
 namespace Prism\Prism\Providers\OpenAI\Concerns;
 
 use Illuminate\Support\Arr;
-use Prism\Prism\File\DeleteResponse;
-use Prism\Prism\File\ListResponse;
-use Prism\Prism\File\Response;
+use Prism\Prism\Providers\OpenAI\File\DeleteResponse;
+use Prism\Prism\Providers\OpenAI\File\ListResponse;
+use Prism\Prism\Providers\OpenAI\File\Response;
 
 trait PreparesFileResponses
 {
