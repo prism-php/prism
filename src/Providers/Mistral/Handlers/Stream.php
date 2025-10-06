@@ -28,6 +28,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -40,16 +41,14 @@ class Stream
 {
     use CallsTools, MapsFinishReason, ProcessRateLimits, ValidatesResponse;
 
-    protected string $messageId = '';
-
-    protected bool $streamStarted = false;
-
-    protected bool $textStarted = false;
+    protected StreamState $state;
 
     public function __construct(
         protected PendingRequest $client,
         #[\SensitiveParameter] protected string $apiKey,
-    ) {}
+    ) {
+        $this->state = new StreamState;
+    }
 
     /**
      * @return Generator<StreamEvent>
@@ -84,8 +83,8 @@ class Stream
                 continue;
             }
 
-            if (! $this->streamStarted) {
-                $this->messageId = EventID::generate();
+            if ($this->state->shouldEmitStreamStart()) {
+                $this->state->withMessageId(EventID::generate())->markStreamStarted();
 
                 yield new StreamStartEvent(
                     id: EventID::generate(),
@@ -93,18 +92,17 @@ class Stream
                     model: $request->model(),
                     provider: 'mistral'
                 );
-                $this->streamStarted = true;
             }
 
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    if ($this->textStarted && $text !== '') {
+                    if ($this->state->hasTextStarted() && $text !== '') {
                         yield new TextCompleteEvent(
                             id: EventID::generate(),
                             timestamp: time(),
-                            messageId: $this->messageId
+                            messageId: $this->state->messageId()
                         );
                     }
 
@@ -117,11 +115,11 @@ class Stream
             }
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                if ($this->textStarted && $text !== '') {
+                if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
@@ -133,13 +131,14 @@ class Stream
             $content = data_get($data, 'choices.0.delta.content', '') ?? '';
 
             if ($content !== '') {
-                if (! $this->textStarted) {
+                if ($this->state->shouldEmitTextStart()) {
+                    $this->state->markTextStarted();
+
                     yield new TextStartEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
-                    $this->textStarted = true;
                 }
 
                 $text .= $content;
@@ -148,7 +147,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     delta: $content,
-                    messageId: $this->messageId
+                    messageId: $this->state->messageId()
                 );
             }
 
@@ -156,11 +155,11 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                if ($this->textStarted && $text !== '') {
+                if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
@@ -237,7 +236,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 toolCall: $toolCall,
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             );
         }
 
@@ -248,7 +247,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 toolResult: $result,
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             );
         }
 
@@ -367,14 +366,12 @@ class Stream
 
     protected function resetState(): void
     {
-        $this->messageId = '';
-        $this->streamStarted = false;
-        $this->textStarted = false;
+        $this->state->reset();
     }
 
     protected function resetTextState(): void
     {
-        $this->textStarted = false;
-        $this->messageId = EventID::generate();
+        $this->state->resetTextState();
+        $this->state->withMessageId(EventID::generate());
     }
 }

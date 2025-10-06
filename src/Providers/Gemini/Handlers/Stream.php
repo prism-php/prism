@@ -28,6 +28,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -41,32 +42,21 @@ class Stream
 {
     use CallsTools;
 
-    protected string $messageId = '';
-
-    protected string $currentText = '';
-
-    protected string $currentThinking = '';
-
-    protected ?string $currentReasoningId = null;
-
-    /**
-     * @var array<int, array<string, mixed>>
-     */
-    protected array $toolCalls = [];
-
-    protected ?Usage $usage = null;
+    protected StreamState $state;
 
     public function __construct(
         protected PendingRequest $client,
         #[\SensitiveParameter] protected string $apiKey,
-    ) {}
+    ) {
+        $this->state = new StreamState;
+    }
 
     /**
      * @return Generator<StreamEvent>
      */
     public function handle(Request $request): Generator
     {
-        $this->resetState();
+        $this->state->reset();
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -82,9 +72,6 @@ class Stream
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
 
-        $streamStarted = false;
-        $textStarted = false;
-
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
 
@@ -99,8 +86,8 @@ class Stream
             }
 
             // Emit stream start event once
-            if (! $streamStarted) {
-                $this->messageId = EventID::generate();
+            if ($this->state->shouldEmitStreamStart()) {
+                $this->state->withMessageId(EventID::generate());
 
                 yield new StreamStartEvent(
                     id: EventID::generate(),
@@ -108,23 +95,26 @@ class Stream
                     model: data_get($data, 'modelVersion', 'unknown'),
                     provider: 'gemini'
                 );
-                $streamStarted = true;
+                $this->state->markStreamStarted();
             }
 
             // Update usage data from each chunk
-            $this->usage = $this->extractUsage($data, $request);
+            $this->state->withUsage($this->extractUsage($data, $request));
 
             // Process tool calls
             if ($this->hasToolCalls($data)) {
-                $this->toolCalls = $this->extractToolCalls($data, $this->toolCalls);
+                $toolCalls = $this->extractToolCalls($data, $this->state->toolCalls());
+                foreach ($toolCalls as $index => $toolCall) {
+                    $this->state->addToolCall($index, $toolCall);
+                }
 
                 // Emit tool call events
-                foreach ($this->toolCalls as $toolCallData) {
+                foreach ($this->state->toolCalls() as $toolCallData) {
                     yield new ToolCallEvent(
                         id: EventID::generate(),
                         timestamp: time(),
                         toolCall: $this->mapToolCall($toolCallData),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
@@ -147,23 +137,23 @@ class Stream
 
                     if ($thinkingContent !== '') {
                         // Start thinking if not already started
-                        if ($this->currentReasoningId === null) {
-                            $this->currentReasoningId = EventID::generate();
+                        if ($this->state->reasoningId() === '') {
+                            $this->state->withReasoningId(EventID::generate());
 
                             yield new ThinkingStartEvent(
                                 id: EventID::generate(),
                                 timestamp: time(),
-                                reasoningId: $this->currentReasoningId
+                                reasoningId: $this->state->reasoningId()
                             );
                         }
 
-                        $this->currentThinking .= $thinkingContent;
+                        $this->state->appendThinking($thinkingContent);
 
                         yield new ThinkingEvent(
                             id: EventID::generate(),
                             timestamp: time(),
                             delta: $thinkingContent,
-                            reasoningId: $this->currentReasoningId
+                            reasoningId: $this->state->reasoningId()
                         );
                     }
                 } elseif (isset($part['text']) && (! isset($part['thought']) || $part['thought'] === false)) {
@@ -172,22 +162,22 @@ class Stream
 
                     if ($content !== '') {
                         // Emit text start event once when we first get text
-                        if (! $textStarted) {
+                        if ($this->state->shouldEmitTextStart()) {
                             yield new TextStartEvent(
                                 id: EventID::generate(),
                                 timestamp: time(),
-                                messageId: $this->messageId
+                                messageId: $this->state->messageId()
                             );
-                            $textStarted = true;
+                            $this->state->markTextStarted();
                         }
 
-                        $this->currentText .= $content;
+                        $this->state->appendText($content);
 
                         yield new TextDeltaEvent(
                             id: EventID::generate(),
                             timestamp: time(),
                             delta: $content,
-                            messageId: $this->messageId
+                            messageId: $this->state->messageId()
                         );
                     }
                 }
@@ -198,20 +188,20 @@ class Stream
 
             if ($finishReason !== FinishReason::Unknown) {
                 // Emit thinking complete if we had thinking
-                if ($this->currentReasoningId !== null) {
+                if ($this->state->reasoningId() !== '') {
                     yield new ThinkingCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        reasoningId: $this->currentReasoningId
+                        reasoningId: $this->state->reasoningId()
                     );
                 }
 
                 // Emit text complete if we had text
-                if ($textStarted) {
+                if ($this->state->hasTextStarted()) {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
@@ -220,13 +210,13 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     finishReason: $finishReason,
-                    usage: $this->usage
+                    usage: $this->state->usage()
                 );
             }
         }
 
         // Handle tool calls if present and not already handled
-        if ($this->toolCalls !== [] && $this->mapFinishReason([]) === FinishReason::Unknown) {
+        if ($this->state->hasToolCalls() && $this->mapFinishReason([]) === FinishReason::Unknown) {
             yield from $this->handleToolCalls($request, $depth);
         }
     }
@@ -287,7 +277,7 @@ class Stream
         $mappedToolCalls = [];
 
         // Convert tool calls to ToolCall objects
-        foreach ($this->toolCalls as $toolCallData) {
+        foreach ($this->state->toolCalls() as $toolCallData) {
             $mappedToolCalls[] = $this->mapToolCall($toolCallData);
         }
 
@@ -311,7 +301,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     toolResult: $toolResult,
-                    messageId: $this->messageId,
+                    messageId: $this->state->messageId(),
                     success: true
                 );
             } catch (Throwable $e) {
@@ -328,7 +318,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     toolResult: $errorResult,
-                    messageId: $this->messageId,
+                    messageId: $this->state->messageId(),
                     success: false,
                     error: $e->getMessage()
                 );
@@ -337,12 +327,12 @@ class Stream
 
         // Add messages for next turn and continue streaming
         if ($toolResults !== []) {
-            $request->addMessage(new AssistantMessage($this->currentText, $mappedToolCalls));
+            $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
             $request->addMessage(new ToolResultMessage($toolResults));
 
             $depth++;
             if ($depth < $request->maxSteps()) {
-                $this->resetState();
+                $this->state->reset();
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
             }
@@ -484,12 +474,7 @@ class Stream
 
     protected function resetState(): void
     {
-        $this->messageId = '';
-        $this->currentText = '';
-        $this->currentThinking = '';
-        $this->currentReasoningId = null;
-        $this->toolCalls = [];
-        $this->usage = null;
+        $this->state->reset();
     }
 
     /**

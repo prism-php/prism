@@ -29,6 +29,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -41,18 +42,12 @@ class Stream
 {
     use CallsTools, ProcessRateLimits, ValidateResponse;
 
-    protected string $messageId = '';
+    protected StreamState $state;
 
-    protected bool $streamStarted = false;
-
-    protected bool $textStarted = false;
-
-    /**
-     * @var array<int, array<string, mixed>>
-     */
-    protected array $toolCalls = [];
-
-    public function __construct(protected PendingRequest $client) {}
+    public function __construct(protected PendingRequest $client)
+    {
+        $this->state = new StreamState;
+    }
 
     /**
      * @return Generator<StreamEvent>
@@ -89,8 +84,8 @@ class Stream
             }
 
             // Emit stream start event if not already started
-            if (! $this->streamStarted) {
-                $this->messageId = EventID::generate();
+            if ($this->state->shouldEmitStreamStart()) {
+                $this->state->withMessageId(EventID::generate())->markStreamStarted();
 
                 yield new StreamStartEvent(
                     id: EventID::generate(),
@@ -98,7 +93,6 @@ class Stream
                     model: $request->model(),
                     provider: 'groq'
                 );
-                $this->streamStarted = true;
             }
 
             if ($this->hasError($data)) {
@@ -115,11 +109,11 @@ class Stream
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 // Complete any ongoing text
-                if ($this->textStarted && $text !== '') {
+                if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
@@ -131,13 +125,14 @@ class Stream
             $content = data_get($data, 'choices.0.delta.content', '') ?? '';
 
             if ($content !== '') {
-                if (! $this->textStarted) {
+                if ($this->state->shouldEmitTextStart()) {
+                    $this->state->markTextStarted();
+
                     yield new TextStartEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
-                    $this->textStarted = true;
                 }
 
                 $text .= $content;
@@ -146,7 +141,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     delta: $content,
-                    messageId: $this->messageId
+                    messageId: $this->state->messageId()
                 );
             }
 
@@ -156,11 +151,11 @@ class Stream
                 $finishReason = $this->mapFinishReason($data);
 
                 // Complete text if we have any
-                if ($this->textStarted && $text !== '') {
+                if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
@@ -246,7 +241,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 toolCall: $toolCall,
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             );
         }
 
@@ -258,7 +253,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 toolResult: $result,
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             );
         }
 
@@ -347,16 +342,13 @@ class Stream
 
     protected function resetState(): void
     {
-        $this->messageId = '';
-        $this->streamStarted = false;
-        $this->textStarted = false;
-        $this->toolCalls = [];
+        $this->state->reset();
     }
 
     protected function resetTextState(): void
     {
-        $this->textStarted = false;
-        $this->messageId = EventID::generate();
+        $this->state->resetTextState();
+        $this->state->withMessageId(EventID::generate());
     }
 
     protected function sendRequest(Request $request): Response

@@ -31,6 +31,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -45,7 +46,12 @@ class Stream
     use CallsTools;
     use ProcessRateLimits;
 
-    public function __construct(protected PendingRequest $client) {}
+    protected StreamState $state;
+
+    public function __construct(protected PendingRequest $client)
+    {
+        $this->state = new StreamState;
+    }
 
     /**
      * @return Generator<StreamEvent>
@@ -62,13 +68,8 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
-        $messageId = EventID::generate();
-        $text = '';
-        $toolCalls = [];
+        $this->state->reset()->withMessageId(EventID::generate());
         $reasoningItems = [];
-        $streamStarted = false;
-        $textStarted = false;
-        $currentReasoningId = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -93,7 +94,7 @@ class Stream
                 ));
             }
 
-            if ($data['type'] === 'response.created' && ! $streamStarted) {
+            if ($data['type'] === 'response.created' && $this->state->shouldEmitStreamStart()) {
                 yield new StreamStartEvent(
                     id: EventID::generate(),
                     timestamp: time(),
@@ -101,7 +102,7 @@ class Stream
                     provider: 'openai',
                 );
 
-                $streamStarted = true;
+                $this->state->markStreamStarted();
 
                 continue;
             }
@@ -110,20 +111,22 @@ class Stream
                 $reasoningDelta = $this->extractReasoningSummaryDelta($data);
 
                 if ($reasoningDelta !== '') {
-                    if ($currentReasoningId === null) {
-                        $currentReasoningId = EventID::generate();
+                    if ($this->state->reasoningId() === '') {
+                        $this->state->withReasoningId(EventID::generate());
                         yield new ThinkingStartEvent(
                             id: EventID::generate(),
                             timestamp: time(),
-                            reasoningId: $currentReasoningId
+                            reasoningId: $this->state->reasoningId()
                         );
                     }
+
+                    $this->state->appendThinking($reasoningDelta);
 
                     yield new ThinkingEvent(
                         id: EventID::generate(),
                         timestamp: time(),
                         delta: $reasoningDelta,
-                        reasoningId: $currentReasoningId
+                        reasoningId: $this->state->reasoningId()
                     );
                 }
 
@@ -133,29 +136,29 @@ class Stream
             if ($this->hasReasoningItems($data)) {
                 $reasoningItems = $this->extractReasoningItems($data, $reasoningItems);
 
-                if ($currentReasoningId !== null) {
+                if ($this->state->reasoningId() !== '') {
                     yield new ThinkingCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        reasoningId: $currentReasoningId
+                        reasoningId: $this->state->reasoningId()
                     );
-                    $currentReasoningId = null;
+                    $this->state->withReasoningId('');
                 }
 
                 continue;
             }
 
             if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls, $reasoningItems);
+                $this->extractToolCalls($data, $reasoningItems);
 
                 if ($this->isToolCallComplete($data)) {
-                    $completedToolCall = $this->getCompletedToolCall($data, $toolCalls);
+                    $completedToolCall = $this->getCompletedToolCall($data);
                     if ($completedToolCall instanceof ToolCall) {
                         yield new ToolCallEvent(
                             id: EventID::generate(),
                             timestamp: time(),
                             toolCall: $completedToolCall,
-                            messageId: $messageId
+                            messageId: $this->state->messageId()
                         );
                     }
                 }
@@ -166,30 +169,30 @@ class Stream
             $content = $this->extractOutputTextDelta($data);
 
             if ($content !== '') {
-                if (! $textStarted) {
+                if ($this->state->shouldEmitTextStart()) {
                     yield new TextStartEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $messageId
+                        messageId: $this->state->messageId()
                     );
-                    $textStarted = true;
+                    $this->state->markTextStarted();
                 }
 
-                $text .= $content;
+                $this->state->appendText($content);
 
                 yield new TextDeltaEvent(
                     id: EventID::generate(),
                     timestamp: time(),
                     delta: $content,
-                    messageId: $messageId
+                    messageId: $this->state->messageId()
                 );
             }
 
-            if (data_get($data, 'type') === 'response.output_text.done' && $textStarted) {
+            if (data_get($data, 'type') === 'response.output_text.done' && $this->state->hasTextStarted()) {
                 yield new TextCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),
-                    messageId: $messageId
+                    messageId: $this->state->messageId()
                 );
             }
 
@@ -208,8 +211,8 @@ class Stream
             }
         }
 
-        if ($toolCalls !== []) {
-            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+        if ($this->state->hasToolCalls()) {
+            yield from $this->handleToolCalls($request, $depth);
         }
     }
 
@@ -239,30 +242,32 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, array<string, mixed>>  $toolCalls
      * @param  array<int, array<string, mixed>>  $reasoningItems
-     * @return array<int, array<string, mixed>>
      */
-    protected function extractToolCalls(array $data, array $toolCalls, array $reasoningItems = []): array
+    protected function extractToolCalls(array $data, array $reasoningItems = []): void
     {
         $type = data_get($data, 'type', '');
 
         if ($type === 'response.output_item.added' && data_get($data, 'item.type') === 'function_call') {
-            $index = (int) data_get($data, 'output_index', count($toolCalls));
+            $index = (int) data_get($data, 'output_index', count($this->state->toolCalls()));
 
-            $toolCalls[$index]['id'] = data_get($data, 'item.id');
-            $toolCalls[$index]['call_id'] = data_get($data, 'item.call_id');
-            $toolCalls[$index]['name'] = data_get($data, 'item.name');
-            $toolCalls[$index]['arguments'] = '';
+            $toolCall = [
+                'id' => data_get($data, 'item.id'),
+                'call_id' => data_get($data, 'item.call_id'),
+                'name' => data_get($data, 'item.name'),
+                'arguments' => '',
+            ];
 
             // Associate with the most recent reasoning item if available
             if ($reasoningItems !== []) {
                 $latestReasoning = end($reasoningItems);
-                $toolCalls[$index]['reasoning_id'] = $latestReasoning['id'];
-                $toolCalls[$index]['reasoning_summary'] = $latestReasoning['summary'] ?? [];
+                $toolCall['reasoning_id'] = $latestReasoning['id'];
+                $toolCall['reasoning_summary'] = $latestReasoning['summary'] ?? [];
             }
 
-            return $toolCalls;
+            $this->state->addToolCall($index, $toolCall);
+
+            return;
         }
 
         if ($type === 'response.function_call_arguments.delta') {
@@ -273,30 +278,24 @@ class Stream
             $callId = data_get($data, 'item_id');
             $arguments = data_get($data, 'arguments', '');
 
-            foreach ($toolCalls as &$call) {
+            $toolCalls = $this->state->toolCalls();
+            foreach ($toolCalls as $index => $call) {
                 if (($call['id'] ?? null) === $callId) {
                     if ($arguments !== '') {
-                        $call['arguments'] = $arguments;
+                        $this->state->updateToolCall($index, ['arguments' => $arguments]);
                     }
                     break;
                 }
             }
         }
-
-        return $toolCalls;
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $toolCalls
      * @return Generator<StreamEvent>
      */
-    protected function handleToolCalls(
-        Request $request,
-        string $text,
-        array $toolCalls,
-        int $depth
-    ): Generator {
-        $mappedToolCalls = $this->mapToolCalls($toolCalls);
+    protected function handleToolCalls(Request $request, int $depth): Generator
+    {
+        $mappedToolCalls = $this->mapToolCalls($this->state->toolCalls());
         $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
 
         foreach ($toolResults as $result) {
@@ -308,7 +307,7 @@ class Stream
             );
         }
 
-        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
+        $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
         $depth++;
@@ -407,13 +406,12 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, array<string, mixed>>  $toolCalls
      */
-    protected function getCompletedToolCall(array $data, array $toolCalls): ?ToolCall
+    protected function getCompletedToolCall(array $data): ?ToolCall
     {
         $callId = data_get($data, 'item_id');
 
-        foreach ($toolCalls as $call) {
+        foreach ($this->state->toolCalls() as $call) {
             if (($call['id'] ?? null) === $callId) {
                 return new ToolCall(
                     id: $call['id'],

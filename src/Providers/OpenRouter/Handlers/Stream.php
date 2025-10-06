@@ -29,6 +29,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -43,17 +44,12 @@ class Stream
     use MapsFinishReason;
     use ValidatesResponses;
 
-    protected string $messageId = '';
+    protected StreamState $state;
 
-    protected string $reasoningId = '';
-
-    protected bool $streamStarted = false;
-
-    protected bool $textStarted = false;
-
-    protected bool $thinkingStarted = false;
-
-    public function __construct(protected PendingRequest $client) {}
+    public function __construct(protected PendingRequest $client)
+    {
+        $this->state = new StreamState;
+    }
 
     /**
      * @return Generator<StreamEvent>
@@ -76,7 +72,6 @@ class Stream
 
         $text = '';
         $toolCalls = [];
-        $reasoning = '';
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -85,8 +80,10 @@ class Stream
                 continue;
             }
 
-            if (! $this->streamStarted) {
-                $this->messageId = EventID::generate('msg');
+            if ($this->state->shouldEmitStreamStart()) {
+                $this->state
+                    ->withMessageId(EventID::generate('msg'))
+                    ->markStreamStarted();
 
                 yield new StreamStartEvent(
                     id: EventID::generate(),
@@ -94,7 +91,6 @@ class Stream
                     model: $data['model'] ?? $request->model(),
                     provider: 'openrouter'
                 );
-                $this->streamStarted = true;
             }
 
             if ($this->hasToolCalls($data)) {
@@ -102,19 +98,19 @@ class Stream
 
                 $finishReason = data_get($data, 'choices.0.finish_reason');
                 if ($finishReason !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    if ($this->textStarted && $text !== '') {
+                    if ($this->state->hasTextStarted() && $text !== '') {
                         yield new TextCompleteEvent(
                             id: EventID::generate(),
                             timestamp: time(),
-                            messageId: $this->messageId
+                            messageId: $this->state->messageId()
                         );
                     }
 
-                    if ($this->thinkingStarted && $reasoning !== '') {
+                    if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
                         yield new ThinkingCompleteEvent(
                             id: EventID::generate(),
                             timestamp: time(),
-                            reasoningId: $this->reasoningId
+                            reasoningId: $this->state->reasoningId()
                         );
                     }
 
@@ -128,19 +124,19 @@ class Stream
 
             $finishReasonValue = data_get($data, 'choices.0.finish_reason');
             if ($finishReasonValue !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                if ($this->textStarted && $text !== '') {
+                if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
-                if ($this->thinkingStarted && $reasoning !== '') {
+                if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
                     yield new ThinkingCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        reasoningId: $this->reasoningId
+                        reasoningId: $this->state->reasoningId()
                     );
                 }
 
@@ -153,23 +149,25 @@ class Stream
                 $reasoningDelta = $this->extractReasoningDelta($data);
 
                 if ($reasoningDelta !== '') {
-                    if (! $this->thinkingStarted) {
-                        $this->reasoningId = EventID::generate('reasoning');
+                    if ($this->state->shouldEmitThinkingStart()) {
+                        $this->state
+                            ->withReasoningId(EventID::generate('reasoning'))
+                            ->markThinkingStarted();
+
                         yield new ThinkingStartEvent(
                             id: EventID::generate(),
                             timestamp: time(),
-                            reasoningId: $this->reasoningId
+                            reasoningId: $this->state->reasoningId()
                         );
-                        $this->thinkingStarted = true;
                     }
 
-                    $reasoning .= $reasoningDelta;
+                    $this->state->appendThinking($reasoningDelta);
 
                     yield new ThinkingEvent(
                         id: EventID::generate(),
                         timestamp: time(),
                         delta: $reasoningDelta,
-                        reasoningId: $this->reasoningId
+                        reasoningId: $this->state->reasoningId()
                     );
                 }
 
@@ -178,13 +176,14 @@ class Stream
 
             $content = $this->extractContentDelta($data);
             if ($content !== '') {
-                if (! $this->textStarted) {
+                if ($this->state->shouldEmitTextStart()) {
+                    $this->state->markTextStarted();
+
                     yield new TextStartEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
-                    $this->textStarted = true;
                 }
 
                 $text .= $content;
@@ -193,7 +192,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     delta: $content,
-                    messageId: $this->messageId
+                    messageId: $this->state->messageId()
                 );
             }
 
@@ -201,19 +200,19 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                if ($this->textStarted && $text !== '') {
+                if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        messageId: $this->messageId
+                        messageId: $this->state->messageId()
                     );
                 }
 
-                if ($this->thinkingStarted && $reasoning !== '') {
+                if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
                     yield new ThinkingCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
-                        reasoningId: $this->reasoningId
+                        reasoningId: $this->state->reasoningId()
                     );
                 }
 
@@ -352,7 +351,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 toolCall: $toolCall,
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             );
         }
 
@@ -363,7 +362,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 toolResult: $result,
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             );
         }
 
@@ -476,17 +475,13 @@ class Stream
 
     protected function resetState(): void
     {
-        $this->messageId = '';
-        $this->reasoningId = '';
-        $this->streamStarted = false;
-        $this->textStarted = false;
-        $this->thinkingStarted = false;
+        $this->state->reset();
     }
 
     protected function resetTextState(): void
     {
-        $this->textStarted = false;
-        $this->thinkingStarted = false;
-        $this->messageId = EventID::generate('msg');
+        $this->state
+            ->resetTextState()
+            ->withMessageId(EventID::generate('msg'));
     }
 }
