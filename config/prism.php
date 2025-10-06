@@ -58,4 +58,9 @@ return [
             'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
         ],
     ],
+    'open_ai_file_storage' => [
+        'disk' => env('OPENAI_FILE_STORAGE_DISK', 'local'),
+        'directory' => env('OPENAI_FILE_STORAGE_DIRECTORY', 'openai-files/'),
+        'file_purpose' => env('OPENAI_FILE_STORAGE_FILE_PURPOSE', 'fine-tune'),
+    ],
 ];
