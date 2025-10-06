@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\File;
+namespace Prism\Prism\Providers\OpenAI\File;
 
 class ListResponse
 {

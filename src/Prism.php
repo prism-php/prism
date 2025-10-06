@@ -10,7 +10,6 @@ use Prism\Prism\Audio\TextResponse as AudioTextResponse;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
-use Prism\Prism\File\PendingRequest as PendingFileRequest;
 use Prism\Prism\Images\PendingRequest as PendingImageRequest;
 use Prism\Prism\Images\Response as ImageResponse;
 use Prism\Prism\Providers\Provider;
@@ -69,11 +68,6 @@ class Prism
     public static function audio(): PendingAudioRequest
     {
         return new PendingAudioRequest;
-    }
-
-    public static function file(): PendingFileRequest
-    {
-        return new PendingFileRequest;
     }
 
     /**
