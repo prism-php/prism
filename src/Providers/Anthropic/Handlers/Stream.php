@@ -12,6 +12,7 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
+use Prism\Prism\Providers\Anthropic\ValueObjects\AnthropicStreamState;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
@@ -41,40 +42,19 @@ class Stream
 {
     use CallsTools;
 
-    protected string $messageId = '';
+    protected AnthropicStreamState $state;
 
-    protected string $reasoningId = '';
-
-    protected string $currentText = '';
-
-    protected string $currentThinking = '';
-
-    protected string $currentThinkingSignature = '';
-
-    protected ?int $currentBlockIndex = null;
-
-    protected ?string $currentBlockType = null;
-
-    /**
-     * @var array<int, array<string, mixed>>
-     */
-    protected array $toolCalls = [];
-
-    /**
-     * @var array<MessagePartWithCitations>
-     */
-    protected array $citations = [];
-
-    protected ?Usage $usage = null;
-
-    public function __construct(protected PendingRequest $client) {}
+    public function __construct(protected PendingRequest $client)
+    {
+        $this->state = new AnthropicStreamState;
+    }
 
     /**
      * @return Generator<StreamEvent>
      */
     public function handle(Request $request): Generator
     {
-        $this->resetState();
+        $this->state->reset();
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -102,7 +82,7 @@ class Stream
         }
 
         // Handle tool calls if present
-        if ($this->toolCalls !== []) {
+        if ($this->state->hasToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
         }
     }
@@ -132,17 +112,17 @@ class Stream
     protected function handleMessageStart(array $event): StreamStartEvent
     {
         $message = $event['message'] ?? [];
-        $this->messageId = $message['id'] ?? EventID::generate();
+        $this->state->withMessageId($message['id'] ?? EventID::generate());
 
         // Capture initial usage data
         $usageData = $message['usage'] ?? [];
         if (! empty($usageData)) {
-            $this->usage = new Usage(
+            $this->state->withUsage(new Usage(
                 promptTokens: $usageData['input_tokens'] ?? 0,
                 completionTokens: $usageData['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
                 cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null
-            );
+            ));
         }
 
         return new StreamStartEvent(
@@ -158,15 +138,17 @@ class Stream
      */
     protected function handleContentBlockStart(array $event): ?StreamEvent
     {
-        $this->currentBlockIndex = $event['index'] ?? null;
         $contentBlock = $event['content_block'] ?? [];
-        $this->currentBlockType = $contentBlock['type'] ?? null;
+        $this->state->withBlockContext(
+            $event['index'] ?? 0,
+            $contentBlock['type'] ?? ''
+        );
 
-        return match ($this->currentBlockType) {
+        return match ($this->state->currentBlockType()) {
             'text' => new TextStartEvent(
                 id: EventID::generate(),
                 timestamp: time(),
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             ),
             'thinking' => $this->handleThinkingStart(),
             'tool_use' => $this->handleToolUseStart($contentBlock),
@@ -182,7 +164,7 @@ class Stream
         $delta = $event['delta'] ?? [];
         $deltaType = $delta['type'] ?? null;
 
-        return match ([$this->currentBlockType, $deltaType]) {
+        return match ([$this->state->currentBlockType(), $deltaType]) {
             ['text', 'text_delta'] => $this->handleTextDelta($delta),
             ['text', 'citations_delta'] => $this->handleCitationsDelta($delta),
             ['thinking', 'thinking_delta'] => $this->handleThinkingDelta($delta),
@@ -197,22 +179,22 @@ class Stream
      */
     protected function handleContentBlockStop(array $event): ?StreamEvent
     {
-        $result = match ($this->currentBlockType) {
+        $result = match ($this->state->currentBlockType()) {
             'text' => new TextCompleteEvent(
                 id: EventID::generate(),
                 timestamp: time(),
-                messageId: $this->messageId
+                messageId: $this->state->messageId()
             ),
             'thinking' => new ThinkingCompleteEvent(
                 id: EventID::generate(),
                 timestamp: time(),
-                reasoningId: $this->reasoningId
+                reasoningId: $this->state->reasoningId()
             ),
             'tool_use' => $this->handleToolUseComplete(),
             default => null,
         };
 
-        $this->resetCurrentBlock();
+        $this->state->resetBlockContext();
 
         return $result;
     }
@@ -225,13 +207,14 @@ class Stream
         // Update usage with final data from message_delta
         $usageData = $event['usage'] ?? [];
         // Update completion tokens if provided
-        if (! empty($usageData) && $this->usage instanceof Usage && isset($usageData['output_tokens'])) {
-            $this->usage = new Usage(
-                promptTokens: $this->usage->promptTokens,
+        if (! empty($usageData) && $this->state->usage() instanceof Usage && isset($usageData['output_tokens'])) {
+            $currentUsage = $this->state->usage();
+            $this->state->withUsage(new Usage(
+                promptTokens: $currentUsage->promptTokens,
                 completionTokens: $usageData['output_tokens'],
-                cacheWriteInputTokens: $this->usage->cacheWriteInputTokens,
-                cacheReadInputTokens: $this->usage->cacheReadInputTokens
-            );
+                cacheWriteInputTokens: $currentUsage->cacheWriteInputTokens,
+                cacheReadInputTokens: $currentUsage->cacheReadInputTokens
+            ));
         }
 
         return null;
@@ -246,8 +229,8 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: FinishReason::Stop, // Default, will be updated by message_delta
-            usage: $this->usage,
-            citations: $this->citations !== [] ? $this->citations : null
+            usage: $this->state->usage(),
+            citations: $this->state->citations() !== [] ? $this->state->citations() : null
         );
     }
 
@@ -267,12 +250,12 @@ class Stream
 
     protected function handleThinkingStart(): ThinkingStartEvent
     {
-        $this->reasoningId = EventID::generate();
+        $this->state->withReasoningId(EventID::generate());
 
         return new ThinkingStartEvent(
             id: EventID::generate(),
             timestamp: time(),
-            reasoningId: $this->reasoningId
+            reasoningId: $this->state->reasoningId()
         );
     }
 
@@ -287,13 +270,13 @@ class Stream
             return null;
         }
 
-        $this->currentText .= $text;
+        $this->state->appendText($text);
 
         return new TextDeltaEvent(
             id: EventID::generate(),
             timestamp: time(),
             delta: $text,
-            messageId: $this->messageId
+            messageId: $this->state->messageId()
         );
     }
 
@@ -313,19 +296,19 @@ class Stream
 
         // Create MessagePartWithCitations for aggregation
         $messagePartWithCitations = new MessagePartWithCitations(
-            outputText: $this->currentText,
+            outputText: $this->state->currentText(),
             citations: [$citation]
         );
 
         // Store for later aggregation
-        $this->citations[] = $messagePartWithCitations;
+        $this->state->addCitation($messagePartWithCitations);
 
         return new CitationEvent(
             id: EventID::generate(),
             timestamp: time(),
             citation: $citation,
-            messageId: $this->messageId,
-            blockIndex: $this->currentBlockIndex
+            messageId: $this->state->messageId(),
+            blockIndex: $this->state->currentBlockIndex()
         );
     }
 
@@ -340,13 +323,13 @@ class Stream
             return null;
         }
 
-        $this->currentThinking .= $thinking;
+        $this->state->appendThinking($thinking);
 
         return new ThinkingEvent(
             id: EventID::generate(),
             timestamp: time(),
             delta: $thinking,
-            reasoningId: $this->reasoningId
+            reasoningId: $this->state->reasoningId()
         );
     }
 
@@ -355,7 +338,7 @@ class Stream
      */
     protected function handleSignatureDelta(array $delta): null
     {
-        $this->currentThinkingSignature .= $delta['signature'] ?? '';
+        $this->state->appendThinkingSignature($delta['signature'] ?? '');
 
         return null;
     }
@@ -365,12 +348,12 @@ class Stream
      */
     protected function handleToolUseStart(array $contentBlock): null
     {
-        if ($this->currentBlockIndex !== null) {
-            $this->toolCalls[$this->currentBlockIndex] = [
+        if ($this->state->currentBlockIndex() !== null) {
+            $this->state->addToolCall($this->state->currentBlockIndex(), [
                 'id' => $contentBlock['id'] ?? EventID::generate(),
                 'name' => $contentBlock['name'] ?? 'unknown',
                 'input' => '',
-            ];
+            ]);
         }
 
         return null;
@@ -383,8 +366,8 @@ class Stream
     {
         $partialJson = $delta['partial_json'] ?? '';
 
-        if ($this->currentBlockIndex !== null && isset($this->toolCalls[$this->currentBlockIndex])) {
-            $this->toolCalls[$this->currentBlockIndex]['input'] .= $partialJson;
+        if ($this->state->currentBlockIndex() !== null && isset($this->state->toolCalls()[$this->state->currentBlockIndex()])) {
+            $this->state->appendToolCallInput($this->state->currentBlockIndex(), $partialJson);
         }
 
         return null;
@@ -392,11 +375,11 @@ class Stream
 
     protected function handleToolUseComplete(): ?ToolCallEvent
     {
-        if ($this->currentBlockIndex === null || ! isset($this->toolCalls[$this->currentBlockIndex])) {
+        if ($this->state->currentBlockIndex() === null || ! isset($this->state->toolCalls()[$this->state->currentBlockIndex()])) {
             return null;
         }
 
-        $toolCall = $this->toolCalls[$this->currentBlockIndex];
+        $toolCall = $this->state->toolCalls()[$this->state->currentBlockIndex()];
         $input = $toolCall['input'];
 
         // Parse the JSON input
@@ -413,14 +396,14 @@ class Stream
             id: $toolCall['id'],
             name: $toolCall['name'],
             arguments: $input,
-            reasoningId: $this->reasoningId !== '' ? $this->reasoningId : null
+            reasoningId: $this->state->reasoningId() !== '' ? $this->state->reasoningId() : null
         );
 
         return new ToolCallEvent(
             id: EventID::generate(),
             timestamp: time(),
             toolCall: $toolCallObj,
-            messageId: $this->messageId
+            messageId: $this->state->messageId()
         );
     }
 
@@ -432,7 +415,7 @@ class Stream
         $toolCalls = [];
 
         // Convert tool calls to ToolCall objects
-        foreach ($this->toolCalls as $toolCallData) {
+        foreach ($this->state->toolCalls() as $toolCallData) {
             $input = $toolCallData['input'];
             if (is_string($input) && json_validate($input)) {
                 $input = json_decode($input, true);
@@ -476,7 +459,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     toolResult: $resultObj,
-                    messageId: $this->messageId,
+                    messageId: $this->state->messageId(),
                     success: true
                 );
             } catch (Throwable $e) {
@@ -491,7 +474,7 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time(),
                     toolResult: $errorResultObj,
-                    messageId: $this->messageId,
+                    messageId: $this->state->messageId(),
                     success: false,
                     error: $e->getMessage()
                 );
@@ -501,7 +484,7 @@ class Stream
         // Add messages to request for next turn
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage(
-                content: $this->currentText,
+                content: $this->state->currentText(),
                 toolCalls: $toolCalls
             ));
 
@@ -510,7 +493,7 @@ class Stream
             // Continue streaming if within step limit
             $depth++;
             if ($depth < $request->maxSteps()) {
-                $this->resetState();
+                $this->state->reset();
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
             }
@@ -634,21 +617,11 @@ class Stream
 
     protected function resetState(): void
     {
-        $this->messageId = '';
-        $this->reasoningId = '';
-        $this->currentText = '';
-        $this->currentThinking = '';
-        $this->currentThinkingSignature = '';
-        $this->currentBlockIndex = null;
-        $this->currentBlockType = null;
-        $this->toolCalls = [];
-        $this->citations = [];
-        $this->usage = null;
+        $this->state->reset();
     }
 
     protected function resetCurrentBlock(): void
     {
-        $this->currentBlockIndex = null;
-        $this->currentBlockType = null;
+        $this->state->resetBlockContext();
     }
 }
