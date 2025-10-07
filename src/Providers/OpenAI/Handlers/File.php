@@ -30,25 +30,22 @@ class File
 
     public function uploadFile(): Response
     {
+
         if (! $this->fileName || ! $this->path || ! $this->disk) {
             throw new PrismException('File name, disk and path are required');
         }
-        $fileHandle = fopen(
-            Storage::disk($this->disk)->path(
-                $this->path.$this->fileName
-            ),
-            'r'
+        $fileHandle = $this->openFile(
+            $this->path.$this->fileName, 'r'
         );
-        if (! $fileHandle) {
-            throw new PrismException('Failed to open file');
-        }
+
         $response = $this->client
             ->attach('file', $fileHandle, $this->fileName)
             ->post(config('prism.providers.openai.files_endpoint'), [
                 'purpose' => $this->purpose,
             ]);
 
-        fclose($fileHandle);
+        $this->closeFile($fileHandle);
+
         $this->validateResponse($response);
 
         if ($response->status() !== 200) {
@@ -114,5 +111,20 @@ class File
         }
 
         return $this->prepareDeleteResponse($response->json());
+    }
+
+    protected function openFile(string $absoluteFileName, string $mode)
+    {
+        $fileHandle = fopen(Storage::disk($this->disk)->path($absoluteFileName), $mode);
+        if (! $fileHandle) {
+            throw new PrismException('Failed to open file');
+        }
+
+        return $fileHandle;
+    }
+
+    protected function closeFile($fileHandle): void
+    {
+        fclose($fileHandle);
     }
 }
