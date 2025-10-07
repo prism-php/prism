@@ -2,32 +2,43 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
+use Prism\Prism\Providers\OpenAI\Handlers\File;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
-    config()->set('prism.providers.openai.api_key', env('OPENAI_API_KEY'));
+
+    config()->set('prism.providers.openai.api_key', env('OPENAI_API_KEY') ?? '123');
+    $this->provider = Prism::provider(Provider::OpenAI);
 });
 
 it('can upload a file', function (): void {
-    FixtureResponse::fakeResponseSequence('https://api.openai.com/v1/files', 'openai/file-upload-succesful');
 
-    $uploadFile = Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    FixtureResponse::fakeResponseSequence(config('prism.providers.openai.url').'/'.config('prism.providers.openai.files_endpoint'), 'openai/file-upload-succesful');
+    $pendingReq = Http::baseUrl(config('prism.providers.openai.url'));
+    $mock = Mockery::mock(File::class, [$pendingReq])->makePartial();
+    $mock->shouldAllowMockingProtectedMethods();
+    $mock->shouldReceive('openFile')
+        ->andReturn(tmpfile());
+
+    $uploadFile = $mock
         ->withFileName('mydata.jsonl')
-        ->withPurpose('batch');
+        ->withPurpose('batch')
+        ->withPath('testfolder/')
+        ->withDisk('local')
+        ->uploadFile();
 
-    expect($uploadFile->toRequest()->fileName())->toBe('mydata.jsonl');
-    expect($uploadFile->toRequest()->purpose())->toBe('batch');
+    expect($uploadFile->fileName)->toBe('mydata.jsonl');
+    expect($uploadFile->providerSpecificData['purpose'])->toBe('batch');
 });
 
 it('can retrieve information about file', function (): void {
     FixtureResponse::fakeResponseSequence('https://api.openai.com/v1/files/*', 'openai/file-upload-succesful');
 
-    $uploadFile = Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    $uploadFile = $this->provider->file()
         ->withFileOutputId('file-abc123')
         ->retrieveFile();
 
@@ -40,9 +51,7 @@ it('can retrieve information about file', function (): void {
 it('can list all files in storage', function (): void {
     FixtureResponse::fakeResponseSequence('https://api.openai.com/v1/files', 'openai/file-list-all-files');
 
-    $listFiles = Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1'
-        )
+    $listFiles = $this->provider->file()
         ->listFiles();
 
     expect($listFiles->providerSpecificData['data'][0]->id)->toBe('file-abc123');
@@ -60,8 +69,7 @@ it('can list all files in storage', function (): void {
 it('can delete a file', function (): void {
     FixtureResponse::fakeResponseSequence('https://api.openai.com/v1/files/*', 'openai/file-delete-file');
 
-    $deleteFile = Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    $deleteFile = $this->provider->file()
         ->withFileOutputId('file-abc123')
         ->deleteFile();
 
@@ -70,15 +78,13 @@ it('can delete a file', function (): void {
 });
 
 it('throws PrismException when no fileoutputid is provided for deleteFile', function (): void {
-    expect(fn (): \Prism\Prism\File\DeleteResponse => Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    expect(fn (): \Prism\Prism\File\DeleteResponse => $this->provider->file()
         ->deleteFile()
     )->toThrow(PrismException::class);
 });
 
 it('throws PrismException when no fileoutputId is provided for retrieveFile', function (): void {
-    expect(fn (): \Prism\Prism\File\Response => Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    expect(fn (): \Prism\Prism\File\Response => $this->provider->file()
         ->retrieveFile()
     )->toThrow(PrismException::class);
 });
@@ -86,17 +92,15 @@ it('throws PrismException when no fileoutputId is provided for retrieveFile', fu
 it('can download content of a file', function (): void {
     FixtureResponse::fakeResponseSequence('https://api.openai.com/v1/files/*/content', 'openai/file-download-content');
 
-    $downloadFile = Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    $downloadFile = $this->provider->file()
         ->withFileOutputId('file-abc123')
         ->downloadFile();
-    $decoded = json_decode($downloadFile, true);
+    $decoded = json_decode((string) $downloadFile, true);
     expect($decoded['content'])->toBe('Prism is pretty cool');
 });
 
 it('throws PrismException when fileOutputId is not specified for downloading content of a file', function (): void {
-    expect(fn (): string => Prism::file()
-        ->using(Provider::OpenAI, 'gpt-4.1')
+    expect(fn (): string => $this->provider->file()
         ->downloadFile()
     )->toThrow(PrismException::class);
 });
