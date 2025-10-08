@@ -134,6 +134,35 @@ it('can generate an image with imagen models and all options', function (): void
     });
 });
 
+it('can generate an image with image flash models and all options', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent',
+        'gemini/generate-image-with-a-prompt'
+    );
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+        ->withPrompt('Make an image of an elephant hugging a giraffe.')
+        ->withProviderOptions([
+            'aspect_ratio' => '16:9',
+        ])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+    expect($response->firstImage())->not->toBeNull();
+    expect($response->usage->promptTokens)->toBe(8);
+    expect($response->usage->completionTokens)->toBe(1360);
+    expect($response->meta->id)->toBe('-ySmaKa-HJfSjMcP8qrtsQw');
+    expect($response->meta->model)->toBe('gemini-2.0-flash-preview-image-generation');
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent'
+            && data_get($data, 'generationConfig.imageConfig.aspectRatio') === '16:9';
+    });
+});
+
 it('can generate multiple images with imagen models', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1beta/models/imagen-4.0-generate-001:predict',
