@@ -43,7 +43,7 @@ trait ProcessRateLimits
 
     protected function parseResetTime(?string $resetTime): ?Carbon
     {
-        if ($resetTime === null || $resetTime === '' || $resetTime === '0') {
+        if (in_array($resetTime, [null, '', '0'], true)) {
             return null;
         }
 
