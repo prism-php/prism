@@ -136,6 +136,7 @@ class Text
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
                 'text' => $request->providerOptions('text'),
+                'parallel_tool_calls' => false,
             ]))
         );
     }
