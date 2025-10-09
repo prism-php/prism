@@ -23,7 +23,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'DeepSeek/stream-basic-text');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-basic-text');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
@@ -60,7 +60,7 @@ it('can generate text with a basic stream', function (): void {
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'DeepSeek/stream-with-tools');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-tools');
 
     $tools = [
         Tool::as('get_weather')
@@ -127,7 +127,7 @@ it('can generate text using tools with streaming', function (): void {
 });
 
 it('handles max_tokens parameter correctly', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'DeepSeek/stream-max-tokens');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-max-tokens');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
@@ -149,7 +149,7 @@ it('handles max_tokens parameter correctly', function (): void {
 });
 
 it('handles system prompts correctly', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'DeepSeek/stream-system-prompt');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-system-prompt');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
@@ -171,7 +171,7 @@ it('handles system prompts correctly', function (): void {
 });
 
 it('can handle reasoning/thinking tokens in streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'DeepSeek/stream-with-reasoning');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-reasoning');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-reasoner')
