@@ -71,7 +71,7 @@ class Stream
         }
 
         if ($depth === 0) {
-            $this->resetState();
+            $this->state->reset();
         }
 
         $text = '';
@@ -341,7 +341,9 @@ class Stream
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        $this->resetTextState();
+        $this->state
+            ->resetTextState()
+            ->withMessageId(EventID::generate());
 
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
@@ -399,17 +401,5 @@ class Stream
         }
 
         return $buffer;
-    }
-
-    protected function resetState(): void
-    {
-        $this->state->reset();
-    }
-
-    protected function resetTextState(): void
-    {
-        $this->state
-            ->resetTextState()
-            ->withMessageId(EventID::generate());
     }
 }

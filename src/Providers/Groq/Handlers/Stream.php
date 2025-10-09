@@ -70,7 +70,7 @@ class Stream
 
         // Only reset state on the first call (depth 0)
         if ($depth === 0) {
-            $this->resetState();
+            $this->state->reset();
         }
 
         $text = '';
@@ -261,7 +261,8 @@ class Stream
         $request->addMessage(new ToolResultMessage($toolResults));
 
         // Reset text state for next response
-        $this->resetTextState();
+        $this->state->resetTextState();
+        $this->state->withMessageId(EventID::generate());
 
         $nextResponse = $this->sendRequest($request);
         yield from $this->processStream($nextResponse, $request, $depth + 1);
@@ -338,17 +339,6 @@ class Stream
             promptTokens: (int) data_get($usage, 'prompt_tokens', 0),
             completionTokens: (int) data_get($usage, 'completion_tokens', 0)
         );
-    }
-
-    protected function resetState(): void
-    {
-        $this->state->reset();
-    }
-
-    protected function resetTextState(): void
-    {
-        $this->state->resetTextState();
-        $this->state->withMessageId(EventID::generate());
     }
 
     protected function sendRequest(Request $request): Response

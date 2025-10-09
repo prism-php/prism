@@ -614,14 +614,4 @@ class Stream
                 ...Text::buildHttpRequestPayload($request),
             ]));
     }
-
-    protected function resetState(): void
-    {
-        $this->state->reset();
-    }
-
-    protected function resetCurrentBlock(): void
-    {
-        $this->state->resetBlockContext();
-    }
 }

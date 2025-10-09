@@ -350,9 +350,4 @@ class Stream
             arguments: data_get($toolCall, 'arguments'),
         ), $toolCalls);
     }
-
-    protected function resetState(): void
-    {
-        $this->state->reset();
-    }
 }

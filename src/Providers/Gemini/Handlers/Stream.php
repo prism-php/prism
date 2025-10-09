@@ -472,11 +472,6 @@ class Stream
         return $buffer;
     }
 
-    protected function resetState(): void
-    {
-        $this->state->reset();
-    }
-
     /**
      * Check if a part contains thinking content based on Gemini's structure
      *

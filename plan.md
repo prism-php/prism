@@ -1,5 +1,27 @@
 # Stream Handler State Refactoring - Implementation Plan
 
+## Progress Overview
+
+**Status**: Phase 5 Complete - 5 of 6 Phases Done (83%)
+
+**Completed Phases**:
+- ✅ Phase 1: Foundation (Base StreamState Class)
+- ✅ Phase 2: Provider Extensions (Ollama, Anthropic)
+- ✅ Phase 3: Anthropic Stream Handler Refactor
+- ✅ Phase 4: Remaining Provider Refactors (8 providers)
+- ✅ Phase 5: Cleanup and Verification
+
+**Remaining Phases**:
+- ⏳ Phase 6: Documentation
+
+**Current Stats**:
+- Providers refactored: 9 of 9 (100% Complete! 🎉)
+- Tests passing: 945 (3077 assertions)
+- Static analysis: Clean
+- Lines refactored: ~3,596 of ~3,596 (100%)
+
+---
+
 ## Executive Summary
 
 Refactor all 9 provider stream handlers to use a unified, fluent `StreamState` object instead of scattered class properties and local variables. This will improve consistency, maintainability, and readability across the streaming architecture.
@@ -60,11 +82,12 @@ Refactor all 9 provider stream handlers to use a unified, fluent `StreamState` o
 
 1. **Single Source of Truth**: All state in one `StreamState` object
 2. **Fluent Interface**: Chainable methods returning `$this` for mutations
-3. **Immutable IDs**: Once set, messageId/reasoningId don't change (within a turn)
-4. **Clear Lifecycle**: Explicit reset points via `reset()`, `resetTextState()`, `resetBlock()`
-5. **Provider Extensibility**: Base class can be extended for provider-specific state
-6. **Type Safety**: Strong typing on all state properties and methods
-7. **Self-Documenting**: Method names clearly indicate state changes
+3. **API Consistency**: Setter methods use `with*` naming pattern (e.g., `withMessageId()`, `withModel()`) to match Prism's PendingRequest API conventions
+4. **Immutable IDs**: Once set, messageId/reasoningId don't change (within a turn)
+5. **Clear Lifecycle**: Explicit reset points via `reset()`, `resetTextState()`, `resetBlock()`
+6. **Provider Extensibility**: Base class can be extended for provider-specific state
+7. **Type Safety**: Strong typing on all state properties and methods
+8. **Self-Documenting**: Method names clearly indicate state changes
 
 ### Base StreamState Class Design
 
@@ -124,33 +147,33 @@ class StreamState
 }
 ```
 
-**Fluent Setters** (ID Management):
+**Fluent Setters** (ID Management - using `with*` pattern to match Prism API):
 ```php
-public function setMessageId(string $messageId): self
+public function withMessageId(string $messageId): self
 {
     $this->messageId = $messageId;
     return $this;
 }
 
-public function setReasoningId(string $reasoningId): self
+public function withReasoningId(string $reasoningId): self
 {
     $this->reasoningId = $reasoningId;
     return $this;
 }
 
-public function setModel(string $model): self
+public function withModel(string $model): self
 {
     $this->model = $model;
     return $this;
 }
 
-public function setProvider(string $provider): self
+public function withProvider(string $provider): self
 {
     $this->provider = $provider;
     return $this;
 }
 
-public function setMetadata(?array $metadata): self
+public function withMetadata(?array $metadata): self
 {
     $this->metadata = $metadata;
     return $this;
@@ -192,13 +215,13 @@ public function appendThinking(string $thinking): self
     return $this;
 }
 
-public function setText(string $text): self
+public function withText(string $text): self
 {
     $this->currentText = $text;
     return $this;
 }
 
-public function setThinking(string $thinking): self
+public function withThinking(string $thinking): self
 {
     $this->currentThinking = $thinking;
     return $this;
@@ -207,7 +230,7 @@ public function setThinking(string $thinking): self
 
 **Block Context Methods**:
 ```php
-public function setBlockContext(int $index, string $type): self
+public function withBlockContext(int $index, string $type): self
 {
     $this->currentBlockIndex = $index;
     $this->currentBlockType = $type;
@@ -261,13 +284,13 @@ public function addCitation(MessagePartWithCitations $citation): self
 
 **Metadata Methods**:
 ```php
-public function setUsage(Usage $usage): self
+public function withUsage(Usage $usage): self
 {
     $this->usage = $usage;
     return $this;
 }
 
-public function setFinishReason(FinishReason $finishReason): self
+public function withFinishReason(FinishReason $finishReason): self
 {
     $this->finishReason = $finishReason;
     return $this;
@@ -558,9 +581,14 @@ class AnthropicStreamState extends StreamState
    - Run unit tests - must pass
 
 **Deliverables**:
-- `/src/Streaming/StreamState.php` (base class)
-- `/tests/Unit/Streaming/StreamStateTest.php` (comprehensive tests)
+- `/src/Streaming/StreamState.php` (base class with `with*` setter methods)
+- `/tests/Unit/Streaming/StreamStateTest.php` (59 comprehensive tests)
 - All tests passing, zero static analysis errors
+
+**Implementation Notes**:
+- ✅ All setter methods use `with*` naming convention (e.g., `withMessageId()`) instead of `set*` to match Prism's PendingRequest API patterns
+- ✅ PHPDoc type annotations added for complex array types to satisfy PHPStan
+- ✅ 903 total tests passing (2929 assertions)
 
 **Estimated Complexity**: Medium (new class, comprehensive testing needed)
 
@@ -596,7 +624,7 @@ class AnthropicStreamState extends StreamState
 
 ---
 
-### Phase 3: Anthropic Stream Handler Refactor
+### Phase 3: Anthropic Stream Handler Refactor ✅ COMPLETE
 
 **Goal**: Refactor Anthropic as the reference implementation (since it already has unused StreamState)
 
@@ -618,7 +646,7 @@ class AnthropicStreamState extends StreamState
    - Apply consistently across all 655 lines
 
 3. ✅ **Refactor all state writes**
-   - Replace `$this->messageId = $x` → `$this->state->setMessageId($x)`
+   - Replace `$this->messageId = $x` → `$this->state->withMessageId($x)`
    - Replace `$this->currentText .= $x` → `$this->state->appendText($x)`
    - Replace `$this->streamStarted = true` → `$this->state->markStreamStarted()`
    - Use fluent chaining where beneficial
@@ -640,15 +668,37 @@ class AnthropicStreamState extends StreamState
    - Run full test suite: `composer test`
 
 **Deliverables**:
-- Anthropic Stream handler refactored to use new state object
-- Old unused StreamState deleted
-- All tests passing (850+ tests)
+- ✅ Anthropic Stream handler refactored to use new state object
+- ✅ Old unused StreamState deleted
+- ✅ All tests passing (945 tests, 3077 assertions)
 
-**Estimated Complexity**: High (655 lines, complex state interactions)
+**Completion Notes**:
+- Successfully refactored all 10 instance properties into single `AnthropicStreamState` object
+- All state reads/writes converted to use fluent methods
+- Deleted `/src/Providers/Anthropic/ValueObjects/StreamState.php` (old 286-line unused version)
+- All 15 Anthropic tests passing
+- Full test suite passing: 945 tests, 3077 assertions
+- Zero regressions detected
+
+**Lessons Learned**:
+1. **Fluent methods work well**: The `with*` naming pattern is intuitive and matches Prism API conventions
+2. **Query methods improve readability**: `$this->state->messageId()` is more explicit than `$this->messageId`
+3. **Helper methods are valuable**: `hasToolCalls()`, `shouldEmitStreamStart()` make conditionals self-documenting
+4. **Reset delegation simplifies code**: Reduced 13-line reset methods to single `$this->state->reset()` call
+5. **No test changes needed**: Refactoring was purely internal, all existing tests passed without modification
+6. **Block context management**: `withBlockContext($index, $type)` and `resetBlockContext()` are cleaner than separate property assignments
+7. **Tool call indexing**: Using state methods for array indexing (`$this->state->toolCalls()[$index]`) is slightly more verbose but more explicit
+
+**Key Success Factors**:
+- Having comprehensive existing tests provided safety net
+- Using laravel-php-specialist agent for implementation ensured consistency
+- Running tests immediately after refactoring caught any issues early
+
+**Estimated Complexity**: High (655 lines, complex state interactions) - ✅ COMPLETED
 
 ---
 
-### Phase 4: Remaining Provider Refactors (Parallel Execution)
+### Phase 4: Remaining Provider Refactors ✅ COMPLETE
 
 **Goal**: Refactor remaining 8 providers to use StreamState
 
@@ -736,11 +786,59 @@ class AnthropicStreamState extends StreamState
 - All provider tests passing
 - Full test suite passing (850+ tests)
 
-**Estimated Complexity**: High (8 providers, ~2,700 lines total, parallel execution)
+**Completion Notes**:
+Successfully refactored all 8 remaining providers using parallel agent execution:
+
+**Group A (Groq, Mistral, DeepSeek)**:
+- ✅ Groq: 10 tests passing (35 assertions)
+- ✅ Mistral: 10 tests passing (35 assertions)
+- ✅ DeepSeek: 5 tests passing (25 assertions)
+- All use base StreamState
+- Removed unused `toolCalls` instance property from Groq
+- Preserved `Str::random(8)` tool ID generation in Mistral
+
+**Group B (XAI, OpenRouter)**:
+- ✅ XAI: 12 tests passing (37 assertions)
+- ✅ OpenRouter: 3 tests passing (32 assertions)
+- Both use base StreamState with thinking support
+- Preserved EventID prefix generation patterns
+- Moved local `reasoning` accumulator to state
+
+**Group C - Complex Providers**:
+- ✅ Ollama: 6 tests passing (22 assertions) - Uses OllamaStreamState extension
+  - Successfully integrated token accumulation with `addPromptTokens()` and `addCompletionTokens()`
+- ✅ Gemini: 4 tests passing (35 assertions) - Base StreamState
+  - Dual content streams (text + thinking) preserved correctly
+  - Cached content token calculation maintained
+- ✅ OpenAI: 10 tests passing (27 assertions) - Base StreamState
+  - Converted from local variables to instance state
+  - Conceptual shift completed successfully
+
+**Final Verification**:
+- Full test suite: 945 tests, 3077 assertions - ALL PASSING ✅
+- Static analysis: 0 errors (PHPStan) ✅
+- Code formatting: Clean (Pint/Rector) ✅
+- Zero regressions detected ✅
+
+**Key Achievements**:
+1. 100% provider coverage - all 9 of 9 providers now use StreamState
+2. Unified architecture - consistent state management pattern across entire codebase
+3. Code reduction - eliminated ~200+ lines of duplicate state management
+4. Maintained backward compatibility - all existing tests pass without modification
+5. Type safety - all state operations properly typed and verified
+
+**Lessons Learned**:
+1. Parallel agent execution highly effective - completed 8 providers efficiently
+2. Base StreamState flexible enough for most providers (7 of 9 use base class)
+3. Provider extensions (Ollama, Anthropic) handle special cases elegantly
+4. OpenAI's local-to-instance state shift shows pattern works for all approaches
+5. Comprehensive existing tests provided excellent safety net
+
+**Estimated Complexity**: High (8 providers, ~2,700 lines total, parallel execution) - ✅ COMPLETED
 
 ---
 
-### Phase 5: Cleanup and Verification
+### Phase 5: Cleanup and Verification ✅ COMPLETE
 
 **Goal**: Remove old state management code, verify everything works
 
@@ -769,12 +867,21 @@ class AnthropicStreamState extends StreamState
    - Test thinking/reasoning models
 
 **Deliverables**:
-- All old state management code removed
-- Full test suite passing
-- Zero static analysis errors
-- Code formatted consistently
+- ✅ All old state management code removed
+- ✅ Full test suite passing (945 tests, 3077 assertions)
+- ✅ Zero static analysis errors
+- ✅ Code formatted consistently
 
-**Estimated Complexity**: Medium (verification and cleanup)
+**Completion Notes**:
+- ✅ No direct state property access found - all successfully migrated to state object
+- ✅ Removed old wrapper methods (resetState, resetTextState, resetCurrentBlock) from 8 handlers
+- ✅ All PHPDoc already cleaned up during Phase 4
+- ✅ Full verification suite passing:
+  - Tests: 945 passing, 3077 assertions
+  - Static analysis: 0 errors (PHPStan)
+  - Code formatting: Clean (Pint/Rector)
+
+**Estimated Complexity**: Medium (verification and cleanup) - ✅ COMPLETED
 
 ---
 
@@ -859,6 +966,26 @@ For each provider, complete these steps:
 - [ ] Static analysis passes
 - [ ] Code formatting applied
 
+### Provider Migration Status
+
+**Completed (9/9)** - 100% Complete! 🎉:
+- ✅ **Anthropic** (644 lines) - AnthropicStreamState - Phase 3 Complete
+- ✅ **Groq** (316 lines) - Base StreamState - Phase 4 Complete
+- ✅ **Mistral** (325 lines) - Base StreamState - Phase 4 Complete
+- ✅ **DeepSeek** (294 lines) - Base StreamState - Phase 4 Complete
+- ✅ **XAI** (365 lines) - Base StreamState - Phase 4 Complete
+- ✅ **OpenRouter** (439 lines) - Base StreamState - Phase 4 Complete
+- ✅ **Ollama** (322 lines) - OllamaStreamState - Phase 4 Complete
+- ✅ **Gemini** (445 lines) - Base StreamState - Phase 4 Complete
+- ✅ **OpenAI** (435 lines) - Base StreamState - Phase 4 Complete
+
+**Summary**:
+- Total lines refactored: 3,585 lines across 9 stream handlers
+- Base StreamState users: 7 providers
+- Extended StreamState users: 2 providers (Ollama, Anthropic)
+- All tests passing: 945 tests, 3077 assertions
+- Zero regressions
+
 ---
 
 ## Risk Mitigation
@@ -904,9 +1031,10 @@ For each provider, complete these steps:
 - ✅ All Anthropic tests passing
 
 **Phase 4**:
-- ✅ All 8 remaining providers refactored
-- ✅ All provider tests passing (850+ total)
+- ✅ All 8 remaining providers refactored (Groq, Mistral, DeepSeek, XAI, OpenRouter, Ollama, Gemini, OpenAI)
+- ✅ All provider tests passing (945 total, 3077 assertions)
 - ✅ No state properties remain in handlers (except state object)
+- ✅ Zero regressions detected
 
 **Phase 5**:
 - ✅ No old state management code remains
@@ -982,7 +1110,7 @@ public function __construct(protected PendingRequest $client)
 
 // In method:
 $this->state
-    ->setMessageId($message['id'] ?? EventID::generate())
+    ->withMessageId($message['id'] ?? EventID::generate())
     ->markStreamStarted()
     ->appendText($text);
 
@@ -1008,8 +1136,8 @@ $this->textStarted = true;
 
 // After:
 $this->state
-    ->setMessageId(EventID::generate())
-    ->setReasoningId(EventID::generate())
+    ->withMessageId(EventID::generate())
+    ->withReasoningId(EventID::generate())
     ->markStreamStarted()
     ->markTextStarted();
 ```
@@ -1040,8 +1168,8 @@ if ($this->state->shouldEmitStreamStart()) {
 
 | Old Property | New State Method (Read) | New State Method (Write) |
 |-------------|------------------------|-------------------------|
-| `$messageId` | `$state->messageId()` | `$state->setMessageId($id)` |
-| `$reasoningId` | `$state->reasoningId()` | `$state->setReasoningId($id)` |
+| `$messageId` | `$state->messageId()` | `$state->withMessageId($id)` |
+| `$reasoningId` | `$state->reasoningId()` | `$state->withReasoningId($id)` |
 | `$streamStarted` | `$state->hasStreamStarted()` | `$state->markStreamStarted()` |
 | `$textStarted` | `$state->hasTextStarted()` | `$state->markTextStarted()` |
 | `$thinkingStarted` | `$state->hasThinkingStarted()` | `$state->markThinkingStarted()` |
@@ -1064,8 +1192,8 @@ if ($this->state->shouldEmitStreamStart()) {
 
 | Old Property | New State Method (Read) | New State Method (Write) |
 |-------------|------------------------|-------------------------|
-| `$usage` | `$state->usage()` | `$state->setUsage($usage)` |
-| `$finishReason` | `$state->finishReason()` | `$state->setFinishReason($reason)` |
+| `$usage` | `$state->usage()` | `$state->withUsage($usage)` |
+| `$finishReason` | `$state->finishReason()` | `$state->withFinishReason($reason)` |
 
 ---
 
@@ -1074,7 +1202,7 @@ if ($this->state->shouldEmitStreamStart()) {
 ### Anthropic
 - **Extension**: AnthropicStreamState
 - **Additional Properties**: `currentThinkingSignature`, `currentBlockIndex`, `currentBlockType`
-- **Unique Methods**: `appendThinkingSignature()`, `setBlockContext()`, `resetBlockContext()`
+- **Unique Methods**: `appendThinkingSignature()`, `withBlockContext()`, `resetBlockContext()`
 - **Complexity**: High (most complex state tracking)
 
 ### Ollama

@@ -67,7 +67,7 @@ class Stream
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
         if ($depth === 0) {
-            $this->resetState();
+            $this->state->reset();
         }
 
         $text = '';
@@ -369,7 +369,9 @@ class Stream
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        $this->resetTextState();
+        $this->state
+            ->resetTextState()
+            ->withMessageId(EventID::generate('msg'));
 
         $depth++;
 
@@ -471,17 +473,5 @@ class Stream
             cacheReadInputTokens: (int) data_get($usage, 'prompt_tokens_details.cached_tokens', 0),
             thoughtTokens: (int) data_get($usage, 'completion_tokens_details.reasoning_tokens', 0)
         );
-    }
-
-    protected function resetState(): void
-    {
-        $this->state->reset();
-    }
-
-    protected function resetTextState(): void
-    {
-        $this->state
-            ->resetTextState()
-            ->withMessageId(EventID::generate('msg'));
     }
 }
