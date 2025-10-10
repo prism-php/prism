@@ -443,7 +443,7 @@ class Stream
                             'thinkingBudget' => $providerOptions['thinkingBudget'],
                             'includeThoughts' => true,
                         ] : null,
-                    ]),
+                    ]) ?: null,
                     'tools' => $tools !== [] ? $tools : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
