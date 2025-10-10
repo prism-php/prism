@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Text;
 
+use Closure;
 use Generator;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresGeneration;
 use Prism\Prism\Concerns\ConfiguresModels;
@@ -17,10 +19,12 @@ use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
+use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
 use Prism\Prism\Streaming\Adapters\SSEAdapter;
+use Prism\Prism\Streaming\StreamCollector;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -37,6 +41,8 @@ class PendingRequest
     use HasProviderOptions;
     use HasProviderTools;
     use HasTools;
+
+    protected ?Closure $streamEndCallback = null;
 
     /**
      * @deprecated Use `asText` instead.
@@ -58,6 +64,16 @@ class PendingRequest
     }
 
     /**
+     * @param  callable(Collection<int, Message>): void  $callback
+     */
+    public function onStreamEnd(callable $callback): self
+    {
+        $this->streamEndCallback = $callback instanceof Closure ? $callback : Closure::fromCallable($callback);
+
+        return $this;
+    }
+
+    /**
      * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
      */
     public function asStream(): Generator
@@ -67,8 +83,14 @@ class PendingRequest
         try {
             $chunks = $this->provider->stream($request);
 
-            foreach ($chunks as $chunk) {
-                yield $chunk;
+            if ($this->streamEndCallback instanceof Closure) {
+                $collector = new StreamCollector($chunks, $this->streamEndCallback);
+
+                yield from $collector->collect();
+            } else {
+                foreach ($chunks as $chunk) {
+                    yield $chunk;
+                }
             }
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);

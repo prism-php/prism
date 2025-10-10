@@ -277,7 +277,7 @@ it('asEventStreamResponse callback outputs valid SSE format', function (): void 
 
     try {
         $callback();
-        ob_end_flush();
+        $output = ob_get_clean();
 
         rewind($outputBuffer);
         $output = stream_get_contents($outputBuffer);
@@ -331,7 +331,7 @@ it('asDataStreamResponse callback outputs valid data protocol format', function 
 
     try {
         $callback();
-        ob_end_flush();
+        $output = ob_get_clean();
 
         rewind($outputBuffer);
         $output = stream_get_contents($outputBuffer);
