@@ -19,13 +19,16 @@ class ToolCallMap
             return [];
         }
 
-        return array_map(fn (array $toolCall, int $idx): ToolCall => new ToolCall(
-            id: data_get($toolCall, 'id'),
-            name: data_get($toolCall, 'name'),
-            arguments: data_get($toolCall, 'arguments'),
-            resultId: data_get($toolCall, 'call_id'),
-            reasoningId: data_get($reasonings, $idx.'.id'),
-            reasoningSummary: data_get($reasonings, $idx.'.summary'),
-        ), $toolCalls);
+        return collect($toolCalls)->map(
+            fn (array $toolCall, int $idx): ToolCall => new ToolCall(
+                id: data_get($toolCall, 'id'),
+                name: data_get($toolCall, 'name'),
+                arguments: data_get($toolCall, 'arguments'),
+                resultId: data_get($toolCall, 'call_id'),
+                reasoningId: data_get($reasonings, $idx.'.id'),
+                reasoningSummary: data_get($reasonings, $idx.'.summary'),
+            ),
+        )
+            ->toArray();
     }
 }
