@@ -51,38 +51,59 @@ Route::post('/api/chat', function () {
 Client-side with the `useChat` hook:
 
 ```javascript
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
+import { useState } from 'react';
 
 export default function Chat() {
-    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-        api: '/api/chat',
+    // AI SDK 5.0 no longer manages input state, so we handle it ourselves
+    const [input, setInput] = useState('');
+
+    const { messages, sendMessage, status } = useChat({
+        transport: {
+            api: '/api/chat',
+        },
     });
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (input.trim() && status === 'ready') {
+            sendMessage(input);
+            setInput('');
+        }
+    };
 
     return (
         <div>
             <div>
                 {messages.map(m => (
                     <div key={m.id}>
-                        {m.role}: {m.content}
+                        <strong>{m.role}:</strong>{' '}
+                        {m.parts
+                            .filter(part => part.type === 'text')
+                            .map(part => part.text)
+                            .join('')}
                     </div>
                 ))}
             </div>
-            
+
             <form onSubmit={handleSubmit}>
                 <input
                     value={input}
                     placeholder="Say something..."
-                    onChange={handleInputChange}
-                    disabled={isLoading}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={status !== 'ready'}
                 />
-                <button type="submit" disabled={isLoading}>
-                    Send
+                <button type="submit" disabled={status !== 'ready'}>
+                    {status === 'streaming' ? 'Sending...' : 'Send'}
                 </button>
             </form>
         </div>
     );
 }
 ```
+
+> [!NOTE]
+> This example uses AI SDK 5.0, which introduced significant changes to the `useChat` hook. The hook no longer manages input state internally, and you'll need to use the `sendMessage` function directly instead of `handleSubmit`.
 
 For more advanced usage, including tool support and custom options, see the [Vercel AI SDK UI documentation](https://ai-sdk.dev/docs/reference/ai-sdk-ui).
 
