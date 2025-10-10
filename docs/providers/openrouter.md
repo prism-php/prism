@@ -29,7 +29,7 @@ OPENROUTER_URL=https://openrouter.ai/api/v1
 ### Text Generation
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -46,7 +46,7 @@ echo $response->text;
 > OpenRouter uses OpenAI-compatible structured outputs. For strict schema validation, the root schema should be an `ObjectSchema`.
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -68,7 +68,7 @@ echo $response->text;
 ### Tool Calling
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
@@ -91,7 +91,7 @@ echo $response->text;
 ### Streaming
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StreamEventType;
 
@@ -110,7 +110,7 @@ foreach ($stream as $event) {
 ### Streaming with Tools
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
@@ -142,7 +142,7 @@ foreach ($stream as $event) {
 Some models (like OpenAI's o1 series) support reasoning tokens that show the model's thought process:
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StreamEventType;
 

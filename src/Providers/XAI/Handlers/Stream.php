@@ -226,6 +226,14 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      */
+    protected function isInitialChunk(array $data): bool
+    {
+        return isset($data['id']) && isset($data['model']) && data_get($data, 'choices.0.delta.content') === null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function hasToolCalls(array $data): bool
     {
         return ! empty(data_get($data, 'choices.0.delta.tool_calls'));

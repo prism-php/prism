@@ -439,10 +439,10 @@ class Stream
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
-                        'thinkingConfig' => ($providerOptions['thinkingBudget'] ?? null) !== null ? [
-                            'thinkingBudget' => $providerOptions['thinkingBudget'],
+                        'thinkingConfig' => Arr::whereNotNull([
+                            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
                             'includeThoughts' => true,
-                        ] : null,
+                        ]) ?: null,
                     ]) ?: null,
                     'tools' => $tools !== [] ? $tools : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,

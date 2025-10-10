@@ -405,3 +405,39 @@ it('can disable thinking content extraction', function (): void {
     expect($thinkingEvents)->toBe(0); // No thinking events when disabled
     expect($textEvents)->toBeGreaterThan(0); // Still have regular content
 });
+
+it('does not truncate 0 mid stream', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'xai/stream-basic-text-responses-with-zeros');
+
+    $response = Prism::text()
+        ->using('xai', 'grok-4')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $text = '';
+    $events = [];
+
+    $responseId = null;
+    $model = null;
+
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+    }
+
+    expect($events)->not
+        ->toBeEmpty()
+        ->and($text)->toBe('410050');
+
+    // Verify the HTTP request
+    Http::assertSent(function (Request $request): bool {
+        $body = json_decode($request->body(), true);
+
+        return $request->url() === 'https://api.x.ai/v1/chat/completions'
+            && $body['stream'] === true
+            && $body['model'] === 'grok-4';
+    });
+});

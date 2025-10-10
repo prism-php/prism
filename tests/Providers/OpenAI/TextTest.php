@@ -279,6 +279,40 @@ describe('tools', function (): void {
 
         expect($response->text)->toContain('235');
     });
+
+    it('passes parallel tool calls setting', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/responses',
+            'openai/generate-text-with-multiple-tools',
+        );
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather in {$city} will be 75° and sunny"),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is today at 3pm in detroit'),
+        ];
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools($tools)
+            ->usingTemperature(0)
+            ->withMaxSteps(3)
+            ->withProviderOptions(['parallel_tool_calls' => false])
+            ->withSystemPrompt('Current Date: '.now()->toDateString())
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asText();
+
+        expect($response->text)->toBe(
+            "The Detroit Tigers game is today at 3 PM in Detroit. The weather in Detroit will be 75°F and sunny, so you won't need a coat!"
+        );
+
+        Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
+    });
 });
 
 it('sets usage correctly with automatic caching', function (): void {
