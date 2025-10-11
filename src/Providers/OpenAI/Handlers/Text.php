@@ -58,16 +58,12 @@ class Text
 
         $this->citations = $this->extractCitations($data);
 
-        $toolCalls = ToolCallMap::map(
-            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
-        );
-
-        logger()->debug('OpenAI tool calls', ['toolCalls' => $toolCalls]);
-
         $responseMessage = new AssistantMessage(
             content: data_get($data, 'output.{last}.content.0.text') ?? '',
-            toolCalls: $toolCalls,
+            toolCalls: ToolCallMap::map(
+                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
+                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
+            ),
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->citations,
             ]),
