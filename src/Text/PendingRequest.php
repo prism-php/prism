@@ -42,7 +42,7 @@ class PendingRequest
     use HasProviderTools;
     use HasTools;
 
-    protected ?Closure $streamEndCallback = null;
+    protected ?Closure $completeCallback = null;
 
     /**
      * @deprecated Use `asText` instead.
@@ -57,18 +57,24 @@ class PendingRequest
         $request = $this->toRequest();
 
         try {
-            return $this->provider->text($request);
+            $response = $this->provider->text($request);
+
+            if ($this->completeCallback instanceof Closure) {
+                ($this->completeCallback)($this, $response->messages);
+            }
+
+            return $response;
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
     }
 
     /**
-     * @param  callable(Collection<int, Message>): void  $callback
+     * @param  callable(PendingRequest|null, Collection<int, Message>): void  $callback
      */
-    public function onStreamEnd(callable $callback): self
+    public function onComplete(callable $callback): self
     {
-        $this->streamEndCallback = $callback instanceof Closure ? $callback : Closure::fromCallable($callback);
+        $this->completeCallback = $callback instanceof Closure ? $callback : Closure::fromCallable($callback);
 
         return $this;
     }
@@ -83,8 +89,8 @@ class PendingRequest
         try {
             $chunks = $this->provider->stream($request);
 
-            if ($this->streamEndCallback instanceof Closure) {
-                $collector = new StreamCollector($chunks, $this->streamEndCallback);
+            if ($this->completeCallback instanceof Closure) {
+                $collector = new StreamCollector($chunks, $this, $this->completeCallback);
 
                 yield from $collector->collect();
             } else {

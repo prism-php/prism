@@ -7,6 +7,7 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Testing\TextStepFake;
+use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -21,7 +22,7 @@ it('invokes callback with collection of messages for simple text response', func
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test prompt')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -41,7 +42,7 @@ it('callback receives assistant message with correct text content', function ():
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -74,7 +75,7 @@ it('callback can be a closure', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $messages) use (&$callbackInvoked): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$callbackInvoked): void {
             $callbackInvoked = true;
         })
         ->asStream();
@@ -93,7 +94,7 @@ it('callback can be an invokable class', function (): void {
     {
         public ?Collection $receivedMessages = null;
 
-        public function __invoke(Collection $messages): void
+        public function __invoke(PendingRequest $request, Collection $messages): void
         {
             $this->receivedMessages = $messages;
         }
@@ -102,7 +103,7 @@ it('callback can be an invokable class', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Test')
-        ->onStreamEnd($invokable)
+        ->onComplete($invokable)
         ->asStream();
 
     iterator_to_array($stream);
@@ -120,7 +121,7 @@ it('works with asStream method', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -140,7 +141,7 @@ it('works with asEventStreamResponse method', function (): void {
     $response = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asEventStreamResponse();
@@ -160,7 +161,7 @@ it('works with asDataStreamResponse method', function (): void {
     $response = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asDataStreamResponse();
@@ -182,7 +183,7 @@ it('assistant message contains accumulated text from multiple deltas', function 
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -207,7 +208,7 @@ it('assistant message includes tool calls when present', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Search something')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -236,7 +237,7 @@ it('tool result message is included when tools are executed', function (): void 
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Calculate')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -274,7 +275,7 @@ it('multi-step conversations produce multiple assistant and tool result message 
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Complex task')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -304,7 +305,7 @@ it('handles simple text-only response', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Hello')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -333,7 +334,7 @@ it('handles response containing tool calls', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Weather and time in NYC')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -365,7 +366,7 @@ it('handles multi-turn tool execution with text response', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('How many users?')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -389,7 +390,7 @@ it('handles empty response', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -415,7 +416,7 @@ it('handles response with only tool calls and no text', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Search')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -443,7 +444,7 @@ it('handles multiple consecutive tool results', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Multi-tool')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -464,7 +465,7 @@ it('callback receives messages collection type correctly', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $messages) use (&$receivedType): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$receivedType): void {
             $receivedType = $messages::class;
         })
         ->asStream();
@@ -483,7 +484,7 @@ it('callback receives collection implementing correct interface', function (): v
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $messages) use (&$implementsCountable): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$implementsCountable): void {
             $implementsCountable = $messages instanceof Countable;
         })
         ->asStream();
@@ -509,7 +510,7 @@ it('callback can access all message properties', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $messages) use (&$contentAccessed, &$toolCallsAccessed): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$contentAccessed, &$toolCallsAccessed): void {
             /** @var AssistantMessage $message */
             $message = $messages->first();
             $contentAccessed = $message->content === 'Test content';
@@ -534,7 +535,7 @@ it('works with unicode and special characters in messages', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Unicode test')
-        ->onStreamEnd(function (Collection $responseMessages) use (&$messages): void {
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
             $messages = $responseMessages;
         })
         ->asStream();
@@ -553,7 +554,7 @@ it('callback is invoked exactly once per stream', function (): void {
     $stream = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test')
-        ->onStreamEnd(function (Collection $messages) use (&$invocationCount): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$invocationCount): void {
             $invocationCount++;
         })
         ->asStream();
@@ -572,7 +573,7 @@ it('separate streams invoke callback independently', function (): void {
     $stream1 = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test 1')
-        ->onStreamEnd(function (Collection $messages) use (&$firstMessages): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$firstMessages): void {
             $firstMessages = $messages;
         })
         ->asStream();
@@ -587,7 +588,7 @@ it('separate streams invoke callback independently', function (): void {
     $stream2 = Prism::text()
         ->using('openai', 'gpt-4')
         ->withPrompt('Test 2')
-        ->onStreamEnd(function (Collection $messages) use (&$secondMessages): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$secondMessages): void {
             $secondMessages = $messages;
         })
         ->asStream();
@@ -614,7 +615,7 @@ it('collection messages maintain proper types', function (): void {
     $stream = Prism::text()
         ->using('anthropic', 'claude-sonnet-4-5-20250929')
         ->withPrompt('Multi-step')
-        ->onStreamEnd(function (Collection $messages) use (&$messageTypes): void {
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$messageTypes): void {
             $messageTypes = $messages->map(fn (Message $m): string => $m::class)->toArray();
         })
         ->asStream();
@@ -626,4 +627,118 @@ it('collection messages maintain proper types', function (): void {
         ToolResultMessage::class,
         AssistantMessage::class,
     ]);
+});
+
+it('invokes callback with collection of messages for asText response', function (): void {
+    $assistantMessage = new AssistantMessage('Hello World');
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Hello World')
+            ->withMessages(collect([$assistantMessage])),
+    ]);
+
+    $messages = null;
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Test prompt')
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
+            $messages = $responseMessages;
+        })
+        ->asText();
+
+    expect($messages)->toBeInstanceOf(Collection::class);
+    expect($messages)->toHaveCount(1);
+    expect($messages->first())->toBeInstanceOf(AssistantMessage::class);
+    expect($messages->first()->content)->toBe('Hello World');
+});
+
+it('callback receives messages with tool calls for asText', function (): void {
+    $toolCall = new ToolCall('tool-1', 'search', ['query' => 'test']);
+    $assistantMessage = new AssistantMessage('Searching', [$toolCall]);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withSteps(collect([
+                TextStepFake::make()
+                    ->withText('Searching')
+                    ->withToolCalls([$toolCall]),
+            ]))
+            ->withMessages(collect([$assistantMessage])),
+    ]);
+
+    $messages = null;
+    $response = Prism::text()
+        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->withPrompt('Search something')
+        ->onComplete(function (PendingRequest $request, Collection $responseMessages) use (&$messages): void {
+            $messages = $responseMessages;
+        })
+        ->asText();
+
+    expect($messages)->toHaveCount(1);
+    expect($messages->first())->toBeInstanceOf(AssistantMessage::class);
+    expect($messages->first()->toolCalls)->toHaveCount(1);
+});
+
+it('asText does not fail when callback is not set', function (): void {
+    Prism::fake([
+        TextResponseFake::make()->withText('Hello World'),
+    ]);
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Test')
+        ->asText();
+
+    expect($response)->toBeInstanceOf(\Prism\Prism\Text\Response::class);
+    expect($response->text)->toBe('Hello World');
+});
+
+it('asText callback can be an invokable class', function (): void {
+    $assistantMessage = new AssistantMessage('Test message');
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Test message')
+            ->withMessages(collect([$assistantMessage])),
+    ]);
+
+    $invokable = new class
+    {
+        public ?Collection $receivedMessages = null;
+
+        public function __invoke(PendingRequest $request, Collection $messages): void
+        {
+            $this->receivedMessages = $messages;
+        }
+    };
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->withPrompt('Test')
+        ->onComplete($invokable)
+        ->asText();
+
+    expect($invokable->receivedMessages)->toBeInstanceOf(Collection::class);
+    expect($invokable->receivedMessages)->toHaveCount(1);
+});
+
+it('asText still returns response object when callback is set', function (): void {
+    Prism::fake([
+        TextResponseFake::make()->withText('Test response'),
+    ]);
+
+    $callbackInvoked = false;
+    $response = Prism::text()
+        ->using('openai', 'gpt-4')
+        ->withPrompt('Test')
+        ->onComplete(function (PendingRequest $request, Collection $messages) use (&$callbackInvoked): void {
+            $callbackInvoked = true;
+        })
+        ->asText();
+
+    expect($callbackInvoked)->toBeTrue();
+    expect($response)->toBeInstanceOf(\Prism\Prism\Text\Response::class);
+    expect($response->text)->toBe('Test response');
 });

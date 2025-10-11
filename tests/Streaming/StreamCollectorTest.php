@@ -60,7 +60,8 @@ it('accumulates text from multiple text delta events', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -89,7 +90,8 @@ it('collects tool calls from tool call events', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -120,7 +122,8 @@ it('collects tool results from tool result events', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -159,7 +162,8 @@ it('handles multi-step conversation with multiple message pairs', function (): v
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -200,7 +204,8 @@ it('handles empty stream', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator([]),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -220,7 +225,8 @@ it('handles stream with only stream end event', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -242,7 +248,8 @@ it('handles stream with text only', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -268,7 +275,8 @@ it('handles stream with tool calls only', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -295,7 +303,8 @@ it('handles multiple tool results in single message', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$messages): void {
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
             $messages = $collected;
         }
     );
@@ -320,7 +329,8 @@ it('invokes callback with collection instance', function (): void {
 
     $collector = new StreamCollector(
         createCollectorEventGenerator($events),
-        function (Collection $collected) use (&$receivedType): void {
+        null,
+        function ($request, Collection $collected) use (&$receivedType): void {
             $receivedType = $collected::class;
         }
     );

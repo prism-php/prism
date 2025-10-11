@@ -13,6 +13,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -21,11 +22,12 @@ use Prism\Prism\ValueObjects\ToolResult;
 class StreamCollector
 {
     /**
-     * @param  null|Closure(Collection<int,Message>):void  $onStreamEndCallback
+     * @param  null|Closure(PendingRequest|null, Collection<int,Message>):void  $onCompleteCallback
      */
     public function __construct(
         protected Generator $stream,
-        protected ?Closure $onStreamEndCallback = null
+        protected ?\Prism\Prism\Text\PendingRequest $pendingRequest = null,
+        protected ?Closure $onCompleteCallback = null
     ) {}
 
     /**
@@ -85,8 +87,8 @@ class StreamCollector
     ): void {
         $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $messages);
 
-        if ($this->onStreamEndCallback instanceof Closure) {
-            ($this->onStreamEndCallback)(collect($messages));
+        if ($this->onCompleteCallback instanceof Closure) {
+            ($this->onCompleteCallback)($this->pendingRequest, collect($messages));
         }
     }
 

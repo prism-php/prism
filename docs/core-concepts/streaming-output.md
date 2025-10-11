@@ -319,35 +319,13 @@ Based on actual streaming output:
 
 ### Handling Stream Completion with Callbacks
 
-Need to save a conversation to your database after the AI finishes responding? The `onStreamEnd` callback lets you handle completed messages without interrupting the stream. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+Need to save a conversation to your database after the AI finishes responding? The `onComplete` callback lets you handle completed messages without interrupting the stream. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
 
-#### Basic Example
-
-```php
-use Illuminate\Support\Collection;
-
-return Prism::text()
-    ->using('anthropic', 'claude-3-sonnet')
-    ->withPrompt('Explain Laravel middleware')
-    ->onStreamEnd(function (Collection $messages) {
-        // Save the conversation after streaming completes
-        foreach ($messages as $message) {
-            ConversationMessage::create([
-                'content' => $message->content,
-                'role' => 'assistant',
-            ]);
-        }
-    })
-    ->asEventStreamResponse();
-```
-
-#### Real-World Example: Saving Conversations
-
-Here's a complete example showing how to persist both text content and tool calls to your database:
 
 ```php
 use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 
@@ -355,7 +333,7 @@ return Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet')
     ->withTools([$weatherTool])
     ->withPrompt(request('message'))
-    ->onStreamEnd(function (Collection $messages) use ($conversationId) {
+    ->onComplete(function (PendingRequest $request, Collection $messages) use ($conversationId) {
         foreach ($messages as $message) {
             if ($message instanceof AssistantMessage) {
                 // Save the assistant's text response
@@ -384,27 +362,22 @@ return Prism::text()
     ->asEventStreamResponse();
 ```
 
-#### What You Receive
-
-The callback receives a `Collection` of `Message` objects representing everything that was generated during the stream:
-
-- **AssistantMessage** - Contains the AI's text content (`$content` property) and any tool calls it made (`$toolCalls` array property). Even if the AI only calls tools without generating text, it's still an AssistantMessage with an empty `$content` string.
-- **ToolResultMessage** - Contains the results of tool executions (`$toolResults` array property). Each entry includes the tool name, arguments used, and result data.
-
-For multi-step conversations involving tool use, you'll receive multiple messages in the collection (e.g., AssistantMessage with tool calls → ToolResultMessage with results → AssistantMessage with final response). For simple text-only responses, you'll receive a single `AssistantMessage` with no tool calls.
-
 #### Using Invokable Classes
 
 For better organization, you can use invokable classes as callbacks:
 
 ```php
+use Illuminate\Support\Collection;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+
 class SaveConversation
 {
     public function __construct(
         protected string $conversationId
     ) {}
 
-    public function __invoke(Collection $messages): void
+    public function __invoke(PendingRequest $request, Collection $messages): void
     {
         foreach ($messages as $message) {
             if ($message instanceof AssistantMessage) {
@@ -418,17 +391,7 @@ class SaveConversation
         }
     }
 }
-
-// Usage
-return Prism::text()
-    ->using('anthropic', 'claude-3-sonnet')
-    ->withPrompt(request('message'))
-    ->onStreamEnd(new SaveConversation($conversationId))
-    ->asEventStreamResponse();
 ```
-
-> [!TIP]
-> The `onStreamEnd` callback works with all streaming methods: `asStream()`, `asEventStreamResponse()`, `asDataStreamResponse()`, and `asBroadcast()`. Your streaming continues uninterrupted while the callback handles the completed messages.
 
 ### Custom Event Processing
 
