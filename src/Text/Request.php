@@ -43,7 +43,6 @@ class Request implements PrismRequest
         protected string|ToolChoice|null $toolChoice,
         array $providerOptions = [],
         protected array $providerTools = [],
-        protected bool $parallelToolCalls = true,
     ) {
         $this->providerOptions = $providerOptions;
     }
@@ -142,10 +141,5 @@ class Request implements PrismRequest
         $this->messages = array_merge($this->messages, [$message]);
 
         return $this;
-    }
-
-    public function parallelToolCalls(): bool
-    {
-        return $this->parallelToolCalls;
     }
 }
