@@ -395,3 +395,44 @@ it('can disable thinking content extraction', function (): void {
     expect($thinkingChunks)->toBe(0); // No thinking chunks when disabled
     expect($regularChunks)->toBeGreaterThan(0); // Still have regular content
 });
+
+it('does not truncate 0 mid stream', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'xai/stream-basic-text-responses-with-zeros');
+
+    $response = Prism::text()
+        ->using('xai', 'grok-4')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $text = '';
+    $chunks = [];
+
+    $responseId = null;
+    $model = null;
+
+    foreach ($response as $chunk) {
+        if ($chunk->meta) {
+            $responseId = $chunk->meta?->id;
+            $model = $chunk->meta?->model;
+        }
+
+        $chunks[] = $chunk;
+        $text .= $chunk->text;
+    }
+
+    expect($chunks)->not
+        ->toBeEmpty()
+        ->and($text)->toBe('410050')
+        ->and($responseId)->not->toBeNull()
+        ->toStartWith('chatcmpl-')
+        ->and($model)->toBe('grok-4');
+
+    // Verify the HTTP request
+    Http::assertSent(function (Request $request): bool {
+        $body = json_decode($request->body(), true);
+
+        return $request->url() === 'https://api.x.ai/v1/chat/completions'
+            && $body['stream'] === true
+            && $body['model'] === 'grok-4';
+    });
+});

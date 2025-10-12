@@ -141,11 +141,11 @@ class Text
                         $this->finalRequestStep($request),
                     ),
                 ),
+                'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
                 'text' => $request->providerOptions('text'),
-                'parallel_tool_calls' => $request->parallelToolCalls(),
             ]))
         );
     }

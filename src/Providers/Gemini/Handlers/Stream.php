@@ -91,8 +91,8 @@ class Stream
                 finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
                 // gemini writes metadata in each chunk
                 meta: new Meta(
-                    id: data_get($data, 'responseId'),
-                    model: data_get($data, 'modelVersion'),
+                    id: data_get($data, 'responseId', 'null'),
+                    model: data_get($data, 'modelVersion', 'null'),
                 ),
                 usage: $this->extractUsage($data, $request),
             );
@@ -160,8 +160,8 @@ class Stream
             text: '',
             toolCalls: $toolCalls,
             meta: new Meta(
-                id: data_get($data, 'responseId'),
-                model: data_get($data, 'modelVersion'),
+                id: data_get($data, 'responseId', 'null'),
+                model: data_get($data, 'modelVersion', 'null'),
             ),
             chunkType: ChunkType::ToolCall,
             usage: $this->extractUsage($data, $request),
@@ -173,8 +173,8 @@ class Stream
             text: '',
             toolResults: $toolResults,
             meta: new Meta(
-                id: data_get($data, 'responseId'),
-                model: data_get($data, 'modelVersion'),
+                id: data_get($data, 'responseId', 'null'),
+                model: data_get($data, 'modelVersion', 'null'),
             ),
             chunkType: ChunkType::ToolResult,
             usage: $this->extractUsage($data, $request),
@@ -198,8 +198,8 @@ class Stream
         return collect($toolCalls)
             ->map(fn ($toolCall): ToolCall => new ToolCall(
                 empty($toolCall['id']) ? 'gm-'.Str::random(20) : $toolCall['id'],
-                data_get($toolCall, 'name'),
-                data_get($toolCall, 'arguments'),
+                data_get($toolCall, 'name', 'null'),
+                data_get($toolCall, 'arguments', []),
             ))
             ->toArray();
     }
@@ -285,7 +285,7 @@ class Stream
                         'thinkingConfig' => Arr::whereNotNull([
                             'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
                         ]) ?: null,
-                    ]),
+                    ]) ?: null,
                     'tools' => $tools !== [] ? $tools : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
