@@ -289,6 +289,45 @@ it('can process a complete conversation with provider tool', function (): void {
     Http::assertSentCount(1);
 });
 
+it('can pass parallel tool call setting', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('Get weather information')
+            ->withStringParameter('city', 'City name')
+            ->using(fn (string $city): string => "The weather in {$city} is 75° and sunny."),
+
+        Tool::as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => 'Tigers game is at 3pm in Detroit today.'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withTools($tools)
+        ->withProviderOptions(['parallel_tool_calls' => false])
+        ->withMaxSteps(5) // Allow multiple tool call rounds
+        ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
+        ->asStream();
+
+    $fullResponse = '';
+    $toolCallCount = 0;
+
+    foreach ($response as $chunk) {
+        if ($chunk->toolCalls !== []) {
+            $toolCallCount += count($chunk->toolCalls);
+        }
+        $fullResponse .= $chunk->text;
+    }
+
+    expect($toolCallCount)->toBe(2);
+    expect($fullResponse)->not->toBeEmpty();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
+});
+
 it('emits usage information', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
