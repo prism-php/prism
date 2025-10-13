@@ -10,13 +10,13 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Tests\Fixtures\FixtureResponse;
-use Prism\Prism\Schema\AnyOfSchema;
-use Prism\Prism\Schema\ArraySchema;
-use Prism\Prism\Schema\NumberSchema;
 
 it('returns structured output', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-structured-mode');

@@ -58,7 +58,7 @@ class AnyOfSchema implements Schema
 
     /**
      * Validate that nested schema conforms to OpenAI's subset requirements.
-     * 
+     *
      * @param  array<string, mixed>  $schemaArray
      * @return array<string, mixed>
      */
@@ -66,9 +66,9 @@ class AnyOfSchema implements Schema
     {
         // For anyOf, nested schemas must each be a valid JSON schema per OpenAI's subset
         // This includes ensuring they have proper structure and don't contain unsupported features
-        
+
         // Ensure the schema has a type (required by OpenAI)
-        if (!isset($schemaArray['type']) && !isset($schemaArray['anyOf']) && !isset($schemaArray['oneOf'])) {
+        if (! isset($schemaArray['type']) && ! isset($schemaArray['anyOf']) && ! isset($schemaArray['oneOf'])) {
             throw new \InvalidArgumentException(
                 'Each nested schema in anyOf must have a "type" or be a composition schema (anyOf/oneOf)'
             );

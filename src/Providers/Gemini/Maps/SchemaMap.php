@@ -71,11 +71,6 @@ class SchemaMap
         if ($this->schema instanceof ObjectSchema) {
             return 'object';
         }
-        if ($this->schema instanceof AnyOfSchema) {
-            // Gemini doesn't support anyOf directly, so we fallback to a generic type
-            // This could be improved by choosing the most common type from the schemas
-            return 'string';
-        }
 
         return 'string';
     }
