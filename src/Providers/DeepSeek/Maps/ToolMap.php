@@ -19,11 +19,13 @@ class ToolMap
             'function' => [
                 'name' => $tool->name(),
                 'description' => $tool->description(),
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => $tool->parametersAsArray(),
-                    'required' => $tool->requiredParameters(),
-                ],
+                ...$tool->hasParameters() ? [
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => $tool->parametersAsArray(),
+                        'required' => $tool->requiredParameters(),
+                    ],
+                ] : [],
             ],
             'strict' => $tool->providerOptions('strict'),
         ]), $tools);
