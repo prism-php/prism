@@ -65,6 +65,7 @@ PROVIDER_API_KEY=your-api-key-here
 PROVIDER_URL=https://custom-endpoint.com
 
 ```
+
 > [!NOTE]
 > Remember to always refer to your chosen provider's documentation pages for the most up-to-date configuration options and requirements specific to that provider.
 
@@ -78,7 +79,7 @@ use Prism\Prism\Enums\Provider;
 
 // Via the third parameter of `using()`
 $response = Prism::text()
-    ->using(Provider::OpenAI, 'claude-3-5-sonnet-20241022', [
+    ->using(Provider::OpenAI, 'gpt-4o', [
         'url' => 'new-base-url'
     ])
     ->withPrompt('Explain quantum computing.')
@@ -86,7 +87,7 @@ $response = Prism::text()
 
 // Or via `usingProviderConfig()` (note that this will re-resolve the provider).
 $response = Prism::text()
-    ->using(Provider::OpenAI, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::OpenAI, 'gpt-4o')
     ->usingProviderConfig([
         'url' => 'new-base-url'
     ])
