@@ -15,6 +15,8 @@ class StringSchema implements Schema
         public readonly string $name,
         public readonly string $description,
         public readonly bool $nullable = false,
+        public readonly ?string $pattern = null,
+        public readonly ?string $format = null,
     ) {}
 
     #[\Override]
@@ -26,11 +28,20 @@ class StringSchema implements Schema
     #[\Override]
     public function toArray(): array
     {
-        return [
+        $schema = [
             'description' => $this->description,
             'type' => $this->nullable
                 ? $this->castToNullable('string')
                 : 'string',
         ];
+
+        if ($this->pattern !== null) {
+            $schema['pattern'] = $this->pattern;
+        }
+        if ($this->format !== null) {
+            $schema['format'] = $this->format;
+        }
+
+        return $schema;
     }
 }
