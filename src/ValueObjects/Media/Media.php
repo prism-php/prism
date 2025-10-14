@@ -20,22 +20,14 @@ class Media
 
     protected ?string $storagePath = null;
 
-    public ?string $url = null;
-
     protected ?string $rawContent = null;
-
-    public ?string $base64 = null;
-
-    public ?string $mimeType = null;
 
     protected ?string $filename = null;
 
-    public function __construct(?string $url = null, ?string $base64 = null, ?string $mimeType = null)
-    {
-        $this->url = $url;
-        $this->base64 = $base64;
-        $this->mimeType = $mimeType;
-    }
+    public function __construct(
+        public ?string $url = null,
+        public ?string $base64 = null,
+        public ?string $mimeType = null) {}
 
     public static function fromFileId(string $fileId): static
     {
