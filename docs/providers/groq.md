@@ -8,6 +8,19 @@
 ],
 ```
 
+## Streaming
+
+Groq's ultra-fast LPU architecture provides exceptional streaming performance. All standard streaming methods are supported:
+
+```php
+return Prism::text()
+    ->using('groq', 'llama-3.3-70b-versatile')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
+
 ## Audio Processing
 
 Groq provides high-performance audio processing capabilities through their ultra-fast Language Processing Unit (LPU) architecture, enabling both text-to-speech (TTS) and speech-to-text (STT) functionality with exceptional speed and quality.

@@ -17,7 +17,7 @@ class SearchGroundingMap
     public static function map(array $groundingSupports, array $groundingChunks): array
     {
         return array_map(
-            fn ($groundingSupport): \Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings => new MessagePartWithSearchGroundings(
+            fn ($groundingSupport): MessagePartWithSearchGroundings => new MessagePartWithSearchGroundings(
                 text: data_get($groundingSupport, 'segment.text', ''),
                 startIndex: data_get($groundingSupport, 'segment.startIndex', 0),
                 endIndex: data_get($groundingSupport, 'segment.endIndex', 0),
@@ -35,7 +35,7 @@ class SearchGroundingMap
     protected static function mapGroundings(array $groundingSupport, array $groundingChunks): array
     {
         return array_map(
-            function ($index) use ($groundingChunks, $groundingSupport): \Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding {
+            function ($index) use ($groundingChunks, $groundingSupport): SearchGrounding {
                 $i = 0;
 
                 $grounding = new SearchGrounding(

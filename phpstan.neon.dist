@@ -6,4 +6,3 @@ parameters:
     reportUnmatchedIgnoredErrors: true
     ignoreErrors:
         - identifier: function.alreadyNarrowedType
-        - identifier: nullsafe.neverNull

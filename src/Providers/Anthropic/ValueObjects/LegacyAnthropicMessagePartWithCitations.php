@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
+use InvalidArgumentException;
+
 class LegacyAnthropicMessagePartWithCitations
 {
     /**
@@ -27,7 +29,7 @@ class LegacyAnthropicMessagePartWithCitations
                     'char_location' => 'char_index',
                     'content_block_location' => 'block_index',
                     'web_search_result_location' => null,
-                    default => throw new \InvalidArgumentException("Unknown citation type: {$citation['type']}"),
+                    default => throw new InvalidArgumentException("Unknown citation type: {$citation['type']}"),
                 };
 
                 return new LegacyAnthropicCitation(
@@ -56,7 +58,7 @@ class LegacyAnthropicMessagePartWithCitations
                     'page_location' => 'page_number',
                     'char_location' => 'char_index',
                     'content_block_location' => 'block_index',
-                    default => throw new \InvalidArgumentException("Unknown citation type: {$citation->type}"),
+                    default => throw new InvalidArgumentException("Unknown citation type: {$citation->type}"),
                 };
 
                 return [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
+use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -46,7 +47,7 @@ class FixtureResponse
                     }
 
                     // Forward the request to the real API
-                    $client = new \GuzzleHttp\Client;
+                    $client = new Client;
                     $options = [
                         'headers' => $request->headers(),
                         'body' => $request->body(),
@@ -188,7 +189,7 @@ class FixtureResponse
                     : 'application/json';
 
                 // Forward the request to the real API with stream option
-                $client = new \GuzzleHttp\Client(['stream' => true]);
+                $client = new Client(['stream' => true]);
                 $options = [
                     'headers' => $request->headers(),
                     'body' => $request->body(),
