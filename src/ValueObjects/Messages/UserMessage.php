@@ -83,4 +83,14 @@ class UserMessage implements Message
             ->where(fn ($part): bool => $part instanceof Audio)
             ->toArray();
     }
+
+    /**
+     * @return Video[]
+     */
+    public function videos(): array
+    {
+        return collect($this->additionalContent)
+            ->where(fn ($part): bool => $part instanceof Video)
+            ->toArray();
+    }
 }

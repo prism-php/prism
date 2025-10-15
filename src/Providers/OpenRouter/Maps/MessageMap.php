@@ -6,7 +6,9 @@ namespace Prism\Prism\Providers\OpenRouter\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -78,12 +80,17 @@ class MessageMap
     protected function mapUserMessage(UserMessage $message): void
     {
         $imageParts = array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $message->images());
+        // NOTE: mirrored from Gemini's multimodal mapper so we stay consistent across providers.
+        $audioParts = array_map(fn (Audio $audio): array => (new AudioMapper($audio))->toPayload(), $message->audios());
+        $videoParts = array_map(fn (Video $video): array => (new VideoMapper($video))->toPayload(), $message->videos());
 
         $this->mappedMessages[] = [
             'role' => 'user',
             'content' => [
                 ['type' => 'text', 'text' => $message->text()],
                 ...$imageParts,
+                ...$audioParts,
+                ...$videoParts,
             ],
         ];
     }
