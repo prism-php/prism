@@ -109,13 +109,11 @@ class OpenRouter extends Provider
      */
     protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        $headers = array_filter([
-            'HTTP-Referer' => $this->httpReferer,
-            'X-Title' => $this->xTitle,
-        ], static fn ($value) => $value !== null && $value !== '');
-
         return $this->baseClient()
-            ->when($headers !== [], fn ($client) => $client->withHeaders($headers))
+            ->withHeaders(array_filter([
+                'HTTP-Referer' => $this->httpReferer,
+                'X-Title' => $this->xTitle,
+            ]))
             ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
