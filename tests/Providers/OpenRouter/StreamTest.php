@@ -127,6 +127,52 @@ it('can stream text with tool calls', function (): void {
     expect($lastStreamEnd->usage->completionTokens)->toBeGreaterThan(0);
 });
 
+it('can stream text with empty parameters tool calls when using gpt-5', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-empty-parameters-tools-when-using-gpt-5');
+
+    $currentTime = '08:00:00';
+    $timeTool = Tool::as('time')
+        ->for('Get the current time')
+        ->using(fn (): string => $currentTime);
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-5')
+        ->withTools([$timeTool])
+        ->withMaxSteps(3)
+        ->withPrompt('Please tell me the current time, use the `time` tool')
+        ->asStream();
+
+    $text = '';
+    $events = [];
+    $toolCallEvents = [];
+    $toolResultEvents = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
+            expect($event->toolCall->name)->toBe('time');
+            expect($event->toolCall->arguments())->toBe([]);
+        }
+
+        if ($event instanceof ToolResultEvent) {
+            $toolResultEvents[] = $event;
+            expect($event->toolResult->result)->toContain($currentTime);
+        }
+    }
+
+    expect($events)->not->toBeEmpty();
+    expect($toolCallEvents)->toHaveCount(1);
+    expect($toolResultEvents)->toHaveCount(1);
+    expect($text)->toContain('The current time is '.$currentTime);
+
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
+    expect($streamEndEvents)->not->toBeEmpty();
+});
+
 it('can handle reasoning/thinking tokens in streaming', function (): void {
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-reasoning');
 
