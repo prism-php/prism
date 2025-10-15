@@ -20,11 +20,15 @@ class ToolMap
                 'name' => $tool->name(),
                 'description' => $tool->description(),
                 ...$tool->hasParameters() ? [
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => $tool->parametersAsArray(),
-                        'required' => $tool->requiredParameters(),
-                    ],
+                    'parameters' => (function () use ($tool) {
+                        $properties = $tool->parametersAsArray();
+
+                        return [
+                            'type' => 'object',
+                            'properties' => empty($properties) ? new \stdClass() : $properties,
+                            'required' => $tool->requiredParameters(),
+                        ];
+                    })(),
                 ] : [],
             ],
             'strict' => $tool->providerOptions('strict'),
