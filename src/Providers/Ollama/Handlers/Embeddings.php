@@ -31,7 +31,7 @@ class Embeddings
         }
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($data, 'embeddings', [])),
+            embeddings: array_map(fn (array $item): Embedding => Embedding::fromArray($item), data_get($data, 'embeddings', [])),
             usage: new EmbeddingsUsage(data_get($data, 'prompt_eval_count', null)),
             meta: new Meta(
                 id: '',

@@ -189,6 +189,35 @@ $response = Prism::text()
 > [!NOTE]
 > Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.
 
+## Streaming
+
+Gemini supports streaming responses in real-time. All the standard streaming methods work with Gemini models:
+
+```php
+return Prism::text()
+    ->using('gemini', 'gemini-2.5-flash-preview')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+### Streaming with Thinking
+
+Models with thinking capabilities stream their reasoning process separately:
+
+```php
+use Prism\Prism\Enums\StreamEventType;
+
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
+        StreamEventType::TextDelta => echo $event->delta,
+        default => null,
+    };
+}
+```
+
+For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
+
 ## Media Support
 
 Gemini has robust support for processing multimedia content:

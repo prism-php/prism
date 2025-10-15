@@ -13,6 +13,7 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasSchema;
+use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -58,7 +59,7 @@ class PendingRequest
             $messages[] = new UserMessage($this->prompt, $this->additionalContent);
         }
 
-        if (! $this->schema instanceof \Prism\Prism\Contracts\Schema) {
+        if (! $this->schema instanceof Schema) {
             throw new PrismException('A schema is required for structured output');
         }
 

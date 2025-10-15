@@ -59,7 +59,7 @@ class Structured
                 'top_p' => $request->topP(),
                 'reasoning' => $request->providerOptions('reasoning') ?? null,
                 'response_format' => [
-                    'type' => 'json_object',
+                    'type' => 'json_schema',
                     'json_schema' => [
                         'name' => $request->schema()->name(),
                         'strict' => true,

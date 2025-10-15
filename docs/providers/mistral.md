@@ -9,6 +9,19 @@
 ```
 ## Provider-specific options
 
+## Streaming
+
+Mistral supports streaming responses in real-time. All standard streaming methods are supported:
+
+```php
+return Prism::text()
+    ->using('mistral', 'mistral-large-latest')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
+
 ## Audio Processing
 
 Mistral provides advanced speech-to-text capabilities through their Voxtral models, offering state-of-the-art transcription accuracy with native multilingual support and audio understanding features.

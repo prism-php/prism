@@ -6,10 +6,15 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\Usage;
 use Tests\Fixtures\FixtureResponse;
@@ -27,26 +32,23 @@ it('can generate text with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-
-    $responseId = null;
+    $events = [];
     $model = null;
 
-    foreach ($response as $chunk) {
-        if ($chunk->meta) {
-            $responseId = $chunk->meta?->id;
-            $model = $chunk->meta?->model;
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof StreamStartEvent) {
+            $model = $event->model;
         }
 
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
-    expect($responseId)
-        ->not->toBeNull()
-        ->toStartWith('resp_');
     expect($model)->not->toBeNull();
 
     // Verify the HTTP request
@@ -81,25 +83,27 @@ it('can generate text using tools with streaming', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
     $toolCalls = [];
     $toolResults = [];
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->chunkType === ChunkType::ToolCall) {
-            $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
+        if ($event instanceof ToolCallEvent) {
+            $toolCalls[] = $event->toolCall;
         }
 
-        if ($chunk->chunkType === ChunkType::ToolResult) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        if ($event instanceof ToolResultEvent) {
+            $toolResults[] = $event->toolResult;
         }
 
-        $text .= $chunk->text;
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($toolCalls)->toHaveCount(2);
     expect($toolResults)->toHaveCount(2);
 
@@ -138,11 +142,13 @@ it('can process a complete conversation with multiple tool calls', function (): 
     $fullResponse = '';
     $toolCallCount = 0;
 
-    foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
-            $toolCallCount += count($chunk->toolCalls);
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $toolCallCount++;
         }
-        $fullResponse .= $chunk->text;
+        if ($event instanceof TextDeltaEvent) {
+            $fullResponse .= $event->delta;
+        }
     }
 
     expect($toolCallCount)->toBe(2);
@@ -176,11 +182,13 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     $fullResponse = '';
     $toolCallCount = 0;
 
-    foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
-            $toolCallCount += count($chunk->toolCalls);
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $toolCallCount++;
         }
-        $fullResponse .= $chunk->text;
+        if ($event instanceof TextDeltaEvent) {
+            $fullResponse .= $event->delta;
+        }
     }
 
     expect($toolCallCount)->toBe(2);
@@ -223,19 +231,21 @@ it('can process a complete conversation with multiple tool calls for reasoning m
     /** @var Usage[] $usage */
     $usage = [];
 
-    foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
-            $toolCallCount += count($chunk->toolCalls);
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $toolCallCount++;
         }
 
-        if ($chunk->chunkType === ChunkType::Thinking) {
-            $reasoningText .= $chunk->text;
-        } else {
-            $answerText .= $chunk->text;
+        if ($event instanceof ThinkingEvent) {
+            $reasoningText .= $event->delta;
         }
 
-        if ($chunk->usage) {
-            $usage[] = $chunk->usage;
+        if ($event instanceof TextDeltaEvent) {
+            $answerText .= $event->delta;
+        }
+
+        if ($event instanceof StreamEndEvent && $event->usage) {
+            $usage[] = $event->usage;
         }
     }
 
@@ -268,17 +278,17 @@ it('can process a complete conversation with provider tool', function (): void {
     /** @var Usage[] $usage */
     $usage = [];
 
-    foreach ($response as $chunk) {
-        if ($chunk->toolCalls !== []) {
-            $toolCallCount += count($chunk->toolCalls);
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $toolCallCount++;
         }
 
-        if ($chunk->chunkType === ChunkType::Text) {
-            $answerText .= $chunk->text;
+        if ($event instanceof TextDeltaEvent) {
+            $answerText .= $event->delta;
         }
 
-        if ($chunk->usage) {
-            $usage[] = $chunk->usage;
+        if ($event instanceof StreamEndEvent && $event->usage) {
+            $usage[] = $event->usage;
         }
     }
 
@@ -289,6 +299,48 @@ it('can process a complete conversation with provider tool', function (): void {
     Http::assertSentCount(1);
 });
 
+it('can pass parallel tool call setting', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multi-tool-conversation-responses');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('Get weather information')
+            ->withStringParameter('city', 'City name')
+            ->using(fn (string $city): string => "The weather in {$city} is 75° and sunny."),
+
+        Tool::as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => 'Tigers game is at 3pm in Detroit today.'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withTools($tools)
+        ->withProviderOptions(['parallel_tool_calls' => false])
+        ->withMaxSteps(5) // Allow multiple tool call rounds
+        ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
+        ->asStream();
+
+    $fullResponse = '';
+    $toolCallCount = 0;
+
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $toolCallCount++;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $fullResponse .= $event->delta;
+        }
+    }
+
+    expect($toolCallCount)->toBe(2);
+    expect($fullResponse)->not->toBeEmpty();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
+});
+
 it('emits usage information', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
@@ -297,10 +349,10 @@ it('emits usage information', function (): void {
         ->withPrompt('Who are you?')
         ->asStream();
 
-    foreach ($response as $chunk) {
-        if ($chunk->usage) {
-            expect($chunk->usage->promptTokens)->toBeGreaterThan(0);
-            expect($chunk->usage->completionTokens)->toBeGreaterThan(0);
+    foreach ($response as $event) {
+        if ($event instanceof StreamEndEvent && $event->usage) {
+            expect($event->usage->promptTokens)->toBeGreaterThan(0);
+            expect($event->usage->completionTokens)->toBeGreaterThan(0);
         }
     }
 });

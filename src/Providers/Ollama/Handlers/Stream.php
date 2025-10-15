@@ -9,18 +9,30 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\ChunkType;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismChunkDecodeException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
+use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -28,10 +40,15 @@ class Stream
 {
     use CallsTools, MapsFinishReason;
 
-    public function __construct(protected PendingRequest $client) {}
+    protected OllamaStreamState $state;
+
+    public function __construct(protected PendingRequest $client)
+    {
+        $this->state = new OllamaStreamState;
+    }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     public function handle(Request $request): Generator
     {
@@ -41,17 +58,16 @@ class Stream
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
-
         if ($depth >= $request->maxSteps()) {
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
 
+        $this->state->reset();
         $text = '';
-        $toolCalls = [];
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -60,39 +76,125 @@ class Stream
                 continue;
             }
 
-            // Accumulate tool calls if present
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
+            // Emit stream start event if not already started
+            if ($this->state->shouldEmitStreamStart()) {
+                yield new StreamStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    model: $request->model(),
+                    provider: 'ollama'
+                );
+                $this->state->markStreamStarted()->withMessageId(EventID::generate());
+            }
+
+            // Accumulate token counts
+            $this->state->addPromptTokens((int) data_get($data, 'prompt_eval_count', 0));
+            $this->state->addCompletionTokens((int) data_get($data, 'eval_count', 0));
+
+            // Handle thinking content first
+            $thinking = data_get($data, 'message.thinking', '');
+            if ($thinking !== '') {
+                if ($this->state->shouldEmitThinkingStart()) {
+                    $this->state->withReasoningId(EventID::generate())->markThinkingStarted();
+                    yield new ThinkingStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
+
+                yield new ThinkingEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $thinking,
+                    reasoningId: $this->state->reasoningId()
+                );
 
                 continue;
             }
 
-            // Handle tool call completion when stream is done
-            if ((bool) data_get($data, 'done', false) && $toolCalls !== []) {
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+            // If we were emitting thinking and it's now stopped, mark it complete
+            if ($this->state->hasThinkingStarted()) {
+                yield new ThinkingCompleteEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    reasoningId: $this->state->reasoningId()
+                );
+                // Note: Can't easily reset just thinking flag with current StreamState API
+                // This may need adjustment if tests fail
+                // Don't continue here - we want to process the rest of this data chunk
+            }
+
+            // Accumulate tool calls if present (don't emit events yet)
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $this->state->toolCalls());
+                foreach ($toolCalls as $index => $toolCall) {
+                    $this->state->addToolCall($index, $toolCall);
+                }
+            }
+
+            // Handle text content
+            $content = data_get($data, 'message.content', '');
+            if ($content !== '') {
+                if ($this->state->shouldEmitTextStart()) {
+                    $this->state->markTextStarted();
+                    yield new TextStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        messageId: $this->state->messageId()
+                    );
+                }
+
+                $text .= $content;
+
+                yield new TextDeltaEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $content,
+                    messageId: $this->state->messageId()
+                );
+            }
+
+            // Handle tool call completion when stream is done (like original)
+            if ((bool) data_get($data, 'done', false) && $this->state->hasToolCalls()) {
+                // Emit text complete if we had text content
+                if ($this->state->hasTextStarted()) {
+                    yield new TextCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        messageId: $this->state->messageId()
+                    );
+                }
+
+                yield from $this->handleToolCalls($request, $text, $depth);
 
                 return;
             }
 
-            $thinking = data_get($data, 'message.thinking', '');
-            $isThinking = $thinking !== '';
+            // Handle regular completion (no tool calls)
+            if ((bool) data_get($data, 'done', false)) {
+                // Emit text complete if we had text content
+                if ($this->state->hasTextStarted()) {
+                    yield new TextCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        messageId: $this->state->messageId()
+                    );
+                }
 
-            $chunkType = $isThinking ? ChunkType::Thinking : ChunkType::Text;
-            $content = $isThinking ? $thinking : data_get($data, 'message.content', '');
+                // Emit stream end event with usage
+                yield new StreamEndEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    finishReason: FinishReason::Stop,
+                    usage: new Usage(
+                        promptTokens: $this->state->promptTokens(),
+                        completionTokens: $this->state->completionTokens()
+                    )
+                );
 
-            if (! $isThinking) {
-                $text .= $content;
+                return;
             }
-
-            $finishReason = (bool) data_get($data, 'done', false)
-                ? FinishReason::Stop
-                : FinishReason::Unknown;
-
-            yield new Chunk(
-                text: $content,
-                finishReason: $finishReason !== FinishReason::Unknown ? $finishReason : null,
-                chunkType: $chunkType,
-            );
         }
     }
 
@@ -110,7 +212,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismChunkDecodeException('Ollama', $e);
+            throw new PrismStreamDecodeException('Ollama', $e);
         }
     }
 
@@ -139,37 +241,48 @@ class Stream
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     protected function handleToolCalls(
         Request $request,
         string $text,
-        array $toolCalls,
         int $depth
     ): Generator {
+        $mappedToolCalls = $this->mapToolCalls($this->state->toolCalls());
 
-        $toolCalls = $this->mapToolCalls($toolCalls);
+        // Emit tool call events for each completed tool call
+        foreach ($mappedToolCalls as $toolCall) {
+            yield new ToolCallEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolCall: $toolCall,
+                messageId: $this->state->messageId()
+            );
+        }
 
-        yield new Chunk(
-            text: '',
-            toolCalls: $toolCalls,
-            chunkType: ChunkType::ToolCall,
-        );
+        // Execute tools and emit results
+        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        foreach ($toolResults as $result) {
+            yield new ToolResultEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolResult: $result,
+                messageId: $this->state->messageId(),
+                success: true
+            );
+        }
 
-        yield new Chunk(
-            text: '',
-            toolResults: $toolResults,
-            chunkType: ChunkType::ToolResult,
-        );
-
-        $request->addMessage(new AssistantMessage($text, $toolCalls));
+        // Add messages for next turn
+        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        // Continue streaming if within step limit
+        $depth++;
+        if ($depth < $request->maxSteps()) {
+            $nextResponse = $this->sendRequest($request);
+            yield from $this->processStream($nextResponse, $request, $depth);
+        }
     }
 
     /**

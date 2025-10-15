@@ -46,6 +46,9 @@ class ImageRequestMap
             ],
             'generationConfig' => [
                 'responseModalities' => ['TEXT', 'IMAGE'],
+                'imageConfig' => [
+                    'aspectRatio' => $providerOptions['aspect_ratio'] ?? null,
+                ],
             ],
         ];
     }
