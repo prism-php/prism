@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Illuminate\Support\Arr;
-use InvalidArgumentException;
 use Prism\Prism\Images\Request;
 
 class ImageRequestMap
