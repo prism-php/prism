@@ -127,7 +127,7 @@ it('can stream text with tool calls', function (): void {
     expect($lastStreamEnd->usage->completionTokens)->toBeGreaterThan(0);
 });
 
-it('can stream text with empty parameters tool calls when using gpt-5', function () {
+it('can stream text with empty parameters tool calls when using gpt-5', function (): void {
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-empty-parameters-tools-when-using-gpt-5');
 
     $currentTime = '08:00:00';
