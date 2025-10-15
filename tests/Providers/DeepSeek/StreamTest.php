@@ -6,10 +6,15 @@ namespace Prism\tests\Providers\DeepSeek;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -18,7 +23,7 @@ beforeEach(function (): void {
 });
 
 it('can generate text with a basic stream', function (): void {
-    FixtureResponse::fakeResponseSequence('chat/completions', 'deepseek/stream-basic-text-responses');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-basic-text');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
@@ -26,28 +31,23 @@ it('can generate text with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
+    $events = [];
 
-    $responseId = null;
-    $model = null;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-    foreach ($response as $chunk) {
-        if ($chunk->meta) {
-            $responseId = $chunk->meta?->id;
-            $model = $chunk->meta?->model;
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
         }
-
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
     }
 
-    expect($chunks)->not
-        ->toBeEmpty()
-        ->and($text)->not
-        ->toBeEmpty()
-        ->and($responseId)->not
-        ->toBeNull()
-        ->and($model)->toBe('deepseek-chat');
+    expect($events)
+        ->not->toBeEmpty()
+        ->and($text)->not->toBeEmpty();
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
@@ -60,7 +60,7 @@ it('can generate text with a basic stream', function (): void {
 });
 
 it('can generate text using tools with streaming', function (): void {
-    FixtureResponse::fakeResponseSequence('chat/completions', 'deepseek/stream-with-tools-responses');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-tools');
 
     $tools = [
         Tool::as('get_weather')
@@ -82,28 +82,38 @@ it('can generate text using tools with streaming', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-    $toolCalls = [];
-    $toolResults = [];
+    $events = [];
+    $toolCallEvents = [];
+    $toolResultEvents = [];
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->chunkType === ChunkType::ToolCall) {
-            $toolCalls = array_merge($toolCalls, $chunk->toolCalls);
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
         }
 
-        if ($chunk->chunkType === ChunkType::ToolResult) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
+            expect($event->toolCall->name)
+                ->toBeString()
+                ->and($event->toolCall->name)->not
+                ->toBeEmpty()
+                ->and($event->toolCall->arguments())->toBeArray();
         }
 
-        $text .= $chunk->text;
+        if ($event instanceof ToolResultEvent) {
+            $toolResultEvents[] = $event;
+        }
+
+        if ($event instanceof StreamEndEvent) {
+            expect($event->finishReason)->toBeInstanceOf(FinishReason::class);
+        }
     }
 
-    expect($chunks)->not
-        ->toBeEmpty()
-        ->and($toolCalls)->toHaveCount(2)
-        ->and($toolResults)->toHaveCount(2);
+    expect($events)->not->toBeEmpty();
+    expect($toolCallEvents)->not->toBeEmpty();
+    expect($toolResultEvents)->not->toBeEmpty();
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
@@ -117,7 +127,7 @@ it('can generate text using tools with streaming', function (): void {
 });
 
 it('handles max_tokens parameter correctly', function (): void {
-    FixtureResponse::fakeResponseSequence('chat/completions', 'deepseek/stream-max-tokens-responses');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-max-tokens');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
@@ -125,7 +135,7 @@ it('handles max_tokens parameter correctly', function (): void {
         ->withPrompt('Who are you?')
         ->asStream();
 
-    foreach ($response as $chunk) {
+    foreach ($response as $event) {
         // Process stream
     }
 
@@ -139,7 +149,7 @@ it('handles max_tokens parameter correctly', function (): void {
 });
 
 it('handles system prompts correctly', function (): void {
-    FixtureResponse::fakeResponseSequence('chat/completions', 'deepseek/stream-system-prompt-responses');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-system-prompt');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
@@ -147,7 +157,7 @@ it('handles system prompts correctly', function (): void {
         ->withPrompt('Who are you?')
         ->asStream();
 
-    foreach ($response as $chunk) {
+    foreach ($response as $event) {
         // Process stream
     }
 
@@ -161,7 +171,7 @@ it('handles system prompts correctly', function (): void {
 });
 
 it('can handle reasoning/thinking tokens in streaming', function (): void {
-    FixtureResponse::fakeResponseSequence('chat/completions', 'deepseek/stream-with-reasoning-responses');
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-reasoning');
 
     $response = Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-reasoner')
@@ -170,22 +180,22 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
 
     $thinkingContent = '';
     $regularContent = '';
-    $thinkingChunks = 0;
-    $regularChunks = 0;
+    $thinkingEvents = 0;
+    $textDeltaEvents = 0;
 
-    foreach ($response as $chunk) {
-        if ($chunk->chunkType === ChunkType::Thinking) {
-            $thinkingContent .= $chunk->text;
-            $thinkingChunks++;
-        } elseif ($chunk->chunkType === ChunkType::Text) {
-            $regularContent .= $chunk->text;
-            $regularChunks++;
+    foreach ($response as $event) {
+        if ($event instanceof ThinkingEvent) {
+            $thinkingContent .= $event->delta;
+            $thinkingEvents++;
+        } elseif ($event instanceof TextDeltaEvent) {
+            $regularContent .= $event->delta;
+            $textDeltaEvents++;
         }
     }
 
-    expect($thinkingChunks)
+    expect($thinkingEvents)
         ->toBeGreaterThan(0)
-        ->and($regularChunks)->toBeGreaterThan(0)
+        ->and($textDeltaEvents)->toBeGreaterThan(0)
         ->and($thinkingContent)->not
         ->toBeEmpty()
         ->and($regularContent)->not

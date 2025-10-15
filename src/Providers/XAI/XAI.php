@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\XAI;
 
+use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Providers\Provider;
@@ -33,7 +34,7 @@ class XAI extends Provider
     }
 
     #[\Override]
-    public function stream(TextRequest $request): \Generator
+    public function stream(TextRequest $request): Generator
     {
         $handler = new Stream($this->client(
             $request->clientOptions(),

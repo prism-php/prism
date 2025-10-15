@@ -60,17 +60,16 @@ class Structured
         );
 
         $this->request->addMessage($responseMessage);
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $this->responseBuilder->addStep(new Step(
             text: $this->tempResponse->text,
-            structured: $this->tempResponse->structured ?? [],
             finishReason: $this->tempResponse->finishReason,
             usage: $this->tempResponse->usage,
             meta: $this->tempResponse->meta,
             messages: $this->request->messages(),
             systemPrompts: $this->request->systemPrompts(),
             additionalContent: $this->tempResponse->additionalContent,
+            structured: $this->tempResponse->structured ?? [],
         ));
 
         return $this->responseBuilder->toResponse();
@@ -106,6 +105,7 @@ class Structured
             'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
+            'mcp_servers' => $request->providerOptions('mcp_servers'),
         ]);
 
         return $structuredStrategy->mutatePayload($basePayload);
@@ -117,7 +117,6 @@ class Structured
 
         $baseResponse = new Response(
             steps: new Collection,
-            responseMessages: new Collection,
             text: $this->extractText($data),
             structured: [],
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
@@ -133,7 +132,7 @@ class Structured
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
             additionalContent: Arr::whereNotNull([
-                'messagePartsWithCitations' => $this->extractCitations($data),
+                'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])
         );

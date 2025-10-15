@@ -15,6 +15,11 @@ class NumberSchema implements Schema
         public readonly string $name,
         public readonly string $description,
         public readonly bool $nullable = false,
+        public readonly ?float $multipleOf = null,
+        public readonly ?float $maximum = null,
+        public readonly ?float $exclusiveMaximum = null,
+        public readonly ?float $minimum = null,
+        public readonly ?float $exclusiveMinimum = null,
     ) {}
 
     #[\Override]
@@ -26,11 +31,29 @@ class NumberSchema implements Schema
     #[\Override]
     public function toArray(): array
     {
-        return [
+        $schema = [
             'description' => $this->description,
             'type' => $this->nullable
                 ? $this->castToNullable('number')
                 : 'number',
         ];
+
+        if ($this->multipleOf !== null) {
+            $schema['multipleOf'] = $this->multipleOf;
+        }
+        if ($this->maximum !== null) {
+            $schema['maximum'] = $this->maximum;
+        }
+        if ($this->exclusiveMaximum !== null) {
+            $schema['exclusiveMaximum'] = $this->exclusiveMaximum;
+        }
+        if ($this->minimum !== null) {
+            $schema['minimum'] = $this->minimum;
+        }
+        if ($this->exclusiveMinimum !== null) {
+            $schema['exclusiveMinimum'] = $this->exclusiveMinimum;
+        }
+
+        return $schema;
     }
 }

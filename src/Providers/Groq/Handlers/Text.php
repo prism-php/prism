@@ -51,8 +51,6 @@ class Text
             $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $finishReason = FinishReasonMap::map(data_get($data, 'choices.0.finish_reason', ''));

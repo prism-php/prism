@@ -30,8 +30,8 @@ $response = Prism::text()
     ->withPrompt(
         "What's in this image?",
         [Image::fromStoragePath(
-            path: '/path/to/image.jpg', 
-            disk: 'my-disk' // optional - omit/null for default disk
+            path: '/path/to/image.jpg',
+            diskName: 'my-disk' // optional - omit/null for default disk
         )]
     )
     ->asText();
@@ -83,9 +83,27 @@ $response = Prism::text()
     ->asText();
 ```
 
-## Transfer mediums 
+## Customizing Image Filenames
 
-Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above). 
+When uploading images, you can provide a custom filename using the fluent `as()` method. This is particularly useful when working with multiple images, as it makes your API requests more readable and helps with debugging:
+
+```php
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->withPrompt('Edit these images', [
+        Image::fromLocalPath('path/to/photo1.png')->as('original-photo.png'),
+        Image::fromLocalPath('path/to/photo2.png')->as('reference-image.png'),
+    ])
+    ->generate();
+```
+
+Without custom filenames, images are automatically named using a default pattern. The `as()` method lets you provide meaningful names that make your code more self-documenting.
+
+## Transfer mediums
+
+Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above).
 
 Prism tries to smooth over these rough edges, but its not always possible.
 

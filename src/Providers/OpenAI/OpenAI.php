@@ -21,6 +21,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Audio;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;
@@ -36,6 +37,7 @@ use Prism\Prism\Text\Response as TextResponse;
 class OpenAI extends Provider
 {
     use InitializesClient;
+    use ProcessRateLimits;
 
     public function __construct(
         #[\SensitiveParameter] public readonly string $apiKey,
@@ -124,7 +126,10 @@ class OpenAI extends Provider
     public function handleRequestException(string $model, RequestException $e): never
     {
         match ($e->response->getStatusCode()) {
-            429 => throw PrismRateLimitedException::make(),
+            429 => throw PrismRateLimitedException::make(
+                rateLimits: $this->processRateLimits($e->response),
+                retryAfter: (int) $e->response->header('retry-after')
+            ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::OpenAI),
             413 => throw PrismRequestTooLargeException::make(ProviderName::OpenAI),
             default => throw PrismException::providerRequestError($model, $e),

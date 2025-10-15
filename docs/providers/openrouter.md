@@ -29,7 +29,7 @@ OPENROUTER_URL=https://openrouter.ai/api/v1
 ### Text Generation
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -42,8 +42,11 @@ echo $response->text;
 
 ### Structured Output
 
+> [!NOTE]
+> OpenRouter uses OpenAI-compatible structured outputs. For strict schema validation, the root schema should be an `ObjectSchema`.
+
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -65,7 +68,7 @@ echo $response->text;
 ### Tool Calling
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
@@ -88,23 +91,26 @@ echo $response->text;
 ### Streaming
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
     ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
     ->withPrompt('Tell me a long story about AI.')
     ->asStream();
 
-foreach ($stream as $chunk) {
-    echo $chunk->text;
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
 }
 ```
 
 ### Streaming with Tools
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
@@ -121,22 +127,13 @@ $stream = Prism::text()
     ->withTools([$weatherTool])
     ->asStream();
 
-foreach ($stream as $chunk) {
-    echo $chunk->text;
-    
-    // Handle tool calls
-    if ($chunk->toolCalls) {
-        foreach ($chunk->toolCalls as $toolCall) {
-            echo "Tool called: {$toolCall->name}\n";
-        }
-    }
-    
-    // Handle tool results
-    if ($chunk->toolResults) {
-        foreach ($chunk->toolResults as $result) {
-            echo "Tool result: {$result->result}\n";
-        }
-    }
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::TextDelta => echo $event->delta,
+        StreamEventType::ToolCall => echo "Tool called: {$event->toolName}\n",
+        StreamEventType::ToolResult => echo "Tool result: " . json_encode($event->result) . "\n",
+        default => null,
+    };
 }
 ```
 
@@ -145,24 +142,46 @@ foreach ($stream as $chunk) {
 Some models (like OpenAI's o1 series) support reasoning tokens that show the model's thought process:
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
     ->using(Provider::OpenRouter, 'openai/o1-preview')
     ->withPrompt('Solve this complex math problem: What is the derivative of x^3 + 2x^2 - 5x + 1?')
     ->asStream();
 
-foreach ($stream as $chunk) {
-    if ($chunk->chunkType === ChunkType::Thinking) {
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::ThinkingDelta) {
         // This is the model's reasoning/thinking process
-        echo "Thinking: " . $chunk->text . "\n";
-    } else {
+        echo "Thinking: " . $event->delta . "\n";
+    } elseif ($event->type() === StreamEventType::TextDelta) {
         // This is the final answer
-        echo $chunk->text;
+        echo $event->delta;
     }
 }
+```
+
+#### Reasoning Effort
+
+Control how much reasoning the model performs before generating a response using the `reasoning` parameter. The way this is structured depends on the underlying model you are calling:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'openai/gpt-5-mini')
+    ->withPrompt('Write a PHP function to implement a binary search algorithm with proper error handling')
+    ->withProviderOptions([
+        'reasoning' => [
+            'effort' => 'high',  // Can be "high", "medium", or "low" (OpenAI-style)
+            'max_tokens' =>  2000, // Specific token limit (Gemini / Anthropic-style)
+            
+            // Optional: Default is false. All models support this.
+            'exclude': false, // Set to true to exclude reasoning tokens from response
+            // Or enable reasoning with the default parameters:
+            'enabled': true // Default: inferred from `effort` or `max_tokens`
+        ]
+    ])
+    ->asText();
 ```
 
 ## Available Models

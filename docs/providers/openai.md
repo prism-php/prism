@@ -40,7 +40,7 @@ $response = Prism::structured()
 ```php
 $response = Prism::structured()
     ->withProviderOptions([ // [!code focus]
-        'meta' => [ // [!code focus]
+        'metadata' => [ // [!code focus]
             'project_id' => 23 // [!code focus]
         ] // [!code focus]
     ]) // [!code focus]
@@ -65,6 +65,88 @@ $response = Prism::structured()
         'truncation' => 'auto' // [!code focus]
     ]) // [!code focus]
 ```
+
+### Reasoning Models
+
+OpenAI's reasoning models like `gpt-5`, `gpt-5-mini`, and `gpt-5-nano` use advanced reasoning capabilities to think through complex problems before responding. These models excel at multi-step problem solving, coding, scientific reasoning, and complex analysis tasks.
+
+#### Reasoning Effort
+
+Control how much reasoning the model performs before generating a response using the `reasoning` parameter:
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-5')
+    ->withPrompt('Write a PHP function to implement a binary search algorithm with proper error handling')
+    ->withProviderOptions([ // [!code focus]
+        'reasoning' => ['effort' => 'high'] // [!code focus]
+    ]) // [!code focus]
+    ->asText();
+```
+
+Available reasoning effort levels:
+
+- **`low`**: Faster responses with economical token usage, suitable for simpler tasks
+- **`medium`**: Balanced approach between speed and reasoning depth (default)
+- **`high`**: More thorough reasoning for complex problems requiring deep analysis
+
+> [!NOTE]
+> Reasoning models generate internal "reasoning tokens" that help them think through problems. These tokens are included in your usage costs but aren't visible in the response.
+
+#### Reasoning Token Usage
+
+You can track reasoning token usage through the response's usage information:
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-5-mini')
+    ->withPrompt('Refactor this PHP code to use dependency injection')
+    ->withProviderOptions([
+        'reasoning' => ['effort' => 'medium']
+    ])
+    ->asText();
+
+// Access reasoning token usage
+$usage = $response->firstStep()->usage;
+echo "Reasoning tokens: " . $usage->thoughtTokens;
+echo "Total completion tokens: " . $usage->completionTokens;
+```
+
+## Streaming
+
+OpenAI supports streaming responses in real-time. All the standard streaming methods work with OpenAI models:
+
+```php
+// Stream events
+$stream = Prism::text()
+    ->using('openai', 'gpt-4o')
+    ->withPrompt('Write a story')
+    ->asStream();
+
+// Server-Sent Events
+return Prism::text()
+    ->using('openai', 'gpt-4o')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+### Streaming Reasoning Models
+
+Reasoning models like `gpt-5` stream their thinking process separately from the final answer:
+
+```php
+use Prism\Prism\Enums\StreamEventType;
+
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
+        StreamEventType::TextDelta => echo $event->delta,
+        default => null,
+    };
+}
+```
+
+For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
 
 ### Caching
 
@@ -197,19 +279,58 @@ $response = Prism::image()
 
 ### Image Editing with GPT-Image-1
 
-GPT-Image-1 supports sophisticated image editing operations:
+GPT-Image-1 supports sophisticated image editing operations using the `withPrompt` method with Image value objects:
 
 ```php
-// Load your source image and mask
-$originalImage = base64_encode(file_get_contents('/path/to/photo.jpg'));
-$maskImage = base64_encode(file_get_contents('/path/to/mask.png'));
+use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::image()
     ->using('openai', 'gpt-image-1')
-    ->withPrompt('Replace the sky with a dramatic sunset')
+    ->withPrompt('Add a vaporwave sunset to the background', [
+        Image::fromLocalPath('tests/Fixtures/diamond.png'),
+    ])
     ->withProviderOptions([
-        'image' => $originalImage,          // Base64 encoded original image
-        'mask' => $maskImage,               // Base64 encoded mask (optional)
+        'size' => '1024x1024',
+        'output_format' => 'png',
+        'quality' => 'high',
+    ])
+    ->withClientOptions(['timeout' => 9999])
+    ->generate();
+
+file_put_contents('edited-image.png', base64_decode($response->firstImage()->base64));
+```
+
+#### Using Masks for Targeted Editing
+
+For precise control over which parts of the image to edit, use a mask image:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->withPrompt('Add a vaporwave sunset to the background', [
+        Image::fromLocalPath('tests/Fixtures/diamond.png'),
+    ])
+    ->withProviderOptions([
+        'mask' => Image::fromLocalPath('tests/Fixtures/diamond-mask.png'),
+        'size' => '1024x1024',
+        'output_format' => 'png',
+        'quality' => 'high',
+    ])
+    ->generate();
+```
+
+#### Editing with Multiple Images
+
+You can also edit with multiple images for more complex operations. Use the `as()` method to provide custom filenames for better readability:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
+    ->withPrompt('Combine these images with a futuristic theme', [
+        Image::fromLocalPath('tests/Fixtures/diamond.png')->as('diamond.png'),
+        Image::fromLocalPath('tests/Fixtures/sunset.png')->as('sunset-background.png'),
+    ])
+    ->withProviderOptions([
         'size' => '1024x1024',
         'output_format' => 'png',
         'quality' => 'high',
@@ -258,7 +379,6 @@ $audioData = base64_decode($response->audio->base64);
 file_put_contents('welcome.mp3', $audioData);
 ```
 
-\
 #### High-Definition Audio
 
 For higher quality audio output, use the model:

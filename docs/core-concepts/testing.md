@@ -321,6 +321,9 @@ expect($outputText)->toBe('fake response text')
 
 ## Testing Structured Output
 
+> [!NOTE]
+> When testing OpenAI-style structured output (strict mode), the root schema should be an `ObjectSchema`.
+
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Testing\StructuredResponseFake;

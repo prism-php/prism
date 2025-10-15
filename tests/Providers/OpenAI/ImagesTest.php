@@ -7,6 +7,8 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
     config()->set('prism.providers.openai.api_key', env('OPENAI_API_KEY'));
@@ -346,3 +348,101 @@ it('can generate an image with dall-e-2 requesting base64 format', function (): 
                $data['size'] === '256x256';
     });
 });
+
+it('can edit images', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'api.openai.com/v1/images/edits',
+        'openai/image-edit'
+    );
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        ])
+        ->withProviderOptions([
+            'size' => '1024x1024',
+            'output_format' => 'png',
+            'quality' => 'high',
+        ])
+        ->withClientOptions(['timeout' => 9999])
+        ->generate();
+
+    expect($response->firstImage()->base64)->not->toBeEmpty();
+});
+
+it('can edit with multiple images', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'api.openai.com/v1/images/edits',
+        'openai/image-edit-multiple'
+    );
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+            Image::fromLocalPath('tests/Fixtures/sunset.png')
+                ->as('sunset.png'),
+        ])
+        ->withProviderOptions([
+            'size' => '1024x1024',
+            'output_format' => 'png',
+            'quality' => 'high',
+        ])
+        ->withClientOptions(['timeout' => 9999])
+        ->generate();
+
+    expect($response->firstImage()->base64)->not->toBeEmpty();
+
+    Http::assertSent(function (Request $request): true {
+        $images = collect($request->data())
+            ->where(fn ($data): bool => $data['name'] === 'image[]')
+            ->pluck('filename')
+            ->toArray();
+
+        expect($images)->toBe([
+            'image-0',
+            'sunset.png',
+        ]);
+
+        return true;
+    });
+});
+
+it('can edit images with mask using Image value object', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'api.openai.com/v1/images/edits',
+        'openai/image-edit'
+    );
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        ])
+        ->withProviderOptions([
+            'mask' => Image::fromLocalPath('tests/Fixtures/sunset.png'),
+            'size' => '1024x1024',
+            'output_format' => 'png',
+            'quality' => 'high',
+        ])
+        ->withClientOptions(['timeout' => 9999])
+        ->generate();
+
+    expect($response->firstImage()->base64)->not->toBeEmpty();
+});
+
+it('throws exception when mask is not Image value object', function (): void {
+    $mask = fopen('tests/Fixtures/diamond.png', 'r');
+
+    Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('Add a vaporwave sunset to the background', [
+            Image::fromLocalPath('tests/Fixtures/diamond.png'),
+        ])
+        ->withProviderOptions([
+            'mask' => $mask,
+            'size' => '1024x1024',
+        ])
+        ->generate();
+})->throws(\InvalidArgumentException::class, 'Mask must be an instance of Image value object');

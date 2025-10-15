@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
@@ -274,6 +279,40 @@ describe('tools', function (): void {
 
         expect($response->text)->toContain('235');
     });
+
+    it('passes parallel tool calls setting', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'v1/responses',
+            'openai/generate-text-with-multiple-tools',
+        );
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather in {$city} will be 75° and sunny"),
+            Tool::as('search')
+                ->for('useful for searching curret events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => 'The tigers game is today at 3pm in detroit'),
+        ];
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools($tools)
+            ->usingTemperature(0)
+            ->withMaxSteps(3)
+            ->withProviderOptions(['parallel_tool_calls' => false])
+            ->withSystemPrompt('Current Date: '.now()->toDateString())
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asText();
+
+        expect($response->text)->toBe(
+            "The Detroit Tigers game is today at 3 PM in Detroit. The weather in Detroit will be 75°F and sunny, so you won't need a coat!"
+        );
+
+        Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
+    });
 });
 
 it('sets usage correctly with automatic caching', function (): void {
@@ -353,7 +392,7 @@ it('can analyze images with detail parameter', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/dimond.png')
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/diamond.png')
         ->withProviderOptions(['detail' => 'high']);
 
     Prism::text()
@@ -380,7 +419,7 @@ it('omits detail parameter when not specified', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/dimond.png');
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/diamond.png');
 
     Prism::text()
         ->using(Provider::OpenAI, 'gpt-4o')
@@ -397,5 +436,97 @@ it('omits detail parameter when not specified', function (): void {
         expect($imageContent['image_url'])->toStartWith('data:image/png;base64,');
 
         return true;
+    });
+});
+
+it('can analyze documents', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/text-response-with-document'
+    );
+
+    $document = Document::fromLocalPath('tests/Fixtures/test-pdf.pdf');
+
+    $response = Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Summarize this document', [$document])
+        ->asText();
+
+    expect($response->text)->not->toBeEmpty();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        $documentContent = $body['input'][0]['content'][1];
+
+        expect($documentContent['type'])->toBe('input_file');
+        expect($documentContent['filename'])->not->toBeEmpty();
+
+        return true;
+    });
+});
+
+it('sends reasoning effort when defined', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-reasoning-effort');
+
+    Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'reasoning' => [
+                'effort' => 'low',
+            ],
+        ])
+        ->asText();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+});
+
+describe('citations', function (): void {
+    it('adds citations to additionalContent on response steps and assistant message for the web search tool', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today? Please provide citations.')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        $citationChunk = Arr::first(
+            $response->additionalContent['citations'],
+            fn (MessagePartWithCitations $part): bool => $part->citations !== [] && $part->citations[0]->sourceType === CitationSourceType::Url
+        );
+
+        expect($citationChunk->outputText)->toContain('temperatures');
+        expect($citationChunk->citations)->toHaveCount(1);
+        expect($citationChunk->citations[0]->sourceType)->toBe(CitationSourceType::Url);
+        expect($citationChunk->citations[0]->sourceTitle)->toContain('weather');
+        expect($citationChunk->citations[0]->source)->toBe('https://www.metcheck.com/WEATHER/dayforecast.asp?dateFor=07%2F06%2F2025&lat=51.508500&location=London&locationID=2364784&lon=-0.125700&utm_source=openai');
+
+        expect($response->steps[0]->additionalContent['citations'])->toHaveCount(1);
+        expect($response->steps[0]->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+
+        expect($response->messages->last()->additionalContent['citations'])->toHaveCount(1);
+        expect($response->messages->last()->additionalContent['citations'][0])->toBeInstanceOf(MessagePartWithCitations::class);
+    });
+
+    it('can handle citations on on a previous assistant message with a document', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations-included-in-turn');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today? Please provide citations.')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        $responseTwo = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withMessages([
+                ...$response->steps->last()->messages,
+                new UserMessage('Is the source you have cited reliable?'),
+            ])
+            ->asText();
+
+        expect($responseTwo->text)->toContain('Metcheck');
     });
 });

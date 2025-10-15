@@ -5,18 +5,18 @@ namespace Prism\Prism\Testing;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\HasFluentAttributes;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
 /**
- * @method self withSteps(Collection $steps)
- * @method self withResponseMessages(Collection $responseMessages)
+ * @method self withSteps(Collection<int, Step> $steps)
  * @method self withText(string $text)
- * @method self withStructured(array $structured)
+ * @method self withStructured(array<mixed> $structured)
  * @method self withFinishReason(FinishReason $finishReason)
  * @method self withUsage(Usage $usage)
  * @method self withMeta(Meta $meta)
- * @method self withAdditionalContent(array $additionalContent)
+ * @method self withAdditionalContent(array<string,mixed> $additionalContent)
  */
 readonly class StructuredResponseFake extends \Prism\Prism\Structured\Response
 {
@@ -26,7 +26,6 @@ readonly class StructuredResponseFake extends \Prism\Prism\Structured\Response
     {
         return new self(
             steps: collect([]),
-            responseMessages: collect([]),
             text: '',
             structured: [],
             finishReason: FinishReason::Stop,

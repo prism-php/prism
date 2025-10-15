@@ -36,8 +36,6 @@ class Structured
 
         $responseMessage = new AssistantMessage(data_get($data, 'candidates.0.content.parts.0.text') ?? '');
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request);
@@ -134,8 +132,8 @@ class Structured
                 usage: new Usage(
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
                     completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                     cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
+                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),

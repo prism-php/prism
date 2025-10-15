@@ -104,6 +104,42 @@ describe('Text generation', function (): void {
     });
 });
 
+describe('Thinking parameter', function (): void {
+    it('includes think parameter when thinking is enabled', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-with-thinking-enabled');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['thinking' => true])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('think');
+            expect($body['think'])->toBe(true);
+
+            return true;
+        });
+    });
+
+    it('does not include think parameter when not provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->not->toHaveKey('think');
+
+            return true;
+        });
+    });
+});
+
 describe('Image support', function (): void {
     it('can send images from path', function (): void {
         FixtureResponse::fakeResponseSequence('api/chat', 'ollama/image-detection');
@@ -114,7 +150,7 @@ describe('Image support', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/diamond.png'),
                     ],
                 ),
             ])
@@ -127,7 +163,7 @@ describe('Image support', function (): void {
             expect($message['content'])->toBe('What is this image');
 
             expect($message['images'][0])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -144,7 +180,7 @@ describe('Image support', function (): void {
                     'What is this image',
                     additionalContent: [
                         Image::fromBase64(
-                            base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                            base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                             'image/png'
                         ),
                     ],
@@ -159,7 +195,7 @@ describe('Image support', function (): void {
             expect($message['content'])->toBe('What is this image');
 
             expect($message['images'][0])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;

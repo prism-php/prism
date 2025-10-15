@@ -6,12 +6,11 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Prism;
-use Prism\Prism\Providers\Gemini\ValueObjects\MessagePartWithSearchGroundings;
-use Prism\Prism\Providers\Gemini\ValueObjects\SearchGrounding;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\NumberSchema;
@@ -21,6 +20,7 @@ use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -47,10 +47,7 @@ describe('Text generation for Gemini', function (): void {
             ->and($response->usage->completionTokens)->toBe(57)
             ->and($response->meta->id)->toBe('')
             ->and($response->meta->model)->toBe('gemini-1.5-flash')
-            ->and($response->finishReason)->toBe(FinishReason::Stop)
-            ->and($response->responseMessages->first()->content)->toBe(
-                "I am a large language model, trained by Google.  I am an AI, and I don't have a name, feelings, or personal experiences.  My purpose is to process information and respond to a wide range of prompts and questions in a helpful and informative way.\n"
-            );
+            ->and($response->finishReason)->toBe(FinishReason::Stop);
     });
 
     it('can generate text with a system prompt', function (): void {
@@ -167,7 +164,7 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/diamond.png'),
                     ],
                 ),
             ])
@@ -192,7 +189,7 @@ describe('Image support with Gemini', function (): void {
             expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
             expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
             expect($message[1]['inline_data']['data'])->toBe(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -209,7 +206,7 @@ describe('Image support with Gemini', function (): void {
                     'What is this image',
                     additionalContent: [
                         Image::fromBase64(
-                            base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                            base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                             'image/png'
                         ),
                     ],
@@ -227,7 +224,7 @@ describe('Image support with Gemini', function (): void {
             expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
             expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
             expect($message[1]['inline_data']['data'])->toBe(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -237,11 +234,11 @@ describe('Image support with Gemini', function (): void {
     it('can send images from url', function (): void {
         FixtureResponse::fakeResponseSequence('generateContent', 'gemini/image-detection');
 
-        $image = 'https://prismphp.com/storage/dimond.png';
+        $image = 'https://prismphp.com/storage/diamond.png';
 
         Http::fake([
             $image => Http::response(
-                file_get_contents('tests/Fixtures/dimond.png'),
+                file_get_contents('tests/Fixtures/diamond.png'),
                 200,
                 ['Content-Type' => 'image/png']
             ),
@@ -271,7 +268,7 @@ describe('Image support with Gemini', function (): void {
                 expect($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data']);
                 expect($message[1]['inline_data']['mime_type'])->toBe('image/png');
                 expect($message[1]['inline_data']['data'])->toBe(
-                    base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                    base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
                 );
 
                 return true;
@@ -416,7 +413,7 @@ describe('provider tools', function (): void {
             ->asText();
     })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
 
-    it('maps search groundings into additional content', function (): void {
+    it('creates citations in additionalContent from search groundings', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         $response = Prism::text()
@@ -425,23 +422,22 @@ describe('provider tools', function (): void {
             ->withProviderOptions(['searchGrounding' => true])
             ->asText();
 
-        expect($response->additionalContent)->toHaveKey('searchEntryPoint');
-        expect($response->additionalContent)->toHaveKey('searchQueries');
-        expect($response->additionalContent)->toHaveKey('groundingSupports');
+        expect($response->additionalContent)->toHaveKey('citations');
+        expect($response->additionalContent['citations'])->toHaveCount(6);
 
-        expect($response->additionalContent['searchEntryPoint'])->not()->toBe('');
+        $concatenatedPartLength = collect($response->additionalContent['citations'])
+            ->sum(fn (MessagePartWithCitations $messagePart): int => strlen($messagePart->outputText));
+
+        expect(strlen($response->text))->toBe($concatenatedPartLength);
+
+        expect($response->additionalContent['citations'][1]->citations)->toHaveCount(1);
+        expect($response->additionalContent['citations'][1]->citations[0])
+            ->sourceTitle->toBe('ft.com')
+            ->source->toBe('https://vertexaisearch.cloud.google.com/grounding-api-redirect/AQXblrzVmdvQ-8RyZbo6knG4xQpbHhzoZtCKui-qEXo7n-Gda_UaV5RNo3GuuAV7OBLY8oRmb0giKvPjP0FXgI8gktbMyJOx9yUkSYbBUJpfbLaHQy13zjpVAC596HzWEfbPjoh1_5EtEinrM1LW0D0_6OwQ_iDClBsm62K-L-I=')
+            ->sourceType->toBe(CitationSourceType::Url);
+
         expect($response->additionalContent['searchQueries'])->toHaveCount(1);
-        expect($response->additionalContent['groundingSupports'])->toHaveCount(4);
-
-        expect($response->additionalContent['groundingSupports'][0])->toBeInstanceOf(MessagePartWithSearchGroundings::class);
-        expect($response->additionalContent['groundingSupports'][0]->text)->not()->toBe('');
-        expect($response->additionalContent['groundingSupports'][0]->startIndex)->not()->toBe(0);
-        expect($response->additionalContent['groundingSupports'][0]->endIndex)->not()->toBe(0);
-        expect($response->additionalContent['groundingSupports'][0]->groundings)->toHaveCount(1);
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0])->toBeInstanceOf(SearchGrounding::class);
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->title)->not()->toBe('');
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->uri)->not()->toBe('');
-        expect($response->additionalContent['groundingSupports'][0]->groundings[0]->confidence)->not()->toBe(0.0);
+        expect($response->additionalContent['searchEntryPoint'])->toHaveKey('renderedContent');
     });
 });
 

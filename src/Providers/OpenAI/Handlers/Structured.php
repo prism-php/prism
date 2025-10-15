@@ -7,7 +7,9 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Support\StructuredModeResolver;
@@ -22,7 +24,9 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use ExtractsCitations;
     use MapsFinishReason;
+    use ProcessRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -51,8 +55,6 @@ class Structured
             data_get($data, 'output.{last}.content.0.text') ?? '',
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request, $response);
@@ -77,10 +79,13 @@ class Structured
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
+                rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->extractCitations($data),
+            ]),
         ));
     }
 
@@ -101,6 +106,7 @@ class Structured
                 'metadata' => $request->providerOptions('metadata'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
                 'text' => [
                     'format' => $responseFormat,
                 ],

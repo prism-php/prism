@@ -29,26 +29,26 @@ $response = Prism::text()
     ->asText();
 ```
 
-Thinking content is automatically extracted when present in the response and can be accessed through streaming chunks.
+Thinking content is automatically extracted when present in the response and can be accessed through streaming events.
 If you prefer not to process thinking content, you can disable it. Set the `thinking` option to `false`.
 
 #### Streaming thinking content
 
-When using streaming, thinking content is yielded as separate chunks with `ChunkType::Thinking`:
+When using streaming, thinking content is yielded as separate events:
 
 ```php
-use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
 	->using(Provider::XAI, 'grok-4')
 	->withPrompt('Explain quantum entanglement in detail')
 	->asStream();
 
-foreach ($stream as $chunk) {
-	if ($chunk->chunkType === ChunkType::Thinking) {
-		echo $chunk->text . PHP_EOL; // Outputs: Thinking...
-	} elseif ($chunk->chunkType === ChunkType::Text) {
-		echo $chunk->text;
+foreach ($stream as $event) {
+	if ($event->type() === StreamEventType::ThinkingDelta) {
+		echo $event->delta . PHP_EOL; // Outputs: Thinking...
+	} elseif ($event->type() === StreamEventType::TextDelta) {
+		echo $event->delta;
 	}
 }
 ```
@@ -56,6 +56,9 @@ foreach ($stream as $chunk) {
 ### Structured Output
 
 xAI supports structured output through JSON schema validation. The following models support structured output:
+
+> [!NOTE]
+> xAI uses an OpenAI-compatible API. For strict schema validation, the root schema should be an `ObjectSchema`.
 
 - `grok-3`
 - `grok-4`

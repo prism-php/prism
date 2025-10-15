@@ -11,7 +11,9 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
@@ -20,6 +22,7 @@ use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Text\Step;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
@@ -30,10 +33,15 @@ class Text
 {
     use BuildsTools;
     use CallsTools;
+    use ExtractsCitations;
     use MapsFinishReason;
+    use ProcessRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
+
+    /** @var ?MessagePartWithCitations[] */
+    protected ?array $citations = null;
 
     public function __construct(protected PendingRequest $client)
     {
@@ -48,21 +56,25 @@ class Text
 
         $data = $response->json();
 
+        $this->citations = $this->extractCitations($data);
+
         $responseMessage = new AssistantMessage(
-            data_get($data, 'output.{last}.content.0.text') ?? '',
-            ToolCallMap::map(
+            content: data_get($data, 'output.{last}.content.0.text') ?? '',
+            toolCalls: ToolCallMap::map(
                 array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
                 array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
             ),
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->citations,
+            ]),
         );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
+            FinishReason::Length => throw new PrismException('OpenAI: max tokens exceeded'),
             default => throw new PrismException('OpenAI: unknown finish reason'),
         };
     }
@@ -74,7 +86,10 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
+            ToolCallMap::map(array_filter(
+                data_get($data, 'output', []),
+                fn (array $output): bool => $output['type'] === 'function_call')
+            ),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -117,8 +132,10 @@ class Text
                 'metadata' => $request->providerOptions('metadata'),
                 'tools' => $this->buildTools($request),
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
             ]))
         );
     }
@@ -127,8 +144,12 @@ class Text
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
      */
-    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
-    {
+    protected function addStep(
+        array $data,
+        Request $request,
+        ClientResponse $clientResponse,
+        array $toolResults = []
+    ): void {
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
@@ -143,10 +164,13 @@ class Text
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
+                rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->citations,
+            ]),
         ));
     }
 }

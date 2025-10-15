@@ -5,6 +5,7 @@ namespace Prism\Prism\Http\Controllers;
 use Illuminate\Support\ItemNotFoundException;
 use Prism\Prism\Exceptions\PrismServerException;
 use Prism\Prism\Facades\PrismServer;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -48,15 +49,19 @@ class PrismChatController
             $response = $generator->asStream();
 
             foreach ($response as $chunk) {
+                if (! $chunk instanceof TextDeltaEvent) {
+                    continue;
+                }
+
                 $data = [
-                    'id' => $chunk->meta?->id ?? 'unknown',
+                    'id' => $chunk->id,
                     'object' => 'chat.completion.chunk',
                     'created' => now()->timestamp,
-                    'model' => $chunk->meta?->model ?? 'unknown',
+                    'model' => 'unknown',
                     'choices' => [[
                         'delta' => [
                             'role' => 'assistant',
-                            'content' => $chunk->content ?? $chunk->text,
+                            'content' => $chunk->delta,
                         ],
                     ]],
                 ];
@@ -118,9 +123,7 @@ class PrismChatController
 
     protected function textFromResponse(TextResponse $response): string
     {
-        return $response->responseMessages
-            ->whereInstanceOf(AssistantMessage::class)
-            ->implode(fn (AssistantMessage $message): string => $message->content);
+        return $response->text;
     }
 
     /**

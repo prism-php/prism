@@ -6,6 +6,13 @@ export default defineConfig({
   title: "Prism",
   head: [
     [
+      "link",
+      {
+        rel: "icon",
+        href: "/favicon.ico",
+      },
+    ],
+    [
       "script",
       {
         src: "https://cdn.tailwindcss.com",
@@ -171,6 +178,10 @@ export default defineConfig({
               {
                 text: "DeepSeek",
                 link: "/providers/deepseek",
+              },
+              {
+                text: "ElevenLabs",
+                link: "/providers/elevenlabs",
               },
               {
                 text: "Groq",

@@ -50,13 +50,11 @@ class Text
             []
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request = $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop => $this->handleStop($data, $request),
+            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request),
             default => throw new PrismException('OpenRouter: unknown finish reason'),
         };
     }
@@ -111,8 +109,10 @@ class Text
             ], Arr::whereNotNull([
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
+                'reasoning' => $request->providerOptions('reasoning') ?? null,
                 'tools' => ToolMap::map($request->tools()),
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'provider' => $request->providerOptions('provider') ?? null,
             ]))
         );
 
@@ -139,8 +139,8 @@ class Text
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 }

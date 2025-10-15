@@ -50,8 +50,6 @@ class Text
             []
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request = $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
@@ -139,8 +137,8 @@ class Text
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 }

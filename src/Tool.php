@@ -38,13 +38,12 @@ class Tool
     /** @var Closure():string|callable():string */
     protected $fn;
 
-    /** @var null|Closure(Throwable,array<int|string,mixed>):string */
-    protected ?Closure $failedHandler = null;
+    /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
+    protected null|false|Closure $failedHandler = null;
 
     public function __construct()
     {
-        // Initialize with default error handler by default
-        $this->failedHandler = fn (Throwable $e, array $params): string => $this->getDefaultFailedMessage($e, $params);
+        //
     }
 
     public function as(string $name): self
@@ -80,7 +79,14 @@ class Tool
 
     public function withoutErrorHandling(): self
     {
-        $this->failedHandler = null;
+        $this->failedHandler = false;
+
+        return $this;
+    }
+
+    public function withErrorHandling(?Closure $handler = null): self
+    {
+        $this->failedHandler = $handler;
 
         return $this;
     }
@@ -206,9 +212,9 @@ class Tool
     }
 
     /**
-     * @return null|Closure(Throwable,array<int|string,mixed>):string
+     * @return null|false|Closure(Throwable,array<int|string,mixed>):string
      */
-    public function failedHandler(): ?Closure
+    public function failedHandler(): null|false|Closure
     {
         return $this->failedHandler;
     }
@@ -229,27 +235,23 @@ class Tool
 
             return $value;
         } catch (Throwable $e) {
-            if ($this->failedHandler instanceof Closure) {
-                $providedParams = $this->extractProvidedParams($args);
-
-                return ($this->failedHandler)($e, $providedParams);
-            }
-
-            if ($e instanceof TypeError || $e instanceof InvalidArgumentException) {
-                throw PrismException::invalidParameterInTool($this->name, $e);
-            }
-
-            if ($e::class === Error::class && ! str_starts_with($e->getMessage(), 'Unknown named parameter')) {
-                throw $e;
-            }
-
-            if (str_starts_with($e->getMessage(), 'Unknown named parameter')) {
-                throw PrismException::invalidParameterInTool($this->name, $e);
-            }
-
-            // Re-throw other exceptions
-            throw $e;
+            return $this->handleToolException($e, $args);
         }
+    }
+
+    protected function shouldHandleErrors(): bool
+    {
+        return $this->failedHandler !== false;
+    }
+
+    protected function hasCustomErrorHandler(): bool
+    {
+        return $this->failedHandler instanceof Closure;
+    }
+
+    protected function shouldUseDefaultErrorHandling(): bool
+    {
+        return $this->shouldHandleErrors() && ! $this->hasCustomErrorHandler();
     }
 
     /**
@@ -351,5 +353,54 @@ class Tool
         }
 
         return $result;
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $args
+     *
+     * @throws PrismException|Throwable
+     */
+    protected function handleToolException(Throwable $e, array $args): string
+    {
+        if ($this->hasCustomErrorHandler()) {
+            $providedParams = $this->extractProvidedParams($args);
+
+            /** @var Closure(Throwable,array<int|string,mixed>):string $handler */
+            $handler = $this->failedHandler;
+
+            return $handler($e, $providedParams);
+        }
+
+        if (! $this->shouldHandleErrors()) {
+            $this->throwMappedException($e);
+        }
+
+        if ($this->shouldUseDefaultErrorHandling()) {
+            $providedParams = $this->extractProvidedParams($args);
+
+            return $this->getDefaultFailedMessage($e, $providedParams);
+        }
+
+        throw $e;
+    }
+
+    /**
+     * @throws PrismException|Throwable
+     */
+    protected function throwMappedException(Throwable $e): never
+    {
+        if ($e instanceof TypeError || $e instanceof InvalidArgumentException) {
+            throw PrismException::invalidParameterInTool($this->name, $e);
+        }
+
+        if ($e::class === Error::class && ! str_starts_with($e->getMessage(), 'Unknown named parameter')) {
+            throw $e;
+        }
+
+        if (str_starts_with($e->getMessage(), 'Unknown named parameter')) {
+            throw PrismException::invalidParameterInTool($this->name, $e);
+        }
+
+        throw $e;
     }
 }

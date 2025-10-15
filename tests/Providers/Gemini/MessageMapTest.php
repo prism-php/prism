@@ -37,7 +37,7 @@ it('maps user messages with images from path', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromLocalPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -48,14 +48,14 @@ it('maps user messages with images from path', function (): void {
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.mime_type'))
         ->toBe('image/png');
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.data'))
-        ->toBe(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toBe(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 it('maps user messages with images from base64', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/dimond.png')), 'image/png'),
+                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/diamond.png')), 'image/png'),
             ]),
         ],
         systemPrompts: []
@@ -66,7 +66,7 @@ it('maps user messages with images from base64', function (): void {
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.mime_type'))
         ->toBe('image/png');
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.data'))
-        ->toBe(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toBe(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 describe('documents', function (): void {

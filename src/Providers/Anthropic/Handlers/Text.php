@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Anthropic\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
@@ -57,8 +58,6 @@ class Text
             $this->tempResponse->additionalContent,
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $this->request->addMessage($responseMessage);
 
         return match ($this->tempResponse->finishReason) {
@@ -76,7 +75,7 @@ class Text
     public static function buildHttpRequestPayload(PrismRequest $request): array
     {
         if (! $request->is(TextRequest::class)) {
-            throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
+            throw new InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
         return Arr::whereNotNull([
@@ -96,6 +95,7 @@ class Text
             'top_p' => $request->topP(),
             'tools' => static::buildTools($request) ?: null,
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            'mcp_servers' => $request->providerOptions('mcp_servers'),
         ]);
     }
 
@@ -151,8 +151,6 @@ class Text
 
         $this->tempResponse = new Response(
             steps: new Collection,
-            responseMessages: new Collection,
-            messages: new Collection,
             text: $this->extractText($data),
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
             toolCalls: $this->extractToolCalls($data),
@@ -168,8 +166,9 @@ class Text
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
+            messages: new Collection,
             additionalContent: Arr::whereNotNull([
-                'messagePartsWithCitations' => $this->extractCitations($data),
+                'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])
         );

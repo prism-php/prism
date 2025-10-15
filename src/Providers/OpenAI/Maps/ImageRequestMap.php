@@ -38,11 +38,10 @@ class ImageRequestMap
             'moderation' => $providerOptions['moderation'] ?? null,
             'output_compression' => $providerOptions['output_compression'] ?? null,
             'output_format' => $providerOptions['output_format'] ?? null,
-
-            // Image editing parameters (GPT-Image-1 and DALL-E 2)
-            'image' => $providerOptions['image'] ?? null,
-            'mask' => $providerOptions['mask'] ?? null,
         ];
+
+        // Sent as multi-part (mask must be Image value object)
+        unset($providerOptions['mask']);
 
         // Include any additional options not explicitly handled above
         $additionalOptions = array_diff_key($providerOptions, $supportedOptions);

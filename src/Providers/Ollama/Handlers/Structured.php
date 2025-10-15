@@ -39,8 +39,6 @@ class Structured
             data_get($data, 'message.content') ?? '',
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
         $this->addStep($data, $request);
@@ -65,8 +63,8 @@ class Structured
                 model: $request->model(),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 
