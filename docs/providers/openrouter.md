@@ -88,6 +88,28 @@ $response = Prism::text()
 echo $response->text;
 ```
 
+### Multimodal Prompts
+
+OpenRouter keeps the OpenAI content-part schema, so you can mix text and images inside a single user turn.
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'openai/gpt-4o-mini')
+    ->withPrompt('Describe the key trends in this diagram.', [
+        Image::fromLocalPath('storage/charts/retention.png'),
+    ])
+    ->generate();
+
+echo $response->text;
+```
+
+> [!TIP]
+> `Image` value objects are serialized into the `image_url` entries that OpenRouter expects, so you can attach multiple images or pair them with plain text in the same message.
+
 ### Streaming
 
 ```php
@@ -106,6 +128,12 @@ foreach ($stream as $event) {
     }
 }
 ```
+
+> [!NOTE]
+> OpenRouter keeps SSE connections alive by emitting comment events such as `: OPENROUTER PROCESSING`. These lines are safe to ignore while parsing the stream.
+>
+> [!WARNING]
+> Mid-stream failures propagate as normal SSE payloads with `error` details and `finish_reason: "error"` while the HTTP status remains 200. Make sure to inspect each chunk for an `error` field so you can surface failures to the caller and stop reading the stream.
 
 ### Streaming with Tools
 
@@ -176,13 +204,54 @@ $response = Prism::text()
             'max_tokens' =>  2000, // Specific token limit (Gemini / Anthropic-style)
             
             // Optional: Default is false. All models support this.
-            'exclude': false, // Set to true to exclude reasoning tokens from response
+            'exclude' => false, // Set to true to exclude reasoning tokens from response
             // Or enable reasoning with the default parameters:
-            'enabled': true // Default: inferred from `effort` or `max_tokens`
+            'enabled' => true // Default: inferred from `effort` or `max_tokens`
         ]
     ])
     ->asText();
 ```
+
+### Provider Routing & Advanced Options
+
+Use `withProviderOptions()` to forward OpenRouter-specific controls such as provider preferences, routing, transforms, or additional sampling parameters.
+
+```php
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'openai/gpt-4o')
+    ->withPrompt('Draft a concise product changelog entry.')
+    ->withProviderOptions([
+        'provider' => [
+            'require_parameters' => true, // Ensure downstream providers honour every parameter
+        ],
+        'models' => ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet'],
+        'route' => 'fallback',             // Try the next model if the preferred one fails
+        'transforms' => ['markdown'],      // See https://openrouter.ai/docs/transforms for available transforms
+        'prediction' => [
+            'type' => 'content',
+            'content' => 'Changelog:\n- ',
+        ],
+        'user' => 'customer-42',
+        'stop' => ["END_OF_CHANGELOG"],
+        'seed' => 12345,
+        'top_k' => 40,
+        'frequency_penalty' => 0.2,
+        'presence_penalty' => 0.1,
+        'repetition_penalty' => 1.05,
+        'min_p' => 0.1,
+        'parallel_tool_calls' => false,
+        'verbosity' => 'high',
+    ])
+    ->generate();
+
+echo $response->text;
+```
+
+> [!IMPORTANT]
+> The values you supply here are passed directly to OpenRouter. Consult the [Parameters reference](https://openrouter.ai/docs/api-reference/parameters) and [Provider Routing guide](https://openrouter.ai/docs/provider-routing) for the full list of supported keys.
 
 ## Available Models
 

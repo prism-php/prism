@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
@@ -69,6 +71,73 @@ it('can stream text with a prompt', function (): void {
 
     // Verify full text can be reconstructed
     expect($text)->toBe("Hello! I'm an AI assistant powered by OpenRouter. How can I help you today?");
+});
+
+it('forwards advanced provider options in streaming mode', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-a-prompt');
+
+    $stream = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Stream a short update.')
+        ->withProviderOptions([
+            'stop' => ['END_STREAM'],
+            'seed' => 11,
+            'top_k' => 16,
+            'frequency_penalty' => 0.4,
+            'presence_penalty' => 0.15,
+            'repetition_penalty' => 1.05,
+            'min_p' => 0.05,
+            'top_a' => 0.2,
+            'logit_bias' => ['101' => -2],
+            'logprobs' => false,
+            'top_logprobs' => 2,
+            'prediction' => [
+                'type' => 'content',
+                'content' => 'Update:',
+            ],
+            'transforms' => ['markdown'],
+            'models' => ['openai/gpt-4-turbo', 'google/gemini-pro'],
+            'route' => 'fallback',
+            'provider' => ['require_parameters' => true],
+            'user' => 'customer-stream-11',
+            'parallel_tool_calls' => true,
+            'verbosity' => 'low',
+        ])
+        ->asStream();
+
+    // Prime the generator so the HTTP request is executed.
+    foreach ($stream as $_event) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return $payload['stream'] === true
+            && $payload['stop'] === ['END_STREAM']
+            && $payload['seed'] === 11
+            && $payload['top_k'] === 16
+            && $payload['frequency_penalty'] === 0.4
+            && $payload['presence_penalty'] === 0.15
+            && $payload['repetition_penalty'] === 1.05
+            && $payload['min_p'] === 0.05
+            && $payload['top_a'] === 0.2
+            && $payload['logit_bias'] === ['101' => -2]
+            && $payload['logprobs'] === false
+            && $payload['top_logprobs'] === 2
+            && $payload['prediction'] === [
+                'type' => 'content',
+                'content' => 'Update:',
+            ]
+            && $payload['transforms'] === ['markdown']
+            && $payload['models'] === ['openai/gpt-4-turbo', 'google/gemini-pro']
+            && $payload['route'] === 'fallback'
+            && $payload['provider'] === ['require_parameters' => true]
+            && $payload['user'] === 'customer-stream-11'
+            && $payload['parallel_tool_calls'] === true
+            && $payload['verbosity'] === 'low'
+            && $payload['stream_options'] === ['include_usage' => true];
+    });
 });
 
 it('can stream text with tool calls', function (): void {
