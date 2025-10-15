@@ -24,7 +24,7 @@ class ToolMap
                 'description' => $tool->description(),
                 'input_schema' => [
                     'type' => 'object',
-                    'properties' => empty($properties) ? new \stdClass() : $properties,
+                    'properties' => $properties === [] ? new \stdClass : $properties,
                     'required' => $tool->requiredParameters(),
                 ],
                 'cache_control' => $cacheType ? ['type' => $cacheType instanceof UnitEnum ? $cacheType->name : $cacheType] : null,
