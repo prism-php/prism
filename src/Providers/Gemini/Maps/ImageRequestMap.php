@@ -29,7 +29,7 @@ class ImageRequestMap
             ],
         ];
 
-        foreach ($request->additionalContent() as $index => $image) {
+        foreach ($request->additionalContent() as $image) {
             $parts[] = [
                 'inline_data' => [
                     'mime_type' => $image->mimeType(),
