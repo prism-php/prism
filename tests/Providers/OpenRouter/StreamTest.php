@@ -130,7 +130,7 @@ it('can stream text with tool calls', function (): void {
 it('can stream text with empty parameters tool calls when using gpt-5', function () {
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-empty-parameters-tools-when-using-gpt-5');
 
-    $currentTime = "08:00:00";
+    $currentTime = '08:00:00';
     $timeTool = Tool::as('time')
         ->for('Get the current time')
         ->using(fn (): string => $currentTime);
@@ -167,7 +167,7 @@ it('can stream text with empty parameters tool calls when using gpt-5', function
     expect($events)->not->toBeEmpty();
     expect($toolCallEvents)->toHaveCount(1);
     expect($toolResultEvents)->toHaveCount(1);
-    expect($text)->toContain("The current time is " . $currentTime);
+    expect($text)->toContain('The current time is '.$currentTime);
 
     $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
     expect($streamEndEvents)->not->toBeEmpty();
