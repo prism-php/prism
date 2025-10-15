@@ -199,11 +199,12 @@ class PrismManager
     }
 
     /**
-     * @param  array<string, string>  $config
+     * @param  array<string, mixed>  $config
      */
     protected function createOpenrouterProvider(array $config): OpenRouter
     {
-        $site = $config['site'] ?? [];
+        $siteConfig = $config['site'] ?? null;
+        $site = is_array($siteConfig) ? $siteConfig : [];
 
         return new OpenRouter(
             apiKey: $config['api_key'] ?? '',
