@@ -203,9 +203,13 @@ class PrismManager
      */
     protected function createOpenrouterProvider(array $config): OpenRouter
     {
+        $site = $config['site'] ?? [];
+
         return new OpenRouter(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://openrouter.ai/api/v1',
+            httpReferer: $site['http_referer'] ?? null,
+            xTitle: $site['x_title'] ?? null,
         );
     }
 

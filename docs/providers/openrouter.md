@@ -11,6 +11,10 @@ Add your OpenRouter configuration to `config/prism.php`:
     'openrouter' => [
         'api_key' => env('OPENROUTER_API_KEY'),
         'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
+        'site' => [
+            'http_referer' => env('OPENROUTER_SITE_HTTP_REFERER'),
+            'x_title' => env('OPENROUTER_SITE_X_TITLE'),
+        ],
     ],
 ],
 ```
@@ -22,6 +26,8 @@ Set your OpenRouter API key and URL in your `.env` file:
 ```env
 OPENROUTER_API_KEY=your_api_key_here
 OPENROUTER_URL=https://openrouter.ai/api/v1
+OPENROUTER_SITE_HTTP_REFERER=https://your-site.example
+OPENROUTER_SITE_X_TITLE="Your Site Name"
 ```
 
 ## Usage
