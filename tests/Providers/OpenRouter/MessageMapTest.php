@@ -181,3 +181,53 @@ it('maps system prompt', function (): void {
         ],
     ]);
 });
+
+it('maps system prompt with cache_control', function (): void {
+    $messageMap = new MessageMap(
+        messages: [new UserMessage('Who are you?')],
+        systemPrompts: [
+            (new SystemMessage('I am a long re-usable system message.'))
+                ->withProviderOptions(['cacheType' => 'ephemeral']),
+        ]
+    );
+
+    expect($messageMap())->toBe([
+        [
+            'role' => 'system',
+            'content' => [
+                [
+                    'type' => 'text',
+                    'text' => 'I am a long re-usable system message.',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+        [
+            'role' => 'user',
+            'content' => [
+                ['type' => 'text', 'text' => 'Who are you?'],
+            ],
+        ],
+    ]);
+});
+
+it('maps user message with cache_control', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            (new UserMessage('I am a long re-usable user message.'))
+                ->withProviderOptions(['cacheType' => 'ephemeral']),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([[
+        'role' => 'user',
+        'content' => [
+            [
+                'type' => 'text',
+                'text' => 'I am a long re-usable user message.',
+                'cache_control' => ['type' => 'ephemeral'],
+            ],
+        ],
+    ]]);
+});
