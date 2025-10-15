@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\ElevenLabs\Handlers;
 
+use Exception;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
@@ -26,7 +27,7 @@ class Audio
         $mapper = new TextToSpeechRequestMapper($request);
         $mapper->toPayload();
 
-        throw new \Exception('ElevenLabs text-to-speech not yet implemented');
+        throw new Exception('ElevenLabs text-to-speech not yet implemented');
     }
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse

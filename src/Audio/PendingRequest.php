@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Audio;
 
 use Illuminate\Http\Client\RequestException;
+use InvalidArgumentException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
@@ -61,7 +62,7 @@ class PendingRequest
     protected function toTextToSpeechRequest(): TextToSpeechRequest
     {
         if (! is_string($this->input)) {
-            throw new \InvalidArgumentException('Text-to-speech requires string input');
+            throw new InvalidArgumentException('Text-to-speech requires string input');
         }
 
         return new TextToSpeechRequest(
@@ -78,7 +79,7 @@ class PendingRequest
     protected function toSpeechToTextRequest(): SpeechToTextRequest
     {
         if (! ($this->input instanceof Audio)) {
-            throw new \InvalidArgumentException('Speech-to-text requires Audio input');
+            throw new InvalidArgumentException('Speech-to-text requires Audio input');
         }
 
         return new SpeechToTextRequest(

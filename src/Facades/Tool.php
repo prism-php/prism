@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Facades;
 
+use BadMethodCallException;
 use Closure;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Tool as BaseTool;
@@ -31,6 +32,6 @@ class Tool
             return $instance->$method(...$arguments);
         }
 
-        throw new \BadMethodCallException("Method {$method} does not exist.");
+        throw new BadMethodCallException("Method {$method} does not exist.");
     }
 }

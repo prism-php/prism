@@ -214,16 +214,36 @@ foreach ($response->responseMessages as $message) {
 }
 ```
 
-### Finish Reasons
+## Handling Completions with Callbacks
+
+Need to perform actions after text generation completes? The `onComplete()` callback lets you handle the generated messages without interrupting the response flow. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+
+### Basic Example
 
 ```php
-FinishReason::Stop;
-FinishReason::Length;
-FinishReason::ContentFilter;
-FinishReason::ToolCalls;
-FinishReason::Error;
-FinishReason::Other;
-FinishReason::Unknown;
+use Illuminate\Support\Collection;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Text\PendingRequest;
+
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt('Explain Laravel middleware')
+    ->onComplete(function (PendingRequest $request, Collection $messages) {
+        // Save the conversation after generation completes
+        foreach ($messages as $message) {
+            ConversationLog::create([
+                'model' => $request->model,
+                'prompt' => $request->prompt,
+                'content' => $message->content,
+                'role' => 'assistant',
+            ]);
+        }
+    })
+    ->asText();
+
+// Response is still returned normally
+echo $response->text;
 ```
 
 ## Error Handling

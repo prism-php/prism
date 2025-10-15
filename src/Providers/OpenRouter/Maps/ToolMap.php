@@ -30,6 +30,11 @@ class ToolMap
                         ];
                     })(),
                 ] : [],
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => $tool->hasParameters() ? $tool->parametersAsArray() : (object) [],
+                    'required' => $tool->requiredParameters(),
+                ],
             ],
             'strict' => $tool->providerOptions('strict'),
         ]), $tools);

@@ -60,7 +60,7 @@ class PrismManager
      */
     public function extend(string $provider, Closure $callback): self
     {
-        if (($callback = $callback->bindTo($this, $this)) instanceof \Closure) {
+        if (($callback = $callback->bindTo($this, $this)) instanceof Closure) {
             $this->customCreators[$provider] = $callback;
 
             return $this;
@@ -199,13 +199,18 @@ class PrismManager
     }
 
     /**
-     * @param  array<string, string>  $config
+     * @param  array<string, mixed>  $config
      */
     protected function createOpenrouterProvider(array $config): OpenRouter
     {
+        $siteConfig = $config['site'] ?? null;
+        $site = is_array($siteConfig) ? $siteConfig : [];
+
         return new OpenRouter(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://openrouter.ai/api/v1',
+            httpReferer: $site['http_referer'] ?? null,
+            xTitle: $site['x_title'] ?? null,
         );
     }
 

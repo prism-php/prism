@@ -166,6 +166,42 @@ Claude Sonnet 3.7 also brings extended output mode which increase the output lim
 
 This feature is currently in beta, so you will need to enable to by adding `output-128k-2025-02-19` to your Anthropic anthropic_beta config (see [Configuration](#configuration) above).
 
+## Streaming
+
+Claude supports streaming responses in real-time. All the standard streaming methods work with Anthropic models:
+
+```php
+// Stream events
+$stream = Prism::text()
+    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->withPrompt('Write a story')
+    ->asStream();
+
+// Server-Sent Events
+return Prism::text()
+    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+### Streaming with Extended Thinking
+
+When using extended thinking, the reasoning process streams separately from the final answer:
+
+```php
+use Prism\Prism\Enums\StreamEventType;
+
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
+        StreamEventType::TextDelta => echo $event->delta,
+        default => null,
+    };
+}
+```
+
+For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
+
 ## Documents
 
 Anthropic supports PDF, text and markdown documents. Note that Anthropic uses vision to process PDFs under the hood, and consequently there are some limitations detailed in their [feature documentation](https://docs.anthropic.com/en/docs/build-with-claude/pdf-support).

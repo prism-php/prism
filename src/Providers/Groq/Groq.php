@@ -23,9 +23,9 @@ use Prism\Prism\Providers\Groq\Handlers\Stream;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
 use Prism\Prism\Providers\Provider;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Chunk;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 
@@ -84,7 +84,7 @@ class Groq extends Provider
     }
 
     /**
-     * @return Generator<Chunk>
+     * @return Generator<StreamEvent>
      */
     #[\Override]
     public function stream(TextRequest $request): Generator

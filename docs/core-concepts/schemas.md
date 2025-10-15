@@ -131,6 +131,66 @@ $profileSchema = new ObjectSchema(
 );
 ```
 
+### AnyOfSchema
+
+For flexible data that can match one of several schemas. This is particularly useful when you need to handle different data types or structures in the same field.
+
+> [!IMPORTANT]
+> **OpenAI Compatibility**: The AnyOfSchema is designed to work with OpenAI's structured outputs `anyOf` specification. Each nested schema must be a valid JSON schema according to OpenAI's subset requirements. For best results, ensure each nested schema has a proper `type` field.
+
+```php
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\ObjectSchema;
+
+// Simple example: A value that can be either a string or number
+$flexibleValueSchema = new AnyOfSchema(
+    schemas: [
+        new StringSchema('text', 'A text value'),
+        new NumberSchema('number', 'A numeric value'),
+    ],
+    name: 'flexible_value',
+    description: 'A value that can be either text or numeric'
+);
+
+// Complex example: Different content types
+$contentSchema = new AnyOfSchema(
+    schemas: [
+        new ObjectSchema(
+            name: 'article',
+            description: 'A blog article',
+            properties: [
+                new StringSchema('title', 'Article title'),
+                new StringSchema('content', 'Article content'),
+                new StringSchema('author', 'Article author'),
+            ],
+            requiredFields: ['title', 'content']
+        ),
+        new ObjectSchema(
+            name: 'image',
+            description: 'An image post',
+            properties: [
+                new StringSchema('url', 'Image URL'),
+                new StringSchema('caption', 'Image caption'),
+                new NumberSchema('width', 'Image width in pixels'),
+                new NumberSchema('height', 'Image height in pixels'),
+            ],
+            requiredFields: ['url']
+        ),
+    ],
+    name: 'content',
+    description: 'Content that can be either an article or an image'
+);
+```
+
+**Key Features:**
+- Accepts an array of schema objects that define the possible types
+- Automatically validates nested schemas for OpenAI compatibility
+- Supports nullable values through the `nullable` parameter
+- Optional name and description parameters
+- Removes unsupported JSON schema properties automatically
+
 ## Nullable Fields
 
 Sometimes, not every field is required. You can make any schema nullable by setting the `nullable` parameter to `true`:

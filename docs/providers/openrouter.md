@@ -11,6 +11,10 @@ Add your OpenRouter configuration to `config/prism.php`:
     'openrouter' => [
         'api_key' => env('OPENROUTER_API_KEY'),
         'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
+        'site' => [
+            'http_referer' => env('OPENROUTER_SITE_HTTP_REFERER'),
+            'x_title' => env('OPENROUTER_SITE_X_TITLE'),
+        ],
     ],
 ],
 ```
@@ -22,6 +26,8 @@ Set your OpenRouter API key and URL in your `.env` file:
 ```env
 OPENROUTER_API_KEY=your_api_key_here
 OPENROUTER_URL=https://openrouter.ai/api/v1
+OPENROUTER_SITE_HTTP_REFERER=https://your-site.example
+OPENROUTER_SITE_X_TITLE="Your Site Name"
 ```
 
 ## Usage
@@ -93,14 +99,17 @@ echo $response->text;
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
     ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
     ->withPrompt('Tell me a long story about AI.')
     ->asStream();
 
-foreach ($stream as $chunk) {
-    echo $chunk->text;
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
 }
 ```
 
@@ -124,22 +133,13 @@ $stream = Prism::text()
     ->withTools([$weatherTool])
     ->asStream();
 
-foreach ($stream as $chunk) {
-    echo $chunk->text;
-    
-    // Handle tool calls
-    if ($chunk->toolCalls) {
-        foreach ($chunk->toolCalls as $toolCall) {
-            echo "Tool called: {$toolCall->name}\n";
-        }
-    }
-    
-    // Handle tool results
-    if ($chunk->toolResults) {
-        foreach ($chunk->toolResults as $result) {
-            echo "Tool result: {$result->result}\n";
-        }
-    }
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::TextDelta => echo $event->delta,
+        StreamEventType::ToolCall => echo "Tool called: {$event->toolName}\n",
+        StreamEventType::ToolResult => echo "Tool result: " . json_encode($event->result) . "\n",
+        default => null,
+    };
 }
 ```
 
@@ -150,20 +150,20 @@ Some models (like OpenAI's o1 series) support reasoning tokens that show the mod
 ```php
 use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Enums\ChunkType;
+use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
     ->using(Provider::OpenRouter, 'openai/o1-preview')
     ->withPrompt('Solve this complex math problem: What is the derivative of x^3 + 2x^2 - 5x + 1?')
     ->asStream();
 
-foreach ($stream as $chunk) {
-    if ($chunk->chunkType === ChunkType::Thinking) {
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::ThinkingDelta) {
         // This is the model's reasoning/thinking process
-        echo "Thinking: " . $chunk->text . "\n";
-    } else {
+        echo "Thinking: " . $event->delta . "\n";
+    } elseif ($event->type() === StreamEventType::TextDelta) {
         // This is the final answer
-        echo $chunk->text;
+        echo $event->delta;
     }
 }
 ```
