@@ -38,8 +38,8 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools;
     use BuildsRequestOptions;
+    use CallsTools;
     use MapsFinishReason;
     use ValidatesResponses;
 

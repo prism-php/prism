@@ -79,6 +79,7 @@ it('forwards advanced provider options in streaming mode', function (): void {
     $stream = Prism::text()
         ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
         ->withPrompt('Stream a short update.')
+        // Confirm streaming payload honors OpenRouter streaming guidance https://openrouter.ai/docs/api-reference/streaming
         ->withProviderOptions([
             'stop' => ['END_STREAM'],
             'seed' => 11,

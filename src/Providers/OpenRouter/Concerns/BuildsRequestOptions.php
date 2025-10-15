@@ -20,7 +20,8 @@ trait BuildsRequestOptions
      */
     protected function buildRequestOptions(TextRequest|StructuredRequest $request, array $additional = []): array
     {
-        $options = [
+        // Pass through every documented OpenRouter option so callers can use https://openrouter.ai/docs/api-reference/overview
+        $options = array_merge($request->providerOptions() ?? [], [
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'stop' => $request->providerOptions('stop'),
@@ -34,6 +35,7 @@ trait BuildsRequestOptions
             'logit_bias' => $request->providerOptions('logit_bias'),
             'logprobs' => $request->providerOptions('logprobs'),
             'top_logprobs' => $request->providerOptions('top_logprobs'),
+            'response_format' => $request->providerOptions('response_format'),
             'prediction' => $request->providerOptions('prediction'),
             'transforms' => $request->providerOptions('transforms'),
             'models' => $request->providerOptions('models'),
@@ -42,7 +44,7 @@ trait BuildsRequestOptions
             'user' => $request->providerOptions('user'),
             'reasoning' => $request->providerOptions('reasoning'),
             'verbosity' => $request->providerOptions('verbosity'),
-        ];
+        ]);
 
         if ($request instanceof TextRequest) {
             $options = array_merge($options, [

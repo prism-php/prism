@@ -51,7 +51,7 @@ it('returns structured output', function (): void {
     expect($response->meta->id)->toBe('gen-structured-1');
     expect($response->meta->model)->toBe('openai/gpt-4-turbo');
     expect($response->usage->promptTokens)->toBe(187);
-expect($response->usage->completionTokens)->toBe(26);
+    expect($response->usage->completionTokens)->toBe(26);
 });
 
 it('forwards provider options for structured requests', function (): void {
