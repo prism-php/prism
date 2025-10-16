@@ -17,13 +17,14 @@ class ToolMap
     {
         return array_map(function (PrismTool $tool): array {
             $cacheType = $tool->providerOptions('cacheType');
+            $properties = $tool->parametersAsArray();
 
             return array_filter([
                 'name' => $tool->name(),
                 'description' => $tool->description(),
                 'input_schema' => [
                     'type' => 'object',
-                    'properties' => $tool->parametersAsArray(),
+                    'properties' => $properties === [] ? new \stdClass : $properties,
                     'required' => $tool->requiredParameters(),
                 ],
                 'cache_control' => $cacheType ? ['type' => $cacheType instanceof UnitEnum ? $cacheType->name : $cacheType] : null,
