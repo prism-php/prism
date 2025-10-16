@@ -32,10 +32,11 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
-    ->withMessages([
+    ->withSystemPrompt(
         (new SystemMessage('I am a long re-usable system message.'))
-            ->withProviderOptions(['cacheType' => 'ephemeral']),
-
+            ->withProviderOptions(['cacheType' => 'ephemeral'])
+    )
+    ->withMessages([
         (new UserMessage('I am a long re-usable user message.'))
             ->withProviderOptions(['cacheType' => 'ephemeral'])
     ])
@@ -56,7 +57,12 @@ use Prism\Prism\ValueObjects\Media\Document;
 
 (new UserMessage('I am a long re-usable user message.'))->withProviderOptions(['cacheType' => AnthropicCacheType::ephemeral])
 ```
-Note that you must use the `withMessages()` method in order to enable prompt caching, rather than `withPrompt()` or `withSystemPrompt()`.
+**Important:** To enable prompt caching:
+- System messages must use `withSystemPrompt()` or `withSystemPrompts()` (Anthropic does not allow SystemMessages in the messages array)
+- User and Assistant messages must use `withMessages()`
+- Tools use `withTools()`
+- All message types support caching via `withProviderOptions(['cacheType' => 'ephemeral'])`
+- You cannot use `withPrompt()` for caching as it doesn't allow adding provider options to individual messages
 
 ### Tool result caching
 
