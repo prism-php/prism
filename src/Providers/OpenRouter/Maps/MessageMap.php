@@ -67,11 +67,11 @@ class MessageMap
             $this->mappedMessages[] = [
                 'role' => 'system',
                 'content' => [
-                    array_filter([
+                    [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
-                    ]),
+                        'cache_control' => ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType],
+                    ],
                 ],
             ];
         } else {
@@ -158,11 +158,11 @@ class MessageMap
             $this->mappedMessages[] = array_filter([
                 'role' => 'assistant',
                 'content' => [
-                    array_filter([
+                    [
                         'type' => 'text',
                         'text' => $message->content,
                         'cache_control' => ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType],
-                    ]),
+                    ],
                 ],
                 'tool_calls' => $toolCalls,
             ]);
