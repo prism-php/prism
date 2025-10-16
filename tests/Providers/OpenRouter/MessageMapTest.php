@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
+use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -83,6 +85,40 @@ it('maps user messages with images from url', function (): void {
         ->toBe('image_url');
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
         ->toBe('https://prismphp.com/storage/diamond.png');
+});
+
+it('maps user messages with audio input', function (): void {
+    $audio = Audio::fromBase64(base64_encode('audio-content'), 'audio/wav');
+
+    $messageMap = new MessageMap(
+        messages: [
+            new UserMessage('Who are you?', [$audio]),
+        ],
+        systemPrompts: []
+    );
+
+    $mappedMessage = $messageMap();
+
+    expect(data_get($mappedMessage, '0.content.1.type'))->toBe('input_audio');
+    expect(data_get($mappedMessage, '0.content.1.input_audio.format'))->toBe('wav');
+    expect(data_get($mappedMessage, '0.content.1.input_audio.data'))->toBe(base64_encode('audio-content'));
+});
+
+it('maps user messages with video input', function (): void {
+    $video = Video::fromBase64(base64_encode('video-content'), 'video/mp4');
+
+    $messageMap = new MessageMap(
+        messages: [
+            new UserMessage('Who are you?', [$video]),
+        ],
+        systemPrompts: []
+    );
+
+    $mappedMessage = $messageMap();
+
+    expect(data_get($mappedMessage, '0.content.1.type'))->toBe('input_video');
+    expect(data_get($mappedMessage, '0.content.1.input_video.format'))->toBe('mp4');
+    expect(data_get($mappedMessage, '0.content.1.input_video.data'))->toBe(base64_encode('video-content'));
 });
 
 it('maps assistant message', function (): void {

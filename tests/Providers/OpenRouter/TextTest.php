@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
@@ -123,4 +125,66 @@ it('can generate text using multiple tools and multiple steps', function (): voi
 
     // Assert finish reason
     expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('forwards advanced provider options to openrouter', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Share a short daily digest.')
+        ->withProviderOptions([
+            'stop' => ['END_OF_DIGEST'],
+            'seed' => 77,
+            'top_k' => 32,
+            'frequency_penalty' => 0.3,
+            'presence_penalty' => 0.25,
+            'repetition_penalty' => 1.1,
+            'min_p' => 0.1,
+            'top_a' => 0.4,
+            'logit_bias' => ['42' => -5],
+            'logprobs' => true,
+            'top_logprobs' => 4,
+            'prediction' => [
+                'type' => 'content',
+                'content' => 'Daily digest:',
+            ],
+            'transforms' => ['markdown'],
+            'models' => ['openai/gpt-4-turbo', 'anthropic/claude-3.5-sonnet'],
+            'route' => 'fallback',
+            'provider' => ['require_parameters' => true],
+            'user' => 'customer-77',
+            'reasoning' => ['effort' => 'low'],
+            'parallel_tool_calls' => false,
+            'verbosity' => 'medium',
+        ])
+        ->generate();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return $payload['stop'] === ['END_OF_DIGEST']
+            && $payload['seed'] === 77
+            && $payload['top_k'] === 32
+            && $payload['frequency_penalty'] === 0.3
+            && $payload['presence_penalty'] === 0.25
+            && $payload['repetition_penalty'] === 1.1
+            && $payload['min_p'] === 0.1
+            && $payload['top_a'] === 0.4
+            && $payload['logit_bias'] === ['42' => -5]
+            && $payload['logprobs'] === true
+            && $payload['top_logprobs'] === 4
+            && $payload['prediction'] === [
+                'type' => 'content',
+                'content' => 'Daily digest:',
+            ]
+            && $payload['transforms'] === ['markdown']
+            && $payload['models'] === ['openai/gpt-4-turbo', 'anthropic/claude-3.5-sonnet']
+            && $payload['route'] === 'fallback'
+            && $payload['provider'] === ['require_parameters' => true]
+            && $payload['user'] === 'customer-77'
+            && $payload['reasoning'] === ['effort' => 'low']
+            && $payload['parallel_tool_calls'] === false
+            && $payload['verbosity'] === 'medium';
+    });
 });

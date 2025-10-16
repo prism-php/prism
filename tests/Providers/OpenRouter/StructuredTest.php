@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
 use Prism\Prism\Schema\BooleanSchema;
@@ -50,4 +52,52 @@ it('returns structured output', function (): void {
     expect($response->meta->model)->toBe('openai/gpt-4-turbo');
     expect($response->usage->promptTokens)->toBe(187);
     expect($response->usage->completionTokens)->toBe(26);
+});
+
+it('forwards provider options for structured requests', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured');
+
+    $schema = new ObjectSchema(
+        'summary',
+        'Structured summary response',
+        [
+            new StringSchema('bullet', 'Key takeaway'),
+        ],
+        ['bullet']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Summarize the update.')
+        ->withProviderOptions([
+            'stop' => ['END_STRUCTURED'],
+            'seed' => 21,
+            'models' => ['openai/gpt-4-turbo'],
+            'route' => 'fallback',
+            'transforms' => ['markdown'],
+            'prediction' => [
+                'type' => 'content',
+                'content' => '{"bullet": ',
+            ],
+            'user' => 'structured-user-21',
+            'verbosity' => 'medium',
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return $payload['stop'] === ['END_STRUCTURED']
+            && $payload['seed'] === 21
+            && $payload['models'] === ['openai/gpt-4-turbo']
+            && $payload['route'] === 'fallback'
+            && $payload['transforms'] === ['markdown']
+            && $payload['prediction'] === [
+                'type' => 'content',
+                'content' => '{"bullet": ',
+            ]
+            && $payload['user'] === 'structured-user-21'
+            && $payload['verbosity'] === 'medium';
+    });
 });

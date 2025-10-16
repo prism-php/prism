@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\FinishReasonMap;
@@ -21,6 +21,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
+    use BuildsRequestOptions;
     use MapsFinishReason;
     use ValidatesResponses;
 
@@ -54,10 +55,7 @@ class Structured
                 'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                 'max_tokens' => $request->maxTokens(),
                 'structured_outputs' => true,
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'reasoning' => $request->providerOptions('reasoning') ?? null,
+            ], $this->buildRequestOptions($request, [
                 'response_format' => [
                     'type' => 'json_schema',
                     'json_schema' => [
@@ -66,7 +64,6 @@ class Structured
                         'schema' => $request->schema()->toArray(),
                     ],
                 ],
-                'provider' => $request->providerOptions('provider') ?? null,
             ]))
         );
 

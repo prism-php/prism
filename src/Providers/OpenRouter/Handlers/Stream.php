@@ -7,16 +7,14 @@ namespace Prism\Prism\Providers\OpenRouter\Handlers;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
+use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
-use Prism\Prism\Providers\OpenRouter\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenRouter\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
@@ -40,6 +38,7 @@ use Throwable;
 
 class Stream
 {
+    use BuildsRequestOptions;
     use CallsTools;
     use MapsFinishReason;
     use ValidatesResponses;
@@ -423,14 +422,8 @@ class Stream
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'max_tokens' => $request->maxTokens(),
-                ], Arr::whereNotNull([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'reasoning' => $request->providerOptions('reasoning') ?? null,
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                ], $this->buildRequestOptions($request, [
                     'stream_options' => ['include_usage' => true],
-                    'provider' => $request->providerOptions('provider') ?? null,
                 ]))
             );
     }
