@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Anthropic\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
@@ -74,7 +75,7 @@ class Text
     public static function buildHttpRequestPayload(PrismRequest $request): array
     {
         if (! $request->is(TextRequest::class)) {
-            throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
+            throw new InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
         return Arr::whereNotNull([

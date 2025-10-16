@@ -10,6 +10,19 @@
 
 ## Provider-specific options
 
+## Streaming
+
+DeepSeek supports streaming responses in real-time. All standard streaming methods are supported:
+
+```php
+return Prism::text()
+    ->using('deepseek', 'deepseek-chat')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
+
 ## Limitations
 ### Embeddings
 

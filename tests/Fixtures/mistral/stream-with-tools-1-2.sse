@@ -1,0 +1,56 @@
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":"The"},"finish_reason":null}],"p":"abcdefghijkl"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" Detroit"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz0"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" Tigers game today"},"finish_reason":null}],"p":"abcde"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" is at"},"finish_reason":null}],"p":"abcd"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" **3"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuv"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":":00 PM"},"finish_reason":null}],"p":"abcdefghi"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":"**."},"finish_reason":null}],"p":"abcdefghijklmnopqrs"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" Since"},"finish_reason":null}],"p":"abcdefghijklmnop"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" the"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz0123"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" weather in"},"finish_reason":null}],"p":"abcdefghijklmnopqrs"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" Detroit is **7"},"finish_reason":null}],"p":"a"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":"5°F"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz01234"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" and sunny**, you"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz01234"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" likely"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz012345"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" won’t"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwx"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" need a coat"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz0123456"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":"—just dress"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz0"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" comfortably"},"finish_reason":null}],"p":"abcdefg"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" for"},"finish_reason":null}],"p":"abcdefghijklmnopqr"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" warm"},"finish_reason":null}],"p":"abcdefghi"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" weather! Enjoy"},"finish_reason":null}],"p":"abc"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" the"},"finish_reason":null}],"p":"abcdefghijklmn"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" game!"},"finish_reason":null}],"p":"abcdefghi"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":" ⚾"},"finish_reason":null}],"p":"abcdefghijkl"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":"😊"},"finish_reason":null}],"p":"abcdefghijklmnopqrstuvwxyz01"}
+
+data: {"id":"105b031e73774e80b0723c942189bb9f","object":"chat.completion.chunk","created":1759185828,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":217,"total_tokens":272,"completion_tokens":55},"p":"abcdefghijklmnopqrstuvwx"}
+
+data: [DONE]
+

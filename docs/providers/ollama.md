@@ -25,6 +25,23 @@ Prism::text() // [!code focus]
 > [!NOTE]
 > Using `withProviderOptions` will override settings like `topP` and `temperature`
 
+## Streaming
+
+Ollama supports streaming responses from your local models. All standard streaming methods are supported:
+
+```php
+return Prism::text()
+    ->using('ollama', 'llama3.2')
+    ->withPrompt(request('message'))
+    ->withClientOptions(['timeout' => 120])
+    ->asEventStreamResponse();
+```
+
+> [!TIP]
+> Remember to increase the timeout for local models to prevent premature disconnection.
+
+For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
+
 ## Considerations
 ### Timeouts
 

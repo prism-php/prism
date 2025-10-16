@@ -156,7 +156,7 @@ class Text
             return [];
         }
 
-        return array_map(fn ($toolCall): \Prism\Prism\ValueObjects\ToolCall => new ToolCall(
+        return array_map(fn ($toolCall): ToolCall => new ToolCall(
             id: data_get($toolCall, 'id'),
             name: data_get($toolCall, 'function.name'),
             arguments: data_get($toolCall, 'function.arguments'),

@@ -1,0 +1,30 @@
+{
+  "id": "resp_anyof_test_1",
+  "object": "response",
+  "created_at": 1741990325,
+  "status": "completed",
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "msg_anyof_test_1",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "{\"title\":\"The Future of AI: Transforming Our World\",\"items\":[{\"type\":\"text\",\"text\":\"AI is revolutionizing every aspect of our lives, from healthcare to transportation.\",\"word_count\":13},{\"type\":\"image\",\"url\":\"https://example.com/ai-robot.jpg\",\"format\":\"jpg\",\"is_public\":true}]}",
+          "refusal": null
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 150,
+    "output_tokens": 75,
+    "total_tokens": 225
+  },
+  "service_tier": "default",
+  "system_fingerprint": "fp_eb9dce56a8"
+}

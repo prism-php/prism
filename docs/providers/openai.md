@@ -112,6 +112,42 @@ echo "Reasoning tokens: " . $usage->thoughtTokens;
 echo "Total completion tokens: " . $usage->completionTokens;
 ```
 
+## Streaming
+
+OpenAI supports streaming responses in real-time. All the standard streaming methods work with OpenAI models:
+
+```php
+// Stream events
+$stream = Prism::text()
+    ->using('openai', 'gpt-4o')
+    ->withPrompt('Write a story')
+    ->asStream();
+
+// Server-Sent Events
+return Prism::text()
+    ->using('openai', 'gpt-4o')
+    ->withPrompt(request('message'))
+    ->asEventStreamResponse();
+```
+
+### Streaming Reasoning Models
+
+Reasoning models like `gpt-5` stream their thinking process separately from the final answer:
+
+```php
+use Prism\Prism\Enums\StreamEventType;
+
+foreach ($stream as $event) {
+    match ($event->type()) {
+        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
+        StreamEventType::TextDelta => echo $event->delta,
+        default => null,
+    };
+}
+```
+
+For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
+
 ### Caching
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.

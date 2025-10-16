@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Psr7\Response as PsrResponse;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
@@ -23,7 +24,7 @@ function createMockResponse(int $statusCode, array $json = [], array $headers = 
     $mockResponse->shouldReceive('getStatusCode')->andReturn($statusCode);
     $mockResponse->shouldReceive('status')->andReturn($statusCode);
     $mockResponse->shouldReceive('json')->andReturn($json);
-    $mockResponse->shouldReceive('toPsrResponse')->andReturn(new \GuzzleHttp\Psr7\Response($statusCode));
+    $mockResponse->shouldReceive('toPsrResponse')->andReturn(new PsrResponse($statusCode));
 
     if (isset($headers['retry-after'])) {
         $mockResponse->shouldReceive('hasHeader')->with('retry-after')->andReturn(true);

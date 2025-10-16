@@ -235,7 +235,7 @@ it('maps system prompt', function (): void {
 
 describe('documents', function (): void {
     it('maps user messages with pdf documents', function (): void {
-        $messageMap = new \Prism\Prism\Providers\OpenAi\Maps\MessageMap(
+        $messageMap = new MessageMap(
             messages: [
                 new UserMessage('Here is the document', [
                     Document::fromBase64(base64_encode(file_get_contents('tests/Fixtures/test-pdf.pdf')), 'application/pdf'),
@@ -253,7 +253,7 @@ describe('documents', function (): void {
     });
 
     it('maps user messages with file urls', function (): void {
-        $messageMap = new \Prism\Prism\Providers\OpenAi\Maps\MessageMap(
+        $messageMap = new MessageMap(
             messages: [
                 new UserMessage('Here is the document', [
                     Document::fromUrl('https://example.com/test-pdf.pdf'),
@@ -271,7 +271,7 @@ describe('documents', function (): void {
     });
 
     it('maps previously uploaded files', function (): void {
-        $messageMap = new \Prism\Prism\Providers\OpenAi\Maps\MessageMap(
+        $messageMap = new MessageMap(
             messages: [
                 new UserMessage('Here is the document', [
                     Document::fromFileId('previously-uploaded-file-id'),

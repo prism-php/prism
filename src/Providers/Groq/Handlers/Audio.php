@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Groq\Handlers;
 
+use Exception;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Audio\AudioResponse;
@@ -28,7 +29,7 @@ class Audio
         $response = $this->client->post('audio/speech', $mapper->toPayload());
 
         if (! $response->successful()) {
-            throw new \Exception('Failed to generate audio: '.$response->body());
+            throw new Exception('Failed to generate audio: '.$response->body());
         }
 
         $audioContent = $response->body();
@@ -65,7 +66,7 @@ class Audio
             $data = $response->json();
 
             if (! $response->successful()) {
-                throw new \Exception('Failed to transcribe audio: '.$response->body());
+                throw new Exception('Failed to transcribe audio: '.$response->body());
             }
 
             return new TextResponse(

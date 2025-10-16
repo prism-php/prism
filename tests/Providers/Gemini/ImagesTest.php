@@ -7,6 +7,7 @@ namespace Tests\Providers\Gemini;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -45,15 +46,11 @@ it('can edit an image with gemini models', function (): void {
         'gemini/generate-image-with-image-edit'
     );
 
-    $originalImage = fopen('tests/Fixtures/diamond.png', 'r');
+    $originalImage = Image::fromLocalPath('tests/Fixtures/diamond.png');
 
     $response = Prism::image()
         ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
-        ->withPrompt('Add a vaporwave sunset to the background')
-        ->withProviderOptions([
-            'image' => $originalImage,
-            'image_mime_type' => 'image/png',
-        ])
+        ->withPrompt('Add a vaporwave sunset to the background', [$originalImage])
         ->generate();
 
     expect($response->imageCount())->toBe(1);
