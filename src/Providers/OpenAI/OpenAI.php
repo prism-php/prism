@@ -24,6 +24,7 @@ use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Audio;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
+use Prism\Prism\Providers\OpenAI\Handlers\File;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
 use Prism\Prism\Providers\OpenAI\Handlers\Structured;
@@ -121,6 +122,11 @@ class OpenAI extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    public function file(): File
+    {
+        return new File($this->client());
     }
 
     public function handleRequestException(string $model, RequestException $e): never

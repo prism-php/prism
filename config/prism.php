@@ -12,6 +12,8 @@ return [
             'api_key' => env('OPENAI_API_KEY', ''),
             'organization' => env('OPENAI_ORGANIZATION', null),
             'project' => env('OPENAI_PROJECT', null),
+            'files_endpoint' => env('OPENAI_FILES_ENDPOINT', 'files'),
+            'batches_endpoint' => env('OPENAI_BATCHES_ENDPOINT', 'batches'),
         ],
         'anthropic' => [
             'api_key' => env('ANTHROPIC_API_KEY', ''),
@@ -59,5 +61,10 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+    ],
+    'open_ai_file_storage' => [
+        'disk' => env('OPENAI_FILE_STORAGE_DISK', 'local'),
+        'directory' => env('OPENAI_FILE_STORAGE_DIRECTORY', 'openai-files/'),
+        'file_purpose' => env('OPENAI_FILE_STORAGE_FILE_PURPOSE', 'fine-tune'),
     ],
 ];
