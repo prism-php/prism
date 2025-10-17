@@ -220,7 +220,7 @@ $response = Prism::text()
 
 ### Provider Routing & Advanced Options
 
-Use `withProviderOptions()` to forward OpenRouter-specific controls such as provider preferences, routing, transforms, or additional sampling parameters.
+Use `withProviderOptions()` to forward OpenRouter-specific controls such as model preferences or sampling parameters. Prism automatically forwards the native request values for `temperature`, `top_p`, and `max_tokens`, so you can continue tuning them through the usual Prism API without duplicating them in `withProviderOptions()`. For transform pipelines, OpenRouter currently documents `"middle-out"` as the primary example—consult the parameter reference for additional context.
 
 ```php
 use Prism\Prism\Prism;
@@ -230,26 +230,13 @@ $response = Prism::text()
     ->using(Provider::OpenRouter, 'openai/gpt-4o')
     ->withPrompt('Draft a concise product changelog entry.')
     ->withProviderOptions([
-        'provider' => [
-            'require_parameters' => true, // Ensure downstream providers honour every parameter
+        // https://openrouter.ai/docs/model-routing
+        'models' => [
+            'anthropic/claude-sonnet-4.5',
+            'openai/gpt-4o-mini',
         ],
-        'models' => ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet'],
-        'route' => 'fallback',             // Try the next model if the preferred one fails
-        'transforms' => ['markdown'],      // See https://openrouter.ai/docs/transforms for available transforms
-        'prediction' => [
-            'type' => 'content',
-            'content' => 'Changelog:\n- ',
-        ],
-        'user' => 'customer-42',
-        'stop' => ["END_OF_CHANGELOG"],
-        'seed' => 12345,
         'top_k' => 40,
-        'frequency_penalty' => 0.2,
-        'presence_penalty' => 0.1,
-        'repetition_penalty' => 1.05,
-        'min_p' => 0.1,
-        'parallel_tool_calls' => false,
-        'verbosity' => 'high',
+        // Reference: https://openrouter.ai/docs/api-reference/parameters for the full parameter list.
     ])
     ->generate();
 
@@ -259,16 +246,20 @@ echo $response->text;
 > [!IMPORTANT]
 > The values you supply here are passed directly to OpenRouter. Consult the [Parameters reference](https://openrouter.ai/docs/api-reference/parameters) and [Provider Routing guide](https://openrouter.ai/docs/provider-routing) for the full list of supported keys.
 
+The single `model` parameter and the fallback `models` array work together. When both are present, OpenRouter first tries the `model` value, then walks the `models` list in order—exactly as outlined in the [Model Routing guide](https://openrouter.ai/docs/features/model-routing). Fallbacks trigger for moderation flags, context-length errors, rate limits, or provider downtime, and the final `model` field in the response reveals which entry actually served the request (and therefore which pricing tier applies). If you prefer OpenRouter to choose the initial model, set `model` to `openrouter/auto` and still supply a `models` array for explicit overrides when needed. Because metadata is centralized, you can double-check `supported_parameters`, context length, and per-request limits via the [Models API](https://openrouter.ai/docs/overview/models) before rolling out changes.
+
 ## Available Models
 
-OpenRouter supports many models from different providers. Some popular options include:
+OpenRouter supports many models from different providers. The [Models API](https://openrouter.ai/docs/overview/models) returns structured metadata—`supported_parameters`, context length, pricing, and more—so you can verify capabilities programmatically before issuing requests. Some popular options include:
 
-- `openai/gpt-4-turbo`
-- `openai/gpt-3.5-turbo`
-- `anthropic/claude-3-5-sonnet`
-- `meta-llama/llama-3.1-70b`
-- `google/gemini-pro`
-- `mistralai/mistral-7b-instruct`
+- `x-ai/grok-code-fast-1`
+- `anthropic/claude-sonnet-4.5`
+- `google/gemini-2.5-flash`
+- `deepseek/deepseek-chat-v3-0324`
+- `z-ai/glm-4.6`
+- `tngtech/deepseek-r1t2-chimera:free`
+- `qwen/qwen3-coder-30b-a3b-instruct`
+- `mistralai/mistral-nemo`
 
 Visit [OpenRouter's models page](https://openrouter.ai/models) for a complete list of available models.
 
