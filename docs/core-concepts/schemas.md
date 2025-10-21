@@ -223,9 +223,9 @@ $userSchema = new ObjectSchema(
     properties: [
         new StringSchema('email', 'Primary email address'),
         new StringSchema('name', 'User\'s full name'),
-        new StringSchema('bio', 'User biography'),
+        new StringSchema('bio', 'User biography', nullable: true), // bio can be null
     ],
-    requiredFields: ['email', 'name'] // email and name must be present
+    requiredFields: ['email', 'name', 'bio'] // all fields must be present
 );
 ```
 

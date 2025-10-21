@@ -35,6 +35,22 @@ $response = Prism::structured()
     ]) // [!code focus]
 ```
 
+> [!WARNING]
+> **All Fields Must Be Required**: When using structured outputs with OpenAI (especially in strict mode), you must include ALL fields in the `requiredFields` array. Fields that should be optional must be marked with `nullable: true` instead. This is an OpenAI API requirement and applies to all structured output requests.
+>
+> ```php
+> new ObjectSchema(
+>     name: 'user',
+>     properties: [
+>         new StringSchema('email', 'Email address'),
+>         new StringSchema('bio', 'Optional bio', nullable: true),
+>     ],
+>     requiredFields: ['email', 'bio'] // ✅ All fields listed
+> );
+> ```
+>
+> For more details on required vs nullable fields, see [Schemas - Required vs Nullable Fields](/core-concepts/schemas#required-vs-nullable-fields).
+
 ### Metadata
 
 ```php
