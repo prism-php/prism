@@ -409,3 +409,29 @@ it('sends reasoning effort when defined', function (): void {
 
     Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
 });
+
+it('exposes response_id in stream end event', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $streamEndEvent = null;
+
+    foreach ($response as $event) {
+        if ($event instanceof StreamEndEvent) {
+            $streamEndEvent = $event;
+        }
+    }
+
+    expect($streamEndEvent)->not->toBeNull()
+        ->and($streamEndEvent->additionalContent)->toHaveKey('response_id')
+        ->and($streamEndEvent->additionalContent['response_id'])->toBe('resp_6859a4ad7d3c81999e9e02548c91e2a8077218073e9990d3');
+
+    $array = $streamEndEvent->toArray();
+
+    expect($array)->toHaveKey('response_id')
+        ->and($array['response_id'])->toBe('resp_6859a4ad7d3c81999e9e02548c91e2a8077218073e9990d3');
+});

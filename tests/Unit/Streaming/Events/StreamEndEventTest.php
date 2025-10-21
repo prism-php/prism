@@ -148,3 +148,61 @@ it('handles all finish reason types', function (FinishReason $reason): void {
     FinishReason::Other,
     FinishReason::Unknown,
 ]);
+
+it('constructs with additional content', function (): void {
+    $event = new StreamEndEvent(
+        id: 'event-123',
+        timestamp: 1640995200,
+        finishReason: FinishReason::Stop,
+        additionalContent: [
+            'response_id' => 'resp_abc123',
+            'custom_field' => 'custom_value',
+        ]
+    );
+
+    expect($event->additionalContent)->toBe([
+        'response_id' => 'resp_abc123',
+        'custom_field' => 'custom_value',
+    ]);
+});
+
+it('includes additional content in array output', function (): void {
+    $event = new StreamEndEvent(
+        id: 'event-123',
+        timestamp: 1640995200,
+        finishReason: FinishReason::Stop,
+        additionalContent: [
+            'response_id' => 'resp_abc123',
+            'provider_field' => 'value',
+        ]
+    );
+
+    $array = $event->toArray();
+
+    expect($array)->toHaveKey('response_id')
+        ->and($array['response_id'])->toBe('resp_abc123')
+        ->and($array)->toHaveKey('provider_field')
+        ->and($array['provider_field'])->toBe('value')
+        ->and($array)->toHaveKey('id')
+        ->and($array['id'])->toBe('event-123');
+});
+
+it('defaults to empty additional content', function (): void {
+    $event = new StreamEndEvent(
+        id: 'event-123',
+        timestamp: 1640995200,
+        finishReason: FinishReason::Stop
+    );
+
+    expect($event->additionalContent)->toBe([]);
+
+    $array = $event->toArray();
+
+    expect($array)->toBe([
+        'id' => 'event-123',
+        'timestamp' => 1640995200,
+        'finish_reason' => 'Stop',
+        'usage' => null,
+        'citations' => null,
+    ]);
+});
