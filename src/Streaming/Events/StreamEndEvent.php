@@ -14,13 +14,15 @@ readonly class StreamEndEvent extends StreamEvent
 {
     /**
      * @param  array<MessagePartWithCitations>|null  $citations
+     * @param  array<string,mixed>  $additionalContent
      */
     public function __construct(
         string $id,
         int $timestamp,
         public FinishReason $finishReason,  // Why stream ended
         public ?Usage $usage = null,        // Token usage information
-        public ?array $citations = null     // Citations collected during stream
+        public ?array $citations = null,    // Citations collected during stream
+        public array $additionalContent = []
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -36,6 +38,7 @@ readonly class StreamEndEvent extends StreamEvent
     public function toArray(): array
     {
         return [
+            ...$this->additionalContent,
             'id' => $this->id,
             'timestamp' => $this->timestamp,
             'finish_reason' => $this->finishReason->name,

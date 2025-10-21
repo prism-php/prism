@@ -206,7 +206,10 @@ class Stream
                         completionTokens: data_get($data, 'response.usage.output_tokens'),
                         cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
                         thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
-                    )
+                    ),
+                    additionalContent: Arr::whereNotNull([
+                        'response_id' => data_get($data, 'response.id'),
+                    ])
                 );
             }
         }
