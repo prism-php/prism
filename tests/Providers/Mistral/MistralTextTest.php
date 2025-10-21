@@ -7,6 +7,7 @@ namespace Tests\Providers\Mistral;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Facades\Tool;
@@ -127,6 +128,27 @@ describe('Text generation', function (): void {
             ->generate();
 
         expect($response->toolCalls[0]->name)->toBe('weather');
+    });
+
+    it('can generate text with reasoning model', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/generate-text-with-reasoning-model');
+
+        $response = Prism::text()
+            ->using('mistral', 'magistral-medium-latest')
+            ->withPrompt('What is the capital of France?')
+            ->generate();
+
+        $expectedThinking = 'Okay, the user asked about the capital of France. I know that the capital of France is Paris. But just to be sure, I should confirm this with my knowledge.';
+
+        expect($response->text)->toBe('The capital of France is Paris.');
+        expect($response->finishReason)->toBe(FinishReason::Stop);
+
+        // Verify thinking is extracted to additionalContent
+        expect($response->additionalContent['thinking'])->toBe($expectedThinking);
+
+        // Verify thinking is also on the step
+        expect($response->steps->last())
+            ->additionalContent->thinking->toBe($expectedThinking);
     });
 });
 

@@ -9,6 +9,77 @@
 ```
 ## Provider-specific options
 
+## Reasoning Models
+### Using Reasoning Models
+
+Simply specify a reasoning model when making your request. The thinking process is automatically included in the response:
+
+```php
+use Prism\Prism\Prism;
+
+$response = Prism::text()
+    ->using('mistral', 'magistral-medium-latest')
+    ->withPrompt('What is the capital of France?')
+    ->asText();
+
+// Access the final answer
+echo $response->text;
+// "The capital of France is Paris."
+
+// Access the reasoning process
+echo $response->additionalContent['thinking'];
+// "Okay, the user asked about the capital of France. I know that the capital of France is Paris..."
+```
+
+### Accessing Thinking Content
+
+You can access the thinking content via the `additionalContent` property on either the Response or the relevant Step.
+
+On the Response (easiest when not using tools):
+
+```php
+$response = Prism::text()
+    ->using('mistral', 'magistral-medium-latest')
+    ->withPrompt('What is the meaning of life in popular fiction?')
+    ->asText();
+
+// Get the reasoning process
+$thinking = $response->additionalContent['thinking'];
+
+// Get the final answer
+$answer = $response->text;
+```
+
+On the Step (necessary when using tools, as reasoning happens before tool calls):
+
+```php
+$tools = [
+    Tool::as('search')
+        ->for('Search for current information')
+        ->withStringParameter('query', 'The search query')
+        ->using(fn (string $query): string => 'The Tigers game is at 3pm'),
+];
+
+$response = Prism::text()
+    ->using('mistral', 'magistral-medium-latest')
+    ->withTools($tools)
+    ->withMaxSteps(3)
+    ->withPrompt('What time is the Tigers game today?')
+    ->asText();
+
+// Access thinking from the first step
+$thinking = $response->steps->first()->additionalContent['thinking'];
+```
+
+### Understanding the Response Structure
+
+Reasoning models return content in a structured format with two types of blocks:
+
+1. **Thinking blocks** - The model's internal reasoning process (stored in `additionalContent['thinking']`)
+2. **Text blocks** - The final self-contained answer (stored in `text`)
+
+Prism automatically separates these for you, making both easily accessible.
+
 ## Streaming
 
 Mistral supports streaming responses in real-time. All standard streaming methods are supported:
