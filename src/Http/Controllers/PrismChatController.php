@@ -127,7 +127,7 @@ class PrismChatController
     }
 
     /**
-     * @param  array<int, mixed>  $messages
+     * @param  array<int, array{role: string, content: mixed}>  $messages
      * @return array<int, UserMessage|AssistantMessage|SystemMessage>
      */
     protected function mapMessages(array $messages): array
