@@ -23,7 +23,7 @@ class CitationsMapper
         }
 
         $citations = array_map(
-            fn (array $citationData): Citation => self::mapCitationFromAnthropic($citationData),
+            self::mapCitationFromAnthropic(...),
             $contentBlock['citations'] ?? []
         );
 
@@ -41,7 +41,7 @@ class CitationsMapper
     public static function mapToAnthropic(MessagePartWithCitations $messagePartWithCitations): array
     {
         $citations = array_map(
-            fn (Citation $citation): array => self::mapCitationToAnthropic($citation),
+            self::mapCitationToAnthropic(...),
             $messagePartWithCitations->citations
         );
 

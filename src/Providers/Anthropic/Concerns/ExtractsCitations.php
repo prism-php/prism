@@ -21,7 +21,7 @@ trait ExtractsCitations
         }
 
         return array_values(Arr::whereNotNull(
-            Arr::map(data_get($data, 'content', []), fn ($contentBlock): ?MessagePartWithCitations => CitationsMapper::mapFromAnthropic($contentBlock))
+            Arr::map(data_get($data, 'content', []), CitationsMapper::mapFromAnthropic(...))
         ));
     }
 }
