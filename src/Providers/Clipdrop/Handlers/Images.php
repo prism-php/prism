@@ -10,6 +10,8 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 use Prism\Prism\Images\ResponseBuilder;
+use Prism\Prism\ValueObjects\GeneratedImage;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
 class Images
@@ -32,10 +34,11 @@ class Images
 
     public function imageBackground(Request $request): Response
     {
-        $image = array_shift($request->additionalContent());
+        $images = $request->additionalContent();
+        $image = array_shift($images);
 
         if (! $image) {
-            throw new PrismException('No image provided to remove/replace background');
+            throw new PrismException('No image provided for removing/replacing background');
         }
 
         $url = 'https://clipdrop-api.co/remove-background/v1';
@@ -60,6 +63,12 @@ class Images
     public function imageUncrop(Request $request): Response
     {
         $opts = $request->providerOptions();
+        $images = $request->additionalContent();
+        $image = array_shift($images);
+
+        if (! $image) {
+            throw new PrismException('No image provided for uncropping/extending dimensions');
+        }
 
         $response = $this->client->asMultipart()->post('https://clipdrop-api.co/uncrop/v1', [[
             'contents' => $image->rawContent(),
@@ -83,8 +92,11 @@ class Images
 
     public function imageUpscale(Request $request): Response
     {
-        if (! $request->prompt()) {
-            throw new PrismException('No prompt provided');
+        $images = $request->additionalContent();
+        $image = array_shift($images);
+
+        if (! $image) {
+            throw new PrismException('No image provided for upscaling');
         }
 
         $response = $this->client->asMultipart()->post('https://clipdrop-api.co/image-upscaling/v1/upscale', [[
@@ -105,10 +117,11 @@ class Images
     {
         $image = $this->validate($response);
         $responseBuilder = new ResponseBuilder(
-            usage: new Usage(
-                completionTokens: $response->header('x-credits-consumed') ?? 0,
-            ),
-            images: [$image]
+            usage: new Usage(0, (int) ($response->header('x-credits-consumed') ?: 0)),
+            meta: new Meta('', ''),
+            images: [
+                GeneratedImage::fromRawContent($image, $response->header('Content-Type')),
+            ]
         );
 
         return $responseBuilder->toResponse();
@@ -116,14 +129,14 @@ class Images
 
     protected function validate(ClientResponse $response): string
     {
-        if ($reponse->status() === 200) {
+        if ($response->status() === 200) {
             return $response->body();
         }
 
         throw PrismException::providerResponseError(vsprintf(
             'ClipDrop Error: [%s] %s',
             [
-                $reponse->status(),
+                $response->status(),
                 data_get($response->json(), 'error', 'unknown'),
             ]
         ));
