@@ -21,7 +21,7 @@ class CitationsMapper
         }
 
         $citations = array_map(
-            fn (array $citationData): Citation => self::mapCitation($citationData),
+            self::mapCitation(...),
             $contentBlock['annotations'] ?? []
         );
 
@@ -37,7 +37,7 @@ class CitationsMapper
     public static function mapToOpenAI(MessagePartWithCitations $messagePartWithCitations): array
     {
         $annotations = array_map(
-            fn (Citation $citation): array => self::mapCitationToOpenAi($citation),
+            self::mapCitationToOpenAi(...),
             $messagePartWithCitations->citations
         );
 
