@@ -24,10 +24,10 @@ class Images
             throw new PrismException('No prompt provided');
         }
 
-        $response = $this->client->asMultipart()->post('https://clipdrop-api.co/text-to-image/v1', [[
+        $response = $this->client->post('https://clipdrop-api.co/text-to-image/v1', [
             'contents' => $request->prompt(),
             'name' => 'prompt',
-        ]]);
+        ]);
 
         return $this->buildResponse($response);
     }
@@ -41,21 +41,17 @@ class Images
             throw new PrismException('No image provided for removing/replacing background');
         }
 
+        $data = [];
         $url = 'https://clipdrop-api.co/remove-background/v1';
-        $data = [
-            'contents' => $image->rawContent(),
-            'name' => 'image_file',
-        ];
 
         if ($prompt = $request->prompt()) {
+            $data = ['prompt' => $request->prompt()];
             $url = 'https://clipdrop-api.co/replace-background/v1';
-            $data[] = [
-                'contents' => $request->prompt(),
-                'name' => 'prompt',
-            ];
         }
 
-        $response = $this->client->asMultipart()->post($url, [$data]);
+        $response = $this->client->attach(
+            'image_file', $image->rawContent(), $image->filename() ?: 'image', ['Content-Type' => $image->mimeType()]
+        )->post($url, $data);
 
         return $this->buildResponse($response);
     }
@@ -70,22 +66,14 @@ class Images
             throw new PrismException('No image provided for uncropping/extending dimensions');
         }
 
-        $response = $this->client->asMultipart()->post('https://clipdrop-api.co/uncrop/v1', [[
-            'contents' => $image->rawContent(),
-            'name' => 'image_file',
-        ], [
-            'contents' => $opts['left'] ?? 0,
-            'name' => 'extend_left',
-        ], [
-            'contents' => $opts['right'] ?? 0,
-            'name' => 'extend_right',
-        ], [
-            'contents' => $opts['top'] ?? 0,
-            'name' => 'extend_up',
-        ], [
-            'contents' => $opts['bottom'] ?? 0,
-            'name' => 'extend_down',
-        ]]);
+        $response = $this->client->attach(
+            'image_file', $image->rawContent(), $image->filename() ?: 'image', ['Content-Type' => $image->mimeType()]
+        )->post('https://clipdrop-api.co/uncrop/v1', [
+            'extend_left' => $opts['left'] ?? 0,
+            'extend_right' => $opts['right'] ?? 0,
+            'extend_up' => $opts['top'] ?? 0,
+            'extend_down' => $opts['bottom'] ?? 0,
+        ]);
 
         return $this->buildResponse($response);
     }
@@ -99,16 +87,12 @@ class Images
             throw new PrismException('No image provided for upscaling');
         }
 
-        $response = $this->client->asMultipart()->post('https://clipdrop-api.co/image-upscaling/v1/upscale', [[
-            'contents' => $image->rawContent(),
-            'name' => 'image_file',
-        ], [
-            'contents' => $request->prompt() ?: 4096,
-            'name' => 'target_width',
-        ], [
-            'contents' => $request->prompt() ?: 4096,
-            'name' => 'target_height',
-        ]]);
+        $response = $this->client->attach(
+            'image_file', $image->rawContent(), $image->filename() ?: 'image', ['Content-Type' => $image->mimeType()]
+        )->post('https://clipdrop-api.co/image-upscaling/v1/upscale', [
+            'target_height' => $request->prompt() ?: 4096,
+            'target_width' => $request->prompt() ?: 4096,
+        ]);
 
         return $this->buildResponse($response);
     }
