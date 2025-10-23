@@ -62,3 +62,30 @@ test('StructuredResponseBuilder aggregates usage and decodes structured output',
         ->and($response->finishReason)->toBe(FinishReason::Stop)
         ->and($response->steps)->toHaveCount(2);
 });
+
+test('StructuredResponseBuilder decode the json given as a markdown fenced code block', function (): void {
+    $builder = new ResponseBuilder;
+
+    $builder->addStep(new Step(
+        text: '```json
+		{
+		"value": 42
+		}
+		```',
+        finishReason: FinishReason::Stop,
+        usage: new Usage(
+            promptTokens: 0,
+            completionTokens: 0
+        ),
+        meta: new Meta(
+            id: '123',
+            model: 'Test',
+        ),
+        messages: [],
+        systemPrompts: [],
+    ));
+
+    $response = $builder->toResponse();
+
+    expect($response->structured)->toBe(['value' => 42]);
+});
