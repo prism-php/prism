@@ -50,6 +50,12 @@ readonly class ResponseBuilder
     protected function decodeObject(string $responseText): array
     {
         try {
+            $pattern = '/^```(?:json)?\s*\n?(.*?)\n?```$/s';
+
+            if (preg_match($pattern, trim($responseText), $matches)) {
+                $responseText = trim($matches[1]);
+            }
+
             return json_decode($responseText, true, flags: JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw PrismStructuredDecodingException::make($responseText);
