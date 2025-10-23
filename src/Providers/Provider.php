@@ -46,6 +46,21 @@ abstract class Provider
         throw PrismException::unsupportedProviderAction('images', class_basename($this));
     }
 
+    public function imageBackground(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction('imageBackground', class_basename($this));
+    }
+
+    public function imageUncrop(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction('imageUncrop', class_basename($this));
+    }
+
+    public function imageUpscale(ImagesRequest $request): ImagesResponse
+    {
+        throw PrismException::unsupportedProviderAction('imageUpscale', class_basename($this));
+    }
+
     public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
     {
         throw PrismException::unsupportedProviderAction('textToSpeech', class_basename($this));

@@ -48,6 +48,39 @@ class PendingRequest
         }
     }
 
+    public function background(): Response
+    {
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->imageBackground($this->toRequest());
+        } catch (RequestException $e) {
+            $this->provider->handleRequestException($request->model(), $e);
+        }
+    }
+
+    public function uncrop(): Response
+    {
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->imageUncrop($this->toRequest());
+        } catch (RequestException $e) {
+            $this->provider->handleRequestException($request->model(), $e);
+        }
+    }
+
+    public function upscale(): Response
+    {
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->imageUpscale($this->toRequest());
+        } catch (RequestException $e) {
+            $this->provider->handleRequestException($request->model(), $e);
+        }
+    }
+
     public function toRequest(): Request
     {
         return new Request(
