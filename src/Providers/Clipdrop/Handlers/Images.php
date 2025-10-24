@@ -25,8 +25,7 @@ class Images
         }
 
         $response = $this->client->post('text-to-image/v1', [
-            'contents' => $request->prompt(),
-            'name' => 'prompt',
+            'prompt' => $request->prompt(),
         ]);
 
         return $this->buildResponse($response);
@@ -58,7 +57,17 @@ class Images
 
     public function imageUncrop(Request $request): Response
     {
-        $opts = $request->providerOptions();
+        if (! $request->prompt()) {
+            throw new PrismException('No prompt provided');
+        }
+
+        // Use CSS-like value shorthand for values
+        [$top, $right, $bottom, $left] = match (count($v = explode(',', $request->prompt()))) {
+            1 => array_fill(0, 4, $v[0]),
+            2 => [$v[0], $v[1], $v[0], $v[1]],
+            default => array_pad($v, 4, 0),
+        };
+
         $images = $request->additionalContent();
         $image = array_shift($images);
 
@@ -69,10 +78,10 @@ class Images
         $response = $this->client->attach(
             'image_file', $image->rawContent(), $image->filename() ?: 'image', ['Content-Type' => $image->mimeType()]
         )->post('uncrop/v1', [
-            'extend_left' => $opts['left'] ?? 0,
-            'extend_right' => $opts['right'] ?? 0,
-            'extend_up' => $opts['top'] ?? 0,
-            'extend_down' => $opts['bottom'] ?? 0,
+            'extend_up' => min((int) $top, 2048),
+            'extend_down' => min((int) $bottom, 2048),
+            'extend_left' => min((int) $left, 2048),
+            'extend_right' => min((int) $right, 2048),
         ]);
 
         return $this->buildResponse($response);
@@ -80,6 +89,13 @@ class Images
 
     public function imageUpscale(Request $request): Response
     {
+        if (! $request->prompt()) {
+            throw new PrismException('No prompt provided');
+        }
+
+        // Expecting "width,height" or one value for both
+        $v = array_map('intval', explode(',', $request->prompt()));
+
         $images = $request->additionalContent();
         $image = array_shift($images);
 
@@ -90,8 +106,8 @@ class Images
         $response = $this->client->attach(
             'image_file', $image->rawContent(), $image->filename() ?: 'image', ['Content-Type' => $image->mimeType()]
         )->post('image-upscaling/v1/upscale', [
-            'target_height' => $request->prompt() ?: 4096,
-            'target_width' => $request->prompt() ?: 4096,
+            'target_width' => min($v[0] ?: 4096, 4096),
+            'target_height' => min(($v[1] ?? $v[0]) ?: 4096, 4096),
         ]);
 
         return $this->buildResponse($response);
