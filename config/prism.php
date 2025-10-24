@@ -59,5 +59,9 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+        'clipdrop' => [
+            'api_key' => env('CLIPDROP_API_KEY', ''),
+            'url' => env('CLIPDROP_URL', 'https://clipdrop-api.co'),
+        ],
     ],
 ];

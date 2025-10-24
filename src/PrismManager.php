@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use InvalidArgumentException;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Providers\Anthropic\Anthropic;
+use Prism\Prism\Providers\Clipdrop\Clipdrop;
 use Prism\Prism\Providers\DeepSeek\DeepSeek;
 use Prism\Prism\Providers\ElevenLabs\ElevenLabs;
 use Prism\Prism\Providers\Gemini\Gemini;
@@ -222,6 +223,17 @@ class PrismManager
         return new ElevenLabs(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createClipdropProvider(array $config): Clipdrop
+    {
+        return new Clipdrop(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? 'https://clipdrop-api.co',
         );
     }
 }
