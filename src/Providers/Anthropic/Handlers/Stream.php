@@ -448,17 +448,10 @@ class Stream
 
                 $toolResults[] = $toolResult;
 
-                $resultObj = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: is_array($result) ? $result : ['result' => $result]
-                );
-
                 yield new ToolResultEvent(
                     id: EventID::generate(),
                     timestamp: time(),
-                    toolResult: $resultObj,
+                    toolResult: $toolResult,
                     messageId: $this->state->messageId(),
                     success: true
                 );
