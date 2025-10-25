@@ -389,6 +389,78 @@ it('uses meta to define strict mode as null', function (): void {
     });
 });
 
+it('uses meta to set service_tier', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $serviceTier = 'priority';
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What time is the game we talked about and should I wear a coat?')
+        ->withProviderOptions([
+            'service_tier' => $serviceTier,
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request) use ($serviceTier): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'service_tier'))->toBe($serviceTier);
+
+        return true;
+    });
+});
+
+it('filters service_tier if null', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What time is the game we talked about and should I wear a coat?')
+        ->withProviderOptions([
+            'service_tier' => null,
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect($body)->not()->toHaveKey('service_tier');
+
+        return true;
+    });
+});
+
 it('sends reasoning effort when defined', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-reasoning-effort');
 

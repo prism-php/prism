@@ -386,6 +386,54 @@ it('uses meta to set auto truncation', function (): void {
     });
 });
 
+it('uses meta to set service_tier', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $serviceTier = 'priority';
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What have we talked about?')
+        ->withProviderOptions([
+            'service_tier' => $serviceTier,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request) use ($serviceTier): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'service_tier'))->toBe($serviceTier);
+
+        return true;
+    });
+});
+
+it('filters service_tier if null', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What have we talked about?')
+        ->withProviderOptions([
+            'service_tier' => null,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect($body)->not()->toHaveKey('service_tier');
+
+        return true;
+    });
+});
+
 it('can analyze images with detail parameter', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/responses',
