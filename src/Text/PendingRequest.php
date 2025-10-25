@@ -156,6 +156,7 @@ class PendingRequest
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             toolChoice: $this->toolChoice,
+            additionalContent: $this->additionalContent,
             providerOptions: $this->providerOptions,
             providerTools: $this->providerTools,
         );
