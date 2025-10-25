@@ -435,3 +435,43 @@ it('exposes response_id in stream end event', function (): void {
     expect($array)->toHaveKey('response_id')
         ->and($array['response_id'])->toBe('resp_6859a4ad7d3c81999e9e02548c91e2a8077218073e9990d3');
 });
+
+it('uses meta to set service_tier', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-reasoning-effort');
+
+    $serviceTier = 'priority';
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'service_tier' => $serviceTier,
+        ])
+        ->asStream();
+
+    // process stream
+    collect($response);
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['service_tier'] === $serviceTier);
+});
+
+it('filters service_tier if null', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-reasoning-effort');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'service_tier' => null,
+        ])
+        ->asStream();
+
+    // process stream
+    collect($response);
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->data())->not()->toHaveKey('service_tier');
+
+        return true; // Assertion will fail
+    });
+});

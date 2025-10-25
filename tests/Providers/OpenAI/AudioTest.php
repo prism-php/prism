@@ -416,3 +416,32 @@ describe('Speech-to-Text Response', function (): void {
         expect($response->additionalContent['segments'])->toHaveCount(2);
     });
 });
+
+it('uses meta to set service_tier', function (): void {
+    $serviceTier = 'priority';
+
+    Http::fake([
+        'api.openai.com/v1/audio/transcriptions' => Http::response([
+            'text' => 'Some Audio',
+        ], 200),
+    ]);
+
+    $audioFile = Audio::fromBase64(base64_encode('audio-with-temperature'), 'audio/webm');
+
+    $response = Prism::audio()
+        ->using('openai', 'whisper-1')
+        ->withInput($audioFile)
+        ->withProviderOptions([
+            'service_tier' => $serviceTier,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request) use ($serviceTier): bool {
+        $data = $request->data();
+
+        expect($data[1]['name'])->toBe('service_tier');
+        expect($data[1]['contents'])->toBe($serviceTier);
+
+        return true;
+    });
+});

@@ -82,6 +82,21 @@ $response = Prism::structured()
     ]) // [!code focus]
 ```
 
+### Service Tiers
+
+Prism supports OpenAI's [Service Tier Configuration](https://platform.openai.com/docs/api-reference/chat/create#chat-create-service_tier) via provider-specific meta.
+
+```php
+$response = Prism::text()
+    ->withProviderOptions([ // [!code focus]
+        'service_tier' => 'priority' // [!code focus]
+    ]) // [!code focus]
+```
+
+> [!WARNING]
+> **Priority Service Tiers increase Cost**: Using priority service tier may reduce response time but increases token costs.
+>
+> 
 ### Reasoning Models
 
 OpenAI's reasoning models like `gpt-5`, `gpt-5-mini`, and `gpt-5-nano` use advanced reasoning capabilities to think through complex problems before responding. These models excel at multi-step problem solving, coding, scientific reasoning, and complex analysis tasks.
