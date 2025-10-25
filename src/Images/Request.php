@@ -23,6 +23,7 @@ class Request implements PrismRequest
     public function __construct(
         protected string $model,
         protected string $providerKey,
+        protected array $systemPrompts,
         protected string $prompt,
         protected array $clientOptions,
         protected array $clientRetry,
@@ -51,6 +52,14 @@ class Request implements PrismRequest
     public function prompt(): string
     {
         return $this->prompt;
+    }
+
+    /**
+     * @return SystemMessage[]
+     */
+    public function systemPrompts(): array
+    {
+        return $this->systemPrompts;
     }
 
     #[\Override]
