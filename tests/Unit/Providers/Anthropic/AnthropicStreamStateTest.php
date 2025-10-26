@@ -13,6 +13,18 @@ it('constructs with default empty thinking signature', function (): void {
     expect($state->currentThinkingSignature())->toBe('');
 });
 
+it('constructs with empty server tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->serverToolCalls())->toBe([]);
+});
+
+it('constructs with empty web search tool results', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->webSearchToolResults())->toBe([]);
+});
+
 it('appendThinkingSignature accumulates signature text', function (): void {
     $state = new AnthropicStreamState;
 
@@ -51,19 +63,102 @@ it('currentThinkingSignature returns accumulated value', function (): void {
     expect($state->currentThinkingSignature())->toBe('signature-data');
 });
 
+it('addServerToolCall adds server tool call to the list', function (): void {
+    $state = new AnthropicStreamState;
+
+    $serverToolCall1 = ['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search'];
+    $serverToolCall2 = ['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz790', 'name' => 'web_fetch'];
+
+    $state->addServerToolCall($serverToolCall1);
+    $state->addServerToolCall($serverToolCall2);
+
+    expect($state->serverToolCalls())->toBe([
+        0 => $serverToolCall1,
+        1 => $serverToolCall2,
+    ]);
+});
+
+it('hasServerToolCalls returns false when there are no server tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->hasServerToolCalls())->toBeFalse();
+});
+
+it('hasServerToolCalls returns true if there are server tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    $serverToolCall1 = ['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search'];
+    $serverToolCall2 = ['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz790', 'name' => 'web_fetch'];
+
+    $state->addServerToolCall($serverToolCall1);
+    $state->addServerToolCall($serverToolCall2);
+
+    expect($state->hasServerToolCalls())->toBeTrue();
+});
+
+it('appendServerToolCallInput appends input to existing tool call', function (): void {
+    $state = new AnthropicStreamState;
+
+    $serverToolCall = ['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search'];
+    $state->addServerToolCall($serverToolCall);
+
+    $state->appendServerToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}');
+
+    expect($state->serverToolCalls())->toBe([
+        0 => [
+            'type' => 'server_tool_use',
+            'id' => 'srvtoolu_xyz789',
+            'name' => 'web_search',
+            'input' => '{"query":"latest quantum computing breakthroughs 2025"}',
+        ],
+    ]);
+});
+
+it('addWebSearchToolResult adds web search tool result to the list', function (): void {
+    $state = new AnthropicStreamState;
+
+    $webSearchResult1 = ['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []];
+
+    $state->addWebSearchToolResult($webSearchResult1);
+
+    expect($state->webSearchToolResults())->toBe([
+        0 => $webSearchResult1,
+    ]);
+});
+
+it('hasWebSearchToolResults returns false when there are no web search tool results', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->hasWebSearchToolResults())->toBeFalse();
+});
+
+it('hasWebSearchToolResults returns true if there are web search tool results', function (): void {
+    $state = new AnthropicStreamState;
+
+    $webSearchResult1 = ['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []];
+
+    $state->addWebSearchToolResult($webSearchResult1);
+
+    expect($state->hasWebSearchToolResults())->toBeTrue();
+});
+
 it('reset clears thinking signature', function (): void {
     $state = new AnthropicStreamState;
     $state->appendThinkingSignature('some-signature')
+        ->addServerToolCall(['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search'])
+        ->appendServerToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}')
+        ->addWebSearchToolResult(['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []])
         ->withMessageId('msg-123')
         ->appendText('text')
         ->appendThinking('thinking');
-
     $state->reset();
 
     expect($state->currentThinkingSignature())->toBe('')
         ->and($state->messageId())->toBe('')
         ->and($state->currentText())->toBe('')
-        ->and($state->currentThinking())->toBe('');
+        ->and($state->currentThinking())->toBe('')
+        ->and($state->serverToolCalls())->toBe([])
+        ->and($state->webSearchToolResults())->toBe([]);
 });
 
 it('reset returns self', function (): void {
@@ -79,6 +174,9 @@ it('reset returns self', function (): void {
 it('resetTextState clears thinking signature', function (): void {
     $state = new AnthropicStreamState;
     $state->appendThinkingSignature('signature')
+        ->addServerToolCall(['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search'])
+        ->appendServerToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}')
+        ->addWebSearchToolResult(['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []])
         ->withMessageId('msg-123')
         ->appendText('text')
         ->appendThinking('thinking')
@@ -91,6 +189,8 @@ it('resetTextState clears thinking signature', function (): void {
         ->and($state->messageId())->toBe('')
         ->and($state->currentText())->toBe('')
         ->and($state->currentThinking())->toBe('')
+        ->and($state->serverToolCalls())->toBe([])
+        ->and($state->webSearchToolResults())->toBe([])
         ->and($state->model())->toBe('claude-3')
         ->and($state->hasStreamStarted())->toBeTrue();
 });
@@ -113,6 +213,9 @@ it('supports fluent chaining with base StreamState methods', function (): void {
     $state->appendThinkingSignature('sig-1');
     $state->appendText('Hello');
     $state->appendThinkingSignature('-sig-2');
+    $state->addServerToolCall(['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search']);
+    $state->appendServerToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}');
+    $state->addWebSearchToolResult(['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []]);
     $state->markStreamStarted();
 
     expect($state->messageId())->toBe('msg-456')
@@ -138,6 +241,9 @@ it('inherits all base StreamState functionality', function (): void {
     $state->appendText('response text');
     $state->appendThinking('thought process');
     $state->appendThinkingSignature('signature-value');
+    $state->addServerToolCall(['type' => 'server_tool_use', 'id' => 'srvtoolu_xyz789', 'name' => 'web_search']);
+    $state->appendServerToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}');
+    $state->addWebSearchToolResult(['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []]);
     $state->withBlockContext(2, 'text');
     $state->addToolCall(0, ['id' => 'tool-1', 'name' => 'search']);
     $state->addCitation($citation);
