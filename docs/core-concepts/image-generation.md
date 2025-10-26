@@ -7,7 +7,7 @@ Generate stunning images from text prompts using AI-powered models. Prism provid
 Creating images with Prism is as simple as describing what you want:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
@@ -199,7 +199,7 @@ $response = Prism::image()
 Prism provides convenient fakes for testing image generation:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\PrismFake;
 
 test('can generate images', function () {

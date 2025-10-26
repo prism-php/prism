@@ -17,7 +17,7 @@ For other input modalities like audio and images, see their respective documenta
 To add a video to your prompt, use the `withPrompt` method with a `Video` value object:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Video;
 

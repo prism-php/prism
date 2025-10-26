@@ -10,7 +10,7 @@ Here's how to get structured data from your AI:
 > **Schema Requirement for OpenAI**: When using OpenAI's structured output (especially strict mode), the root schema must be an `ObjectSchema`. Other schema types (StringSchema, NumberSchema, etc.) can only be used as properties within an ObjectSchema, not as the top-level schema. Other providers may have different requirements.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -60,7 +60,7 @@ Providers may offer additional options for structured output:
 OpenAI supports a "strict mode" for even tighter schema validation:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
@@ -76,7 +76,7 @@ $response = Prism::structured()
 Anthropic doesn't have native structured output, but Prism provides two approaches. For more reliable JSON parsing, especially with complex content or non-English text, use tool calling mode:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
@@ -103,7 +103,7 @@ $response = Prism::structured()
 When working with structured responses, you have access to both the structured data and metadata about the generation:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::structured()
     ->withSchema($schema)
@@ -168,7 +168,7 @@ See the [Text Generation](./text-generation.md) documentation for comparison wit
 When working with structured output, it's especially important to handle potential errors:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 

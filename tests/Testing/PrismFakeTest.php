@@ -9,7 +9,7 @@ use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Streaming\Events\StreamEndEvent;

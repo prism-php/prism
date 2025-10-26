@@ -32,7 +32,7 @@ Groq offers PlayAI TTS models that can convert text into natural-sounding speech
 #### Basic TTS Usage
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::audio()
     ->using('groq', 'playai-tts')

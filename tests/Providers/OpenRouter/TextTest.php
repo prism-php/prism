@@ -6,8 +6,8 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
-use Prism\Prism\Prism;
 use Prism\Prism\Text\Response as TextResponse;
 use Tests\Fixtures\FixtureResponse;
 

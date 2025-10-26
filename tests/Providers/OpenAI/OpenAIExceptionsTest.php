@@ -7,7 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Tests\Fixtures\FixtureResponse;

@@ -6,7 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Embedding;
 use Tests\Fixtures\FixtureResponse;
 

@@ -7,7 +7,7 @@ Need your AI assistant to check the weather, search a database, or call your API
 Think of tools as special functions that your AI assistant can use when it needs to perform specific tasks. Just like how Laravel's facades provide a clean interface to complex functionality, Prism tools give your AI a clean way to interact with external services and data sources.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 
@@ -32,7 +32,7 @@ $response = Prism::text()
 Prism defaults to allowing a single step. To use Tools, you'll need to increase this using `withMaxSteps`:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 Prism::text()
@@ -289,7 +289,7 @@ class SearchTool extends Tool
 
 You can control how the AI uses tools with the `withToolChoice` method:
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 
@@ -314,7 +314,7 @@ $prism = Prism::text()
 When your AI uses tools, you can inspect the results and see how it arrived at its answer:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -370,7 +370,7 @@ In addition to custom tools that you define, Prism supports **provider tools** -
 Provider tools are added to your requests using the `withProviderTools()` method with `ProviderTool` objects:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\ProviderTool;
 
 $response = Prism::text()
@@ -407,7 +407,7 @@ new ProviderTool(
 You can use both provider tools and custom tools in the same request:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\Facades\Tool;
 

@@ -35,7 +35,7 @@ OPENROUTER_SITE_X_TITLE="Your Site Name"
 ### Text Generation
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -52,7 +52,7 @@ echo $response->text;
 > OpenRouter uses OpenAI-compatible structured outputs. For strict schema validation, the root schema should be an `ObjectSchema`.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -74,7 +74,7 @@ echo $response->text;
 ### Tool Calling
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
@@ -99,7 +99,7 @@ echo $response->text;
 OpenRouter keeps the OpenAI content-part schema, so you can mix text and images inside a single user turn.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Image;
 
@@ -119,7 +119,7 @@ echo $response->text;
 ### Streaming
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StreamEventType;
 
@@ -144,7 +144,7 @@ foreach ($stream as $event) {
 ### Streaming with Tools
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 
@@ -176,7 +176,7 @@ foreach ($stream as $event) {
 Some models (like OpenAI's o1 series) support reasoning tokens that show the model's thought process:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StreamEventType;
 
@@ -223,7 +223,7 @@ $response = Prism::text()
 Use `withProviderOptions()` to forward OpenRouter-specific controls such as model preferences or sampling parameters. Prism automatically forwards the native request values for `temperature`, `top_p`, and `max_tokens`, so you can continue tuning them through the usual Prism API without duplicating them in `withProviderOptions()`. For transform pipelines, OpenRouter currently documents `"middle-out"` as the primary example—consult the parameter reference for additional context.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()

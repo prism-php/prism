@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 beforeEach(function (): void {
     config()->set('prism.providers.deepseek.api_key', env('DEEPSEEK_API_KEY'));

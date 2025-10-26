@@ -17,7 +17,7 @@ For other input modalities like videos and images, see their respective document
 To add an audio file to your prompt, use the `withPrompt` method with an `Audio` value object:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Audio;
 

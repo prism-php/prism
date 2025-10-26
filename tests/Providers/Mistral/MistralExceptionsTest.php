@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 

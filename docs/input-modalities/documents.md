@@ -40,7 +40,7 @@ To add a document to your prompt, use the `withPrompt` method with a `Document` 
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Document;
 
 // From a local path
@@ -171,7 +171,7 @@ Or, if using a provider file_id - use fromFileId:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()

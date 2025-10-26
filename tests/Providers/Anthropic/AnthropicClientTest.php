@@ -2,7 +2,7 @@
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 
 it('includes anthropic beta header if set in config', function (): void {

@@ -6,7 +6,7 @@ namespace Tests\Providers\Mistral;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Tests\Fixtures\FixtureResponse;
 

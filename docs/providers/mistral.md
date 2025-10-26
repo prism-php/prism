@@ -15,7 +15,7 @@
 Simply specify a reasoning model when making your request. The thinking process is automatically included in the response:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::text()
     ->using('mistral', 'magistral-medium-latest')
@@ -259,7 +259,7 @@ This OCR endpoint can be used like this:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;

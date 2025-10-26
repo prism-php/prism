@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Gemini;
 
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
