@@ -63,9 +63,10 @@ it('can edit an image with gemini models', function (): void {
     Http::assertSent(function ($request): bool {
         $data = $request->data();
 
+        // Verify images come BEFORE text (Gemini best practice)
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent'
-            && data_get($data, 'contents.0.parts.0.text') === 'Add a vaporwave sunset to the background'
-            && data_get($data, 'contents.0.parts.1.inline_data.mime_type') === 'image/png';
+            && data_get($data, 'contents.0.parts.0.inline_data.mime_type') === 'image/png'
+            && data_get($data, 'contents.0.parts.1.text') === 'Add a vaporwave sunset to the background';
     });
 });
 
@@ -187,5 +188,35 @@ it('can generate multiple images with imagen models', function (): void {
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict'
             && data_get($data, 'instances.0.prompt') === 'I need an image of a worm in a suit.'
             && data_get($data, 'parameters.sampleCount') === 3;
+    });
+});
+
+it('sends images before text for gemini-2.5-flash-image (best practice)', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $originalImage = Image::fromLocalPath('tests/Fixtures/diamond.png');
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Transform this diamond into a ruby', [$originalImage])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+        $parts = data_get($data, 'contents.0.parts', []);
+
+        // Verify images are sent BEFORE text (Gemini best practice)
+        // parts[0] should be the image (inline_data)
+        // parts[1] should be the text
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($parts[0]['inline_data'])
+            && data_get($parts, '0.inline_data.mime_type') === 'image/png'
+            && isset($parts[1]['text'])
+            && data_get($parts, '1.text') === 'Transform this diamond into a ruby';
     });
 });

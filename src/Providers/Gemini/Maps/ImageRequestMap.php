@@ -23,12 +23,9 @@ class ImageRequestMap
     {
         $providerOptions = $request->providerOptions();
 
-        $parts = [
-            [
-                'text' => $request->prompt(),
-            ],
-        ];
+        $parts = [];
 
+        // Add images first (Gemini best practice for multimodal prompts)
         foreach ($request->additionalContent() as $image) {
             $parts[] = [
                 'inline_data' => [
@@ -37,6 +34,11 @@ class ImageRequestMap
                 ],
             ];
         }
+
+        // Add text prompt after images
+        $parts[] = [
+            'text' => $request->prompt(),
+        ];
 
         return [
             'contents' => [
