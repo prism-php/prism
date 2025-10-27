@@ -28,8 +28,8 @@ class ImageRequestMap
         // Add images first (Gemini best practice for multimodal prompts)
         foreach ($request->additionalContent() as $image) {
             $parts[] = [
-                'inline_data' => [
-                    'mime_type' => $image->mimeType(),
+                'inlineData' => [
+                    'mimeType' => $image->mimeType(),
                     'data' => $image->base64(),
                 ],
             ];

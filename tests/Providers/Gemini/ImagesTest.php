@@ -64,8 +64,9 @@ it('can edit an image with gemini models', function (): void {
         $data = $request->data();
 
         // Verify images come BEFORE text (Gemini best practice)
+        // Verify camelCase format (inlineData, mimeType)
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent'
-            && data_get($data, 'contents.0.parts.0.inline_data.mime_type') === 'image/png'
+            && data_get($data, 'contents.0.parts.0.inlineData.mimeType') === 'image/png'
             && data_get($data, 'contents.0.parts.1.text') === 'Add a vaporwave sunset to the background';
     });
 });
@@ -211,11 +212,12 @@ it('sends images before text for gemini-2.5-flash-image (best practice)', functi
         $parts = data_get($data, 'contents.0.parts', []);
 
         // Verify images are sent BEFORE text (Gemini best practice)
-        // parts[0] should be the image (inline_data)
+        // Verify camelCase format (inlineData, mimeType) per official API spec
+        // parts[0] should be the image (inlineData)
         // parts[1] should be the text
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
-            && isset($parts[0]['inline_data'])
-            && data_get($parts, '0.inline_data.mime_type') === 'image/png'
+            && isset($parts[0]['inlineData'])
+            && data_get($parts, '0.inlineData.mimeType') === 'image/png'
             && isset($parts[1]['text'])
             && data_get($parts, '1.text') === 'Transform this diamond into a ruby';
     });
