@@ -263,3 +263,59 @@ it('can pass safety_settings via provider options for gemini models', function (
             && data_get($safetySettings, '3.category') === 'HARM_CATEGORY_DANGEROUS_CONTENT';
     });
 });
+
+it('uses default responseModalities when not specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Generate an image')
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        // Verify default responseModalities is ['TEXT', 'IMAGE']
+        $modalities = data_get($data, 'generationConfig.responseModalities');
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($modalities)
+            && is_array($modalities)
+            && $modalities === ['TEXT', 'IMAGE'];
+    });
+});
+
+it('can override responseModalities via provider options', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Generate an image only')
+        ->withProviderOptions([
+            'response_modalities' => ['IMAGE'],
+        ])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        // Verify custom responseModalities is used
+        $modalities = data_get($data, 'generationConfig.responseModalities');
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($modalities)
+            && is_array($modalities)
+            && $modalities === ['IMAGE']
+            && count($modalities) === 1;
+    });
+});
