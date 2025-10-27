@@ -40,7 +40,7 @@ class ImageRequestMap
             'text' => $request->prompt(),
         ];
 
-        return [
+        $result = [
             'contents' => [
                 [
                     'parts' => $parts,
@@ -53,6 +53,12 @@ class ImageRequestMap
                 ],
             ],
         ];
+
+        if (isset($providerOptions['safety_settings'])) {
+            $result['safetySettings'] = $providerOptions['safety_settings'];
+        }
+
+        return $result;
     }
 
     /** @return array<string, mixed> */

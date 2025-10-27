@@ -222,3 +222,44 @@ it('sends images before text for gemini-2.5-flash-image (best practice)', functi
             && data_get($parts, '1.text') === 'Transform this diamond into a ruby';
     });
 });
+
+it('can pass safety_settings via provider options for gemini models', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $originalImage = Image::fromLocalPath('tests/Fixtures/diamond.png');
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Transform this into a safe image', [$originalImage])
+        ->withProviderOptions([
+            'safety_settings' => [
+                ['category' => 'HARM_CATEGORY_HARASSMENT', 'threshold' => 'BLOCK_ONLY_HIGH'],
+                ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'threshold' => 'BLOCK_ONLY_HIGH'],
+                ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_ONLY_HIGH'],
+                ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_ONLY_HIGH'],
+            ],
+        ])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        // Verify safety_settings is present in the request
+        $safetySettings = data_get($data, 'safetySettings');
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($safetySettings)
+            && is_array($safetySettings)
+            && count($safetySettings) === 4
+            && data_get($safetySettings, '0.category') === 'HARM_CATEGORY_HARASSMENT'
+            && data_get($safetySettings, '0.threshold') === 'BLOCK_ONLY_HIGH'
+            && data_get($safetySettings, '1.category') === 'HARM_CATEGORY_HATE_SPEECH'
+            && data_get($safetySettings, '2.category') === 'HARM_CATEGORY_SEXUALLY_EXPLICIT'
+            && data_get($safetySettings, '3.category') === 'HARM_CATEGORY_DANGEROUS_CONTENT';
+    });
+});
