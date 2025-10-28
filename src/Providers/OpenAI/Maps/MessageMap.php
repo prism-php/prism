@@ -39,7 +39,7 @@ class MessageMap
     public function __invoke(): array
     {
         array_map(
-            fn (Message $message) => $this->mapMessage($message),
+            $this->mapMessage(...),
             $this->messages
         );
 

@@ -21,7 +21,7 @@ test('it requires a schema', function (): void {
         ->using(Provider::OpenAI, 'gpt-4')
         ->withPrompt('Test prompt');
 
-    expect(fn () => $this->pendingRequest->toRequest())
+    expect($this->pendingRequest->toRequest(...))
         ->toThrow(PrismException::class, 'A schema is required for structured output');
 });
 
@@ -32,7 +32,7 @@ test('it cannot have both prompt and messages', function (): void {
         ->withPrompt('Test prompt')
         ->withMessages([new UserMessage('Test message')]);
 
-    expect(fn () => $this->pendingRequest->toRequest())
+    expect($this->pendingRequest->toRequest(...))
         ->toThrow(PrismException::class, 'You can only use `prompt` or `messages`');
 });
 

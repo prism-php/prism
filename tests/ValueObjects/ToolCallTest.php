@@ -56,5 +56,5 @@ it('throws exception for malformed JSON string arguments', function (): void {
         arguments: '{"invalid json"'
     );
 
-    expect(fn (): array => $toolCall->arguments())->toThrow(JsonException::class);
+    expect($toolCall->arguments(...))->toThrow(JsonException::class);
 });

@@ -169,6 +169,6 @@ it('throws exception for unknown message type', function (): void {
     $invalidMessage = new class implements \Prism\Prism\Contracts\Message {};
     $messageMap = new MessageMap([$invalidMessage]);
 
-    expect(fn (): array => $messageMap->map())
+    expect($messageMap->map(...))
         ->toThrow(Exception::class, 'Could not map message type '.$invalidMessage::class);
 });

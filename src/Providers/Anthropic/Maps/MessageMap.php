@@ -43,7 +43,7 @@ class MessageMap
     public static function mapSystemMessages(array $messages): array
     {
         return array_map(
-            fn (Message $message): array => self::mapSystemMessage($message),
+            self::mapSystemMessage(...),
             $messages
         );
     }
