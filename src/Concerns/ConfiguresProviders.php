@@ -19,7 +19,7 @@ trait ConfiguresProviders
     /**
      * @param  array<string, mixed>  $providerConfig
      */
-    public function using(string|ProviderEnum $provider, string $model, array $providerConfig = []): self
+    public function using(string|ProviderEnum $provider, string $model = '', array $providerConfig = []): self
     {
         $this->providerKey = is_string($provider) ? $provider : $provider->value;
 
