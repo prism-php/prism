@@ -4,38 +4,23 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Images;
 
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
+use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\Text;
 
 class PendingRequest
 {
     use ConfiguresClient;
     use ConfiguresModels;
     use ConfiguresProviders;
+    use HasPrompts;
     use HasProviderOptions;
-
-    protected string $prompt = '';
-
-    /**
-     * @var Image[]
-     */
-    protected array $additionalContent = [];
-
-    /**
-     * @param  Image[]  $additionalContent
-     */
-    public function withPrompt(string|View $prompt, array $additionalContent = []): self
-    {
-        $this->prompt = is_string($prompt) ? $prompt : $prompt->render();
-        $this->additionalContent = $additionalContent;
-
-        return $this;
-    }
 
     public function generate(): Response
     {
@@ -53,10 +38,14 @@ class PendingRequest
         return new Request(
             model: $this->model,
             providerKey: $this->providerKey(),
+            systemPrompts: $this->systemPrompts,
             prompt: $this->prompt,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
-            additionalContent: $this->additionalContent,
+            additionalContent: array_values(array_filter(
+                $this->additionalContent,
+                fn (Media|Text $content): bool => $content instanceof Image
+            )),
             providerOptions: $this->providerOptions,
         );
     }
