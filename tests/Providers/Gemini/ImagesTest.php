@@ -63,9 +63,11 @@ it('can edit an image with gemini models', function (): void {
     Http::assertSent(function ($request): bool {
         $data = $request->data();
 
+        // Verify images come BEFORE text (Gemini best practice)
+        // Verify camelCase format (inlineData, mimeType)
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent'
-            && data_get($data, 'contents.0.parts.0.text') === 'Add a vaporwave sunset to the background'
-            && data_get($data, 'contents.0.parts.1.inline_data.mime_type') === 'image/png';
+            && data_get($data, 'contents.0.parts.0.inlineData.mimeType') === 'image/png'
+            && data_get($data, 'contents.0.parts.1.text') === 'Add a vaporwave sunset to the background';
     });
 });
 
@@ -187,5 +189,133 @@ it('can generate multiple images with imagen models', function (): void {
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict'
             && data_get($data, 'instances.0.prompt') === 'I need an image of a worm in a suit.'
             && data_get($data, 'parameters.sampleCount') === 3;
+    });
+});
+
+it('sends images before text for gemini-2.5-flash-image (best practice)', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $originalImage = Image::fromLocalPath('tests/Fixtures/diamond.png');
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Transform this diamond into a ruby', [$originalImage])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+        $parts = data_get($data, 'contents.0.parts', []);
+
+        // Verify images are sent BEFORE text (Gemini best practice)
+        // Verify camelCase format (inlineData, mimeType) per official API spec
+        // parts[0] should be the image (inlineData)
+        // parts[1] should be the text
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($parts[0]['inlineData'])
+            && data_get($parts, '0.inlineData.mimeType') === 'image/png'
+            && isset($parts[1]['text'])
+            && data_get($parts, '1.text') === 'Transform this diamond into a ruby';
+    });
+});
+
+it('can pass safety_settings via provider options for gemini models', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $originalImage = Image::fromLocalPath('tests/Fixtures/diamond.png');
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Transform this into a safe image', [$originalImage])
+        ->withProviderOptions([
+            'safety_settings' => [
+                ['category' => 'HARM_CATEGORY_HARASSMENT', 'threshold' => 'BLOCK_ONLY_HIGH'],
+                ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'threshold' => 'BLOCK_ONLY_HIGH'],
+                ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_ONLY_HIGH'],
+                ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_ONLY_HIGH'],
+            ],
+        ])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        // Verify safety_settings is present in the request
+        $safetySettings = data_get($data, 'safetySettings');
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($safetySettings)
+            && is_array($safetySettings)
+            && count($safetySettings) === 4
+            && data_get($safetySettings, '0.category') === 'HARM_CATEGORY_HARASSMENT'
+            && data_get($safetySettings, '0.threshold') === 'BLOCK_ONLY_HIGH'
+            && data_get($safetySettings, '1.category') === 'HARM_CATEGORY_HATE_SPEECH'
+            && data_get($safetySettings, '2.category') === 'HARM_CATEGORY_SEXUALLY_EXPLICIT'
+            && data_get($safetySettings, '3.category') === 'HARM_CATEGORY_DANGEROUS_CONTENT';
+    });
+});
+
+it('uses default responseModalities when not specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Generate an image')
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        // Verify default responseModalities is ['TEXT', 'IMAGE']
+        $modalities = data_get($data, 'generationConfig.responseModalities');
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($modalities)
+            && is_array($modalities)
+            && $modalities === ['TEXT', 'IMAGE'];
+    });
+});
+
+it('can override responseModalities via provider options', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1beta/models/gemini-2.5-flash-image:generateContent',
+        'gemini/generate-image-with-image-edit'
+    );
+
+    $response = Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+        ->withPrompt('Generate an image only')
+        ->withProviderOptions([
+            'response_modalities' => ['IMAGE'],
+        ])
+        ->generate();
+
+    expect($response->imageCount())->toBe(1);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        // Verify custom responseModalities is used
+        $modalities = data_get($data, 'generationConfig.responseModalities');
+
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
+            && isset($modalities)
+            && is_array($modalities)
+            && $modalities === ['IMAGE']
+            && count($modalities) === 1;
     });
 });

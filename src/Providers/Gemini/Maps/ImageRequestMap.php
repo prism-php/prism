@@ -23,34 +23,42 @@ class ImageRequestMap
     {
         $providerOptions = $request->providerOptions();
 
-        $parts = [
-            [
-                'text' => $request->prompt(),
-            ],
-        ];
+        $parts = [];
 
+        // Add images first (Gemini best practice for multimodal prompts)
         foreach ($request->additionalContent() as $image) {
             $parts[] = [
-                'inline_data' => [
-                    'mime_type' => $image->mimeType(),
+                'inlineData' => [
+                    'mimeType' => $image->mimeType(),
                     'data' => $image->base64(),
                 ],
             ];
         }
 
-        return [
+        // Add text prompt after images
+        $parts[] = [
+            'text' => $request->prompt(),
+        ];
+
+        $result = [
             'contents' => [
                 [
                     'parts' => $parts,
                 ],
             ],
             'generationConfig' => [
-                'responseModalities' => ['TEXT', 'IMAGE'],
+                'responseModalities' => $providerOptions['response_modalities'] ?? ['TEXT', 'IMAGE'],
                 'imageConfig' => [
                     'aspectRatio' => $providerOptions['aspect_ratio'] ?? null,
                 ],
             ],
         ];
+
+        if (isset($providerOptions['safety_settings'])) {
+            $result['safetySettings'] = $providerOptions['safety_settings'];
+        }
+
+        return $result;
     }
 
     /** @return array<string, mixed> */
