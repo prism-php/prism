@@ -10,6 +10,9 @@ use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\Text;
 
 class PendingRequest
 {
@@ -39,7 +42,10 @@ class PendingRequest
             prompt: $this->prompt,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
-            additionalContent: $this->additionalContent,
+            additionalContent: array_values(array_filter(
+                $this->additionalContent,
+                fn (Media|Text $content): bool => $content instanceof Image
+            )),
             providerOptions: $this->providerOptions,
         );
     }
