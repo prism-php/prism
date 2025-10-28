@@ -16,7 +16,7 @@ ElevenLabs provides speech-to-text through their Scribe model with support for d
 ### Basic Usage
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Audio;
 
 $audioFile = Audio::fromPath('/path/to/recording.mp3');

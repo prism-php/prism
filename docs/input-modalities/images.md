@@ -11,7 +11,7 @@ Note however that provider support may differ by model. If you receive error mes
 To add an image to your prompt, use the `withPrompt` method with an `Image` value object:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Image;
 

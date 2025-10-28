@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Broadcasting\PrivateChannel;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;

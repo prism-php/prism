@@ -7,7 +7,7 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -23,7 +23,7 @@ echo $response->text;
 System prompts help set the behavior and context for the AI. They're particularly useful for maintaining consistent responses or giving the LLM a persona:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -36,7 +36,7 @@ $response = Prism::text()
 You can also use Laravel views for complex system prompts:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -53,7 +53,7 @@ You an also pass a View to the `withPrompt` method.
 Prism supports including images, documents, audio, and video files in your prompts for rich multi-modal analysis:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Document;
@@ -114,7 +114,7 @@ $response = Prism::text()
 For interactive conversations, use message chains to maintain context:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -182,7 +182,7 @@ This allows for complete or partial override of the providers configuration. Thi
 The response object provides rich access to the generation results:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -222,7 +222,7 @@ Need to perform actions after text generation completes? The `onComplete()` call
 
 ```php
 use Illuminate\Support\Collection;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Text\PendingRequest;
 
@@ -251,7 +251,7 @@ echo $response->text;
 Remember to handle potential errors in your generations:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Throwable;

@@ -177,7 +177,7 @@ OpenAI offers built-in provider tools that can be used alongside your custom too
 The OpenAI code interpreter allows your AI to execute Python code in a secure, sandboxed environment. This is particularly useful for mathematical calculations, data analysis, and code execution tasks.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\ProviderTool;
 
 Prism::text()
@@ -382,7 +382,7 @@ Convert text into natural-sounding speech with various voice options:
 #### Basic TTS Usage
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::audio()
     ->using('openai', 'gpt-4o-mini-tts')

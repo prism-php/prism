@@ -7,7 +7,7 @@ Transform your text into powerful vector representations! Embeddings let you add
 Here's how to generate an embedding with just a few lines of code:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::embeddings()
@@ -27,7 +27,7 @@ echo $response->usage->tokens;
 You can generate multiple embeddings at once with all providers that support embeddings, other than Gemini:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::embeddings()
@@ -60,7 +60,7 @@ You've got two convenient ways to feed text into the embeddings generator:
 ### Direct Text Input
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::embeddings()
@@ -74,7 +74,7 @@ $response = Prism::embeddings()
 Need to analyze a larger document? No problem:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::embeddings()
@@ -91,7 +91,7 @@ $response = Prism::embeddings()
 Just like with text generation, you can fine-tune your embeddings requests:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::embeddings()
@@ -130,7 +130,7 @@ $tokenCount = $response->usage->tokens;
 Always handle potential errors gracefully:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 

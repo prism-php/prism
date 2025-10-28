@@ -74,7 +74,7 @@ PROVIDER_URL=https://custom-endpoint.com
 You can override config in your code in two ways:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 // Via the third parameter of `using()`

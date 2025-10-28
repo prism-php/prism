@@ -18,7 +18,7 @@ xAI's Grok models support an optional extended thinking mode, where the model wi
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::text()
     ->using(Provider::XAI, 'grok-4')

@@ -6,7 +6,7 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 use Tests\Fixtures\FixtureResponse;
 

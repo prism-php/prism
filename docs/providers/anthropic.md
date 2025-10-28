@@ -25,7 +25,7 @@ The API for enabling prompt caching is the same for all, enabled via the `withPr
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -71,7 +71,7 @@ In addition to caching prompts and tool definitions, Prism supports caching tool
 To enable tool result caching, use the `tool_result_cache_type` provider option on your request:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::text()
     ->using('anthropic', 'claude-3-5-sonnet-20241022')
@@ -97,7 +97,7 @@ Prism supports thinking mode for text and structured with the same API:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
@@ -112,7 +112,7 @@ You can overide the config (or its default) using `withProviderOptions`:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
@@ -139,7 +139,7 @@ On the Response (easiest if not using tools):
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
@@ -222,7 +222,7 @@ Custom content documents are primarily for use with citations (see below), if yo
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Document;
 
@@ -270,7 +270,7 @@ ANTHROPIC_BETA="code-execution-2025-05-22"
 You may then use code execution as follows:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\ProviderTool;
 
 Prism::text()
@@ -287,7 +287,7 @@ Anthropic require citations to be enabled on all documents in a request. To enab
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Document;
 
@@ -371,7 +371,7 @@ For more reliable structured output, especially when dealing with complex conten
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 

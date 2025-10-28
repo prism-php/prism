@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Mistral;
 
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRPageResponse;
 use Prism\Prism\Providers\Mistral\ValueObjects\OCRResponse;

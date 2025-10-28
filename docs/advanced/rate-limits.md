@@ -29,7 +29,7 @@ Prism throws a `PrismRateLimitedException` when you hit a rate limit.
 You can catch that exception, gracefully fail and inspect the `rateLimits` property which contains an array of `ProviderRateLimit`s. 
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -103,7 +103,7 @@ If you aren't sure where to start with that, check out the [What should you do w
 Prism adds the same rate limit information to every successful request:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 

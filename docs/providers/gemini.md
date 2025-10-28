@@ -16,7 +16,7 @@ Google Gemini offers built-in search grounding capabilities that allow your AI t
 You may enable Google search grounding on text requests using withProviderTools:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderTool;
 
@@ -86,7 +86,7 @@ To store content in the cache, use the Gemini provider cache method as follows:
 ```php
 
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -129,7 +129,7 @@ You can add a title to your embedding request. Only applicable when TaskType is 
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
     ->using(Provider::Gemini, 'text-embedding-004')
@@ -144,7 +144,7 @@ Gemini allows you to specify the task type for your embeddings to optimize them 
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
     ->using(Provider::Gemini, 'text-embedding-004')
@@ -161,7 +161,7 @@ You can control the dimensionality of your embeddings:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
     ->using(Provider::Gemini, 'text-embedding-004')
@@ -175,7 +175,7 @@ Prism::embeddings()
 Gemini 2.5 series models use an internal "thinking process" during response generation. Thinking is on by default as these models have the ability to automatically decide when and how much to think based on the prompt. If you would like to customize how many tokens the model may use for thinking, or disable thinking altogether, utilize the `withProviderOptions()` method, and pass through an array with a key value pair with `thinkingBudget` and an integer representing the budget of tokens. Set this value to `0` to disable thinking.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()

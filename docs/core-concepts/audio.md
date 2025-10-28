@@ -9,7 +9,7 @@ Transform text into speech and speech into text using AI-powered audio models. P
 Convert text into natural-sounding speech:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::audio()
@@ -30,7 +30,7 @@ if ($audio->hasBase64()) {
 Convert audio files into text transcriptions:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Audio;
 
@@ -361,7 +361,7 @@ try {
 Prism provides convenient fakes for testing audio functionality:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\PrismFake;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\TextResponse;
