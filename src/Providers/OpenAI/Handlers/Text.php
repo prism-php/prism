@@ -118,6 +118,11 @@ class Text
         return $this->responseBuilder->steps->count() < $request->maxSteps();
     }
 
+    protected function finalRequestStep(Request $request): bool
+    {
+        return $this->responseBuilder->steps->count() === $request->maxSteps() - 1;
+    }
+
     protected function sendRequest(Request $request): ClientResponse
     {
         return $this->client->post(
@@ -131,12 +136,17 @@ class Text
                 'top_p' => $request->topP(),
                 'metadata' => $request->providerOptions('metadata'),
                 'tools' => $this->buildTools($request),
-                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'tool_choice' => ToolChoiceMap::map(
+                    $request->toolChoice(
+                        $this->finalRequestStep($request),
+                    ),
+                ),
                 'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'service_tier' => $request->providerOptions('service_tier'),
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
+                'text' => $request->providerOptions('text'),
             ]))
         );
     }

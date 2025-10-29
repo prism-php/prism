@@ -47,9 +47,9 @@ class Request implements PrismRequest
         $this->providerOptions = $providerOptions;
     }
 
-    public function toolChoice(): string|ToolChoice|null
+    public function toolChoice(bool $finalRequest = false): string|ToolChoice|null
     {
-        return $this->toolChoice;
+        return $finalRequest ? ToolChoice::None : $this->toolChoice;
     }
 
     /**
