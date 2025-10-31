@@ -389,8 +389,8 @@ class Stream
                 ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
                 : data_get($data, 'usageMetadata.promptTokenCount', 0),
             completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-            cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
-            thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+            cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount'),
+            thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
         );
     }
 

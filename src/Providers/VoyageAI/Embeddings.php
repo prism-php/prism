@@ -33,7 +33,7 @@ class Embeddings
         return new EmbeddingsResponse(
             embeddings: array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
             usage: new EmbeddingsUsage(
-                tokens: data_get($data, 'usage.total_tokens', null),
+                tokens: data_get($data, 'usage.total_tokens'),
             ),
             meta: new Meta(
                 id: '',
