@@ -126,8 +126,7 @@ class Mistral extends Provider
     {
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make(
-                rateLimits: $this->processRateLimits($e->response),
-                retryAfter: null
+                rateLimits: $this->processRateLimits($e->response)
             ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::Mistral),
             413 => throw PrismRequestTooLargeException::make(ProviderName::Mistral),

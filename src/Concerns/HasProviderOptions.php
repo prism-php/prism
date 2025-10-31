@@ -23,6 +23,6 @@ trait HasProviderOptions
             return $this->providerOptions;
         }
 
-        return data_get($this->providerOptions, $valuePath, null);
+        return data_get($this->providerOptions, $valuePath);
     }
 }

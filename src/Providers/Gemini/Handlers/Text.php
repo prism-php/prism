@@ -171,8 +171,8 @@ class Text
                     ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
                     : data_get($data, 'usageMetadata.promptTokenCount', 0),
                 completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount', null),
-                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount', null),
+                cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount'),
+                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
@@ -182,8 +182,8 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: Arr::whereNotNull([
                 'citations' => CitationMapper::mapFromGemini(data_get($data, 'candidates.0', [])) ?: null,
-                'searchEntryPoint' => data_get($data, 'candidates.0.groundingMetadata.searchEntryPoint', null),
-                'searchQueries' => data_get($data, 'candidates.0.groundingMetadata.webSearchQueries', null),
+                'searchEntryPoint' => data_get($data, 'candidates.0.groundingMetadata.searchEntryPoint'),
+                'searchQueries' => data_get($data, 'candidates.0.groundingMetadata.webSearchQueries'),
             ]),
         ));
     }
