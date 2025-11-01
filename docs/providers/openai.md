@@ -143,6 +143,18 @@ echo "Reasoning tokens: " . $usage->thoughtTokens;
 echo "Total completion tokens: " . $usage->completionTokens;
 ```
 
+#### Text Verbosity
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-5')
+    ->withPrompt('Explain dependency injection')
+    ->withProviderOptions([ // [!code focus]
+        'text_verbosity' => 'low' // low, medium, high // [!code focus]
+    ]) // [!code focus]
+    ->asText();
+```
+
 ## Streaming
 
 OpenAI supports streaming responses in real-time. All the standard streaming methods work with OpenAI models:

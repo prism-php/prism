@@ -135,6 +135,7 @@ class Text
                 'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'service_tier' => $request->providerOptions('service_tier'),
+                'text_verbosity' => $request->providerOptions('text_verbosity'),
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
             ]))

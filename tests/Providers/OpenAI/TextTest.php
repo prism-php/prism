@@ -434,6 +434,54 @@ it('filters service_tier if null', function (): void {
     });
 });
 
+it('uses meta to set text_verbosity', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $textVerbosity = 'medium';
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'text_verbosity' => $textVerbosity,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request) use ($textVerbosity): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'text_verbosity'))->toBe($textVerbosity);
+
+        return true;
+    });
+});
+
+it('filters text_verbosity if null', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'text_verbosity' => null,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect($body)->not()->toHaveKey('text_verbosity');
+
+        return true;
+    });
+});
+
 it('can analyze images with detail parameter', function (): void {
     FixtureResponse::fakeResponseSequence(
         'v1/responses',
