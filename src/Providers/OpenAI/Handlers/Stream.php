@@ -20,6 +20,7 @@ use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -133,6 +134,24 @@ class Stream
                 continue;
             }
 
+            if (data_get($data, 'type') === 'response.output_item.done') {
+                $item = data_get($data, 'item', []);
+                $itemType = data_get($item, 'type', '');
+
+                if (str_ends_with((string) $itemType, '_call')) {
+                    yield new ProviderToolEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        toolType: $itemType,
+                        status: 'completed',
+                        itemId: data_get($item, 'id', ''),
+                        data: $item
+                    );
+
+                    continue;
+                }
+            }
+
             if ($this->hasReasoningItems($data)) {
                 $reasoningItems = $this->extractReasoningItems($data, $reasoningItems);
 
@@ -164,6 +183,28 @@ class Stream
                 }
 
                 continue;
+            }
+
+            $type = (string) data_get($data, 'type', '');
+
+            if (str_starts_with($type, 'response.') && str_contains($type, '_call.')) {
+                $parts = explode('.', $type, 3);
+
+                if (count($parts) === 3 && str_ends_with($parts[1], '_call')) {
+                    $toolType = $parts[1];
+                    $status = $parts[2];
+
+                    yield new ProviderToolEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        toolType: $toolType,
+                        status: $status,
+                        itemId: data_get($data, 'item_id', ''),
+                        data: $data
+                    );
+
+                    continue;
+                }
             }
 
             $content = $this->extractOutputTextDelta($data);
