@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\View\View;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
@@ -175,4 +176,66 @@ test('structured withPrompt maintains backward compatibility without additional 
     expect($generated->prompt())->toBe('Hello AI')
         ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class)
         ->and($generated->messages()[0]->additionalContent)->toHaveCount(1); // Only Text
+});
+
+test('it can set view prompt in structured request', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('Hello AI');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Hello AI')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class);
+});
+
+test('it filters livewire morph markers from view prompts in structured request', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('<!--[if BLOCK]><![endif]-->Hello AI<!--[if ENDBLOCK]><![endif]-->');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Hello AI')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class);
+});
+
+test('it can set view system prompt in structured request', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('System instruction');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withPrompt('Hello')
+        ->withSystemPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->systemPrompts()[0]->content)
+        ->toBe('System instruction');
+});
+
+test('it filters livewire morph markers from view system prompts in structured request', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('<!--[if BLOCK]><![endif]-->System instruction<!--[if ENDBLOCK]><![endif]-->');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withPrompt('Hello')
+        ->withSystemPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->systemPrompts()[0]->content)
+        ->toBe('System instruction');
 });
