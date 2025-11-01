@@ -31,7 +31,7 @@ abstract class StreamEventBroadcast implements ShouldBroadcastNow
 
     public function broadcastAs(): string
     {
-        return $this->event->type()->value;
+        return $this->event->eventKey();
     }
 
     /**
