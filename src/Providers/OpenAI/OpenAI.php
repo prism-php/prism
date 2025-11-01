@@ -7,7 +7,6 @@ namespace Prism\Prism\Providers\OpenAI;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\Client\Response;
 use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse as SpeechToTextResponse;
