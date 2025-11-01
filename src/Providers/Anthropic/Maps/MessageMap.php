@@ -168,6 +168,27 @@ class MessageMap
             ], $message->toolCalls)
             : [];
 
+        if (isset($message->additionalContent['server_tool_calls'])) {
+            foreach ($message->additionalContent['server_tool_calls'] as $toolCall) {
+                $content[] = array_filter([
+                    'type' => 'server_tool_use',
+                    'id' => $toolCall['id'] ?? null,
+                    'name' => $toolCall['name'] ?? null,
+                    'input' => isset($toolCall['input']) && $toolCall['input'] !== '' ? json_decode((string) $toolCall['input'], true) : new \stdClass,
+                ]);
+            }
+        }
+
+        if (isset($message->additionalContent['web_search_tool_results'])) {
+            foreach ($message->additionalContent['web_search_tool_results'] as $toolResult) {
+                $content[] = array_filter([
+                    'type' => 'web_search_tool_result',
+                    'tool_use_id' => $toolResult['tool_use_id'] ?? null,
+                    'content' => $toolResult['content'] ?? null,
+                ]);
+            }
+        }
+
         return [
             'role' => 'assistant',
             'content' => array_merge($content, $toolCalls),

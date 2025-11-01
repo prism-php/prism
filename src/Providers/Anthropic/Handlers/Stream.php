@@ -152,6 +152,8 @@ class Stream
             ),
             'thinking' => $this->handleThinkingStart(),
             'tool_use' => $this->handleToolUseStart($contentBlock),
+            'server_tool_use' => $this->handleServerToolUseStart($contentBlock),
+            'web_search_tool_result' => $this->handleWebSearchToolResultStart($contentBlock),
             default => null,
         };
     }
@@ -170,6 +172,7 @@ class Stream
             ['thinking', 'thinking_delta'] => $this->handleThinkingDelta($delta),
             ['thinking', 'signature_delta'] => $this->handleSignatureDelta($delta),
             ['tool_use', 'input_json_delta'] => $this->handleToolInputDelta($delta),
+            ['server_tool_use', 'input_json_delta'] => $this->handleServerToolInputDelta($delta),
             default => null,
         };
     }
@@ -225,12 +228,22 @@ class Stream
      */
     protected function handleMessageStop(array $event): StreamEndEvent
     {
+        $additionalContent = [];
+        if (is_array($this->state->serverToolCalls()) && $this->state->serverToolCalls() !== []) {
+            $additionalContent['server_tool_calls'] = $this->state->serverToolCalls();
+        }
+
+        if (is_array($this->state->webSearchToolResults()) && $this->state->webSearchToolResults() !== []) {
+            $additionalContent['web_search_tool_results'] = $this->state->webSearchToolResults();
+        }
+
         return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
             finishReason: FinishReason::Stop, // Default, will be updated by message_delta
             usage: $this->state->usage(),
-            citations: $this->state->citations() !== [] ? $this->state->citations() : null
+            citations: $this->state->citations() !== [] ? $this->state->citations() : null,
+            additionalContent: $additionalContent
         );
     }
 
@@ -491,6 +504,46 @@ class Stream
                 yield from $this->processStream($nextResponse, $request, $depth);
             }
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $contentBlock
+     */
+    protected function handleServerToolUseStart(array $contentBlock): null
+    {
+        if ($this->state->currentBlockIndex() !== null) {
+            $this->state->addServerToolCall([
+                'id' => $contentBlock['id'] ?? EventID::generate(),
+                'name' => $contentBlock['name'] ?? 'unknown',
+                'input' => '',
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $delta
+     */
+    protected function handleServerToolInputDelta(array $delta): null
+    {
+        $partialJson = $delta['partial_json'] ?? '';
+
+        if ($this->state->currentBlockIndex() !== null && isset($this->state->serverToolCalls()[$this->state->currentBlockIndex()])) {
+            $this->state->appendServerToolCallInput($this->state->currentBlockIndex(), $partialJson);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $contentBlock
+     */
+    protected function handleWebSearchToolResultStart(array $contentBlock): null
+    {
+        $this->state->addWebSearchToolResult($contentBlock);
+
+        return null;
     }
 
     /**

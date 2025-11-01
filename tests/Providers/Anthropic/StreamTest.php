@@ -392,6 +392,37 @@ describe('citations', function (): void {
         expect($lastEvent->citations[0])->toBeInstanceOf(MessagePartWithCitations::class);
         expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
     });
+
+    it('handles server tool calls and web search tool results in stream end event', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withPrompt('Get me the latest stock price for AAPL and the weather in New York City.')
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->asStream();
+
+        $additionalContent = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof StreamEndEvent) {
+                $additionalContent = $event->additionalContent;
+            }
+        }
+
+        // Check if additional content is present
+        expect($additionalContent)->not->toBeEmpty();
+
+        // Check that server tool calls are included in the additional content
+        expect(isset($additionalContent['server_tool_calls']))->toBeTrue();
+        expect(count($additionalContent['server_tool_calls']))->toBeGreaterThanOrEqual(1);
+
+        // Check that web search tool results are included in the additional content
+        expect(isset($additionalContent['web_search_tool_results']))->toBeTrue();
+        expect(count($additionalContent['web_search_tool_results']))->toBeGreaterThanOrEqual(1);
+    });
 });
 
 describe('thinking', function (): void {
