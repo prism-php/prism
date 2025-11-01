@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -296,6 +297,59 @@ it('can process a complete conversation with provider tool', function (): void {
     expect($answerText)->not->toBeEmpty();
 
     // Verify we made multiple requests for a conversation with tool calls
+    Http::assertSentCount(1);
+});
+
+it('can process streaming with image_generation provider tool', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-image-generation');
+
+    $tools = [
+        new ProviderTool('image_generation'),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withProviderTools($tools)
+        ->withMaxSteps(5)
+        ->withPrompt('Generate an image of a sunset over mountains')
+        ->asStream();
+
+    $answerText = '';
+    $providerToolEvents = [];
+    $imageData = null;
+
+    foreach ($response as $event) {
+        if ($event instanceof TextDeltaEvent) {
+            $answerText .= $event->delta;
+        }
+
+        if ($event instanceof ProviderToolEvent) {
+            $providerToolEvents[] = $event;
+
+            if ($event->toolType === 'image_generation_call' && $event->status === 'completed') {
+                $imageData = $event->data['result'] ?? null;
+            }
+        }
+    }
+
+    expect($providerToolEvents)->not->toBeEmpty();
+
+    $statuses = array_map(fn (\Prism\Prism\Streaming\Events\ProviderToolEvent $e): string => $e->status, $providerToolEvents);
+    expect($statuses)->toContain('in_progress');
+    expect($statuses)->toContain('generating');
+    expect($statuses)->toContain('completed');
+
+    foreach ($providerToolEvents as $event) {
+        expect($event->toolType)->toBe('image_generation_call');
+        expect($event->itemId)->toStartWith('ig_');
+        expect($event->eventKey())->toStartWith('provider_tool_event.image_generation_call.');
+    }
+
+    expect($imageData)->not->toBeNull();
+    expect($imageData)->toStartWith('iVBORw0KGgo');
+
+    expect($answerText)->not->toBeEmpty();
+
     Http::assertSentCount(1);
 });
 
