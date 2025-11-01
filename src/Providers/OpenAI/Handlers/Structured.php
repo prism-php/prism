@@ -74,7 +74,7 @@ class Structured
                 promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
                 completionTokens: data_get($data, 'usage.output_tokens'),
                 cacheReadInputTokens: data_get($data, 'usage.input_tokens_details.cached_tokens'),
-                thoughtTokens: data_get($data, 'usage.output_token_details.reasoning_tokens'),
+                thoughtTokens: data_get($data, 'usage.output_tokens_details.reasoning_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
