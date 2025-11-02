@@ -246,14 +246,15 @@ All streaming approaches emit the same core events with consistent data structur
 ### Available Events
 
 - **`stream_start`** - Stream initialization with model and provider info
-- **`text_start`** - Beginning of a text message  
+- **`text_start`** - Beginning of a text message
 - **`text_delta`** - Incremental text chunks as they're generated
 - **`text_complete`** - End of a complete text message
 - **`thinking_start`** - Beginning of AI reasoning/thinking session
-- **`thinking_delta`** - Reasoning content as it's generated  
+- **`thinking_delta`** - Reasoning content as it's generated
 - **`thinking_complete`** - End of reasoning session
 - **`tool_call`** - Tool invocation with arguments
 - **`tool_result`** - Tool execution results
+- **`provider_tool_event`** - Provider-specific tool events (e.g., image generation, web search)
 - **`error`** - Error handling with recovery information
 - **`stream_end`** - Stream completion with usage statistics
 
@@ -298,6 +299,23 @@ Based on actual streaming output:
     "arguments": {"query": "current date and time in Detroit Michigan"},
     "message_id": "msg_01BS7MKgXvUESY8yAEugphV2",
     "reasoning_id": null
+}
+
+// provider_tool_event (e.g., OpenAI image generation)
+{
+    "id": "openai_evt_abc123",
+    "timestamp": 1756412890,
+    "type": "provider_tool_event",
+    "event_key": "provider_tool_event.image_generation_call.completed",
+    "tool_type": "image_generation_call",
+    "status": "completed",
+    "item_id": "ig_abc123def456",
+    "data": {
+        "id": "ig_abc123def456",
+        "type": "image_generation_call",
+        "status": "completed",
+        "result": "iVBORw0KGgo..." // base64 PNG data
+    }
 }
 
 // stream_end event
