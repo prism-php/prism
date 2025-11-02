@@ -189,7 +189,34 @@ foreach ($stream as $event) {
 }
 ```
 
-For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
+### Streaming with Provider Tools
+
+OpenAI's provider tools like `image_generation` emit streaming events during execution, letting you track progress and access results in real-time:
+
+```php
+use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\Streaming\Events\ProviderToolEvent;
+
+$stream = Prism::text()
+    ->using('openai', 'gpt-4o')
+    ->withProviderTools([
+        new ProviderTool('image_generation'),
+    ])
+    ->withPrompt('Generate an image of a sunset over mountains')
+    ->asStream();
+
+foreach ($stream as $event) {
+    if ($event instanceof ProviderToolEvent) {
+        // Check when image generation completes
+        if ($event->status === 'completed' && isset($event->data['result'])) {
+            $imageData = $event->data['result']; // base64 PNG
+            file_put_contents('generated.png', base64_decode($imageData));
+        }
+    }
+}
+```
+
+For complete details on handling provider tool events, see [Streaming Output](/core-concepts/streaming-output).
 
 ### Caching
 

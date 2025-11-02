@@ -19,4 +19,9 @@ abstract readonly class StreamEvent
      * @return array<string, mixed>
      */
     abstract public function toArray(): array;
+
+    public function eventKey(): string
+    {
+        return $this->type()->value;
+    }
 }
