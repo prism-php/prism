@@ -1,0 +1,137 @@
+{
+  "id": "resp_04279f5fd3c866900069079af89ebc8194be2af5e2086aef9b",
+  "object": "response",
+  "created_at": 1762106104,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "fc_04279f5fd3c866900069079af9677c8194a8997b7acb2b3e45",
+      "type": "function_call",
+      "status": "completed",
+      "arguments": "{\"city\":\"Detroit\"}",
+      "call_id": "call_SfjVxPxs1fOp8EbAZykiVBnk",
+      "name": "search_games"
+    }
+  ],
+  "parallel_tool_calls": false,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "description": null,
+      "name": "game_analysis",
+      "schema": {
+        "description": "Analysis of game time and weather",
+        "type": "object",
+        "properties": {
+          "game_time": {
+            "description": "The time of the game",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "weather_summary": {
+            "description": "Summary of weather conditions",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recommendation": {
+            "description": "Recommendation on what to wear",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "game_time",
+          "weather_summary",
+          "recommendation"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "description": "Get current weather for a location",
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "description": "The city name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "city"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "description": "Search for game times in a city",
+      "name": "search_games",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "description": "The city name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "city"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 177,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 15,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 192
+  },
+  "user": null,
+  "metadata": {}
+}

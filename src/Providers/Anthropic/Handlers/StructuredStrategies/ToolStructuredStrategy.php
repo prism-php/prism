@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies;
 
 use Illuminate\Http\Client\Response as HttpResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
 use Prism\Prism\Structured\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -29,23 +32,25 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
     {
         $schemaArray = $this->request->schema()->toArray();
 
-        $payload = [
-            ...$payload,
-            'tools' => [
-                [
-                    'name' => 'output_structured_data',
-                    'description' => 'Output data in the requested structure',
-                    'input_schema' => [
-                        'type' => 'object',
-                        'properties' => $schemaArray['properties'],
-                        'required' => $schemaArray['required'] ?? [],
-                        'additionalProperties' => false,
-                    ],
-                ],
+        $structuredOutputTool = [
+            'name' => 'output_structured_data',
+            'description' => 'Output data in the requested structure',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => $schemaArray['properties'],
+                'required' => $schemaArray['required'] ?? [],
+                'additionalProperties' => false,
             ],
         ];
 
-        if ($this->request->providerOptions('thinking.enabled') !== true) {
+        $customTools = ToolMap::map($this->request->tools());
+
+        $payload = [
+            ...$payload,
+            'tools' => [...$customTools, $structuredOutputTool],
+        ];
+
+        if ($this->request->providerOptions('thinking.enabled') !== true && $this->request->tools() === []) {
             $payload['tool_choice'] = ['type' => 'tool', 'name' => 'output_structured_data'];
         }
 

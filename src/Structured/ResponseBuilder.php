@@ -40,6 +40,8 @@ readonly class ResponseBuilder
             finishReason: $finalStep->finishReason,
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,
+            toolCalls: $this->aggregateToolCalls(),
+            toolResults: $this->aggregateToolResults(),
             additionalContent: $finalStep->additionalContent,
         );
     }
@@ -60,6 +62,28 @@ readonly class ResponseBuilder
         } catch (\JsonException) {
             throw PrismStructuredDecodingException::make($responseText);
         }
+    }
+
+    /**
+     * @return array<int, \Prism\Prism\ValueObjects\ToolCall>
+     */
+    protected function aggregateToolCalls(): array
+    {
+        return $this->steps
+            ->flatMap(fn (Step $step): array => $step->toolCalls)
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * @return array<int, \Prism\Prism\ValueObjects\ToolResult>
+     */
+    protected function aggregateToolResults(): array
+    {
+        return $this->steps
+            ->flatMap(fn (Step $step): array => $step->toolResults)
+            ->values()
+            ->toArray();
     }
 
     protected function calculateTotalUsage(): Usage
