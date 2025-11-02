@@ -113,11 +113,13 @@ it('supports fluent chaining with base StreamState methods', function (): void {
     $state->appendThinkingSignature('sig-1');
     $state->appendText('Hello');
     $state->appendThinkingSignature('-sig-2');
+    $state->addProviderToolCall(0, ['id' => 'tool-123']);
     $state->markStreamStarted();
 
     expect($state->messageId())->toBe('msg-456')
         ->and($state->model())->toBe('claude-3-5-sonnet')
         ->and($state->currentThinkingSignature())->toBe('sig-1-sig-2')
+        ->and($state->providerToolCalls())->toBe([0 => ['id' => 'tool-123']])
         ->and($state->currentText())->toBe('Hello')
         ->and($state->hasStreamStarted())->toBeTrue();
 });
@@ -140,6 +142,8 @@ it('inherits all base StreamState functionality', function (): void {
     $state->appendThinkingSignature('signature-value');
     $state->withBlockContext(2, 'text');
     $state->addToolCall(0, ['id' => 'tool-1', 'name' => 'search']);
+    $state->addProviderToolCall(0, ['id' => 'tool-1']);
+    $state->addProviderToolCall(1, ['id' => 'tool-2']);
     $state->addCitation($citation);
     $state->withUsage($usage);
     $state->withFinishReason(FinishReason::Stop);
@@ -155,6 +159,7 @@ it('inherits all base StreamState functionality', function (): void {
         ->and($state->currentText())->toBe('response text')
         ->and($state->currentThinking())->toBe('thought process')
         ->and($state->currentThinkingSignature())->toBe('signature-value')
+        ->and($state->providerToolCalls())->toBe([0 => ['id' => 'tool-1'], 1 => ['id' => 'tool-2']])
         ->and($state->currentBlockIndex())->toBe(2)
         ->and($state->currentBlockType())->toBe('text')
         ->and($state->toolCalls())->toBe([0 => ['id' => 'tool-1', 'name' => 'search']])
@@ -286,4 +291,85 @@ it('handles very long signature accumulation', function (): void {
     }
 
     expect($state->currentThinkingSignature())->toBe($expected);
+});
+
+it('constructs with empty provider tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->providerToolCalls())->toBe([]);
+});
+
+it('reset clears provider tool calls', function (): void {
+    $state = new AnthropicStreamState;
+    $state->addProviderToolCall(0, ['id' => 'tool-1']);
+    $state->addProviderToolCall(1, ['id' => 'tool-2']);
+
+    $state->reset();
+
+    expect($state->providerToolCalls())->toBe([]);
+});
+
+it('addProviderToolCall adds tool call at specified block index', function (): void {
+    $state = new AnthropicStreamState;
+
+    $state->addProviderToolCall(0, ['id' => 'tool-1']);
+    $state->addProviderToolCall(2, ['id' => 'tool-3']);
+
+    expect($state->providerToolCalls())->toBe([
+        0 => ['id' => 'tool-1'],
+        2 => ['id' => 'tool-3'],
+    ]);
+});
+
+it('addProviderToolCall returns self for fluent chaining', function (): void {
+    $state = new AnthropicStreamState;
+
+    $result = $state->addProviderToolCall(0, ['id' => 'tool-1']);
+
+    expect($result)->toBe($state);
+});
+
+it('appendProviderToolCallInput appends input to existing tool call', function (): void {
+    $state = new AnthropicStreamState;
+
+    $state->addProviderToolCall(0, ['input' => 'initial-']);
+    $state->appendProviderToolCallInput(0, 'more-');
+    $state->appendProviderToolCallInput(0, 'data');
+
+    expect($state->providerToolCalls())->toBe([
+        0 => ['input' => 'initial-more-data'],
+    ]);
+});
+
+it('appendProviderToolCallInput initializes tool call if not present', function (): void {
+    $state = new AnthropicStreamState;
+
+    $state->appendProviderToolCallInput(1, 'input-data');
+
+    expect($state->providerToolCalls())->toBe([
+        1 => ['input' => 'input-data'],
+    ]);
+});
+
+it('appendProviderToolCallInput returns self for fluent chaining', function (): void {
+    $state = new AnthropicStreamState;
+
+    $result = $state->appendProviderToolCallInput(0, 'data');
+
+    expect($result)->toBe($state);
+});
+
+it('handles multiple provider tool calls correctly', function (): void {
+    $state = new AnthropicStreamState;
+
+    $state->addProviderToolCall(0, ['id' => 'tool-1', 'input' => 'start-']);
+    $state->appendProviderToolCallInput(0, 'middle-');
+    $state->appendProviderToolCallInput(0, 'end');
+
+    $state->addProviderToolCall(2, ['id' => 'tool-3', 'input' => 'only-input']);
+
+    expect($state->providerToolCalls())->toBe([
+        0 => ['id' => 'tool-1', 'input' => 'start-middle-end'],
+        2 => ['id' => 'tool-3', 'input' => 'only-input'],
+    ]);
 });
