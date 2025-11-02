@@ -16,6 +16,7 @@ use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Streaming\Events\CitationEvent;
+use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -451,6 +452,45 @@ describe('thinking', function (): void {
                 && $body['thinking']['type'] === 'enabled'
                 && $body['thinking']['budget_tokens'] === $customBudget;
         });
+    });
+});
+
+describe('provider tool calls', function (): void {
+    it('can handle provider tool calls in streaming responses', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withPrompt('What is the weather like in London UK today?')
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->asStream();
+
+        $providerToolEvents = [];
+
+        foreach ($response as $event) {
+            if ($event instanceof ProviderToolEvent) {
+                $providerToolEvents[] = $event;
+            }
+        }
+
+        // Verify that provider tool call events were emitted
+        expect($providerToolEvents)->not->toBeEmpty();
+
+        // Verify the structure of the first provider tool call event
+        $firstEvent = $providerToolEvents[0];
+        expect($firstEvent)->toBeInstanceOf(ProviderToolEvent::class);
+        expect($firstEvent->toolType)->toBe('web_search');
+        expect($firstEvent->status)->toBe('started');
+        expect($firstEvent->itemId)->not->toBeEmpty();
+        expect($firstEvent->data)->toBeArray();
+
+        // Verify the structure of the second provider tool call event
+        $secondEvent = $providerToolEvents[1];
+        expect($secondEvent)->toBeInstanceOf(ProviderToolEvent::class);
+        expect($secondEvent->toolType)->toBe('web_search');
+        expect($secondEvent->status)->toBe('completed');
+        expect($secondEvent->itemId)->not->toBeEmpty();
+        expect($secondEvent->data)->toBeArray();
     });
 });
 
