@@ -8,6 +8,8 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HandlesStructuredJson;
+use Prism\Prism\Concerns\ManagesStructuredSteps;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
@@ -36,6 +38,8 @@ class Structured
 {
     use CallsTools;
     use ExtractsCitations;
+    use HandlesStructuredJson;
+    use ManagesStructuredSteps;
     use MapsFinishReason;
     use ProcessRateLimits;
     use ValidatesResponse;
@@ -63,8 +67,8 @@ class Structured
         $this->handleRefusal(data_get($data, 'output.{last}.content.0', []));
 
         $toolCalls = ToolCallMap::map(
-            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
+            $this->extractFunctionCalls($data),
+            $this->extractReasoningOutput($data),
         );
 
         $responseMessage = new AssistantMessage(
@@ -89,9 +93,7 @@ class Structured
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-            ),
+            ToolCallMap::map($this->extractFunctionCalls($data)),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -115,11 +117,6 @@ class Structured
         return $this->responseBuilder->toResponse();
     }
 
-    protected function shouldContinue(Request $request): bool
-    {
-        return $this->responseBuilder->steps->count() < $request->maxSteps();
-    }
-
     /**
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
@@ -131,8 +128,8 @@ class Structured
 
         $toolCalls = $finishReason === FinishReason::ToolCalls
             ? ToolCallMap::map(
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
+                $this->extractFunctionCalls($data),
+                $this->extractReasoningOutput($data),
             )
             : [];
 
@@ -162,19 +159,27 @@ class Structured
     }
 
     /**
-     * @return array<string, mixed>
+     * @param  array<string, mixed>  $data
+     * @return array<int, array<string, mixed>>
      */
-    protected function extractStructuredData(string $text): array
+    protected function extractFunctionCalls(array $data): array
     {
-        if ($text === '' || $text === '0') {
-            return [];
-        }
+        return array_filter(
+            data_get($data, 'output', []),
+            fn (array $output): bool => $output['type'] === 'function_call'
+        );
+    }
 
-        try {
-            return json_decode($text, true, flags: JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            return [];
-        }
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<int, array<string, mixed>>
+     */
+    protected function extractReasoningOutput(array $data): array
+    {
+        return array_filter(
+            data_get($data, 'output', []),
+            fn (array $output): bool => $output['type'] === 'reasoning'
+        );
     }
 
     /**

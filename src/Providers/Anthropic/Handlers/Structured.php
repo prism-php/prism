@@ -36,8 +36,6 @@ class Structured
 {
     use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
-    protected Response $tempResponse;
-
     protected ResponseBuilder $responseBuilder;
 
     protected AnthropicStructuredStrategy $strategy;
@@ -45,10 +43,7 @@ class Structured
     public function __construct(protected PendingRequest $client, protected StructuredRequest $request)
     {
         $this->responseBuilder = new ResponseBuilder;
-
-        $this->strategy = $this->request->providerOptions('use_tool_calling') === true
-            ? new ToolStructuredStrategy(request: $request)
-            : new JsonModeStructuredStrategy(request: $request);
+        $this->strategy = self::createStrategy($request);
     }
 
     public function handle(): Response
@@ -57,21 +52,21 @@ class Structured
 
         $this->sendRequest();
 
-        $this->prepareTempResponse();
+        $tempResponse = $this->buildTempResponse();
 
         $toolCalls = $this->extractToolCalls($this->httpResponse->json());
 
         $responseMessage = new AssistantMessage(
-            content: $this->tempResponse->text,
+            content: $tempResponse->text,
             toolCalls: $toolCalls,
-            additionalContent: $this->tempResponse->additionalContent
+            additionalContent: $tempResponse->additionalContent
         );
 
         $this->request->addMessage($responseMessage);
 
-        return match ($this->tempResponse->finishReason) {
-            FinishReason::ToolCalls => $this->handleToolCalls($toolCalls),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop(),
+        return match ($tempResponse->finishReason) {
+            FinishReason::ToolCalls => $this->handleToolCalls($toolCalls, $tempResponse),
+            FinishReason::Stop, FinishReason::Length => $this->handleStop($tempResponse),
             default => throw new \Prism\Prism\Exceptions\PrismException('Anthropic: unknown finish reason'),
         };
     }
@@ -87,9 +82,7 @@ class Structured
             throw new InvalidArgumentException('Request must be an instance of '.StructuredRequest::class);
         }
 
-        $structuredStrategy = $request->providerOptions('use_tool_calling') === true
-            ? new ToolStructuredStrategy(request: $request)
-            : new JsonModeStructuredStrategy(request: $request);
+        $structuredStrategy = self::createStrategy($request);
 
         $basePayload = Arr::whereNotNull([
             'model' => $request->model(),
@@ -112,61 +105,97 @@ class Structured
         return $structuredStrategy->mutatePayload($basePayload);
     }
 
+    protected static function createStrategy(StructuredRequest $request): AnthropicStructuredStrategy
+    {
+        return $request->providerOptions('use_tool_calling')
+            ? new ToolStructuredStrategy(request: $request)
+            : new JsonModeStructuredStrategy(request: $request);
+    }
+
     /**
      * @param  ToolCall[]  $toolCalls
      */
-    protected function handleToolCalls(array $toolCalls): Response
+    protected function handleToolCalls(array $toolCalls, Response $tempResponse): Response
     {
         $hasCustomTools = $this->hasCustomToolCalls($toolCalls);
         $hasStructuredTool = $this->hasStructuredToolCall($toolCalls);
 
+        if ($hasCustomTools && $hasStructuredTool) {
+            return $this->executeCustomToolsAndFinalize($toolCalls, $tempResponse);
+        }
+
         if ($hasCustomTools) {
-            $customToolCalls = array_filter(
-                $toolCalls,
-                fn (ToolCall $call): bool => $call->name !== 'output_structured_data'
-            );
-
-            $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
-
-            // If structured tool was also called alongside custom tools, we're done
-            // Extract the data and return immediately
-            if ($hasStructuredTool) {
-                $this->addStep($toolCalls, $toolResults);
-
-                return $this->responseBuilder->toResponse();
-            }
-
-            // Only custom tools were called, recurse to get structured output
-            $message = new ToolResultMessage($toolResults);
-            if ($tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type')) {
-                $message->withProviderOptions(['cacheType' => $tool_result_cache_type]);
-            }
-
-            $this->request->addMessage($message);
-
-            $this->addStep($toolCalls, $toolResults);
-
-            if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
-                return $this->handle();
-            }
-
-            return $this->responseBuilder->toResponse();
+            return $this->executeCustomToolsAndContinue($toolCalls, $tempResponse);
         }
 
-        if ($hasStructuredTool) {
-            $this->addStep($toolCalls);
+        return $this->finalizeWithToolCalls($toolCalls, $tempResponse);
+    }
 
-            return $this->responseBuilder->toResponse();
-        }
-
-        $this->addStep($toolCalls);
+    /**
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function executeCustomToolsAndFinalize(array $toolCalls, Response $tempResponse): Response
+    {
+        $customToolCalls = $this->filterCustomToolCalls($toolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
+        $this->addStep($toolCalls, $tempResponse, $toolResults);
 
         return $this->responseBuilder->toResponse();
     }
 
-    protected function handleStop(): Response
+    /**
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function executeCustomToolsAndContinue(array $toolCalls, Response $tempResponse): Response
     {
-        $this->addStep();
+        $customToolCalls = $this->filterCustomToolCalls($toolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
+
+        $message = new ToolResultMessage($toolResults);
+        if ($toolResultCacheType = $this->request->providerOptions('tool_result_cache_type')) {
+            $message->withProviderOptions(['cacheType' => $toolResultCacheType]);
+        }
+
+        $this->request->addMessage($message);
+        $this->addStep($toolCalls, $tempResponse, $toolResults);
+
+        if ($this->canContinue()) {
+            return $this->handle();
+        }
+
+        return $this->responseBuilder->toResponse();
+    }
+
+    /**
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function finalizeWithToolCalls(array $toolCalls, Response $tempResponse): Response
+    {
+        $this->addStep($toolCalls, $tempResponse);
+
+        return $this->responseBuilder->toResponse();
+    }
+
+    /**
+     * @param  ToolCall[]  $toolCalls
+     * @return ToolCall[]
+     */
+    protected function filterCustomToolCalls(array $toolCalls): array
+    {
+        return array_filter(
+            $toolCalls,
+            fn (ToolCall $call): bool => $call->name !== ToolStructuredStrategy::STRUCTURED_OUTPUT_TOOL_NAME
+        );
+    }
+
+    protected function canContinue(): bool
+    {
+        return $this->responseBuilder->steps->count() < $this->request->maxSteps();
+    }
+
+    protected function handleStop(Response $tempResponse): Response
+    {
+        $this->addStep([], $tempResponse);
 
         return $this->responseBuilder->toResponse();
     }
@@ -177,7 +206,7 @@ class Structured
     protected function hasCustomToolCalls(array $toolCalls): bool
     {
         foreach ($toolCalls as $call) {
-            if ($call->name !== 'output_structured_data') {
+            if ($call->name !== ToolStructuredStrategy::STRUCTURED_OUTPUT_TOOL_NAME) {
                 return true;
             }
         }
@@ -191,7 +220,7 @@ class Structured
     protected function hasStructuredToolCall(array $toolCalls): bool
     {
         foreach ($toolCalls as $call) {
-            if ($call->name === 'output_structured_data') {
+            if ($call->name === ToolStructuredStrategy::STRUCTURED_OUTPUT_TOOL_NAME) {
                 return true;
             }
         }
@@ -203,31 +232,65 @@ class Structured
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
      */
-    protected function addStep(array $toolCalls = [], array $toolResults = []): void
+    protected function addStep(array $toolCalls, Response $tempResponse, array $toolResults = []): void
     {
-        // A step is a structured step if:
-        // - There are no custom tools (only structured tool or no tools)
-        // - OR there are no tool results (initial step)
-        // - OR the structured tool is present (even with custom tools)
-        $isStructuredStep = ! $this->hasCustomToolCalls($toolCalls)
-            || $toolResults === []
-            || $this->hasStructuredToolCall($toolCalls);
+        $isStructuredStep = $this->determineIfStructuredStep($toolCalls, $toolResults);
 
         $this->responseBuilder->addStep(new Step(
-            text: $this->tempResponse->text,
-            finishReason: $this->tempResponse->finishReason,
-            usage: $this->tempResponse->usage,
-            meta: $this->tempResponse->meta,
+            text: $tempResponse->text,
+            finishReason: $tempResponse->finishReason,
+            usage: $tempResponse->usage,
+            meta: $tempResponse->meta,
             messages: $this->request->messages(),
             systemPrompts: $this->request->systemPrompts(),
-            additionalContent: $this->tempResponse->additionalContent,
-            structured: $isStructuredStep ? ($this->tempResponse->structured ?? []) : [],
+            additionalContent: $tempResponse->additionalContent,
+            structured: $isStructuredStep ? ($tempResponse->structured ?? []) : [],
             toolCalls: $toolCalls,
             toolResults: $toolResults,
         ));
     }
 
-    protected function prepareTempResponse(): void
+    /**
+     * @param  ToolCall[]  $toolCalls
+     * @param  ToolResult[]  $toolResults
+     */
+    protected function determineIfStructuredStep(array $toolCalls, array $toolResults): bool
+    {
+        if ($this->hasOnlyStructuredTools($toolCalls)) {
+            return true;
+        }
+        if ($this->isInitialStep($toolResults)) {
+            return true;
+        }
+
+        return $this->includesStructuredTool($toolCalls);
+    }
+
+    /**
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function hasOnlyStructuredTools(array $toolCalls): bool
+    {
+        return ! $this->hasCustomToolCalls($toolCalls);
+    }
+
+    /**
+     * @param  ToolResult[]  $toolResults
+     */
+    protected function isInitialStep(array $toolResults): bool
+    {
+        return $toolResults === [];
+    }
+
+    /**
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function includesStructuredTool(array $toolCalls): bool
+    {
+        return $this->hasStructuredToolCall($toolCalls);
+    }
+
+    protected function buildTempResponse(): Response
     {
         $data = $this->httpResponse->json();
 
@@ -253,7 +316,7 @@ class Structured
             ])
         );
 
-        $this->tempResponse = $this->strategy->mutateResponse($this->httpResponse, $baseResponse);
+        return $this->strategy->mutateResponse($this->httpResponse, $baseResponse);
     }
 
     /**

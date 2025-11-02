@@ -12,6 +12,8 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class ToolStructuredStrategy extends AnthropicStructuredStrategy
 {
+    public const STRUCTURED_OUTPUT_TOOL_NAME = 'output_structured_data';
+
     public function appendMessages(): void
     {
         if ($this->request->providerOptions('thinking.enabled') === false) {
@@ -19,7 +21,8 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
         }
 
         $this->request->addMessage(new UserMessage(sprintf(
-            "Please use the output_structured_data tool to provide your response. If for any reason you cannot use the tool, respond with ONLY JSON (i.e. not in backticks or a code block, with NO CONTENT outside the JSON) that matches the following schema: \n %s",
+            "Please use the %s tool to provide your response. If for any reason you cannot use the tool, respond with ONLY JSON (i.e. not in backticks or a code block, with NO CONTENT outside the JSON) that matches the following schema: \n %s",
+            self::STRUCTURED_OUTPUT_TOOL_NAME,
             json_encode($this->request->schema()->toArray(), JSON_PRETTY_PRINT)
         )));
     }
@@ -33,7 +36,7 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
         $schemaArray = $this->request->schema()->toArray();
 
         $structuredOutputTool = [
-            'name' => 'output_structured_data',
+            'name' => self::STRUCTURED_OUTPUT_TOOL_NAME,
             'description' => 'Output data in the requested structure',
             'input_schema' => [
                 'type' => 'object',
@@ -51,7 +54,7 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
         ];
 
         if ($this->request->providerOptions('thinking.enabled') !== true && $this->request->tools() === []) {
-            $payload['tool_choice'] = ['type' => 'tool', 'name' => 'output_structured_data'];
+            $payload['tool_choice'] = ['type' => 'tool', 'name' => self::STRUCTURED_OUTPUT_TOOL_NAME];
         }
 
         return $payload;
@@ -66,7 +69,7 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
 
         $toolCalls = array_values(array_filter(
             data_get($data, 'content', []),
-            fn ($content): bool => data_get($content, 'type') === 'tool_use' && data_get($content, 'name') === 'output_structured_data'
+            fn ($content): bool => data_get($content, 'type') === 'tool_use' && data_get($content, 'name') === self::STRUCTURED_OUTPUT_TOOL_NAME
         ));
 
         $structured = data_get($toolCalls, '0.input', []);

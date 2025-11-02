@@ -34,9 +34,7 @@ readonly class ResponseBuilder
         return new Response(
             steps: $this->steps,
             text: $finalStep->text,
-            structured: $finalStep->structured === [] && $finalStep->finishReason === FinishReason::Stop
-                ? $this->decodeObject($finalStep->text)
-                : $finalStep->structured,
+            structured: $this->extractFinalStructuredData($finalStep),
             finishReason: $finalStep->finishReason,
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,
@@ -44,6 +42,24 @@ readonly class ResponseBuilder
             toolResults: $this->aggregateToolResults(),
             additionalContent: $finalStep->additionalContent,
         );
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    protected function extractFinalStructuredData(Step $finalStep): array
+    {
+        if ($this->shouldDecodeFromText($finalStep)) {
+            return $this->decodeObject($finalStep->text);
+        }
+
+        return $finalStep->structured;
+    }
+
+    protected function shouldDecodeFromText(Step $finalStep): bool
+    {
+        return $finalStep->structured === []
+            && $finalStep->finishReason === FinishReason::Stop;
     }
 
     /**

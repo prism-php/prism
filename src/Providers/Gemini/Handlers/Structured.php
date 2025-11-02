@@ -7,6 +7,8 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\HandlesStructuredJson;
+use Prism\Prism\Concerns\ManagesStructuredSteps;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
@@ -29,7 +31,10 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
-    use CallsTools, ValidatesResponse;
+    use CallsTools;
+    use HandlesStructuredJson;
+    use ManagesStructuredSteps;
+    use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -134,7 +139,6 @@ class Structured
             ));
         }
 
-        // Check for token exhaustion patterns
         $finishReason = data_get($data, 'candidates.0.finishReason');
         $content = data_get($data, 'candidates.0.content.parts.0.text', '');
         $thoughtTokens = data_get($data, 'usageMetadata.thoughtsTokenCount', 0);
@@ -145,7 +149,6 @@ class Structured
             $totalTokens = data_get($data, 'usageMetadata.totalTokenCount', 0);
             $outputTokens = $candidatesTokens - $thoughtTokens;
 
-            // Check if content is empty or likely truncated/invalid JSON
             $isEmpty = in_array(trim((string) $content), ['', '0'], true);
             $isInvalidJson = ! empty($content) && json_decode((string) $content) === null;
             $contentLength = strlen((string) $content);
@@ -196,11 +199,6 @@ class Structured
         return $this->responseBuilder->toResponse();
     }
 
-    protected function shouldContinue(Request $request): bool
-    {
-        return $this->responseBuilder->steps->count() < $request->maxSteps();
-    }
-
     /**
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
@@ -230,21 +228,5 @@ class Structured
                 toolResults: $toolResults,
             )
         );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function extractStructuredData(string $text): array
-    {
-        if ($text === '' || $text === '0') {
-            return [];
-        }
-
-        try {
-            return json_decode($text, true, flags: JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            return [];
-        }
     }
 }
