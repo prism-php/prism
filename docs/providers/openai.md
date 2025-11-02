@@ -51,6 +51,51 @@ $response = Prism::structured()
 >
 > For more details on required vs nullable fields, see [Schemas - Required vs Nullable Fields](/core-concepts/schemas#required-vs-nullable-fields).
 
+### Combining Tools with Structured Output
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tool;
+
+$schema = new ObjectSchema(
+    name: 'weather_analysis',
+    description: 'Analysis of weather conditions',
+    properties: [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    requiredFields: ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::structured()
+    ->using('openai', 'gpt-4o')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Access structured output
+dump($response->structured);
+
+// Access tool execution details
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+}
+```
+
+> [!IMPORTANT]
+> When combining tools with structured output, set `maxSteps` to at least 2. OpenAI automatically uses the `/responses` endpoint and sets `parallel_tool_calls: false`.
+
+For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
+
 ### Metadata
 
 ```php
