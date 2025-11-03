@@ -1,0 +1,25 @@
+{
+  "id": "rrr4z55ocneqzikepnug6xezpe",
+  "model": "meta/meta-llama-3.1-405b-instruct",
+  "version": "meta/meta-llama-3.1-405b-instruct:v1",
+  "input": {
+    "prompt": "Hello, world!",
+    "max_tokens": 100
+  },
+  "logs": "Processing...\nCompleted successfully",
+  "output": "Hello! How can I assist you today?",
+  "data_removed": false,
+  "error": null,
+  "status": "succeeded",
+  "created_at": "2024-11-03T12:00:00.000000Z",
+  "started_at": "2024-11-03T12:00:01.000000Z",
+  "completed_at": "2024-11-03T12:00:03.000000Z",
+  "metrics": {
+    "predict_time": 1.234567,
+    "total_time": 3.012345
+  },
+  "urls": {
+    "cancel": "https://api.replicate.com/v1/predictions/rrr4z55ocneqzikepnug6xezpe/cancel",
+    "get": "https://api.replicate.com/v1/predictions/rrr4z55ocneqzikepnug6xezpe"
+  }
+}
