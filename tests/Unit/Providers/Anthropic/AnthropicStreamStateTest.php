@@ -13,6 +13,18 @@ it('constructs with default empty thinking signature', function (): void {
     expect($state->currentThinkingSignature())->toBe('');
 });
 
+it('constructs with empty provider tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->providerToolCalls())->toBe([]);
+});
+
+it('constructs with empty provider tool results', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->providerToolResults())->toBe([]);
+});
+
 it('appendThinkingSignature accumulates signature text', function (): void {
     $state = new AnthropicStreamState;
 
@@ -51,19 +63,84 @@ it('currentThinkingSignature returns accumulated value', function (): void {
     expect($state->currentThinkingSignature())->toBe('signature-data');
 });
 
+it('addProviderToolCall adds provider tool call to the list', function (): void {
+    $state = new AnthropicStreamState;
+
+    $providerToolCall1 = ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz789', 'name' => 'web_search'];
+    $providerToolCall2 = ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz790', 'name' => 'web_fetch'];
+
+    $state->addProviderToolCall(0, $providerToolCall1);
+    $state->addProviderToolCall(1, $providerToolCall2);
+
+    expect($state->providerToolCalls())->toBe([
+        0 => $providerToolCall1,
+        1 => $providerToolCall2,
+    ]);
+});
+
+it('hasProviderToolCalls returns false when there are no provider tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->hasProviderToolCalls())->toBeFalse();
+});
+
+it('hasProviderToolCalls returns true if there are provider tool calls', function (): void {
+    $state = new AnthropicStreamState;
+
+    $providerToolCall1 = ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz789', 'name' => 'web_search'];
+    $providerToolCall2 = ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz790', 'name' => 'web_fetch'];
+
+    $state->addProviderToolCall(0, $providerToolCall1);
+    $state->addProviderToolCall(1, $providerToolCall2);
+
+    expect($state->hasProviderToolCalls())->toBeTrue();
+});
+
+it('addProviderToolResult adds provider tool result to the list', function (): void {
+    $state = new AnthropicStreamState;
+
+    $providerToolResult1 = ['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []];
+
+    $state->addProviderToolResult(0, $providerToolResult1);
+
+    expect($state->providerToolResults())->toBe([
+        0 => $providerToolResult1,
+    ]);
+});
+
+it('hasProviderToolResults returns false when there are no provider tool results', function (): void {
+    $state = new AnthropicStreamState;
+
+    expect($state->hasProviderToolResults())->toBeFalse();
+});
+
+it('hasProviderToolResults returns true if there are provider tool results', function (): void {
+    $state = new AnthropicStreamState;
+
+    $providerToolResult1 = ['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []];
+
+    $state->addProviderToolResult(0, $providerToolResult1);
+
+    expect($state->hasProviderToolResults())->toBeTrue();
+});
+
 it('reset clears thinking signature', function (): void {
     $state = new AnthropicStreamState;
     $state->appendThinkingSignature('some-signature')
+        ->addProviderToolCall(0, ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz789', 'name' => 'web_search', 'input' => ''])
+        ->appendProviderToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}')
+        ->addProviderToolResult(0, ['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []])
         ->withMessageId('msg-123')
         ->appendText('text')
         ->appendThinking('thinking');
-
     $state->reset();
 
     expect($state->currentThinkingSignature())->toBe('')
         ->and($state->messageId())->toBe('')
         ->and($state->currentText())->toBe('')
-        ->and($state->currentThinking())->toBe('');
+        ->and($state->currentThinking())->toBe('')
+        ->and($state->providerToolCalls())->toBe([])
+        ->and($state->providerToolResults())->toBe([]);
 });
 
 it('reset returns self', function (): void {
@@ -79,6 +156,9 @@ it('reset returns self', function (): void {
 it('resetTextState clears thinking signature', function (): void {
     $state = new AnthropicStreamState;
     $state->appendThinkingSignature('signature')
+        ->addProviderToolCall(0, ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz789', 'name' => 'web_search', 'input' => ''])
+        ->appendProviderToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}')
+        ->addProviderToolResult(0, ['type' => 'web_search_result', 'tool_use_id' => 'provtoolu_xyz789', 'content' => []])
         ->withMessageId('msg-123')
         ->appendText('text')
         ->appendThinking('thinking')
@@ -91,6 +171,8 @@ it('resetTextState clears thinking signature', function (): void {
         ->and($state->messageId())->toBe('')
         ->and($state->currentText())->toBe('')
         ->and($state->currentThinking())->toBe('')
+        ->and($state->providerToolCalls())->toBe([])
+        ->and($state->providerToolResults())->toBe([])
         ->and($state->model())->toBe('claude-3')
         ->and($state->hasStreamStarted())->toBeTrue();
 });
@@ -113,13 +195,15 @@ it('supports fluent chaining with base StreamState methods', function (): void {
     $state->appendThinkingSignature('sig-1');
     $state->appendText('Hello');
     $state->appendThinkingSignature('-sig-2');
-    $state->addProviderToolCall(0, ['id' => 'tool-123']);
+    $state->addProviderToolCall(0, ['id' => 'tool-123', 'input' => '']);
+    $state->appendProviderToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}');
+    $state->addProviderToolResult(0, ['type' => 'web_search_result', 'tool_use_id' => 'srvtoolu_xyz789', 'content' => []]);
     $state->markStreamStarted();
 
     expect($state->messageId())->toBe('msg-456')
         ->and($state->model())->toBe('claude-3-5-sonnet')
         ->and($state->currentThinkingSignature())->toBe('sig-1-sig-2')
-        ->and($state->providerToolCalls())->toBe([0 => ['id' => 'tool-123']])
+        ->and($state->providerToolCalls())->toBe([0 => ['id' => 'tool-123', 'input' => '{"query":"latest quantum computing breakthroughs 2025"}']])
         ->and($state->currentText())->toBe('Hello')
         ->and($state->hasStreamStarted())->toBeTrue();
 });
@@ -140,6 +224,9 @@ it('inherits all base StreamState functionality', function (): void {
     $state->appendText('response text');
     $state->appendThinking('thought process');
     $state->appendThinkingSignature('signature-value');
+    $state->addProviderToolCall(0, ['type' => 'provider_tool_use', 'id' => 'provtoolu_xyz789', 'name' => 'web_search', 'input' => '']);
+    $state->appendProviderToolCallInput(0, '{"query":"latest quantum computing breakthroughs 2025"}');
+    $state->addProviderToolResult(0, ['type' => 'web_search_result', 'tool_use_id' => 'provtoolu_xyz789', 'content' => []]);
     $state->withBlockContext(2, 'text');
     $state->addToolCall(0, ['id' => 'tool-1', 'name' => 'search']);
     $state->addProviderToolCall(0, ['id' => 'tool-1']);
@@ -291,12 +378,6 @@ it('handles very long signature accumulation', function (): void {
     }
 
     expect($state->currentThinkingSignature())->toBe($expected);
-});
-
-it('constructs with empty provider tool calls', function (): void {
-    $state = new AnthropicStreamState;
-
-    expect($state->providerToolCalls())->toBe([]);
 });
 
 it('reset clears provider tool calls', function (): void {

@@ -521,3 +521,81 @@ describe('Anthropic citations mapping', function (): void {
         expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('end_char_index', 30);
     });
 });
+
+describe('Anthropic provider tool calls mapping', function (): void {
+    it('maps assistant message with provider tool calls', function (): void {
+        expect(MessageMap::map([
+            new AssistantMessage(
+                content: 'I have used a provider tool.',
+                additionalContent: [
+                    'provider_tool_calls' => [
+                        [
+                            'type' => 'server_tool_use',
+                            'id' => 'srvtoolu_xyz789',
+                            'name' => 'web_search',
+                            'input' => '{"query":"london weather"}',
+                        ],
+                    ],
+                ]
+            ),
+        ]))->toBe([
+            [
+                'role' => 'assistant',
+                'content' => [
+                    [
+                        'type' => 'text',
+                        'text' => 'I have used a provider tool.',
+                    ],
+                    [
+                        'type' => 'server_tool_use',
+                        'id' => 'srvtoolu_xyz789',
+                        'name' => 'web_search',
+                        'input' => [
+                            'query' => 'london weather',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    });
+
+    it('maps assistant message with web search tool results', function (): void {
+        expect(MessageMap::map([
+            new AssistantMessage(
+                content: 'Here are the web search results.',
+                additionalContent: [
+                    'provider_tool_results' => [
+                        [
+                            'type' => 'web_search_tool_result',
+                            'tool_use_id' => 'srvtoolu_xyz789',
+                            'content' => [
+                                'results' => [
+                                    ['type' => 'web_search_result', 'title' => 'London Weather Today', 'url' => 'https://weather.com/london'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]
+            ),
+        ]))->toBe([
+            [
+                'role' => 'assistant',
+                'content' => [
+                    [
+                        'type' => 'text',
+                        'text' => 'Here are the web search results.',
+                    ],
+                    [
+                        'type' => 'web_search_tool_result',
+                        'tool_use_id' => 'srvtoolu_xyz789',
+                        'content' => [
+                            'results' => [
+                                ['type' => 'web_search_result', 'title' => 'London Weather Today', 'url' => 'https://weather.com/london'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    });
+});
