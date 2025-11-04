@@ -1,0 +1,11 @@
+{
+  "id": "pred_markdown",
+  "status": "succeeded",
+  "output": [
+    "I'll call the weather tool:\n```json\n{\"tool_calls\": [{\"id\": \"call_1\", \"name\": \"get_weather\", \"arguments\": {\"location\": \"Paris\"}}]}\n```\n"
+  ],
+  "metrics": {
+    "input_token_count": 145,
+    "output_token_count": 40
+  }
+}

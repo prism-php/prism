@@ -235,6 +235,7 @@ class PrismManager
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.replicate.com/v1',
             webhookUrl: $config['webhook_url'] ?? null,
+            useSyncMode: $config['use_sync_mode'] ?? true,
             pollingInterval: $config['polling_interval'] ?? 1000,
             maxWaitTime: $config['max_wait_time'] ?? 60,
         );

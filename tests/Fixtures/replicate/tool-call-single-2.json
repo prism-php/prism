@@ -1,0 +1,14 @@
+{
+  "id": "pred_tool_single_2",
+  "status": "succeeded",
+  "output": [
+    "Based on the weather data, it is currently sunny and 72°F in Paris. Perfect weather for outdoor activities!"
+  ],
+  "metrics": {
+    "input_token_count": 200,
+    "output_token_count": 28
+  },
+  "urls": {
+    "get": "https://api.replicate.com/v1/predictions/pred_tool_single_2"
+  }
+}

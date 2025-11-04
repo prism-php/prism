@@ -1,0 +1,11 @@
+{
+  "id": "pred_multistep_1",
+  "status": "succeeded",
+  "output": [
+    "{\"tool_calls\": [{\"id\": \"call_loc\", \"name\": \"get_location\", \"arguments\": {}}]}"
+  ],
+  "metrics": {
+    "input_token_count": 140,
+    "output_token_count": 25
+  }
+}

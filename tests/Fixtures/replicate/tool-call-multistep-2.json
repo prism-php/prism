@@ -1,0 +1,11 @@
+{
+  "id": "pred_multistep_2",
+  "status": "succeeded",
+  "output": [
+    "{\"tool_calls\": [{\"id\": \"call_weather\", \"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]}"
+  ],
+  "metrics": {
+    "input_token_count": 170,
+    "output_token_count": 30
+  }
+}
