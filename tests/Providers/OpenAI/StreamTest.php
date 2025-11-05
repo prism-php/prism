@@ -6,6 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
@@ -527,5 +528,59 @@ it('filters service_tier if null', function (): void {
         expect($request->data())->not()->toHaveKey('service_tier');
 
         return true; // Assertion will fail
+    });
+});
+
+it('uses meta to set text_verbosity', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $textVerbosity = 'medium';
+
+    $response = Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'text_verbosity' => $textVerbosity,
+        ])
+        ->asStream();
+
+    // process stream
+    collect($response);
+
+    Http::assertSent(function (Request $request) use ($textVerbosity): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'text.verbosity'))->toBe($textVerbosity);
+
+        return true;
+    });
+});
+
+it('filters text_verbosity if null', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $response = Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'text_verbosity' => null,
+        ])
+        ->asText();
+
+    // process stream
+    collect($response);
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect($body)->not()->toHaveKey('text.verbosity');
+
+        return true;
     });
 });
