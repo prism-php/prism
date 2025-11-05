@@ -453,7 +453,7 @@ it('uses meta to set text_verbosity', function (): void {
     Http::assertSent(function (Request $request) use ($textVerbosity): true {
         $body = json_decode($request->body(), true);
 
-        expect(data_get($body, 'text_verbosity'))->toBe($textVerbosity);
+        expect(data_get($body, 'text.verbosity'))->toBe($textVerbosity);
 
         return true;
     });
@@ -476,7 +476,7 @@ it('filters text_verbosity if null', function (): void {
     Http::assertSent(function (Request $request): true {
         $body = json_decode($request->body(), true);
 
-        expect($body)->not()->toHaveKey('text_verbosity');
+        expect($body)->not()->toHaveKey('text.verbosity');
 
         return true;
     });
