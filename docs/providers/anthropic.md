@@ -401,6 +401,56 @@ $response = Prism::structured()
 - Cannot be used with citations (citations are not supported in tool calling mode)
 - Slightly more complex under the hood but identical API usage
 
+#### Combining Custom Tools with Structured Output
+
+You can combine custom tools with structured output to gather data before returning a structured response. This requires tool calling mode to be enabled:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tool;
+
+$schema = new ObjectSchema(
+    'weather_analysis',
+    'Analysis of weather conditions',
+    [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::structured()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withProviderOptions(['use_tool_calling' => true]) // Required for Anthropic
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Access structured output
+dump($response->structured);
+
+// Access tool execution details
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+}
+```
+
+> [!IMPORTANT]
+> When using custom tools with structured output on Anthropic, you must:
+> - Set `use_tool_calling: true` in provider options
+> - Set `maxSteps` to at least 2
+
+For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
+
 ## Limitations
 ### Messages
 

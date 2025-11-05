@@ -1,0 +1,135 @@
+{
+  "id": "resp_0cf7fc3540adc7870069079b02e094819b847b154dd3898e17",
+  "object": "response",
+  "created_at": 1762106114,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "msg_0cf7fc3540adc7870069079b046c44819bae38f8e904b8a385",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "{\"findings\":\"AI safety is a field focused on ensuring that artificial intelligence systems operate in a reliable, predictable, and beneficial manner. Key concerns include preventing unintended consequences, ensuring alignment with human values, and avoiding misuse. Technological approaches include designing robust AI models, improving transparency, and enhancing interpretability. Collaborative efforts across institutions focus on setting ethical guidelines, safety standards, and international regulations.\\n\\nRecent trends emphasize the importance of interdisciplinary research combining computer science with fields like cognitive science, ethics, and law. Research initiatives often involve both theoretical studies and practical applications, such as creating fail-safe mechanisms.\\n\\nA notable challenge is the rapid pace of technological advancement, which often outstrips the development of comprehensive safety protocols. This has led to increased investments in safety research and the establishment of dedicated organizations and research centers focused on these issues.\",\"sources\":\"Internal database, External API\"}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": false,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "description": null,
+      "name": "research_summary",
+      "schema": {
+        "description": "Summary of research findings",
+        "type": "object",
+        "properties": {
+          "findings": {
+            "description": "Key findings from research",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sources": {
+            "description": "Sources consulted",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "findings",
+          "sources"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "description": "Search internal database",
+      "name": "search_database",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "Search query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "description": "Fetch data from external API",
+      "name": "fetch_external",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "description": "API endpoint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 212,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 182,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 394
+  },
+  "user": null,
+  "metadata": {}
+}

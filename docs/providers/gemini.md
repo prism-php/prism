@@ -77,6 +77,82 @@ foreach ($response->additionalContent['citations'] as $part) {
 // Pass $text and $footnotes to your frontend.
 ```
 
+## Structured Output
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$schema = new ObjectSchema(
+    name: 'movie_review',
+    description: 'A structured movie review',
+    properties: [
+        new StringSchema('title', 'The movie title'),
+        new StringSchema('rating', 'Rating out of 5 stars'),
+        new StringSchema('summary', 'Brief review summary'),
+    ],
+    requiredFields: ['title', 'rating', 'summary']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.0-flash')
+    ->withSchema($schema)
+    ->withPrompt('Review the movie Inception')
+    ->asStructured();
+
+// Access structured data
+dump($response->structured);
+```
+
+### Combining Tools with Structured Output
+
+Gemini natively supports combining custom tools with structured output. The AI can call tools to gather data, then return a structured response:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tool;
+
+$schema = new ObjectSchema(
+    name: 'weather_analysis',
+    description: 'Analysis of weather conditions',
+    properties: [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    requiredFields: ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::structured()
+    ->using('gemini', 'gemini-2.0-flash')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Access structured output
+dump($response->structured);
+
+// Access tool execution details
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+}
+```
+
+> [!IMPORTANT]
+> When combining tools with structured output, set `maxSteps` to at least 2.
+
+For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
+
 ## Caching
 
 Prism supports Gemini prompt caching, though due to Gemini requiring you first upload the cached content, it works a little differently to other providers.

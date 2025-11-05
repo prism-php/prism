@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"summary\": \"Sorry, I don't have the ability to tell you whether you should wear a coat, but I can get the weather in San Francisco for you.\",\n  \"recommendation\": \"Would you like me to get the weather in San Francisco?\"\n}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.10756412045709018
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 36,
+    "candidatesTokenCount": 58,
+    "totalTokenCount": 94,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 36
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 58
+      }
+    ]
+  },
+  "modelVersion": "gemini-2.0-flash",
+  "responseId": "cpoHafG0IvGhjMcPrrm8wQw"
+}

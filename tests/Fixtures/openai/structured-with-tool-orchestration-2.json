@@ -1,0 +1,129 @@
+{
+  "id": "resp_0cf7fc3540adc7870069079b014084819bb039089c37284b0f",
+  "object": "response",
+  "created_at": 1762106113,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "fc_0cf7fc3540adc7870069079b01cb08819b903aae6c341e98ca",
+      "type": "function_call",
+      "status": "completed",
+      "arguments": "{\"endpoint\":\"https://external-api.com/ai-safety-research\"}",
+      "call_id": "call_UXMrfxaAzO02L4ZydeCPAJHu",
+      "name": "fetch_external"
+    }
+  ],
+  "parallel_tool_calls": false,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "description": null,
+      "name": "research_summary",
+      "schema": {
+        "description": "Summary of research findings",
+        "type": "object",
+        "properties": {
+          "findings": {
+            "description": "Key findings from research",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sources": {
+            "description": "Sources consulted",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "findings",
+          "sources"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "description": "Search internal database",
+      "name": "search_database",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "Search query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "description": "Fetch data from external API",
+      "name": "fetch_external",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "description": "API endpoint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 164,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 25,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 189
+  },
+  "user": null,
+  "metadata": {}
+}
