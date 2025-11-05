@@ -8,6 +8,7 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderToolCall;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -17,6 +18,7 @@ readonly class Step
     /**
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
+     * @param  ProviderToolCall[]  $providerToolCalls
      * @param  Message[]  $messages
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<string,mixed>  $additionalContent
@@ -26,6 +28,7 @@ readonly class Step
         public FinishReason $finishReason,
         public array $toolCalls,
         public array $toolResults,
+        public array $providerToolCalls,
         public Usage $usage,
         public Meta $meta,
         public array $messages,

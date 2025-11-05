@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Citations\CitationSourceType;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
@@ -15,6 +16,7 @@ use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ProviderToolCall;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -576,6 +578,119 @@ it('sends reasoning effort when defined', function (): void {
         ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+});
+
+describe('provider tool results', function (): void {
+    it('captures web search provider tool in providerToolCalls', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today?')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        expect($response->steps)->toHaveCount(1);
+        expect($response->steps[0]->providerToolCalls)->toHaveCount(1);
+
+        $providerTool = $response->steps[0]->providerToolCalls[0];
+        expect($providerTool)->toBeInstanceOf(ProviderToolCall::class);
+        expect($providerTool->type)->toBe('web_search_call');
+        expect($providerTool->status)->toBe('completed');
+        expect($providerTool->id)->toStartWith('ws_');
+        expect($providerTool->data)->toHaveKey('action');
+        expect($providerTool->data['action']['type'])->toBe('search');
+        expect($providerTool->data['action']['query'])->toContain('London weather');
+    });
+
+    it('captures code interpreter provider tool in providerToolCalls', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call-and-provider-tool');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1')
+            ->withPrompt('If the current temperature in Detroit is X, what is Y in the following equation: 3x + 10 = Y?')
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+            ->withMaxSteps(3)
+            ->asText();
+
+        $stepWithProviderTool = $response->steps[1];
+        expect($stepWithProviderTool->providerToolCalls)->toHaveCount(1);
+
+        $providerTool = $stepWithProviderTool->providerToolCalls[0];
+        expect($providerTool)->toBeInstanceOf(ProviderToolCall::class);
+        expect($providerTool->type)->toBe('code_interpreter_call');
+        expect($providerTool->status)->toBe('completed');
+        expect($providerTool->id)->toStartWith('ci_');
+        expect($providerTool->data)->toHaveKey('code');
+        expect($providerTool->data['code'])->toContain('3 * x + 10');
+    });
+
+    it('sets finish reason to ToolCalls when provider tools are present', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today?')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::Stop);
+        expect($response->steps[0]->finishReason)->toBe(FinishReason::Stop);
+    });
+
+    it('includes provider tool calls in assistant message additionalContent', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1-2025-04-14')
+            ->withPrompt('What is the weather going to be like in London today?')
+            ->withProviderTools([new ProviderTool(type: 'web_search_preview', name: 'web_search_preview')])
+            ->asText();
+
+        $assistantMessage = $response->messages->last();
+        expect($assistantMessage->additionalContent)->toHaveKey('provider_tool_calls');
+        expect($assistantMessage->additionalContent['provider_tool_calls'])->toHaveCount(1);
+        expect($assistantMessage->additionalContent['provider_tool_calls'][0])->toBeInstanceOf(ProviderToolCall::class);
+    });
+
+    it('handles mixed function calls and provider tools', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call-and-provider-tool');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-4.1')
+            ->withPrompt('If the current temperature in Detroit is X, what is Y in the following equation: 3x + 10 = Y?')
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+            ->withMaxSteps(3)
+            ->asText();
+
+        expect($response->steps)->toHaveCount(2);
+
+        $firstStep = $response->steps[0];
+        expect($firstStep->toolCalls)->toHaveCount(1);
+        expect($firstStep->toolCalls[0]->name)->toBe('weather');
+        expect($firstStep->providerToolCalls)->toHaveCount(0);
+
+        $secondStep = $response->steps[1];
+        expect($secondStep->toolCalls)->toHaveCount(0);
+        expect($secondStep->providerToolCalls)->toHaveCount(1);
+        expect($secondStep->providerToolCalls[0]->type)->toBe('code_interpreter_call');
+    });
 });
 
 describe('citations', function (): void {
