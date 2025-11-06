@@ -136,6 +136,7 @@ class Text
             finishReason: $this->mapFinishReason($data),
             toolCalls: $this->mapToolCalls(data_get($data, 'message.tool_calls', []) ?? []),
             toolResults: $toolResults,
+            providerToolCalls: [],
             usage: new Usage(
                 data_get($data, 'prompt_eval_count', 0),
                 data_get($data, 'eval_count', 0),

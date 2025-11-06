@@ -10,6 +10,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderToolCall;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -19,6 +20,7 @@ use Prism\Prism\ValueObjects\Usage;
  * @method self withFinishReason(FinishReason $finishReason)
  * @method self withToolCalls(ToolCall[] $toolCalls)
  * @method self withToolResults(ToolResult[] $toolResults)
+ * @method self withProviderToolCalls(ProviderToolCall[] $providerToolCalls)
  * @method self withUsage(Usage $usage)
  * @method self withMeta(Meta $meta)
  * @method self withMessages(Message[] $messages)
@@ -36,6 +38,7 @@ readonly class TextStepFake extends Step
             finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
+            providerToolCalls: [],
             usage: new Usage(0, 0),
             meta: new Meta('fake', 'fake'),
             messages: [],
