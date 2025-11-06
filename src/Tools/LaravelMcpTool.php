@@ -2,8 +2,10 @@
 
 namespace Prism\Prism\Tools;
 
+use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
+use Laravel\Mcp\Support\ValidationMessages;
 use Prism\Prism\Schema\RawSchema;
 use Prism\Prism\Tool;
 
@@ -15,15 +17,18 @@ class LaravelMcpTool extends Tool
             ->for($tool->description())
             ->using($this);
 
-        $inputSchema = $tool->toArray()['inputSchema'];
-        $properties = $inputSchema['properties'] ?? [];
-        $required = $inputSchema['required'] ?? [];
+        $data = $tool->toArray();
+        $properties = $data['inputSchema']['properties'] ?? [];
+        $required = $data['inputSchema']['required'] ?? [];
 
         foreach ($properties as $name => $property) {
             $this->withParameter(new RawSchema($name, $property), in_array($name, $required, true));
         }
     }
 
+    /**
+     * @phpstan-ignore missingType.parameter
+     */
     public function __invoke(...$args): string
     {
         // Set default values for parameters that are not provided
@@ -36,8 +41,16 @@ class LaravelMcpTool extends Tool
 
         $request = new Request($args);
 
-        /** @var Response $response */
-        $response = $this->tool->handle($request);
+        try {
+            /**
+             * @var Response $response
+             *
+             * @phpstan-ignore method.notFound
+             */
+            $response = $this->tool->handle($request);
+        } catch (ValidationException $validationException) {
+            $response = Response::error(ValidationMessages::from($validationException));
+        }
 
         return (string) $response->content();
     }

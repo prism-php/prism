@@ -11,6 +11,9 @@ class RawSchema implements Schema
 {
     use NullableSchema;
 
+    /**
+     * @param  array<string, mixed>  $schema
+     */
     public function __construct(
         public readonly string $name,
         public readonly array $schema
