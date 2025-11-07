@@ -43,7 +43,7 @@ class LaravelMcpTool extends Tool
 
         try {
             /**
-             * @var Response|iterable $response
+             * @var Response|\Generator<Response> $response
              *
              * @phpstan-ignore method.notFound
              */
