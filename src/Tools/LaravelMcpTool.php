@@ -43,7 +43,7 @@ class LaravelMcpTool extends Tool
 
         try {
             /**
-             * @var Response $response
+             * @var Response|iterable $response
              *
              * @phpstan-ignore method.notFound
              */
@@ -52,6 +52,12 @@ class LaravelMcpTool extends Tool
             $response = Response::error(ValidationMessages::from($validationException));
         }
 
-        return (string) $response->content();
+        if (is_iterable($response)) {
+            return collect(iterator_to_array($response))
+                ->map(fn (Response $response): string => $response->content()->__toString())
+                ->implode("\n");
+        }
+
+        return $response->content()->__toString();
     }
 }
