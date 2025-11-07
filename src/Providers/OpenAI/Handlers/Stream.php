@@ -138,7 +138,7 @@ class Stream
                 $item = data_get($data, 'item', []);
                 $itemType = data_get($item, 'type', '');
 
-                if (str_ends_with((string) $itemType, '_call')) {
+                if ($itemType !== 'function_call' && str_ends_with((string) $itemType, '_call')) {
                     yield new ProviderToolEvent(
                         id: EventID::generate(),
                         timestamp: time(),
