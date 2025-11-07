@@ -88,6 +88,7 @@ it('can generate text using tools with streaming', function (): void {
     $events = [];
     $toolCalls = [];
     $toolResults = [];
+    $providerToolEvents = [];
 
     foreach ($response as $event) {
         $events[] = $event;
@@ -103,11 +104,16 @@ it('can generate text using tools with streaming', function (): void {
         if ($event instanceof TextDeltaEvent) {
             $text .= $event->delta;
         }
+
+        if ($event instanceof ProviderToolEvent) {
+            $providerToolEvents[] = $event;
+        }
     }
 
     expect($events)->not->toBeEmpty();
     expect($toolCalls)->toHaveCount(2);
     expect($toolResults)->toHaveCount(2);
+    expect($providerToolEvents)->toBeEmpty();
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
