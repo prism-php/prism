@@ -23,7 +23,7 @@ class SchemaMap
         $schemaArray = $this->schema->toArray();
 
         // Remove unsupported fields
-        unset($schemaArray['additionalProperties'], $schemaArray['description'], $schemaArray['name']);
+        unset($schemaArray['additionalProperties'], $schemaArray['name']);
 
         // Handle AnyOfSchema - Gemini doesn't support anyOf, so we'll return the schema as-is
         // or we could choose the first schema type as a fallback
