@@ -414,19 +414,34 @@ class Stream
     {
         $providerOptions = $request->providerOptions();
 
+        if ($request->tools() !== [] && $request->providerTools() !== []) {
+            throw new PrismException('Use of provider tools with custom tools is not currently supported by Gemini.');
+        }
+
         if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
             throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
         }
 
-        $tools = match (true) {
-            $providerOptions['searchGrounding'] ?? false => [
+        $tools = [];
+
+        if ($request->providerTools() !== []) {
+            $tools = [
+                Arr::mapWithKeys(
+                    $request->providerTools(),
+                    fn ($providerTool): array => [
+                        $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                    ]
+                ),
+            ];
+        } elseif ($providerOptions['searchGrounding'] ?? false) {
+            $tools = [
                 [
                     'google_search' => (object) [],
                 ],
-            ],
-            $request->tools() !== [] => ['function_declarations' => ToolMap::map($request->tools())],
-            default => [],
-        };
+            ];
+        } elseif ($request->tools() !== []) {
+            $tools = ['function_declarations' => ToolMap::map($request->tools())];
+        }
 
         return $this->client
             ->withOptions(['stream' => true])

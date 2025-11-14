@@ -87,7 +87,9 @@ class Structured
             $tools = [
                 Arr::mapWithKeys(
                     $request->providerTools(),
-                    fn (ProviderTool $providerTool): array => [$providerTool->type => (object) []]
+                    fn (ProviderTool $providerTool): array => [
+                        $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                    ]
                 ),
             ];
         }
