@@ -205,12 +205,16 @@ class Stream
                     );
                 }
 
+                // Extract grounding metadata if available
+                $groundingMetadata = $this->extractGroundingMetadata($data);
+
                 // Emit stream end event
                 yield new StreamEndEvent(
                     id: EventID::generate(),
                     timestamp: time(),
                     finishReason: $finishReason,
-                    usage: $this->state->usage()
+                    usage: $this->state->usage(),
+                    additionalContent: $groundingMetadata !== null ? ['grounding_metadata' => $groundingMetadata] : []
                 );
             }
         }
@@ -496,5 +500,22 @@ class Stream
     {
         // According to Google's documentation, thinking content is marked with thought=true
         return isset($part['thought']) && $part['thought'] === true;
+    }
+
+    /**
+     * Extract grounding metadata from Gemini API response
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
+     */
+    protected function extractGroundingMetadata(array $data): ?array
+    {
+        $groundingMetadata = data_get($data, 'candidates.0.groundingMetadata');
+
+        if (! $groundingMetadata) {
+            return null;
+        }
+
+        return $groundingMetadata;
     }
 }
