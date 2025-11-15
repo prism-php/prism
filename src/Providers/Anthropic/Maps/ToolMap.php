@@ -28,6 +28,7 @@ class ToolMap
                     'required' => $tool->requiredParameters(),
                 ],
                 'cache_control' => $cacheType ? ['type' => $cacheType instanceof UnitEnum ? $cacheType->name : $cacheType] : null,
+                'strict' => (bool) $tool->providerOptions('strict'),
             ]);
         }, $tools);
     }

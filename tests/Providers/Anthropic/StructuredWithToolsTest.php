@@ -7,6 +7,7 @@ namespace Tests\Providers\Anthropic;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
@@ -197,5 +198,43 @@ describe('Structured output with tools for Anthropic', function (): void {
         expect($response->steps)->not()->toBeEmpty();
         expect($response->toolCalls)->toBeArray();
         expect($response->toolResults)->toBeArray();
+    });
+
+    it('includes strict field in tool definition when specified', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $strictTool = (new Tool)
+            ->as('get_data')
+            ->for('Get data from source')
+            ->withStringParameter('query', 'The query')
+            ->withProviderOptions(['strict' => true])
+            ->using(fn (string $query): string => "Data for: {$query}");
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+            ->withSchema($schema)
+            ->withTools([$strictTool])
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        $customTools = array_filter(
+            $payload['tools'],
+            fn (array $tool): bool => $tool['name'] !== 'output_structured_data'
+        );
+
+        expect($customTools)->toHaveCount(1);
+        $tool = reset($customTools);
+        expect($tool)->toHaveKey('strict');
+        expect($tool['strict'])->toBe(true);
     });
 });
