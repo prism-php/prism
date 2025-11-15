@@ -5,30 +5,33 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
-use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
-use Prism\Prism\Embeddings\Request as EmbeddingRequest;
-use Prism\Prism\Embeddings\Response as EmbeddingResponse;
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismProviderOverloadedException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Images\Request as ImagesRequest;
-use Prism\Prism\Images\Response as ImagesResponse;
-use Prism\Prism\Providers\Gemini\Handlers\Cache;
-use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
-use Prism\Prism\Providers\Gemini\Handlers\Images;
-use Prism\Prism\Providers\Gemini\Handlers\Stream;
-use Prism\Prism\Providers\Gemini\Handlers\Structured;
-use Prism\Prism\Providers\Gemini\Handlers\Text;
-use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
 use Prism\Prism\Providers\Provider;
-use Prism\Prism\Structured\Request as StructuredRequest;
-use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
+use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Concerns\InitializesClient;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Providers\Gemini\Handlers\Text;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Providers\Gemini\Handlers\Audio;
+use Prism\Prism\Providers\Gemini\Handlers\Cache;
+use Prism\Prism\Providers\Gemini\Handlers\Images;
+use Prism\Prism\Providers\Gemini\Handlers\Stream;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
+use Prism\Prism\Providers\Gemini\Handlers\Structured;
+use Prism\Prism\Embeddings\Request as EmbeddingRequest;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
 
 class Gemini extends Provider
 {
@@ -81,6 +84,17 @@ class Gemini extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
+    {
+        $handler = new Audio($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handleTextToSpeech($request);
     }
 
     #[\Override]
