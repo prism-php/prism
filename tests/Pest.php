@@ -21,6 +21,7 @@ uses()->group('mistral')->in('Providers/Mistral');
 uses()->group('ollama')->in('Providers/Ollama');
 uses()->group('openai')->in('Providers/OpenAI');
 uses()->group('xai')->in('Providers/XAI');
+uses()->group('perplexity')->in('Providers/Perplexity');
 
 /*
 |--------------------------------------------------------------------------
