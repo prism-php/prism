@@ -11,7 +11,6 @@ use Prism\Prism\Providers\Perplexity\Concerns\ExtractsUsage;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
-use RuntimeException;
 
 class Structured extends BaseHandler
 {
@@ -66,13 +65,6 @@ class Structured extends BaseHandler
             $stringable = $stringable->substr(0, $stringable->length() - 3)->trim();
         }
 
-        $stringable = $stringable->trim();
-
-        // Extract JSON block between ```json and ```
-        if (preg_match('/```json\s*(\{.*?\})\s*```/s', $stringable, $matches)) {
-            return json_decode($matches[1], associative: true, flags: JSON_THROW_ON_ERROR);
-        }
-
-        throw new RuntimeException('Could not parse structured output: '.$stringable);
+        return json_decode($stringable->trim(), associative: true, flags: JSON_THROW_ON_ERROR);
     }
 }
