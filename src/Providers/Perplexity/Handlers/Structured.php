@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\Perplexity\concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Perplexity\concerns\ExtractsMeta;
+use Prism\Prism\Providers\Perplexity\concerns\ExtractsUsage;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -16,6 +17,7 @@ class Structured extends BaseHandler
 {
     use ExtractsAdditionalContent;
     use ExtractsMeta;
+    use ExtractsUsage;
 
     public function __construct(
         protected PendingRequest $client,
@@ -38,7 +40,7 @@ class Structured extends BaseHandler
             text: $rawContent,
             structured: $this->parseStructuredOutput($rawContent),
             finishReason: FinishReason::Stop,
-            usage: $this->getUsageFromClientResponse($response),
+            usage: $this->extractUsage($data),
             meta: $this->extractsMeta($data),
             additionalContent: $this->extractsAdditionalContent($data),
         );

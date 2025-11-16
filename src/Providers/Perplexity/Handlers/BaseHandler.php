@@ -3,7 +3,6 @@
 namespace Prism\Prism\Providers\Perplexity\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Http\Client\Response as HttpResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
@@ -14,7 +13,6 @@ use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 
 class BaseHandler
@@ -84,13 +82,5 @@ class BaseHandler
         ]));
 
         return $client->post('/chat/completions', $payload);
-    }
-
-    protected function getUsageFromClientResponse(Response $response): Usage
-    {
-        return new Usage(
-            promptTokens: $response->json('usage.prompt_tokens'),
-            completionTokens: $response->json('usage.completion_tokens'),
-        );
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\Perplexity\concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Perplexity\concerns\ExtractsMeta;
+use Prism\Prism\Providers\Perplexity\concerns\ExtractsUsage;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 
@@ -13,6 +14,7 @@ class Text extends BaseHandler
 {
     use ExtractsAdditionalContent;
     use ExtractsMeta;
+    use ExtractsUsage;
 
     public function __construct(
         protected PendingRequest $client,
@@ -29,7 +31,7 @@ class Text extends BaseHandler
             finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
-            usage: $this->getUsageFromClientResponse($response),
+            usage: $this->extractUsage($data),
             meta: $this->extractsMeta($data),
             messages: collect($request->messages()),
             additionalContent: $this->extractsAdditionalContent($data),
