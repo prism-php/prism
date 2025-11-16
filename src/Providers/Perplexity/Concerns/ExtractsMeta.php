@@ -1,6 +1,6 @@
 <?php
 
-namespace Prism\Prism\Providers\Perplexity\concerns;
+namespace Prism\Prism\Providers\Perplexity\Concerns;
 
 use Prism\Prism\ValueObjects\Meta;
 
