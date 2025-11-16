@@ -5,6 +5,7 @@ namespace Prism\Prism\Providers\Perplexity\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Str;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\Perplexity\concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Perplexity\concerns\ExtractsMeta;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -13,6 +14,7 @@ use RuntimeException;
 
 class Structured extends BaseHandler
 {
+    use ExtractsAdditionalContent;
     use ExtractsMeta;
 
     public function __construct(
@@ -38,7 +40,7 @@ class Structured extends BaseHandler
             finishReason: FinishReason::Stop,
             usage: $this->getUsageFromClientResponse($response),
             meta: $this->extractsMeta($data),
-            additionalContent: $this->getAdditionalContentFromClientResponse($response),
+            additionalContent: $this->extractsAdditionalContent($data),
         );
     }
 

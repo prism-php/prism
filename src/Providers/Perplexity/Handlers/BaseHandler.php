@@ -93,15 +93,4 @@ class BaseHandler
             completionTokens: $response->json('usage.completion_tokens'),
         );
     }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function getAdditionalContentFromClientResponse(Response $response): array
-    {
-        return Arr::whereNotNull([
-            'citations' => $response->json('citations'),
-            'search_results' => $response->json('search_results'),
-        ]);
-    }
 }

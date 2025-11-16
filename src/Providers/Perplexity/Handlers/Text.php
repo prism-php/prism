@@ -4,12 +4,14 @@ namespace Prism\Prism\Providers\Perplexity\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\Perplexity\concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Perplexity\concerns\ExtractsMeta;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 
 class Text extends BaseHandler
 {
+    use ExtractsAdditionalContent;
     use ExtractsMeta;
 
     public function __construct(
@@ -30,7 +32,7 @@ class Text extends BaseHandler
             usage: $this->getUsageFromClientResponse($response),
             meta: $this->extractsMeta($data),
             messages: collect($request->messages()),
-            additionalContent: $this->getAdditionalContentFromClientResponse($response),
+            additionalContent: $this->extractsAdditionalContent($data),
         );
     }
 }
