@@ -14,7 +14,6 @@ use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 
@@ -85,15 +84,6 @@ class BaseHandler
         ]));
 
         return $client->post('/chat/completions', $payload);
-    }
-
-    protected function getMetaFromClientResponse(Response $response): Meta
-    {
-        return new Meta(
-            id: $response->json('id'),
-            model: $response->json('model'),
-            rateLimits: [],
-        );
     }
 
     protected function getUsageFromClientResponse(Response $response): Usage

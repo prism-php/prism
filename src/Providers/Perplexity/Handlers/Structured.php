@@ -5,6 +5,7 @@ namespace Prism\Prism\Providers\Perplexity\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Str;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\Perplexity\concerns\ExtractsMeta;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -12,6 +13,8 @@ use RuntimeException;
 
 class Structured extends BaseHandler
 {
+    use ExtractsMeta;
+
     public function __construct(
         protected PendingRequest $client,
     ) {}
@@ -25,7 +28,8 @@ class Structured extends BaseHandler
 
         $response = $this->sendRequest($this->client, $request);
 
-        $rawContent = $response->json('choices.{last}.message.content');
+        $data = $response->json();
+        $rawContent = data_get($data, 'choices.{last}.message.content');
 
         return new StructuredResponse(
             steps: collect(),
@@ -33,7 +37,7 @@ class Structured extends BaseHandler
             structured: $this->parseStructuredOutput($rawContent),
             finishReason: FinishReason::Stop,
             usage: $this->getUsageFromClientResponse($response),
-            meta: $this->getMetaFromClientResponse($response),
+            meta: $this->extractsMeta($data),
             additionalContent: $this->getAdditionalContentFromClientResponse($response),
         );
     }
