@@ -19,6 +19,7 @@ class BaseHandler
 {
     protected function sendRequest(PendingRequest $client, TextRequest|StructuredRequest $request): HttpResponse
     {
+        // TODO: move the payload mapping to a dedicated mapper class
         $messages = collect($request->messages())
             ->map(static function (Message $message): array {
                 $documentMessages = [];
@@ -28,6 +29,7 @@ class BaseHandler
                     $role = 'user';
                     $text = $message->text();
 
+                    // TODO: handle provided files as URLs if needed
                     $documentMessages = array_map(static fn (Document $content): array => [
                         'type' => 'file_url',
                         'file_url' => [
@@ -78,7 +80,7 @@ class BaseHandler
             'top_p' => $request->topP(),
             'reasoning_effort' => $request->providerOptions('reasoning_effort'),
             'web_search_options' => $request->providerOptions('web_search_options'),
-
+            // TODO: check if there are more Perplexity specific options to add
         ]));
 
         return $client->post('/chat/completions', $payload);
