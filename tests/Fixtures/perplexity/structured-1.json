@@ -1,0 +1,177 @@
+{
+  "id": "68662390-4f30-4205-848f-c2397e23233f",
+  "model": "sonar",
+  "created": 1763330689,
+  "usage": {
+    "prompt_tokens": 249,
+    "completion_tokens": 788,
+    "total_tokens": 1037,
+    "search_context_size": "low",
+    "cost": {
+      "input_tokens_cost": 0.0,
+      "output_tokens_cost": 0.001,
+      "request_cost": 0.005,
+      "total_cost": 0.006
+    }
+  },
+  "citations": [
+    "https://www.daemonology.net/hn-daily/2025-10-16.html",
+    "https://news.ycombinator.com/item?id=37427127",
+    "https://thehackernews.com/2025/11/weekly-recap-hyper-v-malware-malicious.html",
+    "https://news.ycombinator.com/item?id=33748363",
+    "https://hackernewsrecap.buzzsprout.com",
+    "https://podcasts.apple.com/us/podcast/hacker-news-recap/id1681571416",
+    "https://news.ycombinator.com/front?day=2025-11-16",
+    "https://www.hntoplinks.com/year",
+    "https://news.ycombinator.com/item?id=45944870",
+    "https://github.com/headllines/hackernews-daily",
+    "https://thehackernews.com/2025/11/iranian-hackers-launch-spearspecter-spy.html",
+    "https://hackernews.betacat.io",
+    "https://news.ycombinator.com/item?id=45893004",
+    "https://news.ycombinator.com/best",
+    "https://www.hntoplinks.com",
+    "https://news.ycombinator.com/item?id=45918802"
+  ],
+  "search_results": [
+    {
+      "title": "Daily Hacker News for 2025-10-16 - daemonology.net",
+      "url": "https://www.daemonology.net/hn-daily/2025-10-16.html",
+      "date": "2025-10-16",
+      "last_updated": "2025-10-27",
+      "snippet": "Daily Hacker News for 2025-10-16. The 10 highest-rated articles on Hacker News on October 16, 2025 which have not appeared on any previous Hacker News Daily ...",
+      "source": "web"
+    },
+    {
+      "title": "HackYourNews \u2013 AI summaries of the top HN stories | Hacker News",
+      "url": "https://news.ycombinator.com/item?id=37427127",
+      "date": "2023-09-07",
+      "last_updated": "2025-10-14",
+      "snippet": "HackYourNews uses OpenAI's gpt-3.5-turbo to summarize the destination article as well as the comments section. Summarization of the article is ...",
+      "source": "web"
+    },
+    {
+      "title": "Weekly Recap: Hyper-V Malware, Malicious AI Bots, RDP Exploits ...",
+      "url": "https://thehackernews.com/2025/11/weekly-recap-hyper-v-malware-malicious.html",
+      "date": "2025-11-10",
+      "last_updated": "2025-11-16",
+      "snippet": "Explore this week's top cyber stories: stealthy virtual machine attacks, AI side-channel leaks, spyware on Samsung phones, ...",
+      "source": "web"
+    },
+    {
+      "title": "Show HN: Open Source Bot That Summarizes Top Hacker News ...",
+      "url": "https://news.ycombinator.com/item?id=33748363",
+      "date": "2022-11-26",
+      "last_updated": "2025-10-16",
+      "snippet": "HN Summary is an open source bot which sumarizes top stories on Hacker News and publishes the summaries to a Telegram channel.",
+      "source": "web"
+    },
+    {
+      "title": "Hacker News Recap",
+      "url": "https://hackernewsrecap.buzzsprout.com",
+      "date": "2025-11-15",
+      "last_updated": "2025-11-16",
+      "snippet": "November 15th, 2025 | Our investigation into the suspicious pressure on Archive.today. This is a recap of the top 10 posts on Hacker News on November 15, 2025.",
+      "source": "web"
+    },
+    {
+      "title": "Hacker News Recap - Apple Podcasts",
+      "url": "https://podcasts.apple.com/us/podcast/hacker-news-recap/id1681571416",
+      "date": "2025-11-15",
+      "last_updated": "2025-11-16",
+      "snippet": "This is a recap of the top 10 posts on Hacker News on November 10, 2025. ... The summaries get straight to the point, first summarizing the news, and then ...",
+      "source": "web"
+    },
+    {
+      "title": "2025-11-16 front | Hacker News",
+      "url": "https://news.ycombinator.com/front?day=2025-11-16",
+      "snippet": "Hacker News \u00b7 1. AirPods libreated from Apple's ecosystem (github.com/kavishdevar) \u00b7 2. When UPS charged me a $684 tariff on $355 of vintage ...",
+      "source": "web"
+    },
+    {
+      "title": "Yearly Favorites - HN Top Links - Popular Stories from Hacker News",
+      "url": "https://www.hntoplinks.com/year",
+      "date": "2025-08-31",
+      "last_updated": "2025-11-16",
+      "snippet": "1. Slack has raised our charges by $195k per year (skyfall. \u00b7 2. Show HN: I made an open-source laptop from scratch (byran.ee) \u00b7 3. Moon (ciechanow. \u00b7 4.",
+      "source": "web"
+    },
+    {
+      "title": "The Internet Is No Longer a Safe Haven | Hacker News",
+      "url": "https://news.ycombinator.com/item?id=45944870",
+      "date": "2025-11-16",
+      "last_updated": "2025-11-16",
+      "snippet": "The internet is no longer a safe haven for software hobbyists. Maybe I've just had bad luck, but since I started hosting my own websites ...",
+      "source": "web"
+    },
+    {
+      "title": "headllines/hackernews-daily: Hacker News daily top 10 posts - GitHub",
+      "url": "https://github.com/headllines/hackernews-daily",
+      "date": "2020-08-06",
+      "last_updated": "2025-10-22",
+      "snippet": "A script fetches top posts on hackernews every day; It opens an issue on this repo and store the headlines; People can subscribe to new issue by watching ...",
+      "source": "web"
+    },
+    {
+      "title": "Iranian Hackers Launch 'SpearSpecter' Spy Operation on Defense ...",
+      "url": "https://thehackernews.com/2025/11/iranian-hackers-launch-spearspecter-spy.html",
+      "date": "2025-11-14",
+      "last_updated": "2025-11-15",
+      "snippet": "Iran's APT42 launches SpearSpecter campaign using TAMECAT malware, targeting defense and government officials.",
+      "source": "web"
+    },
+    {
+      "title": "Hacker News Summary - by ChatGPT",
+      "url": "https://hackernews.betacat.io",
+      "date": "2025-11-16",
+      "last_updated": "2025-11-16",
+      "snippet": "Hacker News Summary leverages AI technology to extract summaries and illustrations from Hacker News posts, providing a seamless news scanning experience.",
+      "source": "web"
+    },
+    {
+      "title": "X5.1 solar flare, G4 geomagnetic storm watch | Hacker News",
+      "url": "https://news.ycombinator.com/item?id=45893004",
+      "date": "2025-11-11",
+      "last_updated": "2025-11-12",
+      "snippet": "A Geomagnetic Disturbance Warning has been issued for 19:25 on 11.11.2025 through 04:00 on 11.12.2025 . A GMD warning of K7 or greater is in ...",
+      "source": "web"
+    },
+    {
+      "title": "Top Links - Hacker News",
+      "url": "https://news.ycombinator.com/best",
+      "last_updated": "2025-11-16",
+      "snippet": "Hacker News \u00b7 1. Our investigation into the suspicious pressure on Archive. \u00b7 2. AI World Clocks (brianmoore.com) \u00b7 3. AirPods libreated from Apple's ecosystem ( ...",
+      "source": "web"
+    },
+    {
+      "title": "HN Top Links - Popular Stories from Hacker News",
+      "url": "https://www.hntoplinks.com",
+      "date": "2025-11-14",
+      "last_updated": "2025-11-16",
+      "snippet": "1. Our investigation into the suspicious pressure on Archive. \u00b7 2. AirPods libreated from Apple's ecosystem (github.com) \u00b7 3. TCP, the workhorse of the internet ( ...",
+      "source": "web"
+    },
+    {
+      "title": "GPT-5.1 for Developers - Hacker News",
+      "url": "https://news.ycombinator.com/item?id=45918802",
+      "date": "2025-11-13",
+      "last_updated": "2025-11-15",
+      "snippet": "Claude 4.5 Sonnet definitely struggles with Swift 6.2 Concurrency semantics and has several times gotten itself stuck rather badly. Additionally ...",
+      "source": "web"
+    }
+  ],
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"summaries\": [\n    {\n      \"title\": \"AirPods liberated from Apple's ecosystem\",\n      \"url\": \"https://news.ycombinator.com/item?id=45944870\",\n      \"summary\": \"A project on GitHub demonstrates how to free AirPods from Apple's strict ecosystem, allowing more versatile use and customization beyond Apple's limitations.\"\n    },\n    {\n      \"title\": \"When UPS charged me a $684 tariff on $355 of vintage electronics\",\n      \"url\": \"https://news.ycombinator.com/item?id=45944760\",\n      \"summary\": \"A user shares an experience where UPS unexpectedly imposed a high tariff on a shipment of vintage electronics worth significantly less, discussing the implications of such fees on collectors and sellers.\"\n    },\n    {\n      \"title\": \"Investigation into suspicious pressure on Archive.today\",\n      \"url\": \"https://news.ycombinator.com/item?id=45944211\",\n      \"summary\": \"Community discussion about an investigation revealing suspicious external pressures aimed at the web archiving service Archive.today, touching on concerns about internet censorship and data preservation.\"\n    },\n    {\n      \"title\": \"Open Source Bot That Summarizes Top Hacker News Stories\",\n      \"url\": \"https://news.ycombinator.com/item?id=33748363\",\n      \"summary\": \"A Show HN post presents an open source bot that automatically summarizes top Hacker News stories using OpenAI's GPT-3, sending concise summaries to a Telegram channel to enhance content accessibility.\"\n    },\n    {\n      \"title\": \"Weekly Cybersecurity Recap: Hyper-V Malware and AI Side-Channel Leaks\",\n      \"url\": \"https://thehackernews.com/2025/11/weekly-recap-hyper-v-malware-malicious.html\",\n      \"summary\": \"A summary of the week's top cybersecurity threats including stealthy malware targeting Hyper-V virtual machines, AI side-channel leaks identifying encrypted chat topics, and exploits targeting popular platforms.\"\n    },\n    {\n      \"title\": \"Iranian Hackers Launch 'SpearSpecter' Campaign Targeting Defense Officials\",\n      \"url\": \"https://thehackernews.com/2025/11/iranian-hackers-launch-spearspecter-spy.html\",\n      \"summary\": \"Report on Iran's APT42 group deploying the TAMECAT malware in the 'SpearSpecter' campaign to spy on defense and government officials, illustrating ongoing geopolitical cyber espionage activities.\"\n    },\n    {\n      \"title\": \"Firefox Expands Fingerprint Protections\",\n      \"url\": \"https://news.ycombinator.com/item?id=45888891\",\n      \"summary\": \"Firefox has enhanced its browser fingerprinting protections to better safeguard users from tracking and profiling techniques on the web.\"\n    },\n    {\n      \"title\": \"Meta Replaces WhatsApp for Windows with a Web Wrapper\",\n      \"url\": \"https://news.ycombinator.com/item?id=45910347\",\n      \"summary\": \"Meta has replaced the native WhatsApp Windows app with a web wrapper version, sparking debate about performance and user experience implications.\"\n    },\n    {\n      \"title\": \"Google to Allow Sideloading Android Apps Without Verification\",\n      \"url\": \"https://news.ycombinator.com/item?id=45908938\",\n      \"summary\": \"Google announced plans to permit users to sideload Android applications without requiring developer verification, raising conversations around app security and user control.\"\n    },\n    {\n      \"title\": \"The Internet Is No Longer a Safe Haven for Software Hobbyists\",\n      \"url\": \"https://news.ycombinator.com/item?id=45944870\",\n      \"summary\": \"An opinion piece and community reactions reflecting concerns about increasing challenges and risks for hobbyist developers hosting personal projects online.\"\n    }\n  ]\n}"
+      },
+      "delta": {
+        "role": "assistant",
+        "content": ""
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}
