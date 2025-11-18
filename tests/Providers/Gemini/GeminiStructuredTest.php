@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Tests\Providers\OpenAI;
+namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\EnumSchema;
@@ -154,4 +155,220 @@ it('works with allowAdditionalProperties set to true', function (): void {
     expect($response->structured)->not->toBeEmpty();
     expect($response->usage->promptTokens)->toBe(81);
     expect($response->usage->completionTokens)->toBe(64);
+});
+
+it('supports anyOf with string or number', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-anyof-simple');
+
+    $schema = new ObjectSchema(
+        'response',
+        'Response with flexible value',
+        [
+            new AnyOfSchema(
+                schemas: [
+                    new StringSchema('text', 'A text value'),
+                    new NumberSchema('number', 'A numeric value'),
+                ],
+                name: 'value',
+                description: 'Can be text or number'
+            ),
+        ],
+        ['value']
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema($schema)
+        ->withPrompt('Return the text "forty-two"')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('value');
+    expect($response->structured['value'])->toBeString();
+    expect($response->structured['value'])->toBe('forty-two');
+
+    Http::assertSent(function (Request $request): bool {
+        $schema = $request->data()['generationConfig']['response_schema'];
+
+        expect($schema)->toHaveKey('properties');
+        expect($schema['properties'])->toHaveKey('value');
+        expect($schema['properties']['value'])->toHaveKey('anyOf');
+        expect($schema['properties']['value']['anyOf'])->toHaveCount(2);
+
+        expect($schema['properties']['value']['anyOf'][0])->not->toHaveKey('name');
+        expect($schema['properties']['value']['anyOf'][0])->not->toHaveKey('description');
+        expect($schema['properties']['value']['anyOf'][1])->not->toHaveKey('name');
+        expect($schema['properties']['value']['anyOf'][1])->not->toHaveKey('description');
+
+        expect($schema['properties']['value']['anyOf'][0])->toHaveKey('type');
+        expect($schema['properties']['value']['anyOf'][1])->toHaveKey('type');
+
+        return true;
+    });
+});
+
+it('supports anyOf with complex object types', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-anyof-complex');
+
+    $articleSchema = new ObjectSchema(
+        'article',
+        'A blog article',
+        [
+            new StringSchema('title', 'Article title'),
+            new StringSchema('content', 'Article content'),
+        ],
+        ['title', 'content']
+    );
+
+    $imageSchema = new ObjectSchema(
+        'image',
+        'An image post',
+        [
+            new StringSchema('url', 'Image URL'),
+            new NumberSchema('width', 'Width in pixels'),
+        ],
+        ['url']
+    );
+
+    $schema = new ObjectSchema(
+        'post',
+        'Social media post',
+        [
+            new AnyOfSchema(
+                schemas: [$articleSchema, $imageSchema],
+                name: 'content',
+                description: 'Article or image'
+            ),
+        ],
+        ['content']
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema($schema)
+        ->withPrompt('Create an article post about AI')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('content');
+    expect($response->structured['content'])->toBeArray();
+    expect($response->structured['content'])->toHaveKey('title');
+    expect($response->structured['content'])->toHaveKey('content');
+    expect($response->structured['content']['title'])->toBe('Understanding AI');
+
+    Http::assertSent(function (Request $request): bool {
+        $schema = $request->data()['generationConfig']['response_schema'];
+        $anyOf = $schema['properties']['content']['anyOf'];
+
+        expect($anyOf)->toHaveCount(2);
+
+        foreach ($anyOf as $nestedSchema) {
+            expect($nestedSchema)->not->toHaveKey('name');
+            expect($nestedSchema)->not->toHaveKey('description');
+            expect($nestedSchema)->not->toHaveKey('additionalProperties');
+            expect($nestedSchema)->toHaveKey('type');
+            expect($nestedSchema['type'])->toBe('object');
+            expect($nestedSchema)->toHaveKey('properties');
+            expect($nestedSchema)->toHaveKey('required');
+        }
+
+        foreach ($anyOf as $nestedSchema) {
+            foreach ($nestedSchema['properties'] as $property) {
+                expect($property)->not->toHaveKey('name');
+            }
+        }
+
+        return true;
+    });
+});
+
+it('supports number constraints (minimum/maximum)', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-with-number-constraints');
+
+    $schema = new ObjectSchema(
+        'rating',
+        'Product rating',
+        [
+            new NumberSchema(
+                name: 'score',
+                description: 'Rating score',
+                maximum: 5.0,
+                minimum: 1.0
+            ),
+        ],
+        ['score']
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema($schema)
+        ->withPrompt('Rate this product 4.5 out of 5')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('score');
+    expect($response->structured['score'])->toBeFloat();
+    expect($response->structured['score'])->toBe(4.5);
+    expect($response->structured['score'])->toBeGreaterThanOrEqual(1.0);
+    expect($response->structured['score'])->toBeLessThanOrEqual(5.0);
+
+    Http::assertSent(function (Request $request): bool {
+        $schema = $request->data()['generationConfig']['response_schema'];
+
+        expect($schema['properties'])->toHaveKey('score');
+        expect($schema['properties']['score'])->toHaveKey('minimum');
+        expect($schema['properties']['score'])->toHaveKey('maximum');
+        expect($schema['properties']['score']['minimum'])->toBe(1.0);
+        expect($schema['properties']['score']['maximum'])->toBe(5.0);
+        expect($schema['properties']['score'])->not->toHaveKey('name');
+        expect($schema['properties']['score'])->not->toHaveKey('description');
+
+        return true;
+    });
+});
+
+it('supports nullable anyOf schemas', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-anyof-nullable');
+
+    $schema = new ObjectSchema(
+        'response',
+        'Response with optional value',
+        [
+            new AnyOfSchema(
+                schemas: [
+                    new StringSchema('text', 'A text value'),
+                    new NumberSchema('number', 'A numeric value'),
+                ],
+                name: 'value',
+                description: 'Can be text, number, or null',
+                nullable: true
+            ),
+        ],
+        ['value']
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema($schema)
+        ->withPrompt('Return a null value')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('value');
+    expect($response->structured['value'])->toBeNull();
+
+    Http::assertSent(function (Request $request): bool {
+        $schema = $request->data()['generationConfig']['response_schema'];
+        $anyOf = $schema['properties']['value']['anyOf'];
+
+        expect($anyOf)->toHaveCount(3);
+
+        $lastElement = $anyOf[count($anyOf) - 1];
+        expect($lastElement)->toBe(['type' => 'null']);
+
+        expect($anyOf[0])->not->toHaveKey('name');
+        expect($anyOf[1])->not->toHaveKey('name');
+
+        return true;
+    });
 });
