@@ -157,9 +157,10 @@ it('works with allowAdditionalProperties set to true', function (): void {
     expect($response->usage->completionTokens)->toBe(64);
 });
 
-it('supports anyOf with string or number', function (): void {
+it('supports AnyOfSchema in structured output', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-anyof-simple');
 
+    // Create a schema where a field can accept multiple types
     $schema = new ObjectSchema(
         'response',
         'Response with flexible value',
@@ -207,7 +208,7 @@ it('supports anyOf with string or number', function (): void {
     });
 });
 
-it('supports anyOf with complex object types', function (): void {
+it('supports AnyOfSchema with complex objects', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-anyof-complex');
 
     $articleSchema = new ObjectSchema(
@@ -282,7 +283,7 @@ it('supports anyOf with complex object types', function (): void {
     });
 });
 
-it('supports number constraints (minimum/maximum)', function (): void {
+it('supports NumberSchema constraints in structured output', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-with-number-constraints');
 
     $schema = new ObjectSchema(
@@ -327,7 +328,7 @@ it('supports number constraints (minimum/maximum)', function (): void {
     });
 });
 
-it('supports nullable anyOf schemas', function (): void {
+it('supports nullable AnyOfSchema in structured output', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-anyof-nullable');
 
     $schema = new ObjectSchema(

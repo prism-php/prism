@@ -25,16 +25,14 @@ class SchemaMap
         // Remove unsupported fields
         unset($schemaArray['additionalProperties'], $schemaArray['description'], $schemaArray['name']);
 
-        // Handle AnyOfSchema - Gemini now supports anyOf (as of November 2025)
+        // AnyOfSchema: recursively process nested schemas to remove unsupported fields
         if ($this->schema instanceof AnyOfSchema) {
-            // Recursively process each nested schema through SchemaMap
-            // to ensure they also get cleaned (remove name, description, additionalProperties)
             $processedSchemas = array_map(
                 fn (Schema $schema): array => (new self($schema))->toArray(),
                 $this->schema->schemas
             );
 
-            // Preserve nullable marker if present (added by AnyOfSchema for nullable schemas)
+            // Preserve nullable marker
             if (! empty($schemaArray['anyOf'])) {
                 $lastElement = end($schemaArray['anyOf']);
                 if (isset($lastElement['type']) && $lastElement['type'] === 'null') {
