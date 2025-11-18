@@ -115,17 +115,17 @@ class StreamCollector
             $response = new Response(
                 steps: new Collection,
                 text: $messagesCollection
-                    ->filter(fn ($msg): bool => $msg instanceof AssistantMessage)
-                    ->map(fn (AssistantMessage $msg): string => $msg->content)
+                    ->filter(fn (Message $msg): bool => $msg instanceof AssistantMessage)
+                    ->map(fn (Message $msg): string => $msg instanceof AssistantMessage ? $msg->content : '')
                     ->join(''),
                 finishReason: $finishReason,
                 toolCalls: $messagesCollection
-                    ->filter(fn ($msg): bool => $msg instanceof AssistantMessage)
-                    ->flatMap(fn (AssistantMessage $msg): array => $msg->toolCalls)
+                    ->filter(fn (Message $msg): bool => $msg instanceof AssistantMessage)
+                    ->flatMap(fn (Message $msg): array => $msg instanceof AssistantMessage ? $msg->toolCalls : [])
                     ->all(),
                 toolResults: $messagesCollection
-                    ->filter(fn ($msg): bool => $msg instanceof ToolResultMessage)
-                    ->flatMap(fn (ToolResultMessage $msg): array => $msg->toolResults)
+                    ->filter(fn (Message $msg): bool => $msg instanceof ToolResultMessage)
+                    ->flatMap(fn (Message $msg): array => $msg instanceof ToolResultMessage ? $msg->toolResults : [])
                     ->all(),
                 usage: $usage ?? new Usage(0, 0),
                 meta: new Meta(id: '', model: '', rateLimits: []),
