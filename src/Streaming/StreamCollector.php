@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
@@ -26,16 +27,16 @@ use Prism\Prism\ValueObjects\Usage;
 class StreamCollector
 {
     /**
-     * @param  null|Closure(PendingRequest|null, Collection<int,Message>, \Prism\Prism\Text\Response):void  $onCompleteCallback
+     * @param  null|Closure(PendingRequest|null, Collection<int,Message>, Response):void  $onCompleteCallback
      */
     public function __construct(
         protected Generator $stream,
-        protected ?\Prism\Prism\Text\PendingRequest $pendingRequest = null,
+        protected ?PendingRequest $pendingRequest = null,
         protected ?Closure $onCompleteCallback = null
     ) {}
 
     /**
-     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     * @return Generator<StreamEvent>
      */
     public function collect(): Generator
     {
@@ -65,7 +66,14 @@ class StreamCollector
                 $finishReason = $event->finishReason;
                 $usage = $event->usage;
                 $additionalContent = $event->additionalContent;
-                $this->handleStreamEnd($accumulatedText, $toolCalls, $toolResults, $messages, $finishReason, $usage, $additionalContent);
+                $this->handleStreamEnd($accumulatedText,
+                    $toolCalls,
+                    $toolResults,
+                    $messages,
+                    $finishReason,
+                    $usage,
+                    $additionalContent
+                );
             }
         }
     }
