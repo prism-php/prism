@@ -13,6 +13,7 @@ use Prism\Prism\Tool as BaseTool;
  * @method static BaseTool as(string $name)
  * @method static BaseTool for(string $description)
  * @method static BaseTool using(Closure|callable $fn)
+ * @method static BaseTool make(string|Tool|\Laravel\Mcp\Server\Tool $tool)
  * @method static BaseTool withParameter(Schema $parameter, bool $required = true)
  * @method static BaseTool withStringParameter(string $name, string $description, bool $required = true)
  * @method static BaseTool withNumberParameter(string $name, string $description, bool $required = true)
