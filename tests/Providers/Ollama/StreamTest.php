@@ -178,6 +178,73 @@ it('does not include think parameter when not provided for streaming', function 
     });
 });
 
+it('includes keep_alive parameter when provided for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->withProviderOptions(['keep_alive' => '5m'])
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->toHaveKey('keep_alive');
+        expect($body['keep_alive'])->toBe('5m');
+
+        return true;
+    });
+});
+
+it('supports numeric keep_alive values for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->withProviderOptions(['keep_alive' => -1])
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->toHaveKey('keep_alive');
+        expect($body['keep_alive'])->toBe(-1);
+
+        return true;
+    });
+});
+
+it('does not include keep_alive parameter when not provided for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->not->toHaveKey('keep_alive');
+
+        return true;
+    });
+});
+
 it('emits thinking chunks when provider sends thinking field', function (): void {
     \Tests\Fixtures\FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking');
 
