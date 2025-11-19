@@ -7,6 +7,7 @@ namespace Prism\Prism;
 use ArgumentCountError;
 use Closure;
 use Error;
+use Illuminate\Container\Container;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\HasProviderOptions;
@@ -18,6 +19,7 @@ use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tools\LaravelMcpTool;
 use Throwable;
 use TypeError;
 
@@ -65,6 +67,23 @@ class Tool
         $this->fn = $fn;
 
         return $this;
+    }
+
+    public function make(string|object $tool): Tool
+    {
+        if (is_string($tool)) {
+            $tool = Container::getInstance()->make($tool);
+        }
+
+        if ($tool instanceof Tool) {
+            return $tool;
+        }
+
+        if ($tool instanceof \Laravel\Mcp\Server\Tool) {
+            return new LaravelMcpTool($tool);
+        }
+
+        throw new InvalidArgumentException('Invalid tool provided: '.$tool::class);
     }
 
     /**

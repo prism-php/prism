@@ -13,6 +13,7 @@ use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Structured\Response;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -304,4 +305,84 @@ it('handles Chinese output with double quotes using tool calling', function (): 
     expect($response->structured['weather'])->toContain('15°C');
     expect($response->structured['recommendation'])->toContain('建');
     expect($response->structured['coat_required'])->toBe(true);
+});
+
+describe('native structured outputs', function (): void {
+    beforeEach(function (): void {
+        config(['prism.providers.anthropic.anthropic_beta' => 'structured-outputs-2025-11-13']);
+    });
+
+    afterEach(function (): void {
+        config(['prism.providers.anthropic.anthropic_beta' => null]);
+    });
+
+    it('uses native output format when beta header is set', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-with-native-output-format');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [
+                new StringSchema('weather', 'The weather forecast'),
+                new StringSchema('game_time', 'The tigers game time'),
+                new BooleanSchema('coat_required', 'whether a coat is required'),
+            ],
+            ['weather', 'game_time', 'coat_required']
+        );
+
+        $response = Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+            ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asStructured();
+
+        expect($response->structured)->toBeArray();
+        expect($response->structured)->toHaveKeys(['weather', 'game_time', 'coat_required']);
+        expect($response->structured['weather'])->toBe('70º');
+        expect($response->structured['game_time'])->toBe('3pm');
+        expect($response->structured['coat_required'])->toBe(false);
+    });
+
+    it('uses native output format for complex nested structures', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-native-complex');
+
+        $schema = new ObjectSchema(
+            'contact_info',
+            'contact information extracted from text',
+            [
+                new StringSchema('name', 'Full name'),
+                new StringSchema('email', 'Email address'),
+                new StringSchema('plan_interest', 'Plan they are interested in'),
+                new BooleanSchema('demo_requested', 'Whether they requested a demo'),
+            ],
+            ['name', 'email', 'plan_interest', 'demo_requested']
+        );
+
+        $response = Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+            ->withPrompt('Extract the key information from this email: John Smith (john@example.com) is interested in our Enterprise plan and wants to schedule a demo for next Tuesday at 2pm.')
+            ->asStructured();
+
+        expect($response->structured)->toBeArray();
+        expect($response->structured['name'])->toBe('John Smith');
+        expect($response->structured['email'])->toBe('john@example.com');
+        expect($response->structured['plan_interest'])->toBe('Enterprise');
+        expect($response->structured['demo_requested'])->toBe(true);
+    });
+
+    it('throws error when citations and native output format are used together', function (): void {
+        $schema = new ObjectSchema('output', 'the output object', [
+            new StringSchema('answer', 'The answer'),
+        ], ['answer']);
+
+        expect(fn (): Response => Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+            ->withPrompt('What is the answer?')
+            ->withProviderOptions(['citations' => true])
+            ->asStructured()
+        )->toThrow(PrismException::class, 'Citations are not supported with native output_format');
+    });
 });
