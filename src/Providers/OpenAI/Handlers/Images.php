@@ -70,6 +70,7 @@ class Images
                     'image[]',
                     $image->resource(),
                     $image->filename() ?: "image-{$index}",
+                    ['Content-Type' => $image->mimeType()],
                 );
         }
 
