@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"game_time\": null,\n  \"weather_summary\": null,\n  \"recommendation\": null\n}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.00076412657896677649
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 64,
+    "candidatesTokenCount": 27,
+    "totalTokenCount": 91,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 64
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 27
+      }
+    ]
+  },
+  "modelVersion": "gemini-2.0-flash",
+  "responseId": "c5oHaciOG4OYjMcPoKuROA"
+}

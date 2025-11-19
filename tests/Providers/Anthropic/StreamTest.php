@@ -270,6 +270,46 @@ describe('tools', function (): void {
     });
 });
 
+describe('provider tools', function (): void {
+    it('handles provider tool calls and provider tool results in stream end event', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-citations');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withPrompt('Get me the latest stock price for AAPL and the weather in New York City.')
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->asStream();
+
+        $providerToolUses = [];
+        $providerToolResults = [];
+
+        foreach ($response as $event) {
+            if ($event instanceof ProviderToolEvent) {
+                if ($event->status === 'completed') {
+                    if (in_array($event->toolType, ['web_search', 'web_fetch'])) {
+                        $providerToolUses[] = $event->data;
+                    }
+                } elseif ($event->status === 'result_received') {
+                    $providerToolResults[] = $event->data;
+                }
+            }
+        }
+
+        // Check that provider tool calls are included in the additional content
+        expect(isset($providerToolUses))->toBeTrue();
+        expect(count($providerToolUses))->toBeGreaterThanOrEqual(1);
+        expect($providerToolUses[0]['type'])->toBe('server_tool_use');
+        expect($providerToolUses[0]['name'])->toBe('web_search');
+
+        // Check that provider tool results are included in the additional content
+        expect(isset($providerToolResults))->toBeTrue();
+        expect(count($providerToolResults))->toBeGreaterThanOrEqual(1);
+        expect($providerToolResults[0]['type'])->toBe('web_search_tool_result');
+        expect($providerToolResults[0]['content'])->toBeArray();
+        expect($providerToolResults[0]['tool_use_id'])->toBe($providerToolUses[0]['id']);
+    });
+});
+
 describe('citations', function (): void {
     it('emits CitationEvent and includes citations in StreamEndEvent', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-citations');
@@ -452,45 +492,6 @@ describe('thinking', function (): void {
                 && $body['thinking']['type'] === 'enabled'
                 && $body['thinking']['budget_tokens'] === $customBudget;
         });
-    });
-});
-
-describe('provider tool calls', function (): void {
-    it('can handle provider tool calls in streaming responses', function (): void {
-        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-citations');
-
-        $response = Prism::text()
-            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withPrompt('What is the weather like in London UK today?')
-            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
-            ->asStream();
-
-        $providerToolEvents = [];
-
-        foreach ($response as $event) {
-            if ($event instanceof ProviderToolEvent) {
-                $providerToolEvents[] = $event;
-            }
-        }
-
-        // Verify that provider tool call events were emitted
-        expect($providerToolEvents)->not->toBeEmpty();
-
-        // Verify the structure of the first provider tool call event
-        $firstEvent = $providerToolEvents[0];
-        expect($firstEvent)->toBeInstanceOf(ProviderToolEvent::class);
-        expect($firstEvent->toolType)->toBe('web_search');
-        expect($firstEvent->status)->toBe('started');
-        expect($firstEvent->itemId)->not->toBeEmpty();
-        expect($firstEvent->data)->toBeArray();
-
-        // Verify the structure of the second provider tool call event
-        $secondEvent = $providerToolEvents[1];
-        expect($secondEvent)->toBeInstanceOf(ProviderToolEvent::class);
-        expect($secondEvent->toolType)->toBe('web_search');
-        expect($secondEvent->status)->toBe('completed');
-        expect($secondEvent->itemId)->not->toBeEmpty();
-        expect($secondEvent->data)->toBeArray();
     });
 });
 

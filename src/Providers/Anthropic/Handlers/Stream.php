@@ -154,6 +154,8 @@ class Stream
             'thinking' => $this->handleThinkingStart(),
             'tool_use' => $this->handleToolUseStart($contentBlock),
             'server_tool_use' => $this->handleProviderToolUseStart($contentBlock),
+            'web_search_tool_result' => $this->handleProviderToolResultStart($contentBlock),
+            'web_fetch_tool_result' => $this->handleProviderToolResultStart($contentBlock),
             default => null,
         };
     }
@@ -504,6 +506,7 @@ class Stream
     {
         if ($this->state->currentBlockIndex() !== null) {
             $this->state->addProviderToolCall($this->state->currentBlockIndex(), [
+                'type' => $contentBlock['type'] ?? 'server_tool_use',
                 'id' => $contentBlock['id'] ?? EventID::generate(),
                 'name' => $contentBlock['name'] ?? 'unknown',
                 'input' => '',
@@ -516,7 +519,7 @@ class Stream
             toolType: $contentBlock['name'] ?? 'unknown',
             status: 'started',
             itemId: $contentBlock['id'],
-            data: $contentBlock['input'] ?? '',
+            data: $contentBlock,
         );
     }
 
@@ -542,24 +545,32 @@ class Stream
 
         $providerToolCall = $this->state->providerToolCalls()[$this->state->currentBlockIndex()];
 
-        // Parse the JSON input
-        $input = $providerToolCall['input'];
-        if (is_string($input) && json_validate($input)) {
-            $input = json_decode($input, true);
-        } elseif (is_string($input) && $input !== '') {
-            // If it's not valid JSON but not empty, wrap in array
-            $input = ['input' => $input];
-        } else {
-            $input = [];
-        }
-
         return new ProviderToolEvent(
             id: EventID::generate(),
             timestamp: time(),
             toolType: $providerToolCall['name'],
             status: 'completed',
             itemId: $providerToolCall['id'],
-            data: $input,
+            data: $providerToolCall,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $contentBlock
+     */
+    protected function handleProviderToolResultStart(array $contentBlock): ?ProviderToolEvent
+    {
+        if ($this->state->currentBlockIndex() !== null) {
+            $this->state->addProviderToolResult($this->state->currentBlockIndex(), $contentBlock);
+        }
+
+        return new ProviderToolEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            toolType: $contentBlock['type'],
+            status: 'result_received',
+            itemId: $contentBlock['tool_use_id'] ?? EventID::generate(),
+            data: $contentBlock,
         );
     }
 

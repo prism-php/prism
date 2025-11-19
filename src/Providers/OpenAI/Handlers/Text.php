@@ -16,6 +16,7 @@ use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
+use Prism\Prism\Providers\OpenAI\Maps\ProviderToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Text\Request;
@@ -58,6 +59,8 @@ class Text
 
         $this->citations = $this->extractCitations($data);
 
+        $providerToolCalls = ProviderToolCallMap::map(data_get($data, 'output', []));
+
         $responseMessage = new AssistantMessage(
             content: data_get($data, 'output.{last}.content.0.text') ?? '',
             toolCalls: ToolCallMap::map(
@@ -66,6 +69,7 @@ class Text
             ),
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->citations,
+                'provider_tool_calls' => $providerToolCalls === [] ? null : $providerToolCalls,
             ]),
         );
 
@@ -135,7 +139,9 @@ class Text
                 'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'service_tier' => $request->providerOptions('service_tier'),
-                'text_verbosity' => $request->providerOptions('text_verbosity'),
+                'text' => $request->providerOptions('text_verbosity') ? [
+                    'verbosity' => $request->providerOptions('text_verbosity'),
+                ] : null,
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
             ]))
@@ -157,6 +163,7 @@ class Text
             finishReason: $this->mapFinishReason($data),
             toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
+            providerToolCalls: ProviderToolCallMap::map(data_get($data, 'output', [])),
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
                 completionTokens: data_get($data, 'usage.output_tokens'),

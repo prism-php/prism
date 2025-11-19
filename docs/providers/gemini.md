@@ -77,6 +77,278 @@ foreach ($response->additionalContent['citations'] as $part) {
 // Pass $text and $footnotes to your frontend.
 ```
 
+## Structured Output
+
+Gemini supports structured output, allowing you to define schemas that constrain the model's responses to match your exact data structure requirements.
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$schema = new ObjectSchema(
+    name: 'movie_review',
+    description: 'A structured movie review',
+    properties: [
+        new StringSchema('title', 'The movie title'),
+        new StringSchema('rating', 'Rating out of 5 stars'),
+        new StringSchema('summary', 'Brief review summary'),
+    ],
+    requiredFields: ['title', 'rating', 'summary']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.0-flash')
+    ->withSchema($schema)
+    ->withPrompt('Review the movie Inception')
+    ->asStructured();
+
+// Access structured data
+dump($response->structured);
+```
+
+### Flexible Types with anyOf
+
+For fields that can match multiple types or structures, use `AnyOfSchema`. This is useful for polymorphic data or when a field might contain different shapes:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+// Simple example: value can be string or number
+$schema = new ObjectSchema(
+    'response',
+    'API response with flexible value',
+    [
+        new AnyOfSchema(
+            schemas: [
+                new StringSchema('text', 'Text value'),
+                new NumberSchema('number', 'Numeric value'),
+            ],
+            name: 'value',
+            description: 'Can be either text or number'
+        ),
+    ],
+    ['value']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
+    ->withSchema($schema)
+    ->withPrompt('Extract the value from: "The answer is 42"')
+    ->asStructured();
+
+// $response->structured['value'] could be "42" (string) or 42 (number)
+```
+
+For complex polymorphic structures, `anyOf` can distinguish between entirely different object types:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+$articleSchema = new ObjectSchema(
+    'article',
+    'A blog article',
+    [
+        new StringSchema('title', 'Article title'),
+        new StringSchema('content', 'Full article text'),
+        new StringSchema('author', 'Author name'),
+    ],
+    ['title', 'content']
+);
+
+$imageSchema = new ObjectSchema(
+    'image',
+    'An image post',
+    [
+        new StringSchema('url', 'Image URL'),
+        new StringSchema('caption', 'Image caption'),
+        new NumberSchema('width', 'Width in pixels'),
+        new NumberSchema('height', 'Height in pixels'),
+    ],
+    ['url']
+);
+
+$schema = new ObjectSchema(
+    'social_post',
+    'Social media post',
+    [
+        new AnyOfSchema(
+            schemas: [$articleSchema, $imageSchema],
+            name: 'content',
+            description: 'Post content - either article or image'
+        ),
+    ],
+    ['content']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
+    ->withSchema($schema)
+    ->withPrompt('Analyze this post and extract its content')
+    ->asStructured();
+
+// Result will be either {title, content, author} OR {url, caption, width, height}
+```
+
+> [!NOTE]
+> The `anyOf` feature requires Gemini 2.5 or later models.
+
+### Numeric Constraints
+
+Constrain numeric values to specific ranges and precision using JSON Schema numeric constraints:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+$schema = new ObjectSchema(
+    'product_rating',
+    'Product rating information',
+    [
+        new NumberSchema(
+            name: 'rating',
+            description: 'User rating (1-5 stars, half-star increments)',
+            minimum: 1.0,
+            maximum: 5.0,
+            multipleOf: 0.5
+        ),
+        new NumberSchema(
+            name: 'price',
+            description: 'Product price in USD',
+            minimum: 0.01,
+            exclusiveMaximum: 10000.0
+        ),
+        new NumberSchema(
+            name: 'quantity',
+            description: 'Stock quantity',
+            minimum: 0
+        ),
+    ],
+    ['rating', 'price', 'quantity']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
+    ->withSchema($schema)
+    ->withPrompt('Extract rating, price, and quantity from this product review')
+    ->asStructured();
+```
+
+**Available Numeric Constraints:**
+- `minimum` - Minimum value (inclusive)
+- `maximum` - Maximum value (inclusive)
+- `exclusiveMinimum` - Minimum value (exclusive)
+- `exclusiveMaximum` - Maximum value (exclusive)
+- `multipleOf` - Value must be a multiple of this number
+
+### Nullable Fields
+
+Make any field optional by marking it as nullable. The field must be present in the response, but can be `null`:
+
+```php
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$schema = new ObjectSchema(
+    'user',
+    'User profile',
+    [
+        new StringSchema('name', 'User name'),
+        new StringSchema('email', 'Email address', nullable: true),  // Optional
+    ],
+    ['name', 'email']  // Both required, but email can be null
+);
+```
+
+Nullable works with `anyOf` to create truly optional polymorphic fields:
+
+```php
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+$schema = new ObjectSchema(
+    'user_input',
+    'User input that may be missing',
+    [
+        new AnyOfSchema(
+            schemas: [
+                new StringSchema('text', 'Text input'),
+                new NumberSchema('number', 'Numeric input'),
+            ],
+            name: 'user_value',
+            description: 'User provided value, or null if not provided',
+            nullable: true  // Adds null as a valid type
+        ),
+    ],
+    ['user_value']
+);
+
+// Result can be string, number, or null
+```
+
+### Combining Tools with Structured Output
+
+Gemini natively supports combining custom tools with structured output. The AI can call tools to gather data, then return a structured response:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tool;
+
+$schema = new ObjectSchema(
+    name: 'weather_analysis',
+    description: 'Analysis of weather conditions',
+    properties: [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    requiredFields: ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::structured()
+    ->using('gemini', 'gemini-2.0-flash')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Access structured output
+dump($response->structured);
+
+// Access tool execution details
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+}
+```
+
+> [!IMPORTANT]
+> When combining tools with structured output, set `maxSteps` to at least 2.
+
+For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
+
 ## Caching
 
 Prism supports Gemini prompt caching, though due to Gemini requiring you first upload the cached content, it works a little differently to other providers.

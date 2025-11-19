@@ -13,6 +13,9 @@ class AnthropicStreamState extends StreamState
     /** @var array<int, array<string, mixed>> */
     protected array $providerToolCalls = [];
 
+    /** @var array<int, array<string, mixed>> */
+    protected array $providerToolResults = [];
+
     public function appendThinkingSignature(string $signature): self
     {
         $this->currentThinkingSignature .= $signature;
@@ -43,6 +46,11 @@ class AnthropicStreamState extends StreamState
         return $this->providerToolCalls;
     }
 
+    public function hasProviderToolCalls(): bool
+    {
+        return $this->providerToolCalls !== [];
+    }
+
     public function appendProviderToolCallInput(int $index, string $input): self
     {
         if (! isset($this->providerToolCalls[$index])) {
@@ -54,11 +62,35 @@ class AnthropicStreamState extends StreamState
         return $this;
     }
 
+    /**
+     * @param  array<string, mixed>  $toolResult
+     */
+    public function addProviderToolResult(int $index, array $toolResult): self
+    {
+        $this->providerToolResults[$index] = $toolResult;
+
+        return $this;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function providerToolResults(): array
+    {
+        return $this->providerToolResults;
+    }
+
+    public function hasProviderToolResults(): bool
+    {
+        return $this->providerToolResults !== [];
+    }
+
     public function reset(): self
     {
         parent::reset();
         $this->currentThinkingSignature = '';
         $this->providerToolCalls = [];
+        $this->providerToolResults = [];
 
         return $this;
     }
@@ -68,6 +100,7 @@ class AnthropicStreamState extends StreamState
         parent::resetTextState();
         $this->currentThinkingSignature = '';
         $this->providerToolCalls = [];
+        $this->providerToolResults = [];
 
         return $this;
     }

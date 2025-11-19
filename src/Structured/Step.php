@@ -8,6 +8,8 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 readonly class Step
@@ -17,6 +19,8 @@ readonly class Step
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<string,mixed>  $additionalContent
      * @param  array<string,mixed>  $structured
+     * @param  array<int, ToolCall>  $toolCalls
+     * @param  array<int, ToolResult>  $toolResults
      */
     public function __construct(
         public string $text,
@@ -26,6 +30,8 @@ readonly class Step
         public array $messages,
         public array $systemPrompts,
         public array $additionalContent = [],
-        public array $structured = []
+        public array $structured = [],
+        public array $toolCalls = [],
+        public array $toolResults = []
     ) {}
 }

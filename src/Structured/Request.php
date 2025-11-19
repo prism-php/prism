@@ -11,7 +11,10 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Enums\StructuredMode;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\ProviderTool;
 
 class Request implements PrismRequest
 {
@@ -20,9 +23,11 @@ class Request implements PrismRequest
     /**
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<int, Message>  $messages
+     * @param  array<int, Tool>  $tools
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, ProviderTool>  $providerTools
      */
     public function __construct(
         protected array $systemPrompts,
@@ -37,7 +42,11 @@ class Request implements PrismRequest
         protected array $clientRetry,
         protected Schema $schema,
         protected StructuredMode $mode,
+        protected array $tools,
+        protected string|ToolChoice|null $toolChoice,
+        protected int $maxSteps,
         array $providerOptions = [],
+        protected array $providerTools = [],
     ) {
         $this->providerOptions = $providerOptions;
     }
@@ -120,5 +129,31 @@ class Request implements PrismRequest
         $this->messages = array_merge($this->messages, [$message]);
 
         return $this;
+    }
+
+    /**
+     * @return array<int, Tool>
+     */
+    public function tools(): array
+    {
+        return $this->tools;
+    }
+
+    public function toolChoice(): string|ToolChoice|null
+    {
+        return $this->toolChoice;
+    }
+
+    public function maxSteps(): int
+    {
+        return $this->maxSteps;
+    }
+
+    /**
+     * @return array<int, ProviderTool>
+     */
+    public function providerTools(): array
+    {
+        return $this->providerTools;
     }
 }

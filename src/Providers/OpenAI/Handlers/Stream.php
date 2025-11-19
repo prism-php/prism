@@ -138,7 +138,7 @@ class Stream
                 $item = data_get($data, 'item', []);
                 $itemType = data_get($item, 'type', '');
 
-                if (str_ends_with((string) $itemType, '_call')) {
+                if ($itemType !== 'function_call' && str_ends_with((string) $itemType, '_call')) {
                     yield new ProviderToolEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -526,6 +526,9 @@ class Stream
                     'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
                     'previous_response_id' => $request->providerOptions('previous_response_id'),
                     'service_tier' => $request->providerOptions('service_tier'),
+                    'text' => $request->providerOptions('text_verbosity') ? [
+                        'verbosity' => $request->providerOptions('text_verbosity'),
+                    ] : null,
                     'truncation' => $request->providerOptions('truncation'),
                     'reasoning' => $request->providerOptions('reasoning'),
                 ]))

@@ -166,6 +166,7 @@ class Text
             finishReason: $finishReason,
             toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
             toolResults: $toolResults,
+            providerToolCalls: [],
             usage: new Usage(
                 promptTokens: isset($providerOptions['cachedContentName'])
                     ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))

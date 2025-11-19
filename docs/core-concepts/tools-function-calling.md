@@ -428,4 +428,70 @@ $response = Prism::text()
         new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')
     ])
     ->asText();
-``` 
+```
+
+## Using Tools with Structured Output
+
+Tools can be combined with structured output to gather data and return formatted results in a single request. This pattern is useful when you need the AI to call functions to fetch information, then format the results according to a specific schema.
+
+### Basic Example
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Facades\Tool;
+
+$schema = new ObjectSchema(
+    name: 'weather_analysis',
+    description: 'Analysis of weather conditions',
+    properties: [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    requiredFields: ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::structured()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Response contains both structured data and tool execution details
+dump($response->structured);
+```
+
+> [!IMPORTANT]
+> When combining tools with structured output, you must set `maxSteps` to at least 2. The AI needs multiple steps to call tools and then return structured output.
+
+### Response Structure
+
+Responses include both the structured output and tool execution details:
+
+```php
+// Final structured data
+$data = $response->structured;
+
+// All tool calls made during execution
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+}
+
+// Tool execution results
+foreach ($response->toolResults as $result) {
+    echo "Result: {$result->result}\n";
+}
+```
+
+> [!NOTE]
+> Only the final step contains structured data. Intermediate steps contain tool calls and results, but no structured output.
+
+For complete documentation on combining tools with structured output, see the [Structured Output](./structured-output.md#combining-structured-output-with-tools) documentation.

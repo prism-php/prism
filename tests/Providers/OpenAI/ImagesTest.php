@@ -412,7 +412,7 @@ it('can edit with multiple images', function (): void {
 it('can edit images with mask using Image value object', function (): void {
     FixtureResponse::fakeResponseSequence(
         'api.openai.com/v1/images/edits',
-        'openai/image-edit'
+        'openai/image-edit-with-mask'
     );
 
     $response = Prism::image()
@@ -421,7 +421,7 @@ it('can edit images with mask using Image value object', function (): void {
             Image::fromLocalPath('tests/Fixtures/diamond.png'),
         ])
         ->withProviderOptions([
-            'mask' => Image::fromLocalPath('tests/Fixtures/sunset.png'),
+            'mask' => Image::fromLocalPath('tests/Fixtures/diamond_background_removed.png'),
             'size' => '1024x1024',
             'output_format' => 'png',
             'quality' => 'high',

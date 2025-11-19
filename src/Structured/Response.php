@@ -7,6 +7,8 @@ namespace Prism\Prism\Structured;
 use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 readonly class Response
@@ -14,6 +16,8 @@ readonly class Response
     /**
      * @param  Collection<int, Step>  $steps
      * @param  array<mixed>  $structured
+     * @param  array<int, ToolCall>  $toolCalls
+     * @param  array<int, ToolResult>  $toolResults
      * @param  array<string,mixed>  $additionalContent
      */
     public function __construct(
@@ -23,6 +27,8 @@ readonly class Response
         public FinishReason $finishReason,
         public Usage $usage,
         public Meta $meta,
+        public array $toolCalls = [],
+        public array $toolResults = [],
         public array $additionalContent = []
     ) {}
 }
