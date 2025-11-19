@@ -31,6 +31,7 @@
   },
   "require-dev": {
     "pestphp/pest": "^3.0",
+    "brianium/paratest": "^7.8.4",
     "laravel/pint": "^1.14",
     "phpstan/phpstan": "^2.1",
     "pestphp/pest-plugin-arch": "^3.0",
