@@ -83,14 +83,14 @@ it('maps assistant messages with tool calls correctly', function (): void {
     $messageMap = new MessageMap([$assistantMessage]);
     $result = $messageMap->map();
 
-    expect($result)->toBe([
+    expect($result)->toEqual([
         [
             'role' => 'assistant',
             'content' => 'Assistant response',
             'tool_calls' => [[
                 'function' => [
                     'name' => 'search',
-                    'arguments' => [
+                    'arguments' => (object) [
                         'query' => 'What is Prism?',
                     ],
                 ],
@@ -114,6 +114,7 @@ it('maps tool result messages correctly', function (): void {
     expect($result)->toBe([
         [
             'role' => 'tool',
+            'tool_name' => 'test-tool',
             'content' => 'Tool execution result',
         ],
     ]);
@@ -134,6 +135,7 @@ it('maps tool result messages with non-string results correctly', function (): v
     expect($result)->toBe([
         [
             'role' => 'tool',
+            'tool_name' => 'test-tool',
             'content' => '{"key":"value"}',
         ],
     ]);

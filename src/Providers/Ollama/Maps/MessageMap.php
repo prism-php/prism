@@ -62,6 +62,7 @@ class MessageMap
         foreach ($message->toolResults as $toolResult) {
             $this->mappedMessages[] = [
                 'role' => 'tool',
+                'tool_name' => $toolResult->toolName,
                 'content' => is_string($toolResult->result)
                     ? $toolResult->result
                     : (json_encode($toolResult->result) ?: ''),
@@ -94,7 +95,7 @@ class MessageMap
             'tool_calls' => $message->toolCalls ? array_map(fn (ToolCall $toolCall): array => [
                 'function' => [
                     'name' => $toolCall->name,
-                    'arguments' => $toolCall->arguments(),
+                    'arguments' => (object) $toolCall->arguments(),
                 ],
             ], $message->toolCalls) : null,
         ]);

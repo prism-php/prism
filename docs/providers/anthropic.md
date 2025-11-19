@@ -359,15 +359,67 @@ Note that when using streaming, Anthropic does not stream citations in the same 
 
 ### Structured Output
 
-While Anthropic models don't have native JSON mode or structured output like some providers, Prism implements two approaches for structured output:
+Prism supports three approaches for structured output with Anthropic models:
+
+#### Native Structured Outputs (Recommended for Claude Sonnet 4.5+)
+
+Claude Sonnet 4.5 and Opus 4.1 support native structured outputs through Anthropic's `output_format` parameter. This provides guaranteed schema compliance through constrained decoding.
+
+To enable native structured outputs, set the beta header in your configuration:
+
+```php
+// In config/prism.php or .env
+'anthropic' => [
+    ...
+    'anthropic_beta' => env('ANTHROPIC_BETA', 'structured-outputs-2025-11-13'),
+]
+```
+
+Or in your `.env` file:
+```
+ANTHROPIC_BETA=structured-outputs-2025-11-13
+```
+
+Once enabled, Prism will automatically use native structured outputs when available:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$response = Prism::structured()
+    ->withSchema(new ObjectSchema(
+        'weather_report',
+        'Weather forecast with recommendations',
+        [
+            new StringSchema('forecast', 'The weather forecast'),
+            new StringSchema('recommendation', 'Clothing recommendation')
+        ],
+        ['forecast', 'recommendation']
+    ))
+    ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+    ->withPrompt('What\'s the weather like and what should I wear?')
+    ->asStructured();
+```
+
+**Benefits of native structured outputs:**
+- **Always valid JSON**: No more parsing errors or malformed responses
+- **Type safe**: Guaranteed field types and required fields
+
+**Limitations:**
+- Only available on Claude Sonnet 4.5+ and Claude Opus 4.1+
+- Cannot be used with citations
+- Some JSON Schema features are not supported (see [Schema Limitations](#schema-limitations))
 
 #### Default JSON Mode (Prompt-based)
 - We automatically append instructions to your prompt that guide the model to output valid JSON matching your schema
 - If the response isn't valid JSON, Prism will raise a PrismException
 - This method can sometimes struggle with complex JSON containing quotes, especially in non-English languages
+- Used as fallback when native mode is not available
 
-#### Tool Calling Mode (Recommended)
-For more reliable structured output, especially when dealing with complex content or non-English text that may contain quotes, you can enable tool calling mode:
+#### Tool Calling Mode
+For more reliable structured output on older models, especially when dealing with complex content or non-English text that may contain quotes, you can enable tool calling mode:
 
 ```php
 use Prism\Prism\Enums\Provider;
@@ -450,6 +502,55 @@ foreach ($response->toolCalls as $toolCall) {
 > - Set `maxSteps` to at least 2
 
 For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
+
+### Strict Tool Use
+
+When using the `structured-outputs-2025-11-13` beta feature, you can enable strict validation for tool inputs. This guarantees that tool parameters exactly match your schema through constrained decoding.
+
+To enable strict mode for a tool, use the `strict` provider option:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Tool;
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->withProviderOptions(['strict' => true])
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-sonnet-4-5-20250929')
+    ->withTools([$weatherTool])
+    ->withPrompt('What is the weather in San Francisco?')
+    ->asText();
+```
+
+**Benefits of strict tool use:**
+- Functions receive correctly-typed arguments every time
+- No need to validate tool inputs
+- Eliminates runtime errors from type mismatches
+- Production-ready agents that work consistently
+
+### Schema Limitations
+
+When using native structured outputs, certain JSON Schema features are not supported by Anthropic's constrained decoding:
+
+**Not Supported:**
+- Recursive schemas
+- Numerical constraints (`minimum`, `maximum`, `multipleOf`)
+- String constraints (`minLength`, `maxLength`)
+- Complex regex patterns (lookahead/lookbehind, backreferences)
+- External `$ref` definitions
+
+**Supported:**
+- All basic types (object, array, string, integer, number, boolean, null)
+- `enum` for simple types (strings, numbers, booleans)
+- `anyOf` and `allOf` (with limitations)
+- `required` and `additionalProperties: false`
+- String formats (`date-time`, `email`, `uri`, `uuid`, etc.)
+
+If you use an unsupported feature, Anthropic will return a 400 error with details. For more information, see [Anthropic's structured outputs documentation](https://docs.anthropic.com/en/api/structured-outputs).
 
 ## Limitations
 ### Messages

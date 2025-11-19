@@ -56,6 +56,6 @@
 - [**/advanced/provider-interoperability.md] Use these docs for switching between providers seamlessly, writing provider-agnostic code
 </available-docs>
 
-#### Prism Replay (Model Context Protocol Integration) (https://github.com/prism-php/replay)
+#### Prism Relay (Model Context Protocol Integration) (https://github.com/prism-php/relay)
 
 #### Prism Bedrock (AWS Bedrock Provider) (https://github.com/prism-php/bedrock)

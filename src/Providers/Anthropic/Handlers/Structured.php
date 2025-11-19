@@ -19,6 +19,7 @@ use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\AnthropicStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\JsonModeStructuredStrategy;
+use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\NativeOutputFormatStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\ToolStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
@@ -108,9 +109,20 @@ class Structured
 
     protected static function createStrategy(StructuredRequest $request): AnthropicStructuredStrategy
     {
+        if (self::hasNativeStructuredOutputSupport($request)) {
+            return new NativeOutputFormatStructuredStrategy(request: $request);
+        }
+
         return $request->providerOptions('use_tool_calling')
             ? new ToolStructuredStrategy(request: $request)
             : new JsonModeStructuredStrategy(request: $request);
+    }
+
+    protected static function hasNativeStructuredOutputSupport(StructuredRequest $request): bool
+    {
+        $betaFeatures = config('prism.providers.anthropic.anthropic_beta');
+
+        return $betaFeatures && str_contains($betaFeatures, 'structured-outputs-2025-11-13');
     }
 
     /**
