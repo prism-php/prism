@@ -81,6 +81,9 @@ class Structured
             )))->map(),
             'format' => $request->schema()->toArray(),
             'stream' => false,
+            ...Arr::whereNotNull([
+                'keep_alive' => $request->providerOptions('keep_alive'),
+            ]),
             'options' => Arr::whereNotNull(array_merge([
                 'temperature' => $request->temperature(),
                 'num_predict' => $request->maxTokens() ?? 2048,
