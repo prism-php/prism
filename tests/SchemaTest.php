@@ -390,3 +390,19 @@ it('supports ArraySchema minItems and maxItems', function (): void {
     ];
     expect($schema->toArray())->toBe($expected);
 });
+
+it('allows an object schema without explicit properties', function (): void {
+    $schema = new ObjectSchema(
+        name: 'user',
+        description: 'a user object',
+        properties: [],
+        nullable: true
+    );
+
+    expect($schema->toArray())->toBe([
+        'description' => 'a user object',
+        'type' => ['object', 'null'],
+        'required' => [],
+        'additionalProperties' => false,
+    ]);
+});
