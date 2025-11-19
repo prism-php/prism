@@ -192,8 +192,6 @@ class Text
     }
 
     /**
-     * Extract only the regular text content (non-thought parts).
-     *
      * @param  array<string, mixed>  $data
      */
     protected function extractTextContent(array $data): string
@@ -212,8 +210,6 @@ class Text
     }
 
     /**
-     * Extract thought summaries from the response.
-     *
      * @param  array<string, mixed>  $data
      * @return array<int, string>
      */
@@ -233,8 +229,6 @@ class Text
     }
 
     /**
-     * Check if the response contains tool calls in any part.
-     *
      * @param  array<string, mixed>  $data
      */
     protected function hasToolCalls(array $data): bool
