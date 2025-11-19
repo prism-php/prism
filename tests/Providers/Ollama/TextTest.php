@@ -140,6 +140,60 @@ describe('Thinking parameter', function (): void {
     });
 });
 
+describe('Keep alive parameter', function (): void {
+    it('includes keep_alive parameter when provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['keep_alive' => '10m'])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('keep_alive');
+            expect($body['keep_alive'])->toBe('10m');
+
+            return true;
+        });
+    });
+
+    it('supports numeric keep_alive values', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['keep_alive' => 300])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('keep_alive');
+            expect($body['keep_alive'])->toBe(300);
+
+            return true;
+        });
+    });
+
+    it('does not include keep_alive parameter when not provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->not->toHaveKey('keep_alive');
+
+            return true;
+        });
+    });
+});
+
 describe('Image support', function (): void {
     it('can send images from path', function (): void {
         FixtureResponse::fakeResponseSequence('api/chat', 'ollama/image-detection');
