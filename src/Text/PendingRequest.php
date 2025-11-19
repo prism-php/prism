@@ -60,7 +60,7 @@ class PendingRequest
             $response = $this->provider->text($request);
 
             if ($this->completeCallback instanceof Closure) {
-                ($this->completeCallback)($this, $response->messages);
+                ($this->completeCallback)($this, $response->messages, $response);
             }
 
             return $response;
@@ -70,7 +70,7 @@ class PendingRequest
     }
 
     /**
-     * @param  callable(PendingRequest|null, Collection<int, Message>): void  $callback
+     * @param  callable(PendingRequest|null, Collection<int, Message>, Response): void  $callback
      */
     public function onComplete(callable $callback): self
     {

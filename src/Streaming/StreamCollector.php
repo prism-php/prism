@@ -8,30 +8,35 @@ use Closure;
 use Generator;
 use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 
 class StreamCollector
 {
     /**
-     * @param  null|Closure(PendingRequest|null, Collection<int,Message>):void  $onCompleteCallback
+     * @param  null|Closure(PendingRequest|null, Collection<int,Message>, Response):void  $onCompleteCallback
      */
     public function __construct(
         protected Generator $stream,
-        protected ?\Prism\Prism\Text\PendingRequest $pendingRequest = null,
+        protected ?PendingRequest $pendingRequest = null,
         protected ?Closure $onCompleteCallback = null
     ) {}
 
     /**
-     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     * @return Generator<StreamEvent>
      */
     public function collect(): Generator
     {
@@ -42,6 +47,9 @@ class StreamCollector
         $toolResults = [];
         /** @var Message[] $messages */
         $messages = [];
+        $finishReason = FinishReason::Stop;
+        $usage = null;
+        $additionalContent = [];
 
         foreach ($this->stream as $event) {
             yield $event;
@@ -55,7 +63,17 @@ class StreamCollector
             } elseif ($event instanceof ToolResultEvent) {
                 $toolResults[] = $event->toolResult;
             } elseif ($event instanceof StreamEndEvent) {
-                $this->handleStreamEnd($accumulatedText, $toolCalls, $toolResults, $messages);
+                $finishReason = $event->finishReason;
+                $usage = $event->usage;
+                $additionalContent = $event->additionalContent;
+                $this->handleStreamEnd($accumulatedText,
+                    $toolCalls,
+                    $toolResults,
+                    $messages,
+                    $finishReason,
+                    $usage,
+                    $additionalContent
+                );
             }
         }
     }
@@ -78,17 +96,44 @@ class StreamCollector
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
      * @param  Message[]  $messages
+     * @param  array<string,mixed>  $additionalContent
      */
     protected function handleStreamEnd(
         string &$accumulatedText,
         array &$toolCalls,
         array &$toolResults,
-        array &$messages
+        array &$messages,
+        FinishReason $finishReason,
+        ?Usage $usage,
+        array $additionalContent
     ): void {
         $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $messages);
 
         if ($this->onCompleteCallback instanceof Closure) {
-            ($this->onCompleteCallback)($this->pendingRequest, collect($messages));
+            $messagesCollection = new Collection($messages);
+
+            $response = new Response(
+                steps: new Collection,
+                text: $messagesCollection
+                    ->filter(fn (Message $msg): bool => $msg instanceof AssistantMessage)
+                    ->map(fn (Message $msg): string => $msg instanceof AssistantMessage ? $msg->content : '')
+                    ->join(''),
+                finishReason: $finishReason,
+                toolCalls: $messagesCollection
+                    ->filter(fn (Message $msg): bool => $msg instanceof AssistantMessage)
+                    ->flatMap(fn (Message $msg): array => $msg instanceof AssistantMessage ? $msg->toolCalls : [])
+                    ->all(),
+                toolResults: $messagesCollection
+                    ->filter(fn (Message $msg): bool => $msg instanceof ToolResultMessage)
+                    ->flatMap(fn (Message $msg): array => $msg instanceof ToolResultMessage ? $msg->toolResults : [])
+                    ->all(),
+                usage: $usage ?? new Usage(0, 0),
+                meta: new Meta(id: '', model: '', rateLimits: []),
+                messages: $messagesCollection,
+                additionalContent: $additionalContent
+            );
+
+            ($this->onCompleteCallback)($this->pendingRequest, $messagesCollection, $response);
         }
     }
 
