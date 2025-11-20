@@ -41,6 +41,8 @@ it('maps user messages with images from path', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('image_url');
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
@@ -60,6 +62,8 @@ it('maps user messages with images from base64', function (): void {
     );
 
     $mappedMessage = $messageMap();
+
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('image_url');
@@ -81,6 +85,8 @@ it('maps user messages with images from url', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('image_url');
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
@@ -99,6 +105,8 @@ it('maps user messages with audio input', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, '0.content.1.type'))->toBe('input_audio');
     expect(data_get($mappedMessage, '0.content.1.input_audio.format'))->toBe('wav');
     expect(data_get($mappedMessage, '0.content.1.input_audio.data'))->toBe(base64_encode('audio-content'));
@@ -115,6 +123,8 @@ it('maps user messages with video input', function (): void {
     );
 
     $mappedMessage = $messageMap();
+
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
     expect(data_get($mappedMessage, '0.content.1.type'))->toBe('input_video');
     expect(data_get($mappedMessage, '0.content.1.input_video.format'))->toBe('mp4');
