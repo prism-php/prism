@@ -22,6 +22,7 @@ class ToolCallMap
             id: data_get($toolCall, 'functionCall.name'),
             name: data_get($toolCall, 'functionCall.name'),
             arguments: data_get($toolCall, 'functionCall.args'),
+            reasoningId: data_get($toolCall, 'thoughtSignature'),
         ), $toolCalls);
     }
 }

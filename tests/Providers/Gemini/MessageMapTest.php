@@ -150,7 +150,7 @@ it('maps assistant message with tool calls', function (): void {
                     'search',
                     [
                         'query' => 'Laravel collection methods',
-                    ]
+                    ],
                 ),
             ]),
         ],
@@ -169,6 +169,42 @@ it('maps assistant message with tool calls', function (): void {
                             'query' => 'Laravel collection methods',
                         ],
                     ],
+                ],
+            ],
+        ]],
+    ]);
+});
+
+it('maps assistant message with tool calls with reasoning id', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('I am Nyx', [
+                new ToolCall(
+                    'tool_1234',
+                    'search',
+                    [
+                        'query' => 'Laravel collection methods',
+                    ],
+                    reasoningId: 'reasoning_1234'
+                ),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        'contents' => [[
+            'role' => 'model',
+            'parts' => [
+                ['text' => 'I am Nyx'],
+                [
+                    'functionCall' => [
+                        'name' => 'search',
+                        'args' => [
+                            'query' => 'Laravel collection methods',
+                        ],
+                    ],
+                    'thoughtSignature' => 'reasoning_1234',
                 ],
             ],
         ]],
