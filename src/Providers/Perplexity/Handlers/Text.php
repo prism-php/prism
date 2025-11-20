@@ -7,14 +7,16 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsMeta;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsUsage;
+use Prism\Prism\Providers\Perplexity\Concerns\HandlesHttpRequests;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 
-class Text extends BaseHandler
+class Text
 {
     use ExtractsAdditionalContent;
     use ExtractsMeta;
     use ExtractsUsage;
+    use HandlesHttpRequests;
 
     public function __construct(
         protected PendingRequest $client,
