@@ -12,21 +12,14 @@ class DocumentMapper extends ProviderMediaMapper
      */
     public function toPayload(): array
     {
-        $fileName = null;
-
-        if ($this->media->isUrl()) {
-            $url = $this->media->url();
-        } else {
-            $url = "data:{$this->media->mimeType()};base64,{$this->media->base64()}";
-            $fileName = $this->media->fileName();
-        }
+        $url = $this->media->isUrl() ? $this->media->url() : "data:{$this->media->mimeType()};base64,{$this->media->base64()}";
 
         $payload = [
             'type' => 'file_url',
             'file_url' => [
                 'url' => $url,
             ],
-            'file_name' => $fileName,
+            'file_name' => $this->media->fileName(),
         ];
 
         return array_filter($payload);
@@ -42,6 +35,7 @@ class DocumentMapper extends ProviderMediaMapper
         if ($this->media->isUrl()) {
             return true;
         }
+
         return $this->media->hasRawContent();
     }
 }
