@@ -32,6 +32,7 @@ class ImageMapper extends ProviderMediaMapper
         if ($this->media->isUrl()) {
             return true;
         }
+
         return $this->media->hasRawContent();
     }
 }
