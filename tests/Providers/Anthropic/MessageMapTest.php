@@ -39,6 +39,8 @@ describe('Anthropic user message mapping', function (): void {
             ]),
         ]);
 
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('image');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
@@ -55,6 +57,8 @@ describe('Anthropic user message mapping', function (): void {
                 Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/diamond.png')), 'image/png'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('image');
@@ -73,6 +77,8 @@ describe('Anthropic user message mapping', function (): void {
             ]),
         ]);
 
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('image');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
@@ -88,6 +94,8 @@ describe('Anthropic user message mapping', function (): void {
             ]),
         ]);
 
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
@@ -102,6 +110,8 @@ describe('Anthropic user message mapping', function (): void {
                 Document::fromLocalPath('tests/Fixtures/test-pdf.pdf'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
@@ -120,6 +130,8 @@ describe('Anthropic user message mapping', function (): void {
             ]),
         ]);
 
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
@@ -136,6 +148,8 @@ describe('Anthropic user message mapping', function (): void {
                 Document::fromLocalPath('tests/Fixtures/test-text.txt'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
@@ -154,6 +168,8 @@ describe('Anthropic user message mapping', function (): void {
             ]),
         ]);
 
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
@@ -170,6 +186,8 @@ describe('Anthropic user message mapping', function (): void {
                 Document::fromText('Hello world!'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');

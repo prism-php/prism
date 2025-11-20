@@ -8,6 +8,7 @@ use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\RawSchema;
 use Prism\Prism\Schema\StringSchema;
 
 it('maps array schema correctly', function (): void {
@@ -110,5 +111,22 @@ it('maps object schema correctly', function (): void {
         ],
         'required' => ['testName'],
         'nullable' => true,
+    ]);
+});
+
+it('does not map a raw schema', function (): void {
+    $map = (new SchemaMap(new RawSchema(
+        'schema',
+        [
+            'type' => 'array',
+            'items' => ['type' => 'string'],
+        ]
+    )))->toArray();
+
+    expect($map)->toBe([
+        'type' => 'array',
+        'items' => [
+            'type' => 'string',
+        ],
     ]);
 });

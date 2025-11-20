@@ -8,6 +8,7 @@ use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\RawSchema;
 
 class SchemaMap
 {
@@ -24,6 +25,10 @@ class SchemaMap
 
         // Remove unsupported fields
         unset($schemaArray['additionalProperties'], $schemaArray['name']);
+
+        if ($this->schema instanceof RawSchema) {
+            return $schemaArray;
+        }
 
         // AnyOfSchema: recursively process nested schemas to remove unsupported fields
         if ($this->schema instanceof AnyOfSchema) {

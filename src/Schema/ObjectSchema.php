@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Schema;
 
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\NullableSchema;
 use Prism\Prism\Contracts\Schema;
 
@@ -33,15 +34,17 @@ class ObjectSchema implements Schema
     #[\Override]
     public function toArray(): array
     {
-        return [
+        $properties = $this->propertiesArray();
+
+        return Arr::whereNotNull([
             'description' => $this->description,
             'type' => $this->nullable
                 ? $this->castToNullable('object')
                 : 'object',
-            'properties' => $this->propertiesArray(),
+            'properties' => $properties === [] ? null : $properties,
             'required' => $this->requiredFields,
             'additionalProperties' => $this->allowAdditionalProperties,
-        ];
+        ]);
     }
 
     /**

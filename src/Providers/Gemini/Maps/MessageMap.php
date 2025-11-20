@@ -108,8 +108,8 @@ class MessageMap
             $this->mapDocuments($message->documents()),
             $parts,
             $this->mapImages($message->images()),
-            $this->mapVideo($message->media()),
-            $this->mapAudio($message->media()),
+            $this->mapVideo($message->videos()),
+            $this->mapAudio($message->audios()),
         );
 
         $this->contents['contents'][] = [
