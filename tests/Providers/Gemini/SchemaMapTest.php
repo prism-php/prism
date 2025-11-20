@@ -24,8 +24,10 @@ it('maps array schema correctly', function (): void {
     )))->toArray();
 
     expect($map)->toBe([
+        'description' => 'test array description',
         'type' => 'array',
         'items' => [
+            'description' => 'test string description',
             'type' => 'string',
             'nullable' => true,
         ],
@@ -41,6 +43,7 @@ it('maps boolean schema correctly', function (): void {
     )))->toArray();
 
     expect($map)->toBe([
+        'description' => 'test description',
         'type' => 'boolean',
         'nullable' => true,
     ]);
@@ -55,6 +58,7 @@ it('maps enum schema correctly', function (): void {
     )))->toArray();
 
     expect($map)->toBe([
+        'description' => 'test description',
         'enum' => ['option1', 'option2'],
         'type' => 'string',
         'nullable' => true,
@@ -69,6 +73,7 @@ it('maps number schema correctly', function (): void {
     )))->toArray();
 
     expect($map)->toBe([
+        'description' => 'test description',
         'type' => 'number',
         'nullable' => true,
     ]);
@@ -82,6 +87,7 @@ it('maps string schema correctly', function (): void {
     )))->toArray();
 
     expect($map)->toBe([
+        'description' => 'test description',
         'type' => 'string',
         'nullable' => true,
     ]);
@@ -103,9 +109,11 @@ it('maps object schema correctly', function (): void {
     )))->toArray();
 
     expect($map)->toBe([
+        'description' => 'test object description',
         'type' => 'object',
         'properties' => [
             'testName' => [
+                'description' => 'test string description',
                 'type' => 'string',
             ],
         ],
