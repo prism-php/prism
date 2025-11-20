@@ -39,6 +39,8 @@ it('maps user messages with images from path', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('image_url');
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
@@ -59,6 +61,8 @@ it('maps user messages with images from base64', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('image_url');
     expect(data_get($mappedMessage, '0.content.1.image_url.url'))
@@ -78,6 +82,8 @@ it('maps user messages with images from url', function (): void {
     );
 
     $mappedMessage = $messageMap();
+
+    expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
     expect(data_get($mappedMessage, '0.content.1.type'))
         ->toBe('image_url');
