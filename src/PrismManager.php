@@ -123,7 +123,7 @@ class PrismManager
         return new Anthropic(
             apiKey: $config['api_key'],
             apiVersion: $config['version'],
-            url: $config['url'],
+            url: $config['url'] ?? 'https://api.anthropic.com/v1',
             betaFeatures: $config['anthropic_beta'] ?? null,
         );
     }
