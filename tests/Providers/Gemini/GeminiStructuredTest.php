@@ -197,9 +197,7 @@ it('supports AnyOfSchema in structured output', function (): void {
         expect($schema['properties']['value']['anyOf'])->toHaveCount(2);
 
         expect($schema['properties']['value']['anyOf'][0])->not->toHaveKey('name');
-        expect($schema['properties']['value']['anyOf'][0])->not->toHaveKey('description');
         expect($schema['properties']['value']['anyOf'][1])->not->toHaveKey('name');
-        expect($schema['properties']['value']['anyOf'][1])->not->toHaveKey('description');
 
         expect($schema['properties']['value']['anyOf'][0])->toHaveKey('type');
         expect($schema['properties']['value']['anyOf'][1])->toHaveKey('type');
@@ -265,7 +263,6 @@ it('supports AnyOfSchema with complex objects', function (): void {
 
         foreach ($anyOf as $nestedSchema) {
             expect($nestedSchema)->not->toHaveKey('name');
-            expect($nestedSchema)->not->toHaveKey('description');
             expect($nestedSchema)->not->toHaveKey('additionalProperties');
             expect($nestedSchema)->toHaveKey('type');
             expect($nestedSchema['type'])->toBe('object');
@@ -322,7 +319,6 @@ it('supports NumberSchema constraints in structured output', function (): void {
         expect($schema['properties']['score']['minimum'])->toBe(1.0);
         expect($schema['properties']['score']['maximum'])->toBe(5.0);
         expect($schema['properties']['score'])->not->toHaveKey('name');
-        expect($schema['properties']['score'])->not->toHaveKey('description');
 
         return true;
     });

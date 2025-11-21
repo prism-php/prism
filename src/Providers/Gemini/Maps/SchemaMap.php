@@ -24,7 +24,7 @@ class SchemaMap
         $schemaArray = $this->schema->toArray();
 
         // Remove unsupported fields
-        unset($schemaArray['additionalProperties'], $schemaArray['description'], $schemaArray['name']);
+        unset($schemaArray['additionalProperties'], $schemaArray['name']);
 
         if ($this->schema instanceof RawSchema) {
             return $schemaArray;
