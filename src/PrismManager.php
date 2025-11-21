@@ -121,9 +121,10 @@ class PrismManager
     protected function createAnthropicProvider(array $config): Anthropic
     {
         return new Anthropic(
-            $config['api_key'],
-            $config['version'],
-            $config['anthropic_beta'] ?? null
+            apiKey: $config['api_key'],
+            apiVersion: $config['version'],
+            url: $config['url'],
+            betaFeatures: $config['anthropic_beta'] ?? null,
         );
     }
 
