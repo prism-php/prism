@@ -4,68 +4,34 @@
       "content": {
         "parts": [
           {
-            "text": "Based on the documents in your file search store, the main topic is about artificial intelligence and machine learning concepts. The documents cover topics including neural networks, deep learning architectures, and practical applications of AI in various domains."
+            "text": "I am unable to determine the main topics covered in the documents as the file search did not return any information regarding their content."
           }
         ],
         "role": "model"
       },
       "finishReason": "STOP",
-      "groundingMetadata": {
-        "groundingChunks": [
-          {
-            "web": {
-              "uri": "fileSearchStores/test-store-123/documents/doc-1",
-              "title": "Introduction to AI"
-            }
-          },
-          {
-            "web": {
-              "uri": "fileSearchStores/test-store-123/documents/doc-2",
-              "title": "Machine Learning Basics"
-            }
-          }
-        ],
-        "groundingSupports": [
-          {
-            "segment": {
-              "startIndex": 0,
-              "endIndex": 120,
-              "text": "Based on the documents in your file search store, the main topic is about artificial intelligence and machine learning concepts."
-            },
-            "groundingChunkIndices": [
-              0,
-              1
-            ],
-            "confidenceScores": [
-              0.95,
-              0.92
-            ]
-          }
-        ],
-        "retrievalMetadata": {
-          "fileSearchStoreNames": [
-            "fileSearchStores/test-store-123"
-          ]
-        }
-      }
+      "index": 0
     }
   ],
   "usageMetadata": {
-    "promptTokenCount": 15,
-    "candidatesTokenCount": 45,
-    "totalTokenCount": 60,
+    "promptTokenCount": 11,
+    "candidatesTokenCount": 81,
+    "totalTokenCount": 1155,
     "promptTokensDetails": [
       {
         "modality": "TEXT",
-        "tokenCount": 15
+        "tokenCount": 11
       }
     ],
-    "candidatesTokensDetails": [
+    "toolUsePromptTokenCount": 645,
+    "toolUsePromptTokensDetails": [
       {
         "modality": "TEXT",
-        "tokenCount": 45
+        "tokenCount": 645
       }
-    ]
+    ],
+    "thoughtsTokenCount": 418
   },
-  "modelVersion": "gemini-2.5-flash"
+  "modelVersion": "gemini-2.5-flash",
+  "responseId": "69Mgaf3JGujpjMcPpMqO0QY"
 }

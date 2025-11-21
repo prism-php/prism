@@ -424,7 +424,7 @@ describe('provider tools', function (): void {
                     type: 'file_search',
                     name: 'file_search',
                     options: [
-                        'file_search_store_names' => ['fileSearchStores/test-store-123'],
+                        'file_search_store_names' => ['fileSearchStores/prism-test-store-o12g9772lnt2'],
                     ]
                 ),
             ])
@@ -436,7 +436,7 @@ describe('provider tools', function (): void {
             expect($data['tools'][0])->toHaveKey('file_search');
             expect($data['tools'][0]['file_search'])->toBeArray();
             expect($data['tools'][0]['file_search'])->toHaveKey('file_search_store_names');
-            expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/test-store-123']);
+            expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/prism-test-store-o12g9772lnt2']);
 
             return true;
         });
