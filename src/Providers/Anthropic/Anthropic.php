@@ -30,7 +30,8 @@ class Anthropic extends Provider
     public function __construct(
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $apiVersion,
-        public readonly ?string $betaFeatures = null
+        public readonly string $url,
+        public readonly ?string $betaFeatures = null,
     ) {}
 
     #[\Override]
@@ -104,6 +105,6 @@ class Anthropic extends Provider
             ]))
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
-            ->baseUrl($baseUrl ?? 'https://api.anthropic.com/v1');
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

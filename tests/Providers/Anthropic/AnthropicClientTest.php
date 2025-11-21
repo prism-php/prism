@@ -18,3 +18,16 @@ it('includes anthropic beta header if set in config', function (): void {
 
     Http::assertSent(fn (Request $request) => $request->hasHeader('anthropic-beta', 'beta1,beta2'));
 });
+
+it('uses the configured url', function (): void {
+    config()->set('prism.providers.anthropic.url', 'https://example.com');
+
+    FixtureResponse::fakeResponseSequence('messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using('anthropic', 'claude-3-5-sonnet-20240620')
+        ->withPrompt('Hello')
+        ->asText();
+
+    Http::assertSent(fn (Request $request): bool => str_starts_with($request->url(), 'https://example.com'));
+});
