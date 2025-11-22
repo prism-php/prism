@@ -7,6 +7,15 @@ use Prism\Prism\Enums\Provider;
 
 class DocumentMapper extends ProviderMediaMapper
 {
+    public const SUPPORTED_MIME_TYPES = [
+        'application/pdf',
+        'application/msword',
+        'application/rtf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'text/rtf',
+    ];
+
     /**
      * @return array<string,mixed>
      */
@@ -36,6 +45,10 @@ class DocumentMapper extends ProviderMediaMapper
             return true;
         }
 
-        return $this->media->hasRawContent();
+        if ($this->media->hasMimeType() && $this->media->hasRawContent()) {
+            return in_array($this->media->mimeType(), self::SUPPORTED_MIME_TYPES, true);
+        }
+
+        return false;
     }
 }
