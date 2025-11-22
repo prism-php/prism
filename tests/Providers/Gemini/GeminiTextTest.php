@@ -413,6 +413,35 @@ describe('provider tools', function (): void {
             ->asText();
     })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
 
+    it('adds file_search provider tool with options to the request', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-file-search');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('What are the main topics covered in the documents?')
+            ->withProviderTools([
+                new ProviderTool(
+                    type: 'file_search',
+                    name: 'file_search',
+                    options: [
+                        'file_search_store_names' => ['fileSearchStores/prism-test-store-k48zypdei7oj'],
+                    ]
+                ),
+            ])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['tools'][0])->toHaveKey('file_search');
+            expect($data['tools'][0]['file_search'])->toBeArray();
+            expect($data['tools'][0]['file_search'])->toHaveKey('file_search_store_names');
+            expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/prism-test-store-k48zypdei7oj']);
+
+            return true;
+        });
+    });
+
     it('creates citations in additionalContent from search groundings', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 

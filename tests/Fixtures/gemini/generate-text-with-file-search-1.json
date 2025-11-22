@@ -1,0 +1,59 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "The main topic covered in the provided document is \"The Answer to the Ultimate Question of Life, the Universe, and Everything,\" which is stated to be 42."
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0,
+      "groundingMetadata": {
+        "groundingChunks": [
+          {
+            "retrievedContext": {
+              "title": "Test PDF Document",
+              "text": "--- PAGE 1 ---\n\nThe Answer to the Ultimate Question of Life, the Universe, and Everything is 42.\n",
+              "fileSearchStore": "fileSearchStores/prism-test-store-k48zypdei7oj"
+            }
+          }
+        ],
+        "groundingSupports": [
+          {
+            "segment": {
+              "endIndex": 153,
+              "text": "The main topic covered in the provided document is \"The Answer to the Ultimate Question of Life, the Universe, and Everything,\" which is stated to be 42."
+            },
+            "groundingChunkIndices": [
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 11,
+    "candidatesTokenCount": 55,
+    "totalTokenCount": 358,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 11
+      }
+    ],
+    "toolUsePromptTokenCount": 105,
+    "toolUsePromptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 105
+      }
+    ],
+    "thoughtsTokenCount": 187
+  },
+  "modelVersion": "gemini-2.5-flash",
+  "responseId": "99cgaZGaEaTR_uMPpfHf-A4"
+}

@@ -15,6 +15,7 @@ use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -190,6 +191,40 @@ it('can generate text stream using tools ', function (): void {
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
         && isset($request->data()['contents']));
+});
+
+it('can generate text stream using file_search provider tool with options', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text');
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withPrompt('What are the main topics in the documents?')
+        ->withProviderTools([
+            new ProviderTool(
+                type: 'file_search',
+                name: 'file_search',
+                options: [
+                    'file_search_store_names' => ['fileSearchStores/test-store-456'],
+                ]
+            ),
+        ])
+        ->asStream();
+
+    // Consume the stream
+    foreach ($response as $event) {
+        // Just consume events
+    }
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        expect($data['tools'][0])->toHaveKey('file_search');
+        expect($data['tools'][0]['file_search'])->toBeArray();
+        expect($data['tools'][0]['file_search'])->toHaveKey('file_search_store_names');
+        expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/test-store-456']);
+
+        return true;
+    });
 });
 
 it('yields ToolCall events before ToolResult events', function (): void {
