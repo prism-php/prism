@@ -1,0 +1,11 @@
+{
+  "id": "pred_no_tools",
+  "status": "succeeded",
+  "output": [
+    "Hello! How can I assist you today?"
+  ],
+  "metrics": {
+    "input_token_count": 120,
+    "output_token_count": 12
+  }
+}

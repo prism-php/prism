@@ -1,0 +1,11 @@
+{
+  "id": "pred_multistep_3",
+  "status": "succeeded",
+  "output": [
+    "At your current location (Paris), the weather is 72°F and sunny."
+  ],
+  "metrics": {
+    "input_token_count": 210,
+    "output_token_count": 18
+  }
+}
