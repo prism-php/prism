@@ -41,7 +41,7 @@ class ImageMapper extends ProviderMediaMapper
             return true;
         }
 
-        if ($this->media->mimeType() && $this->media->hasRawContent()) {
+        if ($this->media->hasMimeType() && $this->media->hasRawContent()) {
             return in_array($this->media->mimeType(), self::SUPPORTED_MIME_TYPES, true);
         }
 
