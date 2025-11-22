@@ -263,6 +263,7 @@ class Stream
                 $toolCalls[$index]['id'] = EventID::generate('gm');
                 $toolCalls[$index]['name'] = data_get($part, 'functionCall.name');
                 $toolCalls[$index]['arguments'] = data_get($part, 'functionCall.args', []);
+                $toolCalls[$index]['reasoningId'] = data_get($part, 'thoughtSignature');
             }
         }
 
@@ -361,7 +362,8 @@ class Stream
         return new ToolCall(
             id: empty($toolCallData['id']) ? EventID::generate('gm') : $toolCallData['id'],
             name: data_get($toolCallData, 'name', 'unknown'),
-            arguments: $arguments
+            arguments: $arguments,
+            reasoningId: data_get($toolCallData, 'reasoningId')
         );
     }
 
