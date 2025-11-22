@@ -1,0 +1,24 @@
+{
+  "id": "pred_tool_multi_1",
+  "status": "succeeded",
+  "output": [
+    "{\n",
+    "  \"tool_calls\": [\n",
+    "    {\n",
+    "      \"id\": \"call_weather\",\n",
+    "      \"name\": \"get_weather\",\n",
+    "      \"arguments\": {\"city\": \"Paris\"}\n",
+    "    },\n",
+    "    {\n",
+    "      \"id\": \"call_search\",\n",
+    "      \"name\": \"search\",\n",
+    "      \"arguments\": {\"query\": \"events today Paris\"}\n",
+    "    }\n",
+    "  ]\n",
+    "}"
+  ],
+  "metrics": {
+    "input_token_count": 180,
+    "output_token_count": 52
+  }
+}

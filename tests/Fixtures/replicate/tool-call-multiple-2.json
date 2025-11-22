@@ -1,0 +1,11 @@
+{
+  "id": "pred_tool_multi_2",
+  "status": "succeeded",
+  "output": [
+    "The weather in Paris is 72°F and sunny. There's an event at 3pm today."
+  ],
+  "metrics": {
+    "input_token_count": 250,
+    "output_token_count": 22
+  }
+}

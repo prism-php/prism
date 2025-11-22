@@ -1,0 +1,24 @@
+{
+  "id": "pred_tool_single_1",
+  "status": "succeeded",
+  "output": [
+    "{\n",
+    "  \"tool_calls\": [\n",
+    "    {\n",
+    "      \"id\": \"call_abc123\",\n",
+    "      \"name\": \"get_weather\",\n",
+    "      \"arguments\": {\n",
+    "        \"location\": \"Paris\"\n",
+    "      }\n",
+    "    }\n",
+    "  ]\n",
+    "}"
+  ],
+  "metrics": {
+    "input_token_count": 150,
+    "output_token_count": 35
+  },
+  "urls": {
+    "get": "https://api.replicate.com/v1/predictions/pred_tool_single_1"
+  }
+}
