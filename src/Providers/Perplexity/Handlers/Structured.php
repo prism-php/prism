@@ -3,10 +3,10 @@
 namespace Prism\Prism\Providers\Perplexity\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Str;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsMeta;
+use Prism\Prism\Providers\Perplexity\Concerns\ExtractsStructuredOutput;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsUsage;
 use Prism\Prism\Providers\Perplexity\Concerns\HandlesHttpRequests;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -17,6 +17,7 @@ class Structured
 {
     use ExtractsAdditionalContent;
     use ExtractsMeta;
+    use ExtractsStructuredOutput;
     use ExtractsUsage;
     use HandlesHttpRequests;
 
@@ -45,28 +46,5 @@ class Structured
             meta: $this->extractsMeta($data),
             additionalContent: $this->extractsAdditionalContent($data),
         );
-    }
-
-    protected function parseStructuredOutput(string $content): array
-    {
-        $stringable = Str::of($content);
-
-        if ($stringable->contains('</think>')) {
-            $stringable = $stringable->after('</think>')->trim();
-        }
-
-        if ($stringable->startsWith('```json')) {
-            $stringable = $stringable->after('```json')->trim();
-        }
-
-        if ($stringable->startsWith('```')) {
-            $stringable = $stringable->substr(3)->trim();
-        }
-
-        if ($stringable->endsWith('```')) {
-            $stringable = $stringable->substr(0, $stringable->length() - 3)->trim();
-        }
-
-        return json_decode($stringable->trim(), associative: true, flags: JSON_THROW_ON_ERROR);
     }
 }
