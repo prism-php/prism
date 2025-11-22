@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Kids are talking by the door."
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.2275218963623 
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 263,
+    "candidatesTokenCount": 35,
+    "totalTokenCount": 35
+  },
+  "modelVersion": "gemini-1.5-flash"
+}

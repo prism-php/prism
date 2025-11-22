@@ -22,7 +22,7 @@ For search / querying:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
@@ -35,7 +35,7 @@ For document retrieval:
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')
@@ -52,7 +52,7 @@ You can force it to throw an error instead by setting truncation to false.
 
 ```php
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
     ->using(Provider::VoyageAI, 'voyage-3-lite')

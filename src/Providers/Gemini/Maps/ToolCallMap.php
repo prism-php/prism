@@ -18,10 +18,11 @@ class ToolCallMap
             return [];
         }
 
-        return array_map(fn (array $toolCall): \Prism\Prism\ValueObjects\ToolCall => new ToolCall(
+        return array_map(fn (array $toolCall): ToolCall => new ToolCall(
             id: data_get($toolCall, 'functionCall.name'),
             name: data_get($toolCall, 'functionCall.name'),
             arguments: data_get($toolCall, 'functionCall.args'),
+            reasoningId: data_get($toolCall, 'thoughtSignature'),
         ), $toolCalls);
     }
 }

@@ -6,9 +6,9 @@ namespace Tests\Providers\Gemini;
 
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -37,7 +37,7 @@ it('maps user messages with images from path', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ],
         systemPrompts: []
@@ -45,17 +45,19 @@ it('maps user messages with images from path', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, 'contents.0.parts'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.mime_type'))
         ->toBe('image/png');
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.data'))
-        ->toBe(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toBe(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 it('maps user messages with images from base64', function (): void {
     $messageMap = new MessageMap(
         messages: [
             new UserMessage('Who are you?', [
-                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/dimond.png')), 'image/png'),
+                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/diamond.png')), 'image/png'),
             ]),
         ],
         systemPrompts: []
@@ -63,10 +65,12 @@ it('maps user messages with images from base64', function (): void {
 
     $mappedMessage = $messageMap();
 
+    expect(data_get($mappedMessage, 'contents.0.parts'))->toHaveCount(2);
+
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.mime_type'))
         ->toBe('image/png');
     expect(data_get($mappedMessage, 'contents.0.parts.1.inline_data.data'))
-        ->toBe(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+        ->toBe(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
 });
 
 describe('documents', function (): void {
@@ -82,6 +86,8 @@ describe('documents', function (): void {
 
         $mappedMessage = $messageMap();
 
+        expect(data_get($mappedMessage, 'contents.0.parts'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, 'contents.0.parts.1.text'))
             ->toBe('Here is the document');
 
@@ -96,13 +102,15 @@ describe('documents', function (): void {
         $messageMap = new MessageMap(
             messages: [
                 new UserMessage('Here is the document', [
-                    Document::fromPath('tests/Fixtures/test-text.txt'),
+                    Document::fromLocalPath('tests/Fixtures/test-text.txt'),
                 ]),
             ],
             systemPrompts: []
         );
 
         $mappedMessage = $messageMap();
+
+        expect(data_get($mappedMessage, 'contents.0.parts'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, 'contents.0.parts.1.text'))
             ->toBe('Here is the document');
@@ -142,7 +150,7 @@ it('maps assistant message with tool calls', function (): void {
                     'search',
                     [
                         'query' => 'Laravel collection methods',
-                    ]
+                    ],
                 ),
             ]),
         ],
@@ -161,6 +169,42 @@ it('maps assistant message with tool calls', function (): void {
                             'query' => 'Laravel collection methods',
                         ],
                     ],
+                ],
+            ],
+        ]],
+    ]);
+});
+
+it('maps assistant message with tool calls with reasoning id', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('I am Nyx', [
+                new ToolCall(
+                    'tool_1234',
+                    'search',
+                    [
+                        'query' => 'Laravel collection methods',
+                    ],
+                    reasoningId: 'reasoning_1234'
+                ),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        'contents' => [[
+            'role' => 'model',
+            'parts' => [
+                ['text' => 'I am Nyx'],
+                [
+                    'functionCall' => [
+                        'name' => 'search',
+                        'args' => [
+                            'query' => 'Laravel collection methods',
+                        ],
+                    ],
+                    'thoughtSignature' => 'reasoning_1234',
                 ],
             ],
         ]],

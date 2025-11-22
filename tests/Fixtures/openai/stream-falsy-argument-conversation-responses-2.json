@@ -1,0 +1,66 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_6859a4d09fc08199aba7ddab3786365e07b10737d88fc6b4","object":"response","created_at":1750705360,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4-0613","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Returns info about of available models","name":"get_models","parameters":{"type":"object","properties":{"modelId":{"description":"Id of the model to load. Returns all models if null","type":"number"}},"required":[]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_6859a4d09fc08199aba7ddab3786365e07b10737d88fc6b4","object":"response","created_at":1750705360,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4-0613","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Returns info about of available models","name":"get_models","parameters":{"type":"object","properties":{"modelId":{"description":"Id of the model to load. Returns all models if null","type":"number"}},"required":[]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","type":"message","status":"in_progress","content":[],"role":"assistant"}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":""}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":"The"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" model"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" with"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" id"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" "}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":"0"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" is"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" considered"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" the"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" fun"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":"niest"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" of"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":" all"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"delta":"."}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":18,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"text":"The model with id 0 is considered the funniest of all."}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":19,"item_id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":"The model with id 0 is considered the funniest of all."}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":20,"output_index":0,"item":{"id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"text":"The model with id 0 is considered the funniest of all."}],"role":"assistant"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":21,"response":{"id":"resp_6859a4d09fc08199aba7ddab3786365e07b10737d88fc6b4","object":"response","created_at":1750705360,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4-0613","output":[{"id":"msg_6859a4d213048199b5dfdad6a50ea8f207b10737d88fc6b4","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"text":"The model with id 0 is considered the funniest of all."}],"role":"assistant"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Returns info about of available models","name":"get_models","parameters":{"type":"object","properties":{"modelId":{"description":"Id of the model to load. Returns all models if null","type":"number"}},"required":[]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":103,"input_tokens_details":{"cached_tokens":0},"output_tokens":16,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":119},"user":null,"metadata":{}}}
+

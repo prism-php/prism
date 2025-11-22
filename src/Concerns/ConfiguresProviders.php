@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Concerns;
 
-use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\PrismManager;
+use Prism\Prism\Providers\Provider;
 
 trait ConfiguresProviders
 {
@@ -19,7 +19,7 @@ trait ConfiguresProviders
     /**
      * @param  array<string, mixed>  $providerConfig
      */
-    public function using(string|ProviderEnum $provider, string $model, array $providerConfig = []): self
+    public function using(string|ProviderEnum $provider, string $model = '', array $providerConfig = []): self
     {
         $this->providerKey = is_string($provider) ? $provider : $provider->value;
 

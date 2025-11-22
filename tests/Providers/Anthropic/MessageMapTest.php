@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use InvalidArgumentException;
+use Prism\Prism\Enums\Citations\CitationSourcePositionType;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
-use Prism\Prism\Providers\Anthropic\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Citation;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -33,16 +35,18 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with images from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Who are you?', [
-                Image::fromPath('tests/Fixtures/dimond.png'),
+                Image::fromLocalPath('tests/Fixtures/diamond.png'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('image');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
             ->toBe('base64');
         expect(data_get($mappedMessage, '0.content.1.source.data'))
-            ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+            ->toContain(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
         expect(data_get($mappedMessage, '0.content.1.source.media_type'))
             ->toBe('image/png');
     });
@@ -50,35 +54,64 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with images from base64', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Who are you?', [
-                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/dimond.png')), 'image/png'),
+                Image::fromBase64(base64_encode(file_get_contents('tests/Fixtures/diamond.png')), 'image/png'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('image');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
             ->toBe('base64');
         expect(data_get($mappedMessage, '0.content.1.source.data'))
-            ->toContain(base64_encode(file_get_contents('tests/Fixtures/dimond.png')));
+            ->toContain(base64_encode(file_get_contents('tests/Fixtures/diamond.png')));
         expect(data_get($mappedMessage, '0.content.1.source.media_type'))
             ->toBe('image/png');
     });
 
-    it('does not maps user messages with images from url', function (): void {
-        $this->expectException(InvalidArgumentException::class);
-        MessageMap::map([
-            new UserMessage('Who are you?', [
-                Image::fromUrl('https://prismphp.com/storage/dimond.png'),
+    it('maps user messages with images from url', function (): void {
+        $mappedMessage = MessageMap::map([
+            new UserMessage('Here is the document', [
+                Image::fromUrl('https://prismphp.com/storage/diamond.png'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
+        expect(data_get($mappedMessage, '0.content.1.type'))
+            ->toBe('image');
+        expect(data_get($mappedMessage, '0.content.1.source.type'))
+            ->toBe('url');
+        expect(data_get($mappedMessage, '0.content.1.source.url'))
+            ->toBe('https://prismphp.com/storage/diamond.png');
+    });
+
+    it('maps user messages with PDF documents from url', function (): void {
+        $mappedMessage = MessageMap::map([
+            new UserMessage('Here is the document', [
+                Document::fromUrl('https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf'),
+            ]),
+        ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
+        expect(data_get($mappedMessage, '0.content.1.type'))
+            ->toBe('document');
+        expect(data_get($mappedMessage, '0.content.1.source.type'))
+            ->toBe('url');
+        expect(data_get($mappedMessage, '0.content.1.source.url'))
+            ->toBe('https://storage.echolabs.dev/api/v1/buckets/public/objects/download?preview=true&prefix=prism-text-generation.pdf');
     });
 
     it('maps user messages with PDF documents from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
-                Document::fromPath('tests/Fixtures/test-pdf.pdf'),
+                Document::fromLocalPath('tests/Fixtures/test-pdf.pdf'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
@@ -97,6 +130,8 @@ describe('Anthropic user message mapping', function (): void {
             ]),
         ]);
 
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
+
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
         expect(data_get($mappedMessage, '0.content.1.source.type'))
@@ -110,9 +145,11 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with txt documents from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
-                Document::fromPath('tests/Fixtures/test-text.txt'),
+                Document::fromLocalPath('tests/Fixtures/test-text.txt'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
@@ -127,9 +164,11 @@ describe('Anthropic user message mapping', function (): void {
     it('maps user messages with md documents from path', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
-                Document::fromPath('tests/Fixtures/test-text.md'),
+                Document::fromLocalPath('tests/Fixtures/test-text.md'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
@@ -147,6 +186,8 @@ describe('Anthropic user message mapping', function (): void {
                 Document::fromText('Hello world!'),
             ]),
         ]);
+
+        expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
         expect(data_get($mappedMessage, '0.content.1.type'))
             ->toBe('document');
@@ -260,6 +301,83 @@ it('maps tool result messages', function (): void {
     ]);
 });
 
+it('sets the cache type on ToolResultMessage if cacheType providerOptions is set', function (mixed $cacheType): void {
+    expect(MessageMap::map([
+        (new ToolResultMessage([
+            new ToolResult(
+                'tool_1234',
+                'weather',
+                [
+                    'city' => 'Dallas',
+                ],
+                'It is 72°F and sunny in Dallas'
+            ),
+        ]))->withProviderOptions(['cacheType' => $cacheType]),
+    ]))->toBe([
+        [
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_1234',
+                    'content' => 'It is 72°F and sunny in Dallas',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+    ]);
+})->with([
+    'ephemeral',
+    AnthropicCacheType::Ephemeral,
+]);
+
+it('only sets cache_control on the last tool result when multiple results exist', function (): void {
+    expect(MessageMap::map([
+        (new ToolResultMessage([
+            new ToolResult(
+                'tool_1',
+                'weather',
+                ['city' => 'New York'],
+                'It is 65°F and cloudy in New York'
+            ),
+            new ToolResult(
+                'tool_2',
+                'weather',
+                ['city' => 'London'],
+                'It is 55°F and rainy in London'
+            ),
+            new ToolResult(
+                'tool_3',
+                'weather',
+                ['city' => 'Tokyo'],
+                'It is 70°F and sunny in Tokyo'
+            ),
+        ]))->withProviderOptions(['cacheType' => 'ephemeral']),
+    ]))->toBe([
+        [
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_1',
+                    'content' => 'It is 65°F and cloudy in New York',
+                ],
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_2',
+                    'content' => 'It is 55°F and rainy in London',
+                ],
+                [
+                    'type' => 'tool_result',
+                    'tool_use_id' => 'tool_3',
+                    'content' => 'It is 70°F and sunny in Tokyo',
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ],
+        ],
+    ]);
+});
+
 it('maps system messages', function (): void {
     expect(MessageMap::mapSystemMessages([
         new SystemMessage('I am Thanos.'),
@@ -299,7 +417,7 @@ describe('Anthropic cache mapping', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'Who are you?',
-                additionalContent: [Image::fromPath('tests/Fixtures/dimond.png')]
+                additionalContent: [Image::fromLocalPath('tests/Fixtures/diamond.png')]
             ))->withProviderOptions(['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
@@ -311,12 +429,12 @@ describe('Anthropic cache mapping', function (): void {
                 ],
                 [
                     'type' => 'image',
+                    'cache_control' => ['type' => 'ephemeral'],
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'image/png',
-                        'data' => base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                        'data' => base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                     ],
-                    'cache_control' => ['type' => 'ephemeral'],
                 ],
             ],
         ]]);
@@ -326,7 +444,7 @@ describe('Anthropic cache mapping', function (): void {
         expect(MessageMap::map([
             (new UserMessage(
                 content: 'Who are you?',
-                additionalContent: [Document::fromPath('tests/Fixtures/test-pdf.pdf')]
+                additionalContent: [Document::fromLocalPath('tests/Fixtures/test-pdf.pdf')]
             ))->withProviderOptions(['cacheType' => 'ephemeral']),
         ]))->toBe([[
             'role' => 'user',
@@ -338,12 +456,12 @@ describe('Anthropic cache mapping', function (): void {
                 ],
                 [
                     'type' => 'document',
+                    'cache_control' => ['type' => 'ephemeral'],
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'application/pdf',
                         'data' => base64_encode(file_get_contents('tests/Fixtures/test-pdf.pdf')),
                     ],
-                    'cache_control' => ['type' => 'ephemeral'],
                 ],
             ],
         ]]);
@@ -383,277 +501,119 @@ describe('Anthropic cache mapping', function (): void {
     ]);
 });
 
-describe('Anthropic citation mapping', function (): void {
-    it('sets citiations to true on a UserMessage Document if citations providerOptions is true', function (): void {
-        expect(MessageMap::map([
-            (new UserMessage(
-                content: 'What color is the grass and sky?',
-                additionalContent: [
-                    Document::fromText('The grass is green. The sky is blue.')->withProviderOptions(['citations' => true]),
-                ]
-            )),
-        ]))->toBe([[
-            'role' => 'user',
-            'content' => [
-                [
-                    'type' => 'text',
-                    'text' => 'What color is the grass and sky?',
-                ],
-                [
-                    'type' => 'document',
-                    'source' => [
-                        'type' => 'text',
-                        'media_type' => 'text/plain',
-                        'data' => 'The grass is green. The sky is blue.',
-                    ],
-                    'citations' => ['enabled' => true],
-                ],
-            ],
-        ]]);
+describe('Anthropic citations mapping', function (): void {
+    it('citations back to Anthropic format', function (): void {
+        $citation = new Citation(
+            sourceType: CitationSourceType::Document,
+            source: 0,
+            sourceText: 'Sample citation text',
+            sourceTitle: 'Test Document',
+            sourcePositionType: CitationSourcePositionType::Character,
+            sourceStartIndex: 10,
+            sourceEndIndex: 30
+        );
+
+        $messagePartWithCitations = new MessagePartWithCitations(
+            outputText: 'Here is some text with citations.',
+            citations: [$citation]
+        );
+
+        $assistantMessage = new AssistantMessage(
+            content: '',
+            additionalContent: [
+                'citations' => [$messagePartWithCitations],
+            ]
+        );
+
+        $mapped = MessageMap::map([$assistantMessage]);
+
+        expect($mapped[0]['content'][0])->toHaveKey('type', 'text');
+        expect($mapped[0]['content'][0])->toHaveKey('text', 'Here is some text with citations.');
+        expect($mapped[0]['content'][0])->toHaveKey('citations');
+        expect($mapped[0]['content'][0]['citations'])->toHaveCount(1);
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('type', 'char_location');
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('cited_text', 'Sample citation text');
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('document_index', 0);
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('document_title', 'Test Document');
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('start_char_index', 10);
+        expect($mapped[0]['content'][0]['citations'][0])->toHaveKey('end_char_index', 30);
     });
+});
 
-    test('MessageMap applies citations to all documents if requestProviderMeta has citations true', function (): void {
-        $messages = [
-            (new UserMessage(
-                content: 'What color is the grass and sky?',
+describe('Anthropic provider tool calls mapping', function (): void {
+    it('maps assistant message with provider tool calls', function (): void {
+        expect(MessageMap::map([
+            new AssistantMessage(
+                content: 'I have used a provider tool.',
                 additionalContent: [
-                    Document::fromText('The grass is green.', 'All aboout the grass.', 'A novel look into the colour of grass.'),
-                    Document::fromText('The sky is blue.'),
+                    'provider_tool_calls' => [
+                        [
+                            'type' => 'server_tool_use',
+                            'id' => 'srvtoolu_xyz789',
+                            'name' => 'web_search',
+                            'input' => '{"query":"london weather"}',
+                        ],
+                    ],
                 ]
-            )),
-            (new UserMessage(
-                content: 'What color is sea and earth?',
-                additionalContent: [
-                    Document::fromText('The sea is blue'),
-                    Document::fromText('The earth is brown.'),
-                ]
-            )),
-        ];
-
-        expect(MessageMap::map($messages, ['citations' => true]))->toBe([
+            ),
+        ]))->toBe([
             [
-                'role' => 'user',
+                'role' => 'assistant',
                 'content' => [
                     [
                         'type' => 'text',
-                        'text' => 'What color is the grass and sky?',
+                        'text' => 'I have used a provider tool.',
                     ],
                     [
-                        'type' => 'document',
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The grass is green.',
+                        'type' => 'server_tool_use',
+                        'id' => 'srvtoolu_xyz789',
+                        'name' => 'web_search',
+                        'input' => [
+                            'query' => 'london weather',
                         ],
-                        'title' => 'All aboout the grass.',
-                        'context' => 'A novel look into the colour of grass.',
-                        'citations' => ['enabled' => true],
-                    ],
-                    [
-                        'type' => 'document',
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The sky is blue.',
-                        ],
-                        'citations' => ['enabled' => true],
-                    ],
-                ],
-            ],
-            [
-                'role' => 'user',
-                'content' => [
-                    [
-                        'type' => 'text',
-                        'text' => 'What color is sea and earth?',
-                    ],
-                    [
-                        'type' => 'document',
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The sea is blue',
-                        ],
-                        'citations' => ['enabled' => true],
-                    ],
-                    [
-                        'type' => 'document',
-                        'source' => [
-                            'type' => 'text',
-                            'media_type' => 'text/plain',
-                            'data' => 'The earth is brown.',
-                        ],
-                        'citations' => ['enabled' => true],
                     ],
                 ],
             ],
         ]);
     });
 
-    it('maps a chunked document correctly', function (): void {
+    it('maps assistant message with web search tool results', function (): void {
         expect(MessageMap::map([
-            (new UserMessage(
-                content: 'What color is the grass and sky?',
+            new AssistantMessage(
+                content: 'Here are the web search results.',
                 additionalContent: [
-                    Document::fromChunks(['chunk1', 'chunk2'])->withProviderOptions(['citations' => true]),
-                ]
-            )),
-        ]))->toBe([[
-            'role' => 'user',
-            'content' => [
-                [
-                    'type' => 'text',
-                    'text' => 'What color is the grass and sky?',
-                ],
-                [
-                    'type' => 'document',
-                    'source' => [
-                        'type' => 'content',
-                        'content' => [
-                            ['type' => 'text', 'text' => 'chunk1'],
-                            ['type' => 'text', 'text' => 'chunk2'],
+                    'provider_tool_results' => [
+                        [
+                            'type' => 'web_search_tool_result',
+                            'tool_use_id' => 'srvtoolu_xyz789',
+                            'content' => [
+                                'results' => [
+                                    ['type' => 'web_search_result', 'title' => 'London Weather Today', 'url' => 'https://weather.com/london'],
+                                ],
+                            ],
                         ],
                     ],
-                    'citations' => ['enabled' => true],
-                ],
-            ],
-        ]]);
-    });
-
-    it('maps an assistant message with PDF citations back to its original format', function (): void {
-        $block_one = [
-            'type' => 'text',
-            'text' => '.',
-        ];
-
-        $block_two = [
-            'type' => 'text',
-            'text' => 'the grass is green',
-            'citations' => [
-                [
-                    'type' => 'page_location',
-                    'cited_text' => 'The grass is green. ',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_page_number' => 1,
-                    'end_page_number' => 2,
-                ],
-            ],
-        ];
-
-        $block_three = [
-            'type' => 'text',
-            'text' => ' and ',
-        ];
-
-        $block_four = [
-            'type' => 'text',
-            'text' => 'the sky is blue',
-            'citations' => [
-                [
-                    'type' => 'page_location',
-                    'cited_text' => 'The sky is blue.',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_page_number' => 1,
-                    'end_page_number' => 2,
-                ],
-            ],
-        ];
-
-        $block_five = [
-            'type' => 'text',
-            'text' => '.',
-        ];
-
-        expect(MessageMap::map([
-            new AssistantMessage(
-                content: 'According to the text, the grass is green and the sky is blue.',
-                additionalContent: [
-                    'messagePartsWithCitations' => [
-                        MessagePartWithCitations::fromContentBlock($block_one),
-                        MessagePartWithCitations::fromContentBlock($block_two),
-                        MessagePartWithCitations::fromContentBlock($block_three),
-                        MessagePartWithCitations::fromContentBlock($block_four),
-                        MessagePartWithCitations::fromContentBlock($block_five),
-                    ],
                 ]
             ),
-        ]))->toBe([[
-            'role' => 'assistant',
-            'content' => [
-                $block_one,
-                $block_two,
-                $block_three,
-                $block_four,
-                $block_five,
-            ],
-        ]]);
-    });
-
-    it('maps an assistant message with text document citations back to its original format', function (): void {
-        $block = [
-            'type' => 'text',
-            'text' => 'the grass is green',
-            'citations' => [
-                [
-                    'type' => 'char_location',
-                    'cited_text' => 'The grass is green. ',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_char_index' => 1,
-                    'end_char_index' => 20,
+        ]))->toBe([
+            [
+                'role' => 'assistant',
+                'content' => [
+                    [
+                        'type' => 'text',
+                        'text' => 'Here are the web search results.',
+                    ],
+                    [
+                        'type' => 'web_search_tool_result',
+                        'tool_use_id' => 'srvtoolu_xyz789',
+                        'content' => [
+                            'results' => [
+                                ['type' => 'web_search_result', 'title' => 'London Weather Today', 'url' => 'https://weather.com/london'],
+                            ],
+                        ],
+                    ],
                 ],
             ],
-        ];
-
-        expect(MessageMap::map([
-            new AssistantMessage(
-                content: 'According to the text, the grass is green and the sky is blue.',
-                additionalContent: [
-                    'messagePartsWithCitations' => [
-                        MessagePartWithCitations::fromContentBlock($block),
-                    ],
-                ]
-            ),
-        ]))->toBe([[
-            'role' => 'assistant',
-            'content' => [
-                $block,
-            ],
-        ]]);
-    });
-
-    it('maps an assistant message with custom content document citations back to its original format', function (): void {
-        $block = [
-            'type' => 'text',
-            'text' => 'the grass is green',
-            'citations' => [
-                [
-                    'type' => 'content_block_location',
-                    'cited_text' => 'The grass is green. ',
-                    'document_index' => 0,
-                    'document_title' => 'All aboout the grass and the sky',
-                    'start_block_index' => 0,
-                    'end_block_index' => 1,
-                ],
-            ],
-        ];
-
-        expect(MessageMap::map([
-            new AssistantMessage(
-                content: 'According to the text, the grass is green and the sky is blue.',
-                additionalContent: [
-                    'messagePartsWithCitations' => [
-                        MessagePartWithCitations::fromContentBlock($block),
-                    ],
-                ]
-            ),
-        ]))->toBe([[
-            'role' => 'assistant',
-            'content' => [
-                $block,
-            ],
-        ]]);
+        ]);
     });
 });

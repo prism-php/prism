@@ -6,15 +6,16 @@ namespace Prism\Prism\Providers\Ollama\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 
 class MessageMap
 {
-    /** @var array<int, array{role: string, content: string}> */
+    /** @var array<int, mixed> */
     protected array $mappedMessages = [];
 
     /**
@@ -30,7 +31,7 @@ class MessageMap
     public function map(): array
     {
         array_map(
-            fn (Message $message) => $this->mapMessage($message),
+            $this->mapMessage(...),
             $this->messages
         );
 
@@ -61,6 +62,7 @@ class MessageMap
         foreach ($message->toolResults as $toolResult) {
             $this->mappedMessages[] = [
                 'role' => 'tool',
+                'tool_name' => $toolResult->toolName,
                 'content' => is_string($toolResult->result)
                     ? $toolResult->result
                     : (json_encode($toolResult->result) ?: ''),
@@ -77,7 +79,7 @@ class MessageMap
 
         if ($images = $message->images()) {
             $mapped['images'] = array_map(
-                fn (Image $image): string => $image->image,
+                fn (Image $image): string => (new ImageMapper($image))->toPayload(),
                 $images
             );
         }
@@ -87,9 +89,15 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $this->mappedMessages[] = [
+        $this->mappedMessages[] = array_filter([
             'role' => 'assistant',
             'content' => $message->content,
-        ];
+            'tool_calls' => $message->toolCalls ? array_map(fn (ToolCall $toolCall): array => [
+                'function' => [
+                    'name' => $toolCall->name,
+                    'arguments' => (object) $toolCall->arguments(),
+                ],
+            ], $message->toolCalls) : null,
+        ]);
     }
 }

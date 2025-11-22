@@ -6,28 +6,36 @@ namespace Prism\Prism\Providers\Anthropic;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
-use Prism\Prism\Contracts\Provider;
-use Prism\Prism\Embeddings\Request as EmbeddingRequest;
-use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Enums\Provider as ProviderName;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
+use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
-use Prism\Prism\Text\Response;
+use Prism\Prism\Text\Response as TextResponse;
 
-readonly class Anthropic implements Provider
+class Anthropic extends Provider
 {
+    use InitializesClient, ProcessesRateLimits;
+
     public function __construct(
-        #[\SensitiveParameter] public string $apiKey,
-        public string $apiVersion,
-        public ?string $betaFeatures = null
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $apiVersion,
+        public readonly string $url,
+        public readonly ?string $betaFeatures = null,
     ) {}
 
     #[\Override]
-    public function text(TextRequest $request): Response
+    public function text(TextRequest $request): TextResponse
     {
         $handler = new Text(
             $this->client(
@@ -54,6 +62,9 @@ readonly class Anthropic implements Provider
         return $handler->handle();
     }
 
+    /**
+     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     */
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
@@ -65,25 +76,35 @@ readonly class Anthropic implements Provider
         return $handler->handle($request);
     }
 
-    #[\Override]
-    public function embeddings(EmbeddingRequest $request): EmbeddingResponse
+    public function handleRequestException(string $model, RequestException $e): never
     {
-        throw new \Exception(sprintf('%s does not support embeddings', class_basename($this)));
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make(
+                rateLimits: $this->processRateLimits($e->response),
+                retryAfter: $e->response->hasHeader('retry-after')
+                    ? (int) $e->response->getHeader('retry-after')[0]
+                    : null
+            ),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::Anthropic),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::Anthropic),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return Http::withHeaders(array_filter([
-            'x-api-key' => $this->apiKey,
-            'anthropic-version' => $this->apiVersion,
-            'anthropic-beta' => $this->betaFeatures,
-        ]))
+        return $this->baseClient()
+            ->withHeaders(array_filter([
+                'x-api-key' => $this->apiKey,
+                'anthropic-version' => $this->apiVersion,
+                'anthropic-beta' => $this->betaFeatures,
+            ]))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl('https://api.anthropic.com/v1');
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

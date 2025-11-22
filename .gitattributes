@@ -1,0 +1,13 @@
+/.github            export-ignore
+/assets             export-ignore
+/bin                export-ignore
+/docs               export-ignore
+/tests              export-ignore
+/workbench          export-ignore
+/.gitignore         export-ignore
+/phpstan.neon.dist  export-ignore
+/phpunit.xml.dist   export-ignore
+/rector.php         export-ignore
+/Taskfile.yml       export-ignore
+/testbench.yaml     export-ignore
+/whisky.json        export-ignore

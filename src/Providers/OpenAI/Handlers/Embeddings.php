@@ -8,35 +8,30 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
-use Throwable;
 
 class Embeddings
 {
-    use ProcessesRateLimits, ValidatesResponse;
+    use ProcessRateLimits;
+    use ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        try {
-            $response = $this->sendRequest($request);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
 
         $data = $response->json();
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
-            usage: new EmbeddingsUsage(data_get($data, 'usage.total_tokens', null)),
+            embeddings: array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
+            usage: new EmbeddingsUsage(data_get($data, 'usage.total_tokens')),
             meta: new Meta(
                 id: '',
                 model: data_get($data, 'model', ''),
@@ -52,6 +47,7 @@ class Embeddings
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
+                ...($request->providerOptions() ?? []),
             ]
         );
     }

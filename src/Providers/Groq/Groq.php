@@ -6,23 +6,36 @@ namespace Prism\Prism\Providers\Groq;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
-use Prism\Prism\Contracts\Provider;
-use Prism\Prism\Embeddings\Request as EmbeddingRequest;
-use Prism\Prism\Embeddings\Response as EmbeddingResponse;
+use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\AudioResponse;
+use Prism\Prism\Audio\SpeechToTextRequest;
+use Prism\Prism\Audio\TextResponse as AudioTextResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\Groq\Handlers\Audio;
+use Prism\Prism\Providers\Groq\Handlers\Stream;
 use Prism\Prism\Providers\Groq\Handlers\Structured;
 use Prism\Prism\Providers\Groq\Handlers\Text;
+use Prism\Prism\Providers\Provider;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 
-readonly class Groq implements Provider
+class Groq extends Provider
 {
+    use InitializesClient, ProcessRateLimits;
+
     public function __construct(
-        #[\SensitiveParameter] public string $apiKey,
-        public string $url,
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $url,
     ) {}
 
     #[\Override]
@@ -42,28 +55,55 @@ readonly class Groq implements Provider
     }
 
     #[\Override]
-    public function embeddings(EmbeddingRequest $request): EmbeddingResponse
+    public function textToSpeech(TextToSpeechRequest $request): AudioResponse
     {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+        $handler = new Audio($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handleTextToSpeech($request);
     }
 
     #[\Override]
+    public function speechToText(SpeechToTextRequest $request): AudioTextResponse
+    {
+        $handler = new Audio($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handleSpeechToText($request);
+    }
+
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make(
+                rateLimits: $this->processRateLimits($e->response),
+                retryAfter: (int) $e->response->header('retry-after')
+            ),
+            529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
+            413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
+        $handler = new Stream($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handle($request);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return Http::withHeaders(array_filter([
-            'Authorization' => $this->apiKey !== '' && $this->apiKey !== '0' ? sprintf('Bearer %s', $this->apiKey) : null,
-        ]))
+        return $this->baseClient()
+            ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->url);
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

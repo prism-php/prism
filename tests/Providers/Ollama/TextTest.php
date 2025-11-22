@@ -7,10 +7,9 @@ namespace Tests\Providers\Ollama;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
-use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
@@ -22,7 +21,7 @@ describe('Text generation', function (): void {
         $response = Prism::text()
             ->using('ollama', 'qwen2.5:14b')
             ->withPrompt('Who are you?')
-            ->generate();
+            ->asText();
 
         expect($response->usage->promptTokens)->toBeNumeric()->toBeGreaterThan(0);
         expect($response->usage->completionTokens)->toBeNumeric()->toBeGreaterThan(0);
@@ -40,7 +39,7 @@ describe('Text generation', function (): void {
             ->using('ollama', 'qwen2.5:14b')
             ->withSystemPrompt('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!')
             ->withPrompt('Who are you?')
-            ->generate();
+            ->asText();
 
         expect($response->usage->promptTokens)->toBeNumeric()->toBeGreaterThan(0);
         expect($response->usage->completionTokens)->toBeNumeric()->toBeGreaterThan(0);
@@ -60,7 +59,7 @@ describe('Text generation', function (): void {
                 new SystemMessage('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!'),
                 new UserMessage('Who are you?'),
             ])
-            ->generate();
+            ->asText();
 
         expect($response->usage->promptTokens)->toBeNumeric()->toBeGreaterThan(0);
         expect($response->usage->completionTokens)->toBeNumeric()->toBeGreaterThan(0);
@@ -88,35 +87,110 @@ describe('Text generation', function (): void {
         $response = Prism::text()
             ->using('ollama', 'qwen2.5:14b')
             ->withTools($tools)
-            ->withMaxSteps(3)
+            ->withMaxSteps(99)
             ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat?')
-            ->generate();
+            ->asText();
 
-        // Assert tool calls in the first step
         $firstStep = $response->steps[0];
         expect($firstStep->toolCalls)->toHaveCount(2);
-        expect($firstStep->toolCalls[0]->name)->toBe('search');
-        expect($firstStep->toolCalls[0]->arguments())->toBe([
-            'query' => 'time of tigers game today in detroit',
-        ]);
 
-        expect($firstStep->toolCalls[1]->name)->toBe('weather');
-        expect($firstStep->toolCalls[1]->arguments())->toBe([
-            'city' => 'Detroit',
-        ]);
-
-        // Assert usage
         expect($response->usage->promptTokens)->toBeNumeric()->toBeGreaterThan(0);
         expect($response->usage->completionTokens)->toBeNumeric()->toBeGreaterThan(0);
 
-        // Assert response
         expect($response->meta->id)->toBe('');
         expect($response->meta->model)->toBe('qwen2.5:14b');
 
-        // Assert final text content
-        expect($response->text)->toBe(
-            "Today's Tigers game in Detroit starts at 3 PM. The temperature will be a comfortable 75°F with clear, sunny skies, so you won't need to wear a coat. Enjoy the game!"
-        );
+        expect($response->text)->not->toBeEmpty();
+    });
+});
+
+describe('Thinking parameter', function (): void {
+    it('includes think parameter when thinking is enabled', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-with-thinking-enabled');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['thinking' => true])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('think');
+            expect($body['think'])->toBe(true);
+
+            return true;
+        });
+    });
+
+    it('does not include think parameter when not provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->not->toHaveKey('think');
+
+            return true;
+        });
+    });
+});
+
+describe('Keep alive parameter', function (): void {
+    it('includes keep_alive parameter when provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['keep_alive' => '10m'])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('keep_alive');
+            expect($body['keep_alive'])->toBe('10m');
+
+            return true;
+        });
+    });
+
+    it('supports numeric keep_alive values', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->withProviderOptions(['keep_alive' => 300])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->toHaveKey('keep_alive');
+            expect($body['keep_alive'])->toBe(300);
+
+            return true;
+        });
+    });
+
+    it('does not include keep_alive parameter when not provided', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-without-thinking');
+
+        Prism::text()
+            ->using('ollama', 'gpt-oss')
+            ->withPrompt('Test prompt')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $body = $request->data();
+            expect($body)->not->toHaveKey('keep_alive');
+
+            return true;
+        });
     });
 });
 
@@ -130,11 +204,11 @@ describe('Image support', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/diamond.png'),
                     ],
                 ),
             ])
-            ->generate();
+            ->asText();
 
         Http::assertSent(function (Request $request): true {
             $message = $request->data()['messages'][0];
@@ -143,7 +217,7 @@ describe('Image support', function (): void {
             expect($message['content'])->toBe('What is this image');
 
             expect($message['images'][0])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -160,13 +234,13 @@ describe('Image support', function (): void {
                     'What is this image',
                     additionalContent: [
                         Image::fromBase64(
-                            base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                            base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                             'image/png'
                         ),
                     ],
                 ),
             ])
-            ->generate();
+            ->asText();
 
         Http::assertSent(function (Request $request): true {
             $message = $request->data()['messages'][0];
@@ -175,24 +249,10 @@ describe('Image support', function (): void {
             expect($message['content'])->toBe('What is this image');
 
             expect($message['images'][0])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
         });
     });
 });
-
-it('throws an exception with multiple system prompts', function (): void {
-    Http::preventStrayRequests();
-
-    $response = Prism::text()
-        ->using('ollama', 'qwen2.5:14b')
-        ->withSystemPrompts([
-            new SystemMessage('MODEL ADOPTS ROLE of [PERSONA: Nyx the Cthulhu]!'),
-            new SystemMessage('But my friends call my Nyx.'),
-        ])
-        ->withPrompt('Who are you?')
-        ->generate();
-
-})->throws(PrismException::class, 'Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');

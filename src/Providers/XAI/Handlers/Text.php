@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\XAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -24,7 +25,6 @@ use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
@@ -47,18 +47,21 @@ class Text
 
         $data = $response->json();
 
+        // Handle potential refusal from XAI
+        $this->handleRefusal(data_get($data, 'choices.0.message', []));
+
         $responseMessage = new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
-        return match ($this->mapFinishReason($data)) {
+        $finishReason = $this->mapFinishReason($data);
+
+        return match ($finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop => $this->handleStop($data, $request),
+            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request),
             default => throw new PrismException('XAI: unknown finish reason'),
         };
     }
@@ -68,10 +71,13 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request): TextResponse
     {
-        $toolResults = $this->callTools(
-            $request->tools(),
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
+        $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []));
+
+        if ($toolCalls === []) {
+            throw new PrismException('XAI: finish reason is tool_calls but no tool calls found in response');
+        }
+
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
         $request->addMessage(new ToolResultMessage($toolResults));
 
@@ -101,22 +107,27 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_tokens' => $request->maxTokens() ?? 2048,
-                ], array_filter([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
+        $payload = array_merge([
+            'model' => $request->model(),
+            'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+            'max_tokens' => $request->maxTokens() ?? 2048,
+        ], Arr::whereNotNull([
+            'temperature' => $request->temperature(),
+            'top_p' => $request->topP(),
+            'tools' => ToolMap::map($request->tools()),
+            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+        ]));
+
+        return $this->client->post('chat/completions', $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     */
+    protected function handleRefusal(array $message): void
+    {
+        if (data_get($message, 'refusal') !== null) {
+            throw new PrismException(sprintf('XAI Refusal: %s', $message['refusal']));
         }
     }
 
@@ -144,17 +155,18 @@ class Text
             finishReason: $this->mapFinishReason($data),
             toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
+            providerToolCalls: [],
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                data_get($data, 'usage.prompt_tokens', 0),
+                data_get($data, 'usage.completion_tokens', 0),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 }

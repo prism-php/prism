@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
-use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
-use Throwable;
 
 class Cache
 {
@@ -37,19 +36,14 @@ class Cache
      */
     protected function sendRequest(): array
     {
-        try {
-            $response = $this->client->post(
-                '/cachedContents',
-                array_filter([
-                    'model' => 'models/'.$this->model,
-                    ...(new MessageMap($this->messages, $this->systemPrompts))(),
-                    'ttl' => $this->ttl.'s',
-                ])
-            );
+        $request = Arr::whereNotNull([
+            'model' => 'models/'.$this->model,
+            ...(new MessageMap($this->messages, $this->systemPrompts))(),
+            'ttl' => $this->ttl.'s',
+        ]);
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw new Exception('Gemini error - caching content failed: '.$e->getMessage(), $e->getCode(), $e);
-        }
+        $response = $this->client->post('/cachedContents', $request);
+
+        return $response->json();
     }
 }

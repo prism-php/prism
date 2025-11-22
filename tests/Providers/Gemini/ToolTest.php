@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Gemini;
 
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
+use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
 
 it('maps tools to gemini format', function (): void {
@@ -12,6 +13,13 @@ it('maps tools to gemini format', function (): void {
         ->as('search')
         ->for('Searching the web')
         ->withStringParameter('query', 'the detailed search query')
+        ->withObjectParameter(
+            'options',
+            'additional options',
+            [
+                new StringSchema('option1', 'description for option1'),
+            ]
+        )
         ->using(fn (): string => '[Search results]');
 
     expect(ToolMap::map([$tool]))->toBe([[
@@ -19,8 +27,23 @@ it('maps tools to gemini format', function (): void {
         'description' => $tool->description(),
         'parameters' => [
             'type' => 'object',
-            'properties' => $tool->parameters(),
-            'required' => $tool->requiredParameters(),
+            'properties' => [
+                'query' => [
+                    'description' => 'the detailed search query',
+                    'type' => 'string',
+                ],
+                'options' => [
+                    'description' => 'additional options',
+                    'type' => 'object',
+                    'properties' => [
+                        'option1' => [
+                            'description' => 'description for option1',
+                            'type' => 'string',
+                        ],
+                    ],
+                ],
+            ],
+            'required' => ['query', 'options'],
         ],
     ]]);
 });

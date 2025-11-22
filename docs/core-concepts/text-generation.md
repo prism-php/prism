@@ -7,7 +7,7 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -23,7 +23,7 @@ echo $response->text;
 System prompts help set the behavior and context for the AI. They're particularly useful for maintaining consistent responses or giving the LLM a persona:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -36,7 +36,7 @@ $response = Prism::text()
 You can also use Laravel views for complex system prompts:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -48,12 +48,73 @@ $response = Prism::text()
 
 You an also pass a View to the `withPrompt` method.
 
+## Multi-Modal Input
+
+Prism supports including images, documents, audio, and video files in your prompts for rich multi-modal analysis:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Video;
+
+// Analyze an image
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'What objects do you see in this image?',
+        [Image::fromLocalPath('/path/to/image.jpg')]
+    )
+    ->asText();
+
+// Process a document
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt(
+        'Summarize the key points from this document',
+        [Document::fromLocalPath('/path/to/document.pdf')]
+    )
+    ->asText();
+
+// Analyze audio content
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'What is being discussed in this audio?',
+        [Audio::fromLocalPath('/path/to/audio.mp3')]
+    )
+    ->asText();
+
+// Process video content
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Describe what happens in this video',
+        [Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
+    )
+    ->asText();
+
+// Multiple media types in one prompt
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->withPrompt(
+        'Compare this image with the information in this document',
+        [
+            Image::fromLocalPath('/path/to/chart.png'),
+            Document::fromLocalPath('/path/to/report.pdf')
+        ]
+    )
+    ->asText();
+```
+
 ## Message Chains and Conversations
 
 For interactive conversations, use message chains to maintain context:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -121,7 +182,7 @@ This allows for complete or partial override of the providers configuration. Thi
 The response object provides rich access to the generation results:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -153,16 +214,36 @@ foreach ($response->responseMessages as $message) {
 }
 ```
 
-### Finish Reasons
+## Handling Completions with Callbacks
+
+Need to perform actions after text generation completes? The `onComplete()` callback lets you handle the generated messages without interrupting the response flow. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+
+### Basic Example
 
 ```php
-FinishReason::Stop;
-FinishReason::Length;
-FinishReason::ContentFilter;
-FinishReason::ToolCalls;
-FinishReason::Error;
-FinishReason::Other;
-FinishReason::Unknown;
+use Illuminate\Support\Collection;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Text\PendingRequest;
+
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withPrompt('Explain Laravel middleware')
+    ->onComplete(function (PendingRequest $request, Collection $messages) {
+        // Save the conversation after generation completes
+        foreach ($messages as $message) {
+            ConversationLog::create([
+                'model' => $request->model,
+                'prompt' => $request->prompt,
+                'content' => $message->content,
+                'role' => 'assistant',
+            ]);
+        }
+    })
+    ->asText();
+
+// Response is still returned normally
+echo $response->text;
 ```
 
 ## Error Handling
@@ -170,7 +251,7 @@ FinishReason::Unknown;
 Remember to handle potential errors in your generations:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Throwable;

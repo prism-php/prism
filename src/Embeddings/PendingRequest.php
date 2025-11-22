@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Embeddings;
 
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
@@ -60,19 +61,26 @@ class PendingRequest
         return $this->asEmbeddings();
     }
 
-    public function asEmbeddings(): \Prism\Prism\Embeddings\Response
+    public function asEmbeddings(): Response
     {
         if ($this->inputs === []) {
             throw new PrismException('Embeddings input is required');
         }
 
-        return $this->provider->embeddings($this->toRequest());
+        $request = $this->toRequest();
+
+        try {
+            return $this->provider->embeddings($request);
+        } catch (RequestException $e) {
+            $this->provider->handleRequestException($request->model(), $e);
+        }
     }
 
     protected function toRequest(): Request
     {
         return new Request(
             model: $this->model,
+            providerKey: $this->providerKey(),
             inputs: $this->inputs,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,

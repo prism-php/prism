@@ -3,11 +3,12 @@
 declare(strict_types=1);
 
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 
 it('maps system messages correctly', function (): void {
@@ -39,7 +40,7 @@ it('maps user messages correctly', function (): void {
 });
 
 it('maps user messages with images correctly', function (): void {
-    $image = new Image('base64data', 'image/jpeg');
+    $image = Image::fromLocalPath('tests/Fixtures/diamond.png');
     $userMessage = new UserMessage('User input with image', [$image]);
 
     $messageMap = new MessageMap([$userMessage]);
@@ -49,7 +50,7 @@ it('maps user messages with images correctly', function (): void {
         [
             'role' => 'user',
             'content' => 'User input with image',
-            'images' => ['base64data'],
+            'images' => [base64_encode(file_get_contents('tests/Fixtures/diamond.png'))],
         ],
     ]);
 });
@@ -64,6 +65,36 @@ it('maps assistant messages correctly', function (): void {
         [
             'role' => 'assistant',
             'content' => 'Assistant response',
+        ],
+    ]);
+});
+
+it('maps assistant messages with tool calls correctly', function (): void {
+    $assistantMessage = new AssistantMessage('Assistant response', [
+        new ToolCall(
+            id: '',
+            name: 'search',
+            arguments: [
+                'query' => 'What is Prism?',
+            ]
+        ),
+    ]);
+
+    $messageMap = new MessageMap([$assistantMessage]);
+    $result = $messageMap->map();
+
+    expect($result)->toEqual([
+        [
+            'role' => 'assistant',
+            'content' => 'Assistant response',
+            'tool_calls' => [[
+                'function' => [
+                    'name' => 'search',
+                    'arguments' => (object) [
+                        'query' => 'What is Prism?',
+                    ],
+                ],
+            ]],
         ],
     ]);
 });
@@ -83,6 +114,7 @@ it('maps tool result messages correctly', function (): void {
     expect($result)->toBe([
         [
             'role' => 'tool',
+            'tool_name' => 'test-tool',
             'content' => 'Tool execution result',
         ],
     ]);
@@ -103,6 +135,7 @@ it('maps tool result messages with non-string results correctly', function (): v
     expect($result)->toBe([
         [
             'role' => 'tool',
+            'tool_name' => 'test-tool',
             'content' => '{"key":"value"}',
         ],
     ]);
@@ -138,6 +171,6 @@ it('throws exception for unknown message type', function (): void {
     $invalidMessage = new class implements \Prism\Prism\Contracts\Message {};
     $messageMap = new MessageMap([$invalidMessage]);
 
-    expect(fn (): array => $messageMap->map())
+    expect($messageMap->map(...))
         ->toThrow(Exception::class, 'Could not map message type '.$invalidMessage::class);
 });

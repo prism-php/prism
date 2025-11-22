@@ -1,0 +1,57 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_6859a4ba39a8819aa8e4e70ad75e77af0a7ba57447365234","object":"response","created_at":1750705338,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"o3-mini-2025-01-31","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":"medium","summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Get weather information","name":"weather","parameters":{"type":"object","properties":{"city":{"description":"City name","type":"string"}},"required":["city"]},"strict":true},{"type":"function","description":"Search for information","name":"search","parameters":{"type":"object","properties":{"query":{"description":"The search query","type":"string"}},"required":["query"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_6859a4ba39a8819aa8e4e70ad75e77af0a7ba57447365234","object":"response","created_at":1750705338,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"o3-mini-2025-01-31","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":"medium","summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Get weather information","name":"weather","parameters":{"type":"object","properties":{"city":{"description":"City name","type":"string"}},"required":["city"]},"strict":true},{"type":"function","description":"Search for information","name":"search","parameters":{"type":"object","properties":{"query":{"description":"The search query","type":"string"}},"required":["query"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"rs_6859a4bf849c819abf1f2771923bab5c0a7ba57447365234","type":"reasoning","summary":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":3,"output_index":0,"item":{"id":"rs_6859a4bf849c819abf1f2771923bab5c0a7ba57447365234","type":"reasoning","summary":[]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":4,"output_index":1,"item":{"id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","type":"function_call","status":"in_progress","arguments":"","call_id":"call_GLsIMps0vfGJeDhu3zAjy3wd","name":"search"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":5,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":"{\""}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":6,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":"query"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":7,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":"\":"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":8,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":" \""}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":9,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":"Detroit"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":10,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":" Tigers"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":11,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":" game"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":12,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":" today"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":13,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":" start"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":14,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":" time"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":15,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"delta":"\"}"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":16,"item_id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","output_index":1,"arguments":"{\"query\": \"Detroit Tigers game today start time\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":17,"output_index":1,"item":{"id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","type":"function_call","status":"completed","arguments":"{\"query\": \"Detroit Tigers game today start time\"}","call_id":"call_GLsIMps0vfGJeDhu3zAjy3wd","name":"search"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":18,"response":{"id":"resp_6859a4ba39a8819aa8e4e70ad75e77af0a7ba57447365234","object":"response","created_at":1750705338,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"o3-mini-2025-01-31","output":[{"id":"rs_6859a4bf849c819abf1f2771923bab5c0a7ba57447365234","type":"reasoning","summary":[]},{"id":"fc_6859a4c0aac4819a9357cdf5bc18c25f0a7ba57447365234","type":"function_call","status":"completed","arguments":"{\"query\": \"Detroit Tigers game today start time\"}","call_id":"call_GLsIMps0vfGJeDhu3zAjy3wd","name":"search"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":"medium","summary":null},"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Get weather information","name":"weather","parameters":{"type":"object","properties":{"city":{"description":"City name","type":"string"}},"required":["city"]},"strict":true},{"type":"function","description":"Search for information","name":"search","parameters":{"type":"object","properties":{"query":{"description":"The search query","type":"string"}},"required":["query"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":78,"input_tokens_details":{"cached_tokens":0},"output_tokens":532,"output_tokens_details":{"reasoning_tokens":512},"total_tokens":610},"user":null,"metadata":{}}}
+

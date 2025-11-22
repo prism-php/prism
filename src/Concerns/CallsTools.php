@@ -36,6 +36,7 @@ trait CallsTools
                         toolName: $toolCall->name,
                         args: $toolCall->arguments(),
                         result: $result,
+                        toolCallResultId: $toolCall->resultId,
                     );
                 } catch (Throwable $e) {
                     if ($e instanceof PrismException) {

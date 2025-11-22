@@ -11,12 +11,21 @@ trait HasTools
     /** @var array<int, Tool> */
     protected array $tools = [];
 
+    protected bool $toolErrorHandlingEnabled = true;
+
     /**
      * @param  array<int, Tool>  $tools
      */
     public function withTools(array $tools): self
     {
         $this->tools = $tools;
+
+        return $this;
+    }
+
+    public function withoutToolErrorHandling(): self
+    {
+        $this->toolErrorHandlingEnabled = false;
 
         return $this;
     }

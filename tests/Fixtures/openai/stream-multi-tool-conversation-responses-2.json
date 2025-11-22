@@ -1,0 +1,108 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_6859a4b8411c819b82b7ccf77f486bfb0b58dbf6cd1e2457","object":"response","created_at":1750705336,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4o-2024-08-06","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Get weather information","name":"weather","parameters":{"type":"object","properties":{"city":{"description":"City name","type":"string"}},"required":["city"]},"strict":true},{"type":"function","description":"Search for information","name":"search","parameters":{"type":"object","properties":{"query":{"description":"The search query","type":"string"}},"required":["query"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_6859a4b8411c819b82b7ccf77f486bfb0b58dbf6cd1e2457","object":"response","created_at":1750705336,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4o-2024-08-06","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Get weather information","name":"weather","parameters":{"type":"object","properties":{"city":{"description":"City name","type":"string"}},"required":["city"]},"strict":true},{"type":"function","description":"Search for information","name":"search","parameters":{"type":"object","properties":{"query":{"description":"The search query","type":"string"}},"required":["query"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","type":"message","status":"in_progress","content":[],"role":"assistant"}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":""}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":"The"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" Detroit"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" Tigers"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" game"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" is"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" at"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" "}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":"3"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" PM"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" today"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":"."}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" The"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" weather"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" is"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":18,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" "}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":19,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":"75"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":20,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":"°"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":21,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" and"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":22,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" sunny"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":23,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":","}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":24,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" so"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":25,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" you"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":26,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" probably"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":27,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" won't"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":28,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" need"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":29,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" a"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":30,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":" coat"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":31,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"delta":"!"}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":32,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"text":"The Detroit Tigers game is at 3 PM today. The weather is 75° and sunny, so you probably won't need a coat!"}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":33,"item_id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":"The Detroit Tigers game is at 3 PM today. The weather is 75° and sunny, so you probably won't need a coat!"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":34,"output_index":0,"item":{"id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"text":"The Detroit Tigers game is at 3 PM today. The weather is 75° and sunny, so you probably won't need a coat!"}],"role":"assistant"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":35,"response":{"id":"resp_6859a4b8411c819b82b7ccf77f486bfb0b58dbf6cd1e2457","object":"response","created_at":1750705336,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4o-2024-08-06","output":[{"id":"msg_6859a4b8ec6c819b997125839e26c17b0b58dbf6cd1e2457","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"text":"The Detroit Tigers game is at 3 PM today. The weather is 75° and sunny, so you probably won't need a coat!"}],"role":"assistant"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Get weather information","name":"weather","parameters":{"type":"object","properties":{"city":{"description":"City name","type":"string"}},"required":["city"]},"strict":true},{"type":"function","description":"Search for information","name":"search","parameters":{"type":"object","properties":{"query":{"description":"The search query","type":"string"}},"required":["query"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":144,"input_tokens_details":{"cached_tokens":0},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":174},"user":null,"metadata":{}}}
+

@@ -12,6 +12,7 @@ use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\ProviderTool;
 
 class Request implements PrismRequest
 {
@@ -24,9 +25,11 @@ class Request implements PrismRequest
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, ProviderTool>  $providerTools
      */
     public function __construct(
         protected string $model,
+        protected string $providerKey,
         protected array $systemPrompts,
         protected ?string $prompt,
         protected array $messages,
@@ -39,6 +42,7 @@ class Request implements PrismRequest
         protected array $clientRetry,
         protected string|ToolChoice|null $toolChoice,
         array $providerOptions = [],
+        protected array $providerTools = [],
     ) {
         $this->providerOptions = $providerOptions;
     }
@@ -75,6 +79,14 @@ class Request implements PrismRequest
     public function topP(): int|float|null
     {
         return $this->topP;
+    }
+
+    /**
+     * @return array<int,ProviderTool>
+     */
+    public function providerTools(): array
+    {
+        return $this->providerTools;
     }
 
     public function temperature(): int|float|null
@@ -117,6 +129,11 @@ class Request implements PrismRequest
     public function model(): string
     {
         return $this->model;
+    }
+
+    public function provider(): string
+    {
+        return $this->providerKey;
     }
 
     public function addMessage(Message $message): self

@@ -7,12 +7,13 @@ namespace Tests\Providers\Mistral;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
-use Prism\Prism\Prism;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
@@ -128,6 +129,27 @@ describe('Text generation', function (): void {
 
         expect($response->toolCalls[0]->name)->toBe('weather');
     });
+
+    it('can generate text with reasoning model', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/generate-text-with-reasoning-model');
+
+        $response = Prism::text()
+            ->using('mistral', 'magistral-medium-latest')
+            ->withPrompt('What is the capital of France?')
+            ->generate();
+
+        $expectedThinking = 'Okay, the user asked about the capital of France. I know that the capital of France is Paris. But just to be sure, I should confirm this with my knowledge.';
+
+        expect($response->text)->toBe('The capital of France is Paris.');
+        expect($response->finishReason)->toBe(FinishReason::Stop);
+
+        // Verify thinking is extracted to additionalContent
+        expect($response->additionalContent['thinking'])->toBe($expectedThinking);
+
+        // Verify thinking is also on the step
+        expect($response->steps->last())
+            ->additionalContent->thinking->toBe($expectedThinking);
+    });
 });
 
 describe('Image support', function (): void {
@@ -140,7 +162,7 @@ describe('Image support', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromPath('tests/Fixtures/dimond.png'),
+                        Image::fromLocalPath('tests/Fixtures/diamond.png'),
                     ],
                 ),
             ])
@@ -156,7 +178,7 @@ describe('Image support', function (): void {
 
             expect($message[1]['image_url']['url'])->toStartWith('data:image/png;base64,');
             expect($message[1]['image_url']['url'])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -173,7 +195,7 @@ describe('Image support', function (): void {
                     'What is this image',
                     additionalContent: [
                         Image::fromBase64(
-                            base64_encode(file_get_contents('tests/Fixtures/dimond.png')),
+                            base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                             'image/png'
                         ),
                     ],
@@ -191,7 +213,7 @@ describe('Image support', function (): void {
 
             expect($message[1]['image_url']['url'])->toStartWith('data:image/png;base64,');
             expect($message[1]['image_url']['url'])->toContain(
-                base64_encode(file_get_contents('tests/Fixtures/dimond.png'))
+                base64_encode(file_get_contents('tests/Fixtures/diamond.png'))
             );
 
             return true;
@@ -201,7 +223,7 @@ describe('Image support', function (): void {
     it('can send images from url', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/text-image-from-url');
 
-        $image = 'https://prismphp.com/storage/dimond.png';
+        $image = 'https://prismphp.com/storage/diamond.png';
 
         Prism::text()
             ->using(Provider::Mistral, 'pixtral-12b-2409')
@@ -262,7 +284,6 @@ describe('Document support', function (): void {
             expect($message[1])->toBe([
                 'type' => 'document_url',
                 'document_url' => $document,
-                'document_name' => null,
             ]);
 
             return true;

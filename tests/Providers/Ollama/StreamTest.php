@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Ollama;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
-use Prism\Prism\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -23,25 +31,31 @@ it('can generate text with a basic stream', function (): void {
         ->asStream();
 
     $text = '';
-    $chunks = [];
-    $lastChunkHasFinishReason = false;
+    $events = [];
+    $model = null;
+    $hasStreamEndEvent = false;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
-        $text .= $chunk->text;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->finishReason !== null) {
-            $lastChunkHasFinishReason = true;
+        if ($event instanceof StreamStartEvent) {
+            $model = $event->model;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof StreamEndEvent) {
+            $hasStreamEndEvent = true;
+            expect($event->finishReason)->toBe(FinishReason::Stop);
         }
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
-    expect($lastChunkHasFinishReason)->toBeTrue();
-
-    // Last chunk should have a finish reason of "stop"
-    $lastChunk = $chunks[count($chunks) - 1];
-    expect($lastChunk->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::Stop);
+    expect($model)->toBe('granite3-dense:8b');
+    expect($hasStreamEndEvent)->toBeTrue();
 });
 
 it('can generate text using tools with streaming', function (): void {
@@ -56,119 +70,51 @@ it('can generate text using tools with streaming', function (): void {
         Tool::as('search')
             ->for('useful for searching current events or data')
             ->withStringParameter('query', 'The detailed search query')
-            ->using(fn (string $query): string => "Search results for: {$query}"),
+            ->using(fn (string $query): string => 'The tigers game is at 3pm today'),
     ];
 
     $response = Prism::text()
-        ->using('ollama', 'granite3-dense:8b')
+        ->using('ollama', 'qwen3:14b')
         ->withTools($tools)
-        ->withMaxSteps(4)
-        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->withMaxSteps(6)
+        ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat?')
         ->asStream();
 
     $text = '';
-    $chunks = [];
-    $toolCallFound = false;
-    $toolResults = [];
+    $events = [];
+    $toolCallEvents = [];
+    $toolResultEvents = [];
     $finishReasonFound = false;
 
-    foreach ($response as $chunk) {
-        $chunks[] = $chunk;
+    foreach ($response as $event) {
+        $events[] = $event;
 
-        if ($chunk->toolCalls !== []) {
-            $toolCallFound = true;
-            expect($chunk->toolCalls[0]->name)->toBeString();
-            expect($chunk->toolCalls[0]->name)->not->toBeEmpty();
-            expect($chunk->toolCalls[0]->arguments())->toBeArray();
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
         }
 
-        if ($chunk->toolResults !== []) {
-            $toolResults = array_merge($toolResults, $chunk->toolResults);
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
         }
 
-        if ($chunk->finishReason !== null) {
+        if ($event instanceof ToolResultEvent) {
+            $toolResultEvents[] = $event;
+        }
+
+        if ($event instanceof StreamEndEvent) {
             $finishReasonFound = true;
-            expect($chunk->finishReason)->toBeInstanceOf(\Prism\Prism\Enums\FinishReason::class);
+            expect($event->finishReason)->toBe(FinishReason::Stop);
         }
-
-        $text .= $chunk->text;
     }
 
-    expect($chunks)->not->toBeEmpty();
+    expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
+
+    expect($toolCallEvents)->toHaveCount(2);
+    expect($toolResultEvents)->toHaveCount(2);
 
     // For the basic tools test, validate completion state
     expect($finishReasonFound)->toBeTrue();
-
-    // The last chunk should have a finish reason
-    $lastChunk = $chunks[count($chunks) - 1];
-    expect($lastChunk->finishReason)->not->toBeNull();
-});
-
-it('can process a complete conversation with multiple tool calls', function (): void {
-    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-multi-tool-conversation');
-
-    $tools = [
-        Tool::as('weather')
-            ->for('Get weather information')
-            ->withStringParameter('city', 'City name')
-            ->using(fn (string $city): string => "The weather in {$city} is 75° and sunny."),
-
-        Tool::as('search')
-            ->for('Search for information')
-            ->withStringParameter('query', 'The search query')
-            ->using(fn (string $query): string => 'Tigers game is at 3pm in Detroit today.'),
-    ];
-
-    $response = Prism::text()
-        ->using('ollama', 'granite3-dense:8b')
-        ->withTools($tools)
-        ->withMaxSteps(5) // Allow multiple tool call rounds
-        ->withPrompt('What time is the Tigers game today and should I wear a coat in Detroit?')
-        ->asStream();
-
-    $chunkCount = 0;
-    $toolCallCount = 0;
-    $validToolCallSeen = false;
-    $finishReasonFound = false;
-    $lastChunk = null;
-
-    foreach ($response as $chunk) {
-        $chunkCount++;
-        $lastChunk = $chunk;
-
-        if ($chunk->toolCalls !== []) {
-            $toolCallCount++;
-
-            foreach ($chunk->toolCalls as $toolCall) {
-                expect($toolCall->name)->toBeString();
-                expect($toolCall->arguments())->toBeArray();
-
-                // Verify one of our expected tool names is called
-                if (in_array($toolCall->name, ['weather', 'search'])) {
-                    $validToolCallSeen = true;
-                }
-            }
-        }
-
-        if ($chunk->finishReason !== null) {
-            $finishReasonFound = true;
-        }
-    }
-
-    expect($chunkCount)->toBeGreaterThan(0);
-
-    // The test might pass even if toolCallCount is 0 when using old fixtures.
-    // When re-recording fixtures this will properly test for tool calls.
-    if ($toolCallCount > 0) {
-        expect($validToolCallSeen)->toBeTrue();
-    }
-
-    expect($finishReasonFound)->toBeTrue();
-
-    // Last chunk should have a finish reason
-    expect($lastChunk)->not->toBeNull();
-    expect($lastChunk->finishReason)->not->toBeNull();
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
@@ -187,3 +133,151 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
         // Don't remove me rector!
     }
 })->throws(PrismRateLimitedException::class);
+
+it('includes think parameter when thinking is enabled for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking-enabled');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->withProviderOptions(['thinking' => true])
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->toHaveKey('think');
+        expect($body['think'])->toBe(true);
+
+        return true;
+    });
+});
+
+it('does not include think parameter when not provided for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->not->toHaveKey('think');
+
+        return true;
+    });
+});
+
+it('includes keep_alive parameter when provided for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->withProviderOptions(['keep_alive' => '5m'])
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->toHaveKey('keep_alive');
+        expect($body['keep_alive'])->toBe('5m');
+
+        return true;
+    });
+});
+
+it('supports numeric keep_alive values for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->withProviderOptions(['keep_alive' => -1])
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->toHaveKey('keep_alive');
+        expect($body['keep_alive'])->toBe(-1);
+
+        return true;
+    });
+});
+
+it('does not include keep_alive parameter when not provided for streaming', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-without-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss')
+        ->withPrompt('Test prompt')
+        ->asStream();
+
+    // Consume the stream to trigger the HTTP request
+    foreach ($response as $chunk) {
+        break;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $body = $request->data();
+        expect($body)->not->toHaveKey('keep_alive');
+
+        return true;
+    });
+});
+
+it('emits thinking chunks when provider sends thinking field', function (): void {
+    \Tests\Fixtures\FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking');
+
+    $response = Prism::text()
+        ->using('ollama', 'gpt-oss:20b')
+        ->withPrompt('Should I bring a jacket?')
+        ->asStream();
+
+    $sawThinking = false;
+    $sawText = false;
+    $thinkingTexts = [];
+    $finalText = '';
+    $lastFinishReason = null;
+
+    foreach ($response as $event) {
+        if ($event instanceof ThinkingEvent) {
+            $sawThinking = true;
+            $thinkingTexts[] = $event->delta;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $sawText = true;
+            $finalText .= $event->delta;
+        }
+
+        if ($event instanceof StreamEndEvent) {
+            $lastFinishReason = $event->finishReason;
+        }
+    }
+
+    expect($sawThinking)->toBeTrue();
+    expect($sawText)->toBeTrue();
+    expect($thinkingTexts)->not->toBeEmpty();
+    expect($finalText)->toContain('Here is the answer:');
+    expect($lastFinishReason)->toBe(FinishReason::Stop);
+});

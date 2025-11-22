@@ -1,0 +1,69 @@
+{
+  "id": "resp_689b71a97ab48198bc3bc6a6d5a7331a00483c27c15dec1a",
+  "object": "response",
+  "created_at": 1755017641,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "max_tool_calls": null,
+  "model": "gpt-5-2025-08-07",
+  "output": [
+    {
+      "id": "rs_689b71aa75188198b465ee67a9b97d7200483c27c15dec1a",
+      "type": "reasoning",
+      "summary": []
+    },
+    {
+      "id": "msg_689b71ac465481989ebb1b96d2b61ab900483c27c15dec1a",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "{\n  \"weather\": \"Partly cloudy, high 75\u00b0F (24\u00b0C), light breeze\",\n  \"game_time\": \"7:10 PM ET\",\n  \"coat_required\": false\n}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "reasoning": {
+    "effort": "low",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "auto",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "json_object"
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 152,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 175,
+    "output_tokens_details": {
+      "reasoning_tokens": 128
+    },
+    "total_tokens": 327
+  },
+  "user": null,
+  "metadata": {}
+}

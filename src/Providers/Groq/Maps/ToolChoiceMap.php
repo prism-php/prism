@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Groq\Maps;
 
-use InvalidArgumentException;
 use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Exceptions\PrismException;
 
 class ToolChoiceMap
 {
@@ -26,7 +26,7 @@ class ToolChoiceMap
         return match ($toolChoice) {
             ToolChoice::Auto => 'auto',
             null => $toolChoice,
-            default => throw new InvalidArgumentException('Invalid tool choice')
+            default => throw new PrismException('Invalid tool choice')
         };
     }
 }

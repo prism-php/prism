@@ -54,11 +54,11 @@ readonly class OCRPageResponse
         foreach (data_get($page, 'images', []) as $image) {
             $images[] = [
                 'id' => data_get($image, 'id', ''),
-                'top_left_x' => data_get($image, 'top_left_x', null),
-                'top_left_y' => data_get($image, 'top_left_y', null),
-                'bottom_right_x' => data_get($image, 'bottom_right_x', null),
-                'bottom_right_y' => data_get($image, 'bottom_right_y', null),
-                'image_base64' => data_get($image, 'image_base64', null),
+                'top_left_x' => data_get($image, 'top_left_x'),
+                'top_left_y' => data_get($image, 'top_left_y'),
+                'bottom_right_x' => data_get($image, 'bottom_right_x'),
+                'bottom_right_y' => data_get($image, 'bottom_right_y'),
+                'image_base64' => data_get($image, 'image_base64'),
             ];
         }
 

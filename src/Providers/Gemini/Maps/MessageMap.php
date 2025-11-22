@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Exception;
-use InvalidArgumentException;
+use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -102,7 +105,13 @@ class MessageMap
         }
 
         // Gemini docs suggest including text prompt after documents, but before images.
-        $parts = array_merge($this->mapDocuments($message->documents()), $parts, $this->mapImages($message->images()));
+        $parts = array_merge(
+            $this->mapDocuments($message->documents()),
+            $parts,
+            $this->mapImages($message->images()),
+            $this->mapVideo($message->videos()),
+            $this->mapAudio($message->audios()),
+        );
 
         $this->contents['contents'][] = [
             'role' => 'user',
@@ -119,14 +128,15 @@ class MessageMap
         }
 
         foreach ($message->toolCalls as $toolCall) {
-            $parts[] = [
+            $parts[] = Arr::whereNotNull([
                 'functionCall' => [
                     'name' => $toolCall->name,
                     ...count($toolCall->arguments()) ? [
                         'args' => $toolCall->arguments(),
                     ] : [],
                 ],
-            ];
+                'thoughtSignature' => $toolCall->reasoningId,
+            ]);
         }
 
         $this->contents['contents'][] = [
@@ -141,24 +151,25 @@ class MessageMap
      */
     protected function mapImages(array $images): array
     {
-        return array_map(fn (Image $image): array => [
-            'inline_data' => [
-                'mime_type' => $image->mimeType,
-                'data' => $this->getImageData($image),
-            ],
-        ], $images);
+        return array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $images);
     }
 
-    protected function getImageData(Image $image): string
+    /**
+     * @param  Media[]|Video[]  $video
+     * @return array<string,array<string,mixed>>
+     */
+    protected function mapVideo(array $video): array
     {
-        if ($image->isUrl()) {
-            /** @var string $response */
-            $response = file_get_contents($image->image);
+        return array_map(fn (Video|Media $media): array => (new AudioVideoMapper($media))->toPayload(), $video);
+    }
 
-            return base64_encode($response);
-        }
-
-        return $image->image;
+    /**
+     * @param  Media[]|Audio[]  $audio
+     * @return array<string,array<string,mixed>>
+     */
+    protected function mapAudio(array $audio): array
+    {
+        return array_map(fn (Audio|Media $media): array => (new AudioVideoMapper($media))->toPayload(), $audio);
     }
 
     /**
@@ -167,22 +178,6 @@ class MessageMap
      */
     protected function mapDocuments(array $documents): array
     {
-        return array_map(function (Document $document): array {
-
-            if ($document->dataFormat === 'content') {
-                throw new PrismException('Gemini does not support custom content documents.');
-            }
-
-            if ($document->isUrl()) {
-                throw new InvalidArgumentException('URL document type is not supported by Gemini');
-            }
-
-            return [
-                'inline_data' => [
-                    'mime_type' => $document->mimeType,
-                    'data' => $document->dataFormat === 'base64' ? $document->document : base64_encode($document->document), // @phpstan-ignore argument.type
-                ],
-            ];
-        }, $documents);
+        return array_map(fn (Document $document): array => (new DocumentMapper($document))->toPayload(), $documents);
     }
 }

@@ -6,13 +6,13 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
-use Throwable;
 
 class Embeddings
 {
@@ -20,12 +20,8 @@ class Embeddings
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        try {
-            $response = $this->sendRequest($request);
-            $data = $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        $response = $this->sendRequest($request);
+        $data = $response->json();
 
         if (! $data || data_get($data, 'error')) {
             throw PrismException::providerResponseError(sprintf(
@@ -35,8 +31,8 @@ class Embeddings
         }
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($data, 'embeddings', [])),
-            usage: new EmbeddingsUsage(data_get($data, 'prompt_eval_count', null)),
+            embeddings: array_map(Embedding::fromArray(...), data_get($data, 'embeddings', [])),
+            usage: new EmbeddingsUsage(data_get($data, 'prompt_eval_count')),
             meta: new Meta(
                 id: '',
                 model: data_get($data, 'model', ''),
@@ -48,10 +44,11 @@ class Embeddings
     {
         return $this->client->post(
             'api/embed',
-            array_filter([
+            Arr::whereNotNull([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
-                'options' => array_filter($request->providerOptions()),
+                'keep_alive' => $request->providerOptions('keep_alive'),
+                'options' => $request->providerOptions() ?: null,
             ])
         );
     }

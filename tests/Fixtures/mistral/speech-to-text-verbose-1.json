@@ -1,0 +1,22 @@
+{
+  "text": "The quick brown fox jumps over the lazy dog.",
+  "language": "en",
+  "duration": 3.84,
+  "segments": [
+    {
+      "text": "The quick brown fox",
+      "start": 0.0,
+      "end": 1.5
+    },
+    {
+      "text": "jumps over the lazy dog.",
+      "start": 1.5,
+      "end": 3.84
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 12,
+    "total_tokens": 12
+  }
+}

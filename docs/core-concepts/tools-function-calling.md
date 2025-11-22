@@ -7,7 +7,7 @@ Need your AI assistant to check the weather, search a database, or call your API
 Think of tools as special functions that your AI assistant can use when it needs to perform specific tasks. Just like how Laravel's facades provide a clean interface to complex functionality, Prism tools give your AI a clean way to interact with external services and data sources.
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Tool;
 
@@ -32,7 +32,7 @@ $response = Prism::text()
 Prism defaults to allowing a single step. To use Tools, you'll need to increase this using `withMaxSteps`:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 Prism::text()
@@ -63,6 +63,35 @@ $searchTool = Tool::as('search')
 ```
 
 Tools can take a variety of parameters, but must always return a string.
+
+## Error Handling
+
+By default, tools handle invalid parameters gracefully by returning error messages instead of throwing exceptions. This helps AI assistants understand and potentially correct their mistakes.
+
+```php
+$tool = Tool::as('calculate')
+    ->for('Add two numbers')
+    ->withNumberParameter('a', 'First number')
+    ->withNumberParameter('b', 'Second number')
+    ->using(fn (int $a, int $b): string => (string) ($a + $b));
+
+// If AI provides invalid parameters, it receives:
+// "Parameter validation error: Type mismatch. Expected: [a (NumberSchema, required), b (NumberSchema, required)]. Received: {"a":"five","b":10}"
+```
+
+### Opting Out
+
+If you prefer exceptions for invalid parameters:
+
+```php
+// Per-tool
+$tool->withoutErrorHandling();
+
+// Per-request
+Prism::text()->withoutToolErrorHandling();
+```
+
+**Best Practice**: Use default error handling for conversational AI. Disable it only when you need strict validation that stops execution.
 
 ## Parameter Definition
 
@@ -260,7 +289,7 @@ class SearchTool extends Tool
 
 You can control how the AI uses tools with the `withToolChoice` method:
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 
@@ -285,7 +314,7 @@ $prism = Prism::text()
 When your AI uses tools, you can inspect the results and see how it arrived at its answer:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -319,3 +348,150 @@ foreach ($response->steps as $step) {
     }
 }
 ```
+
+## Provider Tools
+
+In addition to custom tools that you define, Prism supports **provider tools** - built-in capabilities offered directly by AI providers. These are specialized tools that leverage the provider's own infrastructure and services.
+
+### Understanding Provider Tools vs Custom Tools
+
+**Custom Tools** (covered above) are functions you define and implement yourself:
+- You control the logic and implementation
+- Called by the AI, executed by your code
+- Can access your databases, APIs, and services
+
+**Provider Tools** are built-in capabilities offered by the AI provider:
+- Implemented and executed by the provider
+- Access the provider's own services and infrastructure
+- Enable capabilities like code execution, web search, and more
+
+### Using Provider Tools
+
+Provider tools are added to your requests using the `withProviderTools()` method with `ProviderTool` objects:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withPrompt('Calculate the fibonacci sequence up to 100')
+    ->withProviderTools([
+        new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')
+    ])
+    ->asText();
+```
+
+### Available Provider Tools
+
+Each provider offers different built-in capabilities. Check the provider-specific documentation for detailed information about available tools, configuration options, and usage examples.
+
+### ProviderTool Object
+
+The `ProviderTool` class accepts three parameters:
+
+```php
+new ProviderTool(
+    type: 'code_execution_20250522',  // Required: The provider tool identifier
+    name: 'code_execution',           // Optional: Custom name for the tool
+    options: []                       // Optional: Provider-specific options
+)
+```
+
+- **type**: The provider-specific tool identifier (required)
+- **name**: Optional custom name for the tool
+- **options**: Additional provider-specific configuration options
+
+### Combining Provider Tools and Custom Tools
+
+You can use both provider tools and custom tools in the same request:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\Facades\Tool;
+
+$customTool = Tool::as('database_lookup')
+    ->for('Look up user information')
+    ->withStringParameter('user_id', 'The user ID to look up')
+    ->using(function (string $userId): string {
+        // Your database lookup logic
+        return "User data for ID: {$userId}";
+    });
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withMaxSteps(5)
+    ->withPrompt('Look up user 123 and calculate their usage statistics')
+    ->withTools([$customTool])
+    ->withProviderTools([
+        new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')
+    ])
+    ->asText();
+```
+
+## Using Tools with Structured Output
+
+Tools can be combined with structured output to gather data and return formatted results in a single request. This pattern is useful when you need the AI to call functions to fetch information, then format the results according to a specific schema.
+
+### Basic Example
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Facades\Tool;
+
+$schema = new ObjectSchema(
+    name: 'weather_analysis',
+    description: 'Analysis of weather conditions',
+    properties: [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    requiredFields: ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$response = Prism::structured()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Response contains both structured data and tool execution details
+dump($response->structured);
+```
+
+> [!IMPORTANT]
+> When combining tools with structured output, you must set `maxSteps` to at least 2. The AI needs multiple steps to call tools and then return structured output.
+
+### Response Structure
+
+Responses include both the structured output and tool execution details:
+
+```php
+// Final structured data
+$data = $response->structured;
+
+// All tool calls made during execution
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+}
+
+// Tool execution results
+foreach ($response->toolResults as $result) {
+    echo "Result: {$result->result}\n";
+}
+```
+
+> [!NOTE]
+> Only the final step contains structured data. Intermediate steps contain tool calls and results, but no structured output.
+
+For complete documentation on combining tools with structured output, see the [Structured Output](./structured-output.md#combining-structured-output-with-tools) documentation.

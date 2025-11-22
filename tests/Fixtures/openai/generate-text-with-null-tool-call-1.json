@@ -1,0 +1,95 @@
+{
+  "id": "resp_684979f245608199b9e74bfc65a64e8a02f0d1d651309ed4",
+  "object": "response",
+  "created_at": 1749645810,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2048,
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "msg_684979f3301081998f0f936cc59d6eed02f0d1d651309ed4",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "text": "Could you please specify what you would like me to do?"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "description": "useful when you need to search for current weather conditions",
+      "name": "weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "description": "The city that you want the weather for",
+            "type": "string"
+          }
+        },
+        "required": [
+          "city"
+        ]
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "description": "useful for searching curret events or data",
+      "name": "search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "The detailed search query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "strict": true
+    }
+  ],
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 81,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 14,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 95
+  },
+  "user": null,
+  "metadata": {}
+}

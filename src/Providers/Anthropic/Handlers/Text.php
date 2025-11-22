@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
+use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
+use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
@@ -20,30 +28,21 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
-/**
- * @template TRequest of TextRequest
- */
-class Text extends AnthropicHandlerAbstract
+class Text
 {
-    use CallsTools;
-
-    /**
-     * @var TextRequest
-     */
-    protected PrismRequest $request; // Redeclared for type hinting
+    use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
     protected Response $tempResponse;
 
     protected ResponseBuilder $responseBuilder;
 
-    public function __construct(mixed ...$args)
+    public function __construct(protected PendingRequest $client, protected TextRequest $request)
     {
-        parent::__construct(...$args);
-
         $this->responseBuilder = new ResponseBuilder;
     }
 
@@ -58,8 +57,6 @@ class Text extends AnthropicHandlerAbstract
             $this->tempResponse->toolCalls,
             $this->tempResponse->additionalContent,
         );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $this->request->addMessage($responseMessage);
 
@@ -78,12 +75,12 @@ class Text extends AnthropicHandlerAbstract
     public static function buildHttpRequestPayload(PrismRequest $request): array
     {
         if (! $request->is(TextRequest::class)) {
-            throw new \InvalidArgumentException('Request must be an instance of '.TextRequest::class);
+            throw new InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
-        return array_filter([
+        return Arr::whereNotNull([
             'model' => $request->model(),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
+            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'thinking' => $request->providerOptions('thinking.enabled') === true
                 ? [
@@ -96,8 +93,9 @@ class Text extends AnthropicHandlerAbstract
             'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
-            'tools' => ToolMap::map($request->tools()),
+            'tools' => static::buildTools($request) ?: null,
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            'mcp_servers' => $request->providerOptions('mcp_servers'),
         ]);
     }
 
@@ -106,11 +104,16 @@ class Text extends AnthropicHandlerAbstract
         $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls);
         $message = new ToolResultMessage($toolResults);
 
+        // Apply tool result caching if configured
+        if ($tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type')) {
+            $message->withProviderOptions(['cacheType' => $tool_result_cache_type]);
+        }
+
         $this->request->addMessage($message);
 
         $this->addStep($toolResults);
 
-        if ($this->shouldContinue()) {
+        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
             return $this->handle();
         }
 
@@ -134,6 +137,7 @@ class Text extends AnthropicHandlerAbstract
             finishReason: $this->tempResponse->finishReason,
             toolCalls: $this->tempResponse->toolCalls,
             toolResults: $toolResults,
+            providerToolCalls: [],
             usage: $this->tempResponse->usage,
             meta: $this->tempResponse->meta,
             messages: $this->request->messages(),
@@ -142,19 +146,12 @@ class Text extends AnthropicHandlerAbstract
         ));
     }
 
-    protected function shouldContinue(): bool
-    {
-        return $this->responseBuilder->steps->count() < $this->request->maxSteps();
-    }
-
     protected function prepareTempResponse(): void
     {
         $data = $this->httpResponse->json();
 
         $this->tempResponse = new Response(
             steps: new Collection,
-            responseMessages: new Collection,
-            messages: new Collection,
             text: $this->extractText($data),
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
             toolCalls: $this->extractToolCalls($data),
@@ -170,11 +167,34 @@ class Text extends AnthropicHandlerAbstract
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
-            additionalContent: array_filter([
-                'messagePartsWithCitations' => $this->extractCitations($data),
+            messages: new Collection,
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
             ])
         );
+    }
+
+    /**
+     * @return array<int|string,mixed>
+     */
+    protected static function buildTools(TextRequest $request): array
+    {
+        $tools = ToolMap::map($request->tools());
+
+        if ($request->providerTools() === []) {
+            return $tools;
+        }
+
+        $providerTools = array_map(
+            fn (ProviderTool $tool): array => [
+                'type' => $tool->type,
+                'name' => $tool->name,
+            ],
+            $request->providerTools()
+        );
+
+        return array_merge($providerTools, $tools);
     }
 
     /**

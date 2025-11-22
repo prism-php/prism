@@ -4,10 +4,10 @@ namespace Prism\Prism\Providers\VoyageAI;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
@@ -33,7 +33,7 @@ class Embeddings
         return new EmbeddingsResponse(
             embeddings: array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
             usage: new EmbeddingsUsage(
-                tokens: data_get($data, 'usage.total_tokens', null),
+                tokens: data_get($data, 'usage.total_tokens'),
             ),
             meta: new Meta(
                 id: '',
@@ -46,24 +46,16 @@ class Embeddings
     {
         $providerOptions = $this->request->providerOptions();
 
-        try {
-            $this->httpResponse = $this->client->post('embeddings', array_filter([
-                'model' => $this->request->model(),
-                'input' => $this->request->inputs(),
-                'input_type' => $providerOptions['inputType'] ?? null,
-                'truncation' => $providerOptions['truncation'] ?? null,
-            ]));
-        } catch (\Exception $e) {
-            throw PrismException::providerRequestError($this->request->model(), $e);
-        }
+        $this->httpResponse = $this->client->post('embeddings', Arr::whereNotNull([
+            'model' => $this->request->model(),
+            'input' => $this->request->inputs(),
+            'input_type' => $providerOptions['inputType'] ?? null,
+            'truncation' => $providerOptions['truncation'] ?? null,
+        ]));
     }
 
     protected function validateResponse(): void
     {
-        if ($this->httpResponse->getStatusCode() === 429) {
-            throw new PrismRateLimitedException([]);
-        }
-
         $data = $this->httpResponse->json();
 
         if (! $data || data_get($data, 'detail')) {

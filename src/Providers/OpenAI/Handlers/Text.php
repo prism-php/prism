@@ -6,35 +6,43 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\OpenAI\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
+use Prism\Prism\Providers\OpenAI\Maps\ProviderToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Text\Step;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
+    use BuildsTools;
     use CallsTools;
+    use ExtractsCitations;
     use MapsFinishReason;
-    use ProcessesRateLimits;
+    use ProcessRateLimits;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
+
+    /** @var ?MessagePartWithCitations[] */
+    protected ?array $citations = null;
 
     public function __construct(protected PendingRequest $client)
     {
@@ -49,18 +57,28 @@ class Text
 
         $data = $response->json();
 
-        $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
+        $this->citations = $this->extractCitations($data);
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
+        $providerToolCalls = ProviderToolCallMap::map(data_get($data, 'output', []));
+
+        $responseMessage = new AssistantMessage(
+            content: data_get($data, 'output.{last}.content.0.text') ?? '',
+            toolCalls: ToolCallMap::map(
+                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
+                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
+            ),
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->citations,
+                'provider_tool_calls' => $providerToolCalls === [] ? null : $providerToolCalls,
+            ]),
+        );
 
         $request->addMessage($responseMessage);
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
+            FinishReason::Length => throw new PrismException('OpenAI: max tokens exceeded'),
             default => throw new PrismException('OpenAI: unknown finish reason'),
         };
     }
@@ -72,7 +90,10 @@ class Text
     {
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            ToolCallMap::map(array_filter(
+                data_get($data, 'output', []),
+                fn (array $output): bool => $output['type'] === 'function_call')
+            ),
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -103,50 +124,62 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        try {
-            return $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => (array) $request->providerOptions('metadata'),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
-            );
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->client->post(
+            'responses',
+            array_merge([
+                'model' => $request->model(),
+                'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                'max_output_tokens' => $request->maxTokens(),
+            ], Arr::whereNotNull([
+                'temperature' => $request->temperature(),
+                'top_p' => $request->topP(),
+                'metadata' => $request->providerOptions('metadata'),
+                'tools' => $this->buildTools($request),
+                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
+                'previous_response_id' => $request->providerOptions('previous_response_id'),
+                'service_tier' => $request->providerOptions('service_tier'),
+                'text' => $request->providerOptions('text_verbosity') ? [
+                    'verbosity' => $request->providerOptions('text_verbosity'),
+                ] : null,
+                'truncation' => $request->providerOptions('truncation'),
+                'reasoning' => $request->providerOptions('reasoning'),
+            ]))
+        );
     }
 
     /**
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
      */
-    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
-    {
+    protected function addStep(
+        array $data,
+        Request $request,
+        ClientResponse $clientResponse,
+        array $toolResults = []
+    ): void {
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'choices.0.message.content') ?? '',
+            text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
+            providerToolCalls: ProviderToolCallMap::map(data_get($data, 'output', [])),
             usage: new Usage(
-                promptTokens: data_get($data, 'usage.prompt_tokens', 0) - data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0),
-                completionTokens: data_get($data, 'usage.completion_tokens'),
-                cacheReadInputTokens: data_get($data, 'usage.prompt_tokens_details.cached_tokens'),
+                promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
+                completionTokens: data_get($data, 'usage.output_tokens'),
+                cacheReadInputTokens: data_get($data, 'usage.input_tokens_details.cached_tokens'),
+                thoughtTokens: data_get($data, 'usage.output_tokens_details.reasoning_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
-                rateLimits: $this->processRateLimits($clientResponse)
+                rateLimits: $this->processRateLimits($clientResponse),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->citations,
+            ]),
         ));
     }
 }

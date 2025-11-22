@@ -16,14 +16,17 @@ it('maps tools', function (): void {
 
     expect(ToolMap::map([$tool]))->toBe([[
         'type' => 'function',
-        'function' => [
-            'name' => $tool->name(),
-            'description' => $tool->description(),
-            'parameters' => [
-                'type' => 'object',
-                'properties' => $tool->parameters(),
-                'required' => $tool->requiredParameters(),
+        'name' => $tool->name(),
+        'description' => $tool->description(),
+        'parameters' => [
+            'type' => 'object',
+            'properties' => [
+                'query' => [
+                    'description' => 'the detailed search query',
+                    'type' => 'string',
+                ],
             ],
+            'required' => $tool->requiredParameters(),
         ],
     ]]);
 });
@@ -40,14 +43,17 @@ it('maps tools with strict mode', function (): void {
 
     expect(ToolMap::map([$tool]))->toBe([[
         'type' => 'function',
-        'function' => [
-            'name' => $tool->name(),
-            'description' => $tool->description(),
-            'parameters' => [
-                'type' => 'object',
-                'properties' => $tool->parameters(),
-                'required' => $tool->requiredParameters(),
+        'name' => $tool->name(),
+        'description' => $tool->description(),
+        'parameters' => [
+            'type' => 'object',
+            'properties' => [
+                'query' => [
+                    'description' => 'the detailed search query',
+                    'type' => 'string',
+                ],
             ],
+            'required' => $tool->requiredParameters(),
         ],
         'strict' => true,
     ]]);

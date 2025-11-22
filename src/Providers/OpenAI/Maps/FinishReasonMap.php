@@ -8,13 +8,17 @@ use Prism\Prism\Enums\FinishReason;
 
 class FinishReasonMap
 {
-    public static function map(string $reason): FinishReason
+    public static function map(string $status, ?string $type = null): FinishReason
     {
-        return match ($reason) {
-            'stop', => FinishReason::Stop,
-            'tool_calls' => FinishReason::ToolCalls,
+        return match ($status) {
+            'incomplete' => FinishReason::Length,
             'length' => FinishReason::Length,
-            'content_filter' => FinishReason::ContentFilter,
+            'failed' => FinishReason::Error,
+            'completed' => match ($type) {
+                'function_call' => FinishReason::ToolCalls,
+                'message' => FinishReason::Stop,
+                default => str_ends_with((string) $type, '_call') ? FinishReason::ToolCalls : FinishReason::Unknown,
+            },
             default => FinishReason::Unknown,
         };
     }

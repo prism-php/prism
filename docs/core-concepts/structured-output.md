@@ -6,8 +6,11 @@ Want your AI responses as neat and tidy as a Marie Kondo-approved closet? Struct
 
 Here's how to get structured data from your AI:
 
+> [!IMPORTANT]
+> **Schema Requirement for OpenAI**: When using OpenAI's structured output (especially strict mode), the root schema must be an `ObjectSchema`. Other schema types (StringSchema, NumberSchema, etc.) can only be used as properties within an ObjectSchema, not as the top-level schema. Other providers may have different requirements.
+
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -51,10 +54,13 @@ Different AI providers handle structured output in two main ways:
 
 ## Provider-Specific Options
 
-Providers may offer additional options for structured output. For example, OpenAI supports a "strict mode" for even tighter schema validation:
+Providers may offer additional options for structured output:
+
+### OpenAI: Strict Mode
+OpenAI supports a "strict mode" for even tighter schema validation:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
@@ -66,6 +72,29 @@ $response = Prism::structured()
     // ... rest of your configuration
 ```
 
+### Anthropic: Tool Calling Mode
+Anthropic doesn't have native structured output, but Prism provides two approaches. For more reliable JSON parsing, especially with complex content or non-English text, use tool calling mode:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::structured()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+    ->withSchema($schema)
+    ->withPrompt('天氣怎麼樣？應該穿什麼？') // Chinese text with potential quotes
+    ->withProviderOptions(['use_tool_calling' => true])
+    ->asStructured();
+```
+
+**When to use tool calling mode with Anthropic:**
+- Working with non-English content that may contain quotes
+- Complex JSON structures that might confuse prompt-based parsing
+- When you need the most reliable structured output possible
+
+> [!NOTE]
+> Tool calling mode cannot be used with Anthropic's citations feature.
+
 > [!TIP]
 > Check the provider-specific documentation pages for additional options and features that might be available for structured output.
 
@@ -74,7 +103,7 @@ $response = Prism::structured()
 When working with structured responses, you have access to both the structured data and metadata about the generation:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 
 $response = Prism::structured()
     ->withSchema($schema)
@@ -129,33 +158,133 @@ Structured output supports several configuration options to fine-tune your gener
 - `usingProviderConfig` - Override provider configuration
 - `withProviderOptions` - Set provider-specific options
 
-> [!NOTE]
-> Unlike text generation, structured output does not support tools/function calling. For those features, use the text generation API instead.
-
 See the [Text Generation](./text-generation.md) documentation for comparison with standard text generation capabilities.
 
-## Error Handling
+## Combining Structured Output with Tools
 
-When working with structured output, it's especially important to handle potential errors:
+You can combine structured output with tools to gather data before returning a structured response. This lets the AI call functions to fetch information, then format the results according to your schema.
+
+### Basic Example
+
+Here's a simple example that uses a weather tool to gather data, then returns structured output:
 
 ```php
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tool;
 
-try {
-    $response = Prism::structured()
-        ->using('anthropic', 'claude-3-sonnet')
-        ->withSchema($schema)
-        ->withPrompt('Generate product data')
-        ->asStructured();
-} catch (PrismException $e) {
-    // Handle validation or generation errors
-    Log::error('Structured generation failed:', [
-        'error' => $e->getMessage()
-    ]);
+$schema = new ObjectSchema(
+    name: 'weather_analysis',
+    description: 'Analysis of weather conditions',
+    properties: [
+        new StringSchema('summary', 'Summary of the weather'),
+        new StringSchema('recommendation', 'Recommendation based on weather'),
+    ],
+    requiredFields: ['summary', 'recommendation']
+);
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->using(fn (string $location): string =>
+        "Weather in {$location}: 72°F, sunny"
+    );
+
+$response = Prism::structured()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withSchema($schema)
+    ->withTools([$weatherTool])
+    ->withMaxSteps(3)
+    ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+    ->asStructured();
+
+// Access structured output
+dump($response->structured);
+// ['summary' => '...', 'recommendation' => '...']
+```
+
+> [!IMPORTANT]
+> When using tools with structured output, you must set `maxSteps` to at least 2. The AI needs multiple steps: one to call tools, and another to return the structured result.
+
+### Multiple Tools
+
+You can provide multiple tools for the AI to use:
+
+```php
+$schema = new ObjectSchema(
+    name: 'game_analysis',
+    description: 'Analysis of game time and weather',
+    properties: [
+        new StringSchema('game_time', 'The time of the game'),
+        new StringSchema('weather_summary', 'Summary of weather conditions'),
+        new StringSchema('recommendation', 'Recommendation on what to wear'),
+    ],
+    requiredFields: ['game_time', 'weather_summary', 'recommendation']
+);
+
+$tools = [
+    Tool::as('get_weather')
+        ->for('Get current weather for a location')
+        ->withStringParameter('city', 'The city name')
+        ->using(fn (string $city): string =>
+            "Weather in {$city}: 45°F and cold"
+        ),
+    Tool::as('search_games')
+        ->for('Search for game times in a city')
+        ->withStringParameter('city', 'The city name')
+        ->using(fn (string $city): string =>
+            'The Tigers game is at 3pm in Detroit'
+        ),
+];
+
+$response = Prism::structured()
+    ->using('openai', 'gpt-4o')
+    ->withSchema($schema)
+    ->withTools($tools)
+    ->withMaxSteps(5)
+    ->withPrompt('What time is the Tigers game today in Detroit and should I wear a coat?')
+    ->asStructured();
+```
+
+### Response Handling
+
+When using tools with structured output, the response includes both the structured data and tool execution details:
+
+```php
+// Access final structured data
+$data = $response->structured;
+
+// Access all tool calls across all steps
+foreach ($response->toolCalls as $toolCall) {
+    echo "Called: {$toolCall->name}\n";
+    echo "Arguments: " . json_encode($toolCall->arguments()) . "\n";
+}
+
+// Access tool results
+foreach ($response->toolResults as $result) {
+    echo "Tool: {$result->toolName}\n";
+    echo "Result: {$result->result}\n";
+}
+
+// Inspect individual steps
+foreach ($response->steps as $step) {
+    echo "Step finish reason: {$step->finishReason->name}\n";
+
+    if ($step->toolCalls) {
+        echo "Tools called: " . count($step->toolCalls) . "\n";
+    }
+
+    if ($step->structured) {
+        echo "Contains structured data\n";
+    }
 }
 ```
+
+> [!NOTE]
+> Only the final step contains structured data. Intermediate steps contain tool calls and tool results, but no structured output.
+
+For more information about tools and function calling, see the [Tools & Function Calling](./tools-function-calling.md) documentation.
 
 > [!IMPORTANT]
 > Always validate the structured response before using it in your application, as different providers may have varying levels of schema adherence.

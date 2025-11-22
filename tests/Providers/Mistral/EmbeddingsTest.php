@@ -6,7 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Support\Carbon;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;

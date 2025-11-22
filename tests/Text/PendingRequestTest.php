@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 use Illuminate\Contracts\View\View;
-use Prism\Prism\Contracts\Provider as ProviderContract;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Providers\Provider as ProviderContract;
 use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -224,6 +225,45 @@ test('it can set view prompt', function (): void {
         ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class);
 });
 
+test('it filters livewire morph markers from view prompts', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('<!--[if BLOCK]><![endif]-->Hello AI<!--[if ENDBLOCK]><![endif]-->');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Hello AI')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class);
+});
+
+test('it preserves legitimate html comments in view prompts', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('<!-- This is a comment -->Hello AI');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('<!-- This is a comment -->Hello AI')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class);
+});
+
+test('it does not filter string prompts', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('<!--[if BLOCK]><![endif]-->Hello AI<!--[if ENDBLOCK]><![endif]-->');
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('<!--[if BLOCK]><![endif]-->Hello AI<!--[if ENDBLOCK]><![endif]-->')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class);
+});
+
 test('it can set string system prompt', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
@@ -247,6 +287,45 @@ test('it can set view system prompt', function (): void {
 
     expect($generated->systemPrompts()[0]->content)
         ->toBe('System instruction');
+});
+
+test('it filters livewire morph markers from view system prompts', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('<!--[if BLOCK]><![endif]-->System instruction<!--[if ENDBLOCK]><![endif]-->');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSystemPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->systemPrompts()[0]->content)
+        ->toBe('System instruction');
+});
+
+test('it preserves legitimate html comments in view system prompts', function (): void {
+    $view = Mockery::mock(View::class);
+    $view->shouldReceive('render')->andReturn('<!-- Important -->System instruction');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSystemPrompt($view);
+
+    $generated = $request->toRequest();
+
+    expect($generated->systemPrompts()[0]->content)
+        ->toBe('<!-- Important -->System instruction');
+});
+
+test('it does not filter string system prompts', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSystemPrompt('<!--[if BLOCK]><![endif]-->System instruction<!--[if ENDBLOCK]><![endif]-->');
+
+    $generated = $request->toRequest();
+
+    expect($generated->systemPrompts()[0]->content)
+        ->toBe('<!--[if BLOCK]><![endif]-->System instruction<!--[if ENDBLOCK]><![endif]-->');
 });
 
 test('it can set messages', function (): void {
@@ -324,3 +403,31 @@ test('you can run toRequest multiple times', function (): void {
     $request->toRequest();
     $request->toRequest();
 })->throwsNoExceptions();
+
+test('it can set prompt with additional content', function (): void {
+    $image = Image::fromUrl('https://example.com/image.jpg');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('Analyze this image', [$image]);
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Analyze this image')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($generated->messages()[0]->additionalContent)->toHaveCount(2) // Text + Image
+        ->and($generated->messages()[0]->images())->toHaveCount(1)
+        ->and($generated->messages()[0]->images()[0])->toBe($image);
+});
+
+test('withPrompt maintains backward compatibility without additional content', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('Hello AI');
+
+    $generated = $request->toRequest();
+
+    expect($generated->prompt())->toBe('Hello AI')
+        ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($generated->messages()[0]->additionalContent)->toHaveCount(1); // Only Text
+});

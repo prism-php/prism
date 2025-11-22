@@ -6,8 +6,8 @@ namespace Prism\Prism\Providers\DeepSeek\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -38,7 +38,7 @@ class MessageMap
     public function __invoke(): array
     {
         array_map(
-            fn (Message $message) => $this->mapMessage($message),
+            $this->mapMessage(...),
             $this->messages
         );
 
@@ -77,14 +77,7 @@ class MessageMap
 
     protected function mapUserMessage(UserMessage $message): void
     {
-        $imageParts = array_map(fn (Image $image): array => [
-            'type' => 'image_url',
-            'image_url' => [
-                'url' => $image->isUrl()
-                    ? $image->image
-                    : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
-            ],
-        ], $message->images());
+        $imageParts = array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $message->images());
 
         $this->mappedMessages[] = [
             'role' => 'user',

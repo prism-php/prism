@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
-use Prism\Prism\Providers\Ollama\Concerns\MapsToolCalls;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
@@ -20,15 +20,14 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
     use CallsTools;
     use MapsFinishReason;
-    use MapsToolCalls;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -49,12 +48,14 @@ class Text
             $this->mapToolCalls(data_get($data, 'message.tool_calls', [])),
         );
 
-        $this->responseBuilder->addResponseMessage($responseMessage);
-
         $request->addMessage($responseMessage);
 
+        // Check for tool calls first, regardless of finish reason
+        if (! empty(data_get($data, 'message.tool_calls'))) {
+            return $this->handleToolCalls($data, $request);
+        }
+
         return match ($this->mapFinishReason($data)) {
-            FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
             FinishReason::Stop => $this->handleStop($data, $request),
             default => throw new PrismException('Ollama: unknown finish reason'),
         };
@@ -65,30 +66,28 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
-        if (count($request->systemPrompts()) > 1) {
-            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
-        }
+        $response = $this
+            ->client
+            ->post('api/chat', [
+                'model' => $request->model(),
+                'messages' => (new MessageMap(array_merge(
+                    $request->systemPrompts(),
+                    $request->messages()
+                )))->map(),
+                'tools' => ToolMap::map($request->tools()),
+                'stream' => false,
+                ...Arr::whereNotNull([
+                    'think' => $request->providerOptions('thinking'),
+                    'keep_alive' => $request->providerOptions('keep_alive'),
+                ]),
+                'options' => Arr::whereNotNull(array_merge([
+                    'temperature' => $request->temperature(),
+                    'num_predict' => $request->maxTokens() ?? 2048,
+                    'top_p' => $request->topP(),
+                ], $request->providerOptions())),
+            ]);
 
-        try {
-            $response = $this
-                ->client
-                ->post('api/chat', [
-                    'model' => $request->model(),
-                    'system' => data_get($request->systemPrompts(), '0.content', ''),
-                    'messages' => (new MessageMap($request->messages()))->map(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'stream' => false,
-                    'options' => array_filter(array_merge([
-                        'temperature' => $request->temperature(),
-                        'num_predict' => $request->maxTokens() ?? 2048,
-                        'top_p' => $request->topP(),
-                    ], $request->providerOptions())),
-                ]);
-
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $response->json();
     }
 
     /**
@@ -138,6 +137,7 @@ class Text
             finishReason: $this->mapFinishReason($data),
             toolCalls: $this->mapToolCalls(data_get($data, 'message.tool_calls', []) ?? []),
             toolResults: $toolResults,
+            providerToolCalls: [],
             usage: new Usage(
                 data_get($data, 'prompt_eval_count', 0),
                 data_get($data, 'eval_count', 0),
@@ -147,8 +147,21 @@ class Text
                 model: $request->model(),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $toolCalls
+     * @return array<int, ToolCall>
+     */
+    protected function mapToolCalls(array $toolCalls): array
+    {
+        return array_map(fn (array $toolCall): ToolCall => new ToolCall(
+            id: data_get($toolCall, 'id') ?? '',
+            name: data_get($toolCall, 'function.name'),
+            arguments: data_get($toolCall, 'function.arguments'),
+        ), $toolCalls);
     }
 }

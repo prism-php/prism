@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Ollama\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Prism\Prism\Exceptions\PrismException;
+use Illuminate\Support\Arr;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
@@ -16,7 +16,6 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
@@ -39,8 +38,6 @@ class Structured
         $responseMessage = new AssistantMessage(
             data_get($data, 'message.content') ?? '',
         );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $request->addMessage($responseMessage);
 
@@ -66,8 +63,8 @@ class Structured
                 model: $request->model(),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 
@@ -76,27 +73,24 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        if (count($request->systemPrompts()) > 1) {
-            throw new PrismException('Ollama does not support multiple system prompts using withSystemPrompt / withSystemPrompts. However, you can provide additional system prompts by including SystemMessages in with withMessages.');
-        }
+        $response = $this->client->post('api/chat', [
+            'model' => $request->model(),
+            'messages' => (new MessageMap(array_merge(
+                $request->systemPrompts(),
+                $request->messages()
+            )))->map(),
+            'format' => $request->schema()->toArray(),
+            'stream' => false,
+            ...Arr::whereNotNull([
+                'keep_alive' => $request->providerOptions('keep_alive'),
+            ]),
+            'options' => Arr::whereNotNull(array_merge([
+                'temperature' => $request->temperature(),
+                'num_predict' => $request->maxTokens() ?? 2048,
+                'top_p' => $request->topP(),
+            ], $request->providerOptions())),
+        ]);
 
-        try {
-            $response = $this->client->post('api/chat', [
-                'model' => $request->model(),
-                'system' => data_get($request->systemPrompts(), '0.content', ''),
-                'messages' => (new MessageMap($request->messages()))->map(),
-                'format' => $request->schema()->toArray(),
-                'stream' => false,
-                'options' => array_filter(array_merge([
-                    'temperature' => $request->temperature(),
-                    'num_predict' => $request->maxTokens() ?? 2048,
-                    'top_p' => $request->topP(),
-                ], $request->providerOptions())),
-            ]);
-
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $response->json();
     }
 }

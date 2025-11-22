@@ -10,7 +10,7 @@ In this guide we will look at handling:
 
 Prism throws a `PrismRateLimitedException` for all providers other than DeepSeek (which does not have rate limits).
 
-Prism provides an array of `ProviderRateLimit` value objects on the exception and on meta for all providers other than Gemini, xAI and VoyageAI - as they do not provide the necessary headers to do so.
+Prism provides an array of `ProviderRateLimit` value objects on the exception and on meta for all providers other than OpenAI, Gemini, xAI and VoyageAI - as they do not provide the necessary headers to do so.
 
 ## The ProviderRateLimit value object
 
@@ -29,8 +29,8 @@ Prism throws a `PrismRateLimitedException` when you hit a rate limit.
 You can catch that exception, gracefully fail and inspect the `rateLimits` property which contains an array of `ProviderRateLimit`s. 
 
 ```php
-use Prism\Prism\Prism;
-use Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 
@@ -38,7 +38,7 @@ try {
     Prism::text()
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
         ->withPrompt('Hello world!')
-        ->generate();
+        ->asText();
 }
 catch (PrismRateLimitedException $e) {
     /** @var ProviderRateLimit $rate_limit */ 
@@ -103,14 +103,14 @@ If you aren't sure where to start with that, check out the [What should you do w
 Prism adds the same rate limit information to every successful request:
 
 ```php
-use Prism\Prism\Prism;
-use Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withPrompt('Hello world!')
-    ->generate();
+    ->asText();
     
 /** @var ProviderRateLimit $rate_limit */ 
 foreach ($response->meta->rateLimits as $rate_limit) {

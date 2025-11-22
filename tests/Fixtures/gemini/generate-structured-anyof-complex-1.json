@@ -1,0 +1,34 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\"content\": {\"title\": \"Understanding AI\", \"content\": \"Artificial intelligence is transforming the world through machine learning and deep neural networks.\"}}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.052
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 95,
+    "candidatesTokenCount": 48,
+    "totalTokenCount": 143,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 95
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 48
+      }
+    ]
+  },
+  "modelVersion": "gemini-2.5-flash"
+}

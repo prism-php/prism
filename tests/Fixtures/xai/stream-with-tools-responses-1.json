@@ -1,0 +1,11 @@
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1752363429,"model":"grok-4","choices":[{"index":0,"delta":{"reasoning_content":"Thinking... ","role":"assistant"}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1752363431,"model":"grok-4","choices":[{"index":0,"delta":{"reasoning_content":"Thinking... "}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1752363432,"model":"grok-4","choices":[{"index":0,"delta":{"reasoning_content":"I need to get weather information to help answer this question about what to wear."}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1752363433,"model":"grok-4","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_47706007","function":{"name":"get_weather","arguments":"{\"city\":\"Detroit\"}"},"index":0,"type":"function"}]}}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1752363434,"model":"grok-4","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"system_fingerprint":"fp_acdceb26fb"}
+
+data: [DONE]

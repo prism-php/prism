@@ -2,36 +2,20 @@
 
 namespace Prism\Prism\Providers\VoyageAI;
 
-use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
-use Prism\Prism\Contracts\Provider;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Structured\Request as StructuredRequest;
-use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Request as TextRequest;
-use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Providers\Provider;
 
-class VoyageAI implements Provider
+class VoyageAI extends Provider
 {
+    use InitializesClient;
+
     public function __construct(
-        #[\SensitiveParameter] protected string $apiKey,
-        protected string $baseUrl
+        #[\SensitiveParameter] protected readonly string $apiKey,
+        protected readonly string $baseUrl
     ) {}
-
-    #[\Override]
-    public function text(TextRequest $request): TextResponse
-    {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
-    }
-
-    #[\Override]
-    public function structured(StructuredRequest $request): StructuredResponse
-    {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
-    }
 
     #[\Override]
     public function embeddings(EmbeddingRequest $request): EmbeddingsResponse
@@ -44,21 +28,16 @@ class VoyageAI implements Provider
         return $handler->handle($request);
     }
 
-    #[\Override]
-    public function stream(TextRequest $request): Generator
-    {
-        throw PrismException::unsupportedProviderAction(__METHOD__, class_basename($this));
-    }
-
     /**
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = []): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return Http::withToken($this->apiKey)
+        return $this->baseClient()
+            ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
-            ->retry(...$retry)
-            ->baseUrl($this->baseUrl);
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->baseUrl);
     }
 }

@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
@@ -28,7 +28,7 @@ it('throws a PrismRateLimitedException with a 429 response code', function (): v
     Prism::text()
         ->using(Provider::Mistral, 'fake-model')
         ->withPrompt('Hello world!')
-        ->generate();
+        ->asText();
 
 })->throws(PrismRateLimitedException::class);
 
@@ -50,7 +50,7 @@ it('sets the correct data on the PrismRateLimitedException', function (): void {
             Prism::text()
                 ->using(Provider::Mistral, 'fake-model')
                 ->withPrompt('Hello world!')
-                ->generate();
+                ->asText();
         } catch (PrismRateLimitedException $e) {
             expect($e->retryAfter)->toEqual(null);
             expect($e->rateLimits)->toHaveCount(1);

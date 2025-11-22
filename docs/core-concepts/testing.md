@@ -7,7 +7,7 @@ Want to make sure your Prism integrations work flawlessly? Let's dive into testi
 First, let's look at how to set up basic response faking:
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Usage;
 use Prism\Prism\Testing\TextResponseFake;
@@ -80,7 +80,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Messages\{UserMessage,AssistantMessage,SystemMessage};
-use Prism\Prism\ValueObjects\Messages\Support\Document;
+use Prism\Prism\ValueObjects\Media\Document;
 
 Prism::fake([
     (new ResponseBuilder)
@@ -128,50 +128,56 @@ Prism::fake([
 ## Testing Tools
 
 ```php
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Testing\TextResponseFake;
-use Prism\Prism\Tool;
-use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Testing\TextStepFake;
+use Prism\Prism\Text\ResponseBuilder;
+use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 
 it('can use weather tool', function () {
     // Define the expected tool call and response sequence
     $responses = [
-        // First response: AI decides to use the weather tool
-        TextResponseFake::make()
-            ->withToolCalls([
-                new ToolCall(
-                    id: 'call_123',
-                    name: 'weather',
-                    arguments: ['city' => 'Paris']
-                )
-            ])
-            ->withFinishReason(FinishReason::ToolCalls)
-            ->withUsage(new Usage(15, 25))
-            ->withMeta(new Meta('fake-1', 'fake-model')),
-
-        // Second response: AI uses the tool result to form a response
-        TextResponseFake::make()
-            ->withText('Based on current conditions, the weather in Paris is sunny with a temperature of 72°F.')
-            ->withToolResults([
-                new ToolResult(
-                    toolCallId: 'call_123',
-                    toolName: 'weather',
-                    args: ['city' => 'Paris'],
-                    result: 'Sunny, 72°F'
-                )
-            ])
-            ->withFinishReason(FinishReason::Stop)
-            ->withUsage(new Usage(20, 30))
-            ->withMeta(new Meta('fake-2', 'fake-model')),
+        (new ResponseBuilder)
+            ->addStep(
+                // First response: AI decides to use the weather tool
+                TextStepFake::make()
+                    ->withToolCalls([
+                        new ToolCall(
+                            id: 'call_123',
+                            name: 'weather',
+                            arguments: ['city' => 'Paris']
+                        ),
+                    ])
+                    ->withFinishReason(FinishReason::ToolCalls)
+                    ->withUsage(new Usage(15, 25))
+                    ->withMeta(new Meta('fake-1', 'fake-model'))
+            )
+            ->addStep(
+                // Second response: AI uses the tool result to form a response
+                TextStepFake::make()
+                    ->withText('Based on current conditions, the weather in Paris is sunny with a temperature of 72°F.')
+                    ->withToolResults([
+                        new ToolResult(
+                            toolCallId: 'call_123',
+                            toolName: 'weather',
+                            args: ['city' => 'Paris'],
+                            result: 'Sunny, 72°F'
+                        ),
+                    ])
+                    ->withFinishReason(FinishReason::Stop)
+                    ->withUsage(new Usage(20, 30))
+                    ->withMeta(new Meta('fake-2', 'fake-model')),
+            )
+            ->toResponse(),
     ];
 
     // Set up the fake
-    $fake = Prism::fake($responses);
+    Prism::fake($responses);
 
     // Create the weather tool
     $weatherTool = Tool::as('weather')
@@ -184,10 +190,11 @@ it('can use weather tool', function () {
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withPrompt('What\'s the weather in Paris?')
         ->withTools([$weatherTool])
+        ->withMaxSteps(2)
         ->asText();
 
-    // Assert the correct number of API calls were made
-    $fake->assertCallCount(2);
+    // Assert the response has the correct number of steps
+    expect($response->steps)->toHaveCount(2);
 
     // Assert tool calls were made correctly
     expect($response->steps[0]->toolCalls)->toHaveCount(1);
@@ -314,8 +321,11 @@ expect($outputText)->toBe('fake response text')
 
 ## Testing Structured Output
 
+> [!NOTE]
+> When testing OpenAI-style structured output (strict mode), the root schema should be an `ObjectSchema`.
+
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\ValueObjects\Usage;
 use Prism\Prism\ValueObjects\Meta;
@@ -365,7 +375,7 @@ it('can generate structured response', function () {
 ## Testing Embeddings
 
 ```php
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;

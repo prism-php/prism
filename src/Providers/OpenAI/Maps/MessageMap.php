@@ -6,10 +6,9 @@ namespace Prism\Prism\Providers\OpenAI\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
-use Prism\Prism\ValueObjects\Messages\Support\OpenAIFile;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -40,7 +39,7 @@ class MessageMap
     public function __invoke(): array
     {
         array_map(
-            fn (Message $message) => $this->mapMessage($message),
+            $this->mapMessage(...),
             $this->messages
         );
 
@@ -69,10 +68,18 @@ class MessageMap
     protected function mapToolResultMessage(ToolResultMessage $message): void
     {
         foreach ($message->toolResults as $toolResult) {
+            $output = $toolResult->result;
+            if (! is_string($output)) {
+                $output = is_array($output) ? json_encode(
+                    $output,
+                    JSON_THROW_ON_ERROR,
+                ) : strval($output);
+            }
+
             $this->mappedMessages[] = [
-                'role' => 'tool',
-                'tool_call_id' => $toolResult->toolCallId,
-                'content' => $toolResult->result,
+                'type' => 'function_call_output',
+                'call_id' => $toolResult->toolCallResultId,
+                'output' => $output,
             ];
         }
     }
@@ -82,11 +89,11 @@ class MessageMap
         $this->mappedMessages[] = [
             'role' => 'user',
             'content' => [
-                ['type' => 'text', 'text' => $message->text()],
+                ['type' => 'input_text', 'text' => $message->text()],
                 ...self::mapImageParts($message->images()),
                 ...self::mapDocumentParts($message->documents()),
-                ...self::mapFileParts($message->files()),
             ],
+            ...$message->additionalAttributes,
         ];
     }
 
@@ -96,14 +103,7 @@ class MessageMap
      */
     protected static function mapImageParts(array $images): array
     {
-        return array_map(fn (Image $image): array => [
-            'type' => 'image_url',
-            'image_url' => [
-                'url' => $image->isUrl()
-                    ? $image->image
-                    : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
-            ],
-        ], $images);
+        return array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $images);
     }
 
     /**
@@ -112,50 +112,52 @@ class MessageMap
      */
     protected static function mapDocumentParts(array $documents): array
     {
-        return array_map(function (Document $document): array {
-            if ($document->dataFormat !== 'base64') {
-                throw new \InvalidArgumentException("OpenAI does not support $document->dataFormat documents.");
-            }
-
-            return [
-                'type' => 'file',
-                'file' => [
-                    'file_data' => sprintf('data:%s;base64,%s', $document->mimeType, $document->document), // @phpstan-ignore argument.type
-                    'filename' => $document->documentTitle,
-                ],
-            ];
-        }, $documents);
-    }
-
-    /**
-     * @param  OpenAIFile[]  $files
-     * @return array<int, mixed>
-     */
-    protected static function mapFileParts(array $files): array
-    {
-        return array_map(fn (OpenAIFile $file): array => [
-            'type' => 'file',
-            'file' => [
-                'file_id' => $file->fileId,
-            ],
-        ], $files);
+        return array_map(fn (Document $document): array => (new DocumentMapper($document))->toPayload(), $documents);
     }
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $toolCalls = array_map(fn (ToolCall $toolCall): array => [
-            'id' => $toolCall->id,
-            'type' => 'function',
-            'function' => [
-                'name' => $toolCall->name,
-                'arguments' => json_encode($toolCall->arguments()),
-            ],
-        ], $message->toolCalls);
+        if ($message->content !== '' && $message->content !== '0') {
+            $mappedMessage = [
+                'role' => 'assistant',
+                'content' => [
+                    [
+                        'type' => 'output_text',
+                        'text' => $message->content,
+                    ],
+                ],
+            ];
 
-        $this->mappedMessages[] = array_filter([
-            'role' => 'assistant',
-            'content' => $message->content,
-            'tool_calls' => $toolCalls,
-        ]);
+            if (isset($message->additionalContent['citations'])) {
+                $mappedMessage['content'][0]['annotations'] = CitationsMapper::mapToOpenAI($message->additionalContent['citations'][0])['annotations'];
+            }
+
+            $this->mappedMessages[] = $mappedMessage;
+        }
+
+        if ($message->toolCalls !== []) {
+            $reasoningBlocks = collect($message->toolCalls)
+                ->whereNotNull('reasoningId')
+                ->unique('reasoningId')
+                ->map(fn (ToolCall $toolCall): array => [
+                    'type' => 'reasoning',
+                    'id' => $toolCall->reasoningId,
+                    'summary' => $toolCall->reasoningSummary,
+                ])
+                ->values()
+                ->all();
+
+            array_push(
+                $this->mappedMessages,
+                ...$reasoningBlocks,
+                ...array_map(fn (ToolCall $toolCall): array => [
+                    'id' => $toolCall->id,
+                    'call_id' => $toolCall->resultId,
+                    'type' => 'function_call',
+                    'name' => $toolCall->name,
+                    'arguments' => json_encode($toolCall->arguments()),
+                ], $message->toolCalls)
+            );
+        }
     }
 }

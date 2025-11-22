@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Ollama;
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Embedding;
 use Tests\Fixtures\FixtureResponse;
 
@@ -17,8 +19,16 @@ it('returns embeddings from input', function (): void {
         ->fromInput('The food was delicious and the waiter...')
         ->asEmbeddings();
 
+    Http::assertSent(function (Request $request): true {
+        expect($request->data()['model'])->toBe('mxbai-embed-large');
+        expect($request->data()['input'])->toBe(['The food was delicious and the waiter...']);
+        expect($request->data())->not->toHaveKeys(['options']);
+
+        return true;
+    });
+
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-input-1.json'), true);
-    $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));
+    $embeddings = array_map(Embedding::fromArray(...), data_get($embeddings, 'embeddings'));
 
     expect($response->meta->model)->toBe('mxbai-embed-large');
     expect($response->embeddings)->toBeArray();
@@ -35,7 +45,7 @@ it('returns embeddings from file', function (): void {
         ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-file-1.json'), true);
-    $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));
+    $embeddings = array_map(Embedding::fromArray(...), data_get($embeddings, 'embeddings'));
 
     expect($response->embeddings)->toBeArray();
     expect($response->embeddings[0]->embedding)->toBe($embeddings[0]->embedding);
@@ -54,7 +64,7 @@ it('works with multiple embeddings', function (): void {
         ->asEmbeddings();
 
     $embeddings = json_decode(file_get_contents('tests/Fixtures/ollama/embeddings-multiple-inputs-1.json'), true);
-    $embeddings = array_map(fn (array $item): \Prism\Prism\ValueObjects\Embedding => Embedding::fromArray($item), data_get($embeddings, 'embeddings'));
+    $embeddings = array_map(Embedding::fromArray(...), data_get($embeddings, 'embeddings'));
 
     expect($response->embeddings)->toBeArray();
     expect($response->embeddings[0]->embedding)->toBe($embeddings[0]->embedding);

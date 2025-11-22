@@ -9,9 +9,13 @@ use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\EmbeddingsResponseFake;
@@ -32,15 +36,14 @@ describe('fake text, structured, and embedding responses', function (): void {
     it('fake responses using the prism fake for text', function (): void {
         $fake = Prism::fake([
             new TextResponse(
-                text: 'The meaning of life is 42',
                 steps: collect([]),
-                responseMessages: collect([]),
-                messages: collect([]),
+                text: 'The meaning of life is 42',
+                finishReason: FinishReason::Stop,
                 toolCalls: [],
                 toolResults: [],
                 usage: new Usage(42, 42),
-                finishReason: FinishReason::Stop,
-                meta: new Meta('cpl_1234', 'claude-3-sonnet')
+                meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+                messages: collect([])
             ),
         ]);
 
@@ -62,10 +65,9 @@ describe('fake text, structured, and embedding responses', function (): void {
             new StructuredResponse(
                 steps: collect([]),
                 text: json_encode(['foo' => 'bar']),
-                responseMessages: collect([]),
                 structured: ['foo' => 'bar'],
-                usage: new Usage(42, 42),
                 finishReason: FinishReason::Stop,
+                usage: new Usage(42, 42),
                 meta: new Meta('cpl_1234', 'claude-3-sonnet'),
                 additionalContent: [],
             ),
@@ -188,21 +190,17 @@ describe('fake streaming responses', function (): void {
         $outputText = '';
         $toolCalls = [];
         $toolResults = [];
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-
-            // Check for tool calls
-            if ($chunk->toolCalls) {
-                foreach ($chunk->toolCalls as $call) {
-                    $toolCalls[] = $call;
-                }
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
             }
 
-            // Check for tool results
-            if ($chunk->toolResults) {
-                foreach ($chunk->toolResults as $result) {
-                    $toolResults[] = $result;
-                }
+            if ($event instanceof ToolCallEvent) {
+                $toolCalls[] = $event->toolCall;
+            }
+
+            if ($event instanceof ToolResultEvent) {
+                $toolResults[] = $event->toolResult;
             }
         }
 
@@ -244,21 +242,17 @@ describe('fake streaming responses', function (): void {
         $outputText = '';
         $toolCalls = [];
         $toolResults = [];
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-
-            // Check for tool calls
-            if ($chunk->toolCalls) {
-                foreach ($chunk->toolCalls as $call) {
-                    $toolCalls[] = $call;
-                }
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
             }
 
-            // Check for tool results
-            if ($chunk->toolResults) {
-                foreach ($chunk->toolResults as $result) {
-                    $toolResults[] = $result;
-                }
+            if ($event instanceof ToolCallEvent) {
+                $toolCalls[] = $event->toolCall;
+            }
+
+            if ($event instanceof ToolResultEvent) {
+                $toolResults[] = $event->toolResult;
             }
         }
 
@@ -287,8 +281,10 @@ describe('fake streaming responses', function (): void {
             ->asStream();
 
         $outputText = '';
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
+            }
         }
 
         expect($outputText)->toBe('');
@@ -305,15 +301,17 @@ describe('fake streaming responses', function (): void {
             ->asStream();
 
         $outputText = '';
-        $chunks = [];
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-            $chunks[] = $chunk;
+        $textDeltas = [];
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
+                $textDeltas[] = $event;
+            }
         }
 
         expect($outputText)->toBe('fake response text')
-            // 19 characters -> 3 chunks of 5 + one with 3 characters + 1 empty chunk with finish reason
-            ->and($chunks)->toHaveCount(5);
+            // 19 characters -> 3 chunks of 5 + one with 4 characters = 4 TextDeltaEvents
+            ->and($textDeltas)->toHaveCount(4);
     });
 
     it('handles different chunk sizes', function (): void {
@@ -327,14 +325,16 @@ describe('fake streaming responses', function (): void {
             ->asStream();
 
         $outputText = '';
-        $chunks = [];
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-            $chunks[] = $chunk;
+        $textDeltas = [];
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
+                $textDeltas[] = $event;
+            }
         }
 
         expect($outputText)->toBe('fake response text')
-            ->and($chunks)->toHaveCount(19);
+            ->and($textDeltas)->toHaveCount(18);
     });
 
     it('enforces a chunk size of at least 1', function (): void {
@@ -348,17 +348,19 @@ describe('fake streaming responses', function (): void {
             ->asStream();
 
         $outputText = '';
-        $chunks = [];
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-            $chunks[] = $chunk;
+        $textDeltas = [];
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
+                $textDeltas[] = $event;
+            }
         }
 
         expect($outputText)->toBe('fake response text')
-            ->and($chunks)->toHaveCount(19);
+            ->and($textDeltas)->toHaveCount(18);
     });
 
-    it('adds an empty chunk with the finish reason at the end', function (): void {
+    it('adds a stream end event with the finish reason at the end', function (): void {
         Prism::fake([
             TextResponseFake::make()
                 ->withText('fake response text')
@@ -371,15 +373,17 @@ describe('fake streaming responses', function (): void {
             ->asStream();
 
         $outputText = '';
-        $lastChunk = null;
-        foreach ($text as $chunk) {
-            $outputText .= $chunk->text;
-            $lastChunk = $chunk;
+        $lastEvent = null;
+        foreach ($text as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $outputText .= $event->delta;
+            }
+            $lastEvent = $event;
         }
 
         expect($outputText)->toBe('fake response text')
-            ->and($lastChunk?->text)->toBe('')
-            ->and($lastChunk?->finishReason)->toBe(FinishReason::Length);
+            ->and($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+            ->and($lastEvent->finishReason)->toBe(FinishReason::Length);
     });
 
 });
@@ -391,14 +395,13 @@ it("throws an exception when it can't runs out of responses", function (): void 
     Prism::fake([
         new TextResponse(
             steps: collect([]),
-            messages: collect([]),
-            responseMessages: collect([]),
             text: 'The meaning of life is 42',
+            finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
             usage: new Usage(42, 42),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('cpl_1234', 'claude-3-sonnet')
+            meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+            messages: collect([])
         ),
     ]);
 
@@ -417,14 +420,13 @@ it('asserts provider config', function (): void {
     $fake = Prism::fake([
         new TextResponse(
             steps: collect([]),
-            messages: collect([]),
-            responseMessages: collect([]),
             text: 'The meaning of life is 42',
+            finishReason: FinishReason::Stop,
             toolCalls: [],
             toolResults: [],
             usage: new Usage(42, 42),
-            finishReason: FinishReason::Stop,
-            meta: new Meta('cpl_1234', 'claude-3-sonnet')
+            meta: new Meta('cpl_1234', 'claude-3-sonnet'),
+            messages: collect([])
         ),
     ]);
 

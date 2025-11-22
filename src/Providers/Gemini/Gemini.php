@@ -6,29 +6,37 @@ namespace Prism\Prism\Providers\Gemini;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
-use Prism\Prism\Contracts\Provider;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Images\Request as ImagesRequest;
+use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
+use Prism\Prism\Providers\Gemini\Handlers\Images;
 use Prism\Prism\Providers\Gemini\Handlers\Stream;
 use Prism\Prism\Providers\Gemini\Handlers\Structured;
 use Prism\Prism\Providers\Gemini\Handlers\Text;
 use Prism\Prism\Providers\Gemini\ValueObjects\GeminiCachedObject;
+use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
-readonly class Gemini implements Provider
+class Gemini extends Provider
 {
+    use InitializesClient;
+
     public function __construct(
-        #[\SensitiveParameter] public string $apiKey,
-        public string $url,
+        #[\SensitiveParameter] public readonly string $apiKey,
+        public readonly string $url,
     ) {}
 
     #[\Override]
@@ -65,6 +73,17 @@ readonly class Gemini implements Provider
     }
 
     #[\Override]
+    public function images(ImagesRequest $request): ImagesResponse
+    {
+        $handler = new Images($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handle($request);
+    }
+
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
         $handler = new Stream(
@@ -73,6 +92,15 @@ readonly class Gemini implements Provider
         );
 
         return $handler->handle($request);
+    }
+
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make([]),
+            503 => throw PrismProviderOverloadedException::make(class_basename($this)),
+            default => throw PrismException::providerRequestError($model, $e),
+        };
     }
 
     /**
@@ -86,7 +114,7 @@ readonly class Gemini implements Provider
         }
 
         $systemPrompts = array_map(
-            fn ($prompt): SystemMessage => $prompt instanceof SystemMessage ? $prompt : new SystemMessage($prompt),
+            fn (\Prism\Prism\ValueObjects\Messages\SystemMessage|string $prompt): SystemMessage => $prompt instanceof SystemMessage ? $prompt : new SystemMessage($prompt),
             $systemPrompts
         );
 
@@ -100,7 +128,11 @@ readonly class Gemini implements Provider
             ttl: $ttl
         );
 
-        return $handler->handle();
+        try {
+            return $handler->handle();
+        } catch (RequestException $e) {
+            $this->handleRequestException($model, $e);
+        }
     }
 
     /**
@@ -109,18 +141,12 @@ readonly class Gemini implements Provider
      */
     protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        $baseUrl ??= $this->url;
-
-        $client = Http::withOptions($options)
+        return $this->baseClient()
             ->withHeaders([
                 'x-goog-api-key' => $this->apiKey,
             ])
-            ->baseUrl($baseUrl);
-
-        if ($retry !== []) {
-            return $client->retry(...$retry);
-        }
-
-        return $client;
+            ->withOptions($options)
+            ->when($retry !== [], fn ($client) => $client->retry(...$retry))
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

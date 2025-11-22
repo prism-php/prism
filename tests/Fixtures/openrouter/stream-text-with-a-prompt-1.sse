@@ -1,0 +1,39 @@
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"Hello"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"!"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" I'm"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" an"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" AI"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" assistant"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" powered"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" by"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" OpenRouter"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"."},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" How"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" can"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" I"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" help"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" you"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":" today"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"?"},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"gen-12345","object":"chat.completion.chunk","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":35,"total_tokens":42}}
+
+data: [DONE] 

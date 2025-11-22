@@ -3,6 +3,7 @@
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
@@ -16,7 +17,6 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Structured
 {
@@ -32,17 +32,13 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
-        try {
-            $request = $this->appendMessageForJsonMode($request);
+        $request = $this->appendMessageForJsonMode($request);
 
-            $data = $this->sendRequest($request);
+        $data = $this->sendRequest($request);
 
-            $this->validateResponse($data);
+        $this->validateResponse($data);
 
-            return $this->createResponse($request, $data);
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $this->createResponse($request, $data);
     }
 
     /**
@@ -56,7 +52,7 @@ class Structured
                 'model' => $request->model(),
                 'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                 'max_completion_tokens' => $request->maxTokens(),
-            ], array_filter([
+            ], Arr::whereNotNull([
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
                 'response_format' => ['type' => 'json_object'],
@@ -84,7 +80,6 @@ class Structured
         $text = data_get($data, 'choices.0.message.content') ?? '';
 
         $responseMessage = new AssistantMessage($text);
-        $this->responseBuilder->addResponseMessage($responseMessage);
         $request->addMessage($responseMessage);
 
         $step = new Step(
@@ -99,8 +94,8 @@ class Structured
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         );
 
         $this->responseBuilder->addStep($step);

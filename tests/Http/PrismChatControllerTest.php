@@ -7,19 +7,15 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\PrismServer;
-use Prism\Prism\Text\Chunk;
+use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
 use function Pest\Laravel\freezeTime;
-
-beforeEach(function (): void {
-    config()->set('prism.prism_server.enabled', true);
-});
 
 it('handles chat requests successfully', function (): void {
     freezeTime();
@@ -38,9 +34,6 @@ it('handles chat requests successfully', function (): void {
         toolResults: [],
         usage: new Usage(10, 10),
         meta: new Meta('cmp_asdf123', 'gpt-4'),
-        responseMessages: collect([
-            new AssistantMessage("I'm Nyx!"),
-        ]),
         messages: collect(),
     );
 
@@ -96,15 +89,16 @@ it('handles streaming requests', function (): void {
             && $messages[0]->text() === 'Who are you?')
         ->andReturnSelf();
 
-    $meta = new Meta('cmp_asdf123', 'gpt-4');
-    $chunk = new Chunk(
-        text: "I'm Nyx!",
-        meta: $meta
+    $event = new TextDeltaEvent(
+        id: 'cmp_asdf123',
+        timestamp: time(),
+        delta: "I'm Nyx!",
+        messageId: EventID::generate()
     );
 
     $generator->expects('asStream')
-        ->andReturn((function () use ($chunk) {
-            yield $chunk;
+        ->andReturn((function () use ($event) {
+            yield $event;
         })());
 
     PrismServer::register(
@@ -130,7 +124,7 @@ it('handles streaming requests', function (): void {
         'id' => 'cmp_asdf123',
         'object' => 'chat.completion.chunk',
         'created' => now()->timestamp,
-        'model' => 'gpt-4',
+        'model' => 'unknown',
         'choices' => [
             [
                 'delta' => [
@@ -170,4 +164,216 @@ it('handles missing prism', function (): void {
     $response->assertServerError();
     expect($response->json('error.message'))
         ->toBe('Prism "nyx" is not registered with PrismServer');
+});
+
+it('handles multimodal messages with image URL', function (): void {
+    freezeTime();
+    $generator = Mockery::mock(PendingRequest::class);
+
+    $generator->expects('withMessages')
+        ->withArgs(function ($messages): bool {
+            $message = $messages[0];
+
+            return $message instanceof UserMessage
+                && $message->text() === 'What is in this image?'
+                && count($message->images()) === 1
+                && $message->images()[0]->url() === 'https://example.com/test.jpg'
+                && $message->images()[0]->isUrl();
+        })
+        ->andReturnSelf();
+
+    $textResponse = new Response(
+        steps: collect(),
+        text: 'I can see a test image.',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(15, 12),
+        meta: new Meta('cmp_image123', 'gpt-4-vision'),
+        messages: collect(),
+    );
+
+    $generator->expects('asText')
+        ->andReturn($textResponse);
+
+    PrismServer::register(
+        'vision-model',
+        fn () => $generator
+    );
+
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'vision-model',
+        'messages' => [[
+            'role' => 'user',
+            'content' => [
+                ['type' => 'text', 'text' => 'What is in this image?'],
+                ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/test.jpg']],
+            ],
+        ]],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('choices.0.message.content'))->toBe('I can see a test image.');
+});
+
+it('handles multimodal messages with base64 image', function (): void {
+    freezeTime();
+    $generator = Mockery::mock(PendingRequest::class);
+
+    $base64Image = base64_encode('fake-image-data');
+
+    $generator->expects('withMessages')
+        ->withArgs(function ($messages) use ($base64Image): bool {
+            $message = $messages[0];
+
+            return $message instanceof UserMessage
+                && $message->text() === 'Analyze this screenshot'
+                && count($message->images()) === 1
+                && $message->images()[0]->base64() === $base64Image
+                && $message->images()[0]->mimeType() === 'image/png'
+                && ! $message->images()[0]->isUrl();
+        })
+        ->andReturnSelf();
+
+    $textResponse = new Response(
+        steps: collect(),
+        text: 'This appears to be a screenshot.',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(20, 15),
+        meta: new Meta('cmp_base64_123', 'gpt-4-vision'),
+        messages: collect(),
+    );
+
+    $generator->expects('asText')
+        ->andReturn($textResponse);
+
+    PrismServer::register(
+        'vision-model',
+        fn () => $generator
+    );
+
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'vision-model',
+        'messages' => [[
+            'role' => 'user',
+            'content' => [
+                ['type' => 'text', 'text' => 'Analyze this screenshot'],
+                ['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,{$base64Image}"]],
+            ],
+        ]],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('choices.0.message.content'))->toBe('This appears to be a screenshot.');
+});
+
+it('handles multimodal messages with multiple images', function (): void {
+    freezeTime();
+    $generator = Mockery::mock(PendingRequest::class);
+
+    $generator->expects('withMessages')
+        ->withArgs(function ($messages): bool {
+            $message = $messages[0];
+
+            return $message instanceof UserMessage
+                && $message->text() === 'Compare these two images'
+                && count($message->images()) === 2
+                && $message->images()[0]->url() === 'https://example.com/image1.jpg'
+                && $message->images()[1]->url() === 'https://example.com/image2.jpg';
+        })
+        ->andReturnSelf();
+
+    $textResponse = new Response(
+        steps: collect(),
+        text: 'Both images show different scenes.',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(25, 18),
+        meta: new Meta('cmp_multi123', 'gpt-4-vision'),
+        messages: collect(),
+    );
+
+    $generator->expects('asText')
+        ->andReturn($textResponse);
+
+    PrismServer::register(
+        'vision-model',
+        fn () => $generator
+    );
+
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'vision-model',
+        'messages' => [[
+            'role' => 'user',
+            'content' => [
+                ['type' => 'text', 'text' => 'Compare these two images'],
+                ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image1.jpg']],
+                ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image2.jpg']],
+            ],
+        ]],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('choices.0.message.content'))->toBe('Both images show different scenes.');
+});
+
+it('handles mixed simple and multimodal messages', function (): void {
+    freezeTime();
+    $generator = Mockery::mock(PendingRequest::class);
+
+    $generator->expects('withMessages')
+        ->withArgs(fn ($messages): bool => count($messages) === 2
+            && $messages[0] instanceof UserMessage
+            && $messages[0]->text() === 'Hello!'
+            && $messages[0]->images() === []
+            && $messages[1] instanceof UserMessage
+            && $messages[1]->text() === 'What about this image?'
+            && count($messages[1]->images()) === 1)
+        ->andReturnSelf();
+
+    $textResponse = new Response(
+        steps: collect(),
+        text: 'Hello! I can see the image you shared.',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(20, 15),
+        meta: new Meta('cmp_mixed123', 'gpt-4-vision'),
+        messages: collect(),
+    );
+
+    $generator->expects('asText')
+        ->andReturn($textResponse);
+
+    PrismServer::register(
+        'vision-model',
+        fn () => $generator
+    );
+
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'vision-model',
+        'messages' => [
+            [
+                'role' => 'user',
+                'content' => 'Hello!',
+            ],
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'What about this image?'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/test.jpg']],
+                ],
+            ],
+        ],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('choices.0.message.content'))->toBe('Hello! I can see the image you shared.');
 });

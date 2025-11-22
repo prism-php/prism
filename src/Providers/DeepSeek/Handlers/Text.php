@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -23,7 +24,6 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
-use Throwable;
 
 class Text
 {
@@ -49,8 +49,6 @@ class Text
             ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             []
         );
-
-        $this->responseBuilder->addResponseMessage($responseMessage);
 
         $request = $request->addMessage($responseMessage);
 
@@ -102,25 +100,21 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
-        try {
-            $response = $this->client->post(
-                'chat/completions',
-                array_merge([
-                    'model' => $request->model(),
-                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'max_completion_tokens' => $request->maxTokens(),
-                ], array_filter([
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'tools' => ToolMap::map($request->tools()),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                ]))
-            );
+        $response = $this->client->post(
+            'chat/completions',
+            array_merge([
+                'model' => $request->model(),
+                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                'max_tokens' => $request->maxTokens(),
+            ], Arr::whereNotNull([
+                'temperature' => $request->temperature(),
+                'top_p' => $request->topP(),
+                'tools' => ToolMap::map($request->tools()) ?: null,
+                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            ]))
+        );
 
-            return $response->json();
-        } catch (Throwable $e) {
-            throw PrismException::providerRequestError($request->model(), $e);
-        }
+        return $response->json();
     }
 
     /**
@@ -134,6 +128,7 @@ class Text
             finishReason: $this->mapFinishReason($data),
             toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
+            providerToolCalls: [],
             usage: new Usage(
                 data_get($data, 'usage.prompt_tokens'),
                 data_get($data, 'usage.completion_tokens'),
@@ -143,8 +138,8 @@ class Text
                 model: data_get($data, 'model'),
             ),
             messages: $request->messages(),
-            additionalContent: [],
             systemPrompts: $request->systemPrompts(),
+            additionalContent: [],
         ));
     }
 }

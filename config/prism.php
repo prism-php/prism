@@ -4,7 +4,7 @@ return [
     'prism_server' => [
         // The middleware that will be applied to the Prism Server routes.
         'middleware' => [],
-        'enabled' => env('PRISM_SERVER_ENABLED', true),
+        'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
     'providers' => [
         'openai' => [
@@ -16,6 +16,7 @@ return [
         'anthropic' => [
             'api_key' => env('ANTHROPIC_API_KEY', ''),
             'version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
             'default_thinking_budget' => env('ANTHROPIC_DEFAULT_THINKING_BUDGET', 1024),
             // Include beta strings as a comma separated list.
             'anthropic_beta' => env('ANTHROPIC_BETA', null),
@@ -43,9 +44,21 @@ return [
             'api_key' => env('DEEPSEEK_API_KEY', ''),
             'url' => env('DEEPSEEK_URL', 'https://api.deepseek.com/v1'),
         ],
+        'elevenlabs' => [
+            'api_key' => env('ELEVENLABS_API_KEY', ''),
+            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1/'),
+        ],
         'voyageai' => [
             'api_key' => env('VOYAGEAI_API_KEY', ''),
             'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
+        ],
+        'openrouter' => [
+            'api_key' => env('OPENROUTER_API_KEY', ''),
+            'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
+            'site' => [
+                'http_referer' => env('OPENROUTER_SITE_HTTP_REFERER', null),
+                'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
+            ],
         ],
     ],
 ];

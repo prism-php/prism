@@ -7,7 +7,7 @@ Prism provides a powerful interface for generating text using Large Language Mod
 At its simplest, you can generate text with just a few lines of code:
 
 ```php
-use Prism\Prism\Facades\Prism;
+use Prism\Prism\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
@@ -75,12 +75,12 @@ $response = Prism::text()
 Prism supports including images in your messages for visual analysis:
 
 ```php
-use Prism\Prism\ValueObjects\Messages\Support\Image;
+use Prism\Prism\ValueObjects\Media\Image;
 
 // From a local file
 $message = new UserMessage(
     "What's in this image?",
-    [Image::fromPath('/path/to/image.jpg')]
+    [Image::fromLocalPath('/path/to/image.jpg')]
 );
 
 // From a URL

@@ -6,9 +6,9 @@ namespace Prism\Prism\Providers\Mistral\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\Support\Document;
-use Prism\Prism\ValueObjects\Messages\Support\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -39,7 +39,7 @@ class MessageMap
     public function __invoke(): array
     {
         array_map(
-            fn (Message $message) => $this->mapMessage($message),
+            $this->mapMessage(...),
             $this->messages
         );
 
@@ -113,14 +113,7 @@ class MessageMap
      */
     protected static function mapImageParts(array $images): array
     {
-        return array_map(fn (Image $image): array => [
-            'type' => 'image_url',
-            'image_url' => [
-                'url' => $image->isUrl()
-                    ? $image->image
-                    : sprintf('data:%s;base64,%s', $image->mimeType, $image->image),
-            ],
-        ], $images);
+        return array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $images);
     }
 
     /**
@@ -129,16 +122,6 @@ class MessageMap
      */
     protected static function mapDocumentParts(array $documents): array
     {
-        return array_map(function (Document $document): array {
-            if (! $document->isUrl()) {
-                throw new \InvalidArgumentException('Document types other than URL are not supported by Mistral');
-            }
-
-            return [
-                'type' => 'document_url',
-                'document_url' => $document->document,
-                'document_name' => $document->documentTitle,
-            ];
-        }, $documents);
+        return array_map(fn (Document $document): array => (new DocumentMapper($document))->toPayload(), $documents);
     }
 }

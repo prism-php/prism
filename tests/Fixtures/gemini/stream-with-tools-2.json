@@ -1,0 +1,6 @@
+data: {"candidates": [{"content": {"parts": [{"text": "It is"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 159,"candidatesTokenCount": 2,"totalTokenCount": 161,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 159}]},"modelVersion": "gemini-2.5-flash","responseId": "WE2DaN7iMqz2nsEPkfWRoQw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " 75° and sunny in San Francisco, so you likely do not need to"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 159,"candidatesTokenCount": 18,"totalTokenCount": 177,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 159}]},"modelVersion": "gemini-2.5-flash","responseId": "WE2DaN7iMqz2nsEPkfWRoQw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " wear a coat."}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 159,"candidatesTokenCount": 22,"totalTokenCount": 181,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 159}]},"modelVersion": "gemini-2.5-flash","responseId": "WE2DaN7iMqz2nsEPkfWRoQw"}
+
