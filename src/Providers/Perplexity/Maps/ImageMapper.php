@@ -7,6 +7,14 @@ use Prism\Prism\Enums\Provider;
 
 class ImageMapper extends ProviderMediaMapper
 {
+    public const SUPPORTED_MIME_TYPES = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+    ];
+
     /**
      * @return array<string,mixed>
      */
@@ -33,6 +41,10 @@ class ImageMapper extends ProviderMediaMapper
             return true;
         }
 
-        return $this->media->hasRawContent();
+        if ($this->media->mimeType() && $this->media->hasRawContent()) {
+            return in_array($this->media->mimeType(), self::SUPPORTED_MIME_TYPES, true);
+        }
+
+        return false;
     }
 }
