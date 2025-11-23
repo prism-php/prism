@@ -30,7 +30,7 @@ it('maps document from raw content', function (): void {
     $this->assertEquals([
         'type' => 'file_url',
         'file_url' => [
-            'url' => "data:{$mimeType};base64,{$base64}",
+            'url' => $base64,
         ],
     ], $mapper->toPayload());
 });
