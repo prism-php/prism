@@ -18,7 +18,7 @@ class ToolCallMap
             return [];
         }
 
-        $filteredToolCalls = array_filter($toolCalls, fn(array $item): bool => isset($item['functionCall']));
+        $filteredToolCalls = array_filter($toolCalls, fn (array $item): bool => isset($item['functionCall']));
 
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
             id: data_get($toolCall, 'functionCall.name'),
