@@ -22,7 +22,9 @@ class SSEAdapter
                     json_encode($event->toArray()),
                 ]);
 
-                ob_flush();
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
                 flush();
             }
         }, 200, [

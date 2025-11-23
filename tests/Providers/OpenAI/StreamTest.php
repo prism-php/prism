@@ -434,7 +434,9 @@ it('can accept falsy parameters', function (): void {
         ->asStream();
 
     foreach ($response as $chunk) {
-        ob_flush();
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
         flush();
     }
 })->throwsNoExceptions();
