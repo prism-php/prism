@@ -12,6 +12,7 @@ use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAdditionalContent;
+use Prism\Prism\Providers\Perplexity\Concerns\ExtractsFinishReason;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsMeta;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsUsage;
 use Prism\Prism\Providers\Perplexity\Concerns\HandlesHttpRequests;
@@ -31,6 +32,7 @@ use Throwable;
 class Stream
 {
     use ExtractsAdditionalContent;
+    use ExtractsFinishReason;
     use ExtractsMeta;
     use ExtractsUsage;
     use HandlesHttpRequests;
@@ -112,9 +114,8 @@ class Stream
             }
 
             // Check for finish reason
-            $rawFinishReason = data_get($data, 'choices.0.finish_reason');
-            if ($rawFinishReason !== null) {
-                $finishReason = $this->mapFinishReason($rawFinishReason);
+            if (data_has($data, 'choices.0.finish_reason')) {
+                $finishReason = $this->extractsFinishReason($data);
 
                 // Complete text if we have any
                 if ($text !== '' && $this->state->hasTextStarted()) {
