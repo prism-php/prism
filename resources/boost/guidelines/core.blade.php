@@ -2,14 +2,14 @@
 
 - Prism is a Laravel package for integrating Large Language Models (LLMs) into applications with a fluent, expressive and eloquent API.
 - Prism supports multiple AI providers: OpenAI, Anthropic, Ollama, Mistral, Groq, XAI, Gemini, VoyageAI, ElevenLabs, DeepSeek, and OpenRouter, Amazon Bedrock.
-- Always use the `Prism` facade, class, or `prism()` helper function for all LLM interactions.
+- Always use the `Prism\Prism\Facades\Prism` facade, class, or `prism()` helper function for all LLM interactions.
 - Prism documentation follows the `llms.txt` format for its docs website and its hosted at `https://prismphp.com/**`
 - **Before implementing any features using Prism, use the `web-search` tool to get the latest docs for that specific feature. The docs listing is available in <available-docs>**
 
 ### Basic Usage Patterns
 - Use `Prism::text()` for text generation, `Prism::structured()` for structured output, `Prism::embeddings()` for embeddings, `Prism::image()` for image generation, and `Prism::audio()` for audio processing.
 - Always chain the `using()` method to specify provider and model before generating responses.
-- Use `asText()`, `asStructured()`, `asStream()`, `asEmbeddings()`, etc. to finalize the request based on the desired response type.
+- Use `asText()`, `asStructured()`, `asStream()`, `asEmbeddings()`, `asDataStreamResponse()`, `asEventStreamResponse()`, `asBroadcast()` etc. to finalize the request based on the desired response type.
 - You can also use the fluent `prism()` helper function as an alternative to the Prism facade.
 
 <available-docs>
