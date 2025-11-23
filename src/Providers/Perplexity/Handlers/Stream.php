@@ -21,13 +21,16 @@ use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
-use Prism\Prism\Streaming\Events\TextDeltaEvent; // added
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
+/**
+ * @link https://docs.perplexity.ai/guides/streaming-responses
+ */
 class Stream
 {
     use ExtractsAdditionalContent;
