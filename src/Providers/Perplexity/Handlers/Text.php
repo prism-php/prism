@@ -3,8 +3,8 @@
 namespace Prism\Prism\Providers\Perplexity\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAdditionalContent;
+use Prism\Prism\Providers\Perplexity\Concerns\ExtractsFinishReason;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsMeta;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsUsage;
 use Prism\Prism\Providers\Perplexity\Concerns\HandlesHttpRequests;
@@ -14,6 +14,7 @@ use Prism\Prism\Text\Response as TextResponse;
 class Text
 {
     use ExtractsAdditionalContent;
+    use ExtractsFinishReason;
     use ExtractsMeta;
     use ExtractsUsage;
     use HandlesHttpRequests;
@@ -30,7 +31,7 @@ class Text
         return new TextResponse(
             steps: collect(),
             text: data_get($data, 'choices.{last}.message.content'),
-            finishReason: FinishReason::Stop,
+            finishReason: $this->extractsFinishReason($data),
             toolCalls: [],
             toolResults: [],
             usage: $this->extractUsage($data),
