@@ -7,7 +7,6 @@ namespace Prism\Prism\Providers\Perplexity\Handlers;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
@@ -220,13 +219,5 @@ class Stream
                 'model' => $request->model(),
             ]
         );
-    }
-
-    protected function mapFinishReason(?string $reason): FinishReason
-    {
-        return match ($reason) {
-            'stop' => FinishReason::Stop,
-            default => FinishReason::Unknown,
-        };
     }
 }
