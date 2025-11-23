@@ -351,6 +351,18 @@ export default {
           tools: Supported,
           documents: Unsupported,
         },
+        {
+          name: "Perplexity",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Unsupported,
+          image: Unsupported,
+          "speech-to-text": Unsupported,
+          "text-to-speech": Unsupported,
+          tools: Unsupported,
+          documents: Unsupported,
+        },
       ],
     };
   },

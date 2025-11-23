@@ -13,7 +13,7 @@
 Sonar models support document analysis through file uploads. You can provide files either as URLs to publicly accessible documents or as base64 encoded bytes. Ask questions about document content, get summaries, extract information, and perform detailed analysis of uploaded files in multiple formats including PDF, DOC, DOCX, TXT, and RTF.
 - The maximum file size is 50MB. Files larger than this limit will not be processed
 - Ensure provided HTTPS URLs are publicly accessible
-Check it out the Perplexity documentation for more details: https://docs.perplexity.ai/guides/file-attachments
+Check it out the [documentation for more details](https://docs.perplexity.ai/guides/file-attachments)
 
 ## Images
 Sonar models support image analysis through direct image uploads. You can include images in your API requests to support multi-modal conversations alongside text. Images can be provided either as base64 encoded strings within a data URI or as standard HTTPS URLs.
