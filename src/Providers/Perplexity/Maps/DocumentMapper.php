@@ -21,7 +21,7 @@ class DocumentMapper extends ProviderMediaMapper
      */
     public function toPayload(): array
     {
-        $url = $this->media->isUrl() ? $this->media->url() : "data:{$this->media->mimeType()};base64,{$this->media->base64()}";
+        $url = $this->media->isUrl() ? $this->media->url() : $this->media->base64();
 
         $payload = [
             'type' => 'file_url',
