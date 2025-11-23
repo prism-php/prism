@@ -2,8 +2,10 @@
 
 namespace Prism\Prism\Providers\Perplexity;
 
+use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Providers\Perplexity\Handlers\Stream;
 use Prism\Prism\Providers\Perplexity\Handlers\Structured;
 use Prism\Prism\Providers\Perplexity\Handlers\Text;
 use Prism\Prism\Providers\Provider;
@@ -28,6 +30,7 @@ class Perplexity extends Provider
         public readonly string $url,
     ) {}
 
+    #[\Override]
     public function text(TextRequest $request): TextResponse
     {
         $textHandler = new Text($this->client($request->clientOptions(), $request->clientRetry()));
@@ -35,11 +38,20 @@ class Perplexity extends Provider
         return $textHandler->handle($request);
     }
 
+    #[\Override]
     public function structured(StructuredRequest $request): StructuredResponse
     {
         $textHandler = new Structured($this->client($request->clientOptions(), $request->clientRetry()));
 
         return $textHandler->handle($request);
+    }
+
+    #[\Override]
+    public function stream(TextRequest $request): Generator
+    {
+        $handler = new Stream($this->client($request->clientOptions(), $request->clientRetry()));
+
+        return $handler->handle($request);
     }
 
     /**

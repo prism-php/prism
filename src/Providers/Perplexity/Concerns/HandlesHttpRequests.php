@@ -13,11 +13,11 @@ use Prism\Prism\Structured\Request as StructuredRequest;
 
 trait HandlesHttpRequests
 {
-    protected function sendRequest(PendingRequest $client, PrismRequest $request): Response
+    protected function sendRequest(PendingRequest $client, PrismRequest $request, bool $stream = false): Response
     {
         return $client->post(
             '/chat/completions',
-            $this->buildHttpRequestPayload($request)
+            $this->buildHttpRequestPayload($request, $stream)
         );
     }
 
@@ -26,7 +26,7 @@ trait HandlesHttpRequests
      *
      * @throws \Exception
      */
-    protected function buildHttpRequestPayload(PrismRequest $request): array
+    protected function buildHttpRequestPayload(PrismRequest $request, bool $stream = false): array
     {
         $responseFormat = null;
 
@@ -43,6 +43,7 @@ trait HandlesHttpRequests
             'model' => $request->model(),
             'messages' => (new MessagesMapper($request->messages()))->toPayload(),
             'max_tokens' => $request->maxTokens(),
+            'stream' => $stream,
         ], Arr::whereNotNull([
             'response_format' => $responseFormat,
             'temperature' => $request->temperature(),
