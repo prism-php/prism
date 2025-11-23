@@ -42,63 +42,63 @@ it('sends the correct basic request structure', function (): void {
         ))
         ->asStructured();
 
-    expect($response->usage->promptTokens)->toBe(249)
-        ->and($response->usage->completionTokens)->toBe(788)
+    expect($response->usage->promptTokens)->toBe(12)
+        ->and($response->usage->completionTokens)->toBe(746)
         ->and($response->usage->cacheWriteInputTokens)->toBeNull()
         ->and($response->usage->cacheReadInputTokens)->toBeNull()
-        ->and($response->meta->id)->toBe('68662390-4f30-4205-848f-c2397e23233f')
+        ->and($response->meta->id)->toBe('9d3d3b6a-26ac-40bc-b0d2-4d7a1292b04e')
         ->and($response->meta->model)->toBe('sonar')
         ->and($response->structured)->toBe([
             'summaries' => [
                 [
-                    'title' => 'AirPods liberated from Apple\'s ecosystem',
-                    'url' => 'https://news.ycombinator.com/item?id=45944870',
-                    'summary' => 'A project on GitHub demonstrates how to free AirPods from Apple\'s strict ecosystem, allowing more versatile use and customization beyond Apple\'s limitations.',
+                    'title' => 'The privacy nightmare of browser fingerprinting',
+                    'url' => 'https://news.ycombinator.com/item?id=46016249',
+                    'summary' => 'Discusses the serious privacy concerns raised by browser fingerprinting techniques that can uniquely identify users without consent, threatening user anonymity online.',
                 ],
                 [
-                    'title' => 'When UPS charged me a $684 tariff on $355 of vintage electronics',
-                    'url' => 'https://news.ycombinator.com/item?id=45944760',
-                    'summary' => 'A user shares an experience where UPS unexpectedly imposed a high tariff on a shipment of vintage electronics worth significantly less, discussing the implications of such fees on collectors and sellers.',
+                    'title' => 'Meta buried \'causal\' evidence of social media harm, US court filings allege',
+                    'url' => 'https://news.ycombinator.com/item?id=46019817',
+                    'summary' => 'Allegations claim that Meta hid causal evidence about the harmful impacts of social media on users, as revealed in recent US court documents, sparking debate about corporate transparency and user safety.',
                 ],
                 [
-                    'title' => 'Investigation into suspicious pressure on Archive.today',
-                    'url' => 'https://news.ycombinator.com/item?id=45944211',
-                    'summary' => 'Community discussion about an investigation revealing suspicious external pressures aimed at the web archiving service Archive.today, touching on concerns about internet censorship and data preservation.',
+                    'title' => 'WorldGen – Text to Immersive 3D Worlds',
+                    'url' => 'https://news.ycombinator.com/item?id=46018380',
+                    'summary' => 'Introducing WorldGen, a tool that generates immersive 3D worlds from textual descriptions, leveraging AI to dramatically simplify 3D content creation processes.',
+                ],
+                [
+                    'title' => 'The Mozilla Cycle, Part III: Mozilla Dies in Ignominy',
+                    'url' => 'https://news.ycombinator.com/item?id=46017910',
+                    'summary' => 'An opinion piece reflecting on the decline of Mozilla, analyzing how organizational and strategic decisions led to its diminished influence in the web ecosystem.',
+                ],
+                [
+                    'title' => '\'The French people want to save us\': help pours in for glassmaker Duralex',
+                    'url' => 'https://news.ycombinator.com/item?id=46015379',
+                    'summary' => 'Describes a community-driven effort in France to save the iconic glassmaker Duralex, highlighting public support and national sentiment for preserving local industry.',
+                ],
+                [
+                    'title' => 'RondoDox Exploits Unpatched XWiki Servers to Pull More Devices into Botnet',
+                    'url' => 'https://thehackernews.com/2025/11/rondodox-exploits-unpatched-xwiki.html',
+                    'summary' => 'Reports on the rapid exploitation surge of unpatched XWiki servers by the RondoDox botnet starting November 2025, used for launching massive DDoS attacks via HTTP, UDP, and TCP protocols.',
+                ],
+                [
+                    'title' => 'FAWK: LLMs can write a language interpreter',
+                    'url' => 'https://news.ycombinator.com/item?id=46003144',
+                    'summary' => 'Community discussion on the capability of large language models (LLMs) to autonomously write language interpreters, with parallels drawn to earlier scripting languages and cluster availability.',
                 ],
                 [
                     'title' => 'Open Source Bot That Summarizes Top Hacker News Stories',
                     'url' => 'https://news.ycombinator.com/item?id=33748363',
-                    'summary' => 'A Show HN post presents an open source bot that automatically summarizes top Hacker News stories using OpenAI\'s GPT-3, sending concise summaries to a Telegram channel to enhance content accessibility.',
+                    'summary' => 'Announcement of HN Summary, an open-source bot that uses GPT-3 to summarize top Hacker News stories and shares them on Telegram, aiming to enhance content accessibility and experiment with language models.',
                 ],
                 [
-                    'title' => 'Weekly Cybersecurity Recap: Hyper-V Malware and AI Side-Channel Leaks',
-                    'url' => 'https://thehackernews.com/2025/11/weekly-recap-hyper-v-malware-malicious.html',
-                    'summary' => 'A summary of the week\'s top cybersecurity threats including stealthy malware targeting Hyper-V virtual machines, AI side-channel leaks identifying encrypted chat topics, and exploits targeting popular platforms.',
+                    'title' => 'HackYourNews – AI summaries of the top Hacker News stories',
+                    'url' => 'https://news.ycombinator.com/item?id=37427127',
+                    'summary' => 'Presentation of HackYourNews, a website leveraging GPT-3.5-turbo to provide AI-generated summaries of the top Hacker News stories and comments, simplifying news consumption and focus.',
                 ],
                 [
-                    'title' => 'Iranian Hackers Launch \'SpearSpecter\' Campaign Targeting Defense Officials',
-                    'url' => 'https://thehackernews.com/2025/11/iranian-hackers-launch-spearspecter-spy.html',
-                    'summary' => 'Report on Iran\'s APT42 group deploying the TAMECAT malware in the \'SpearSpecter\' campaign to spy on defense and government officials, illustrating ongoing geopolitical cyber espionage activities.',
-                ],
-                [
-                    'title' => 'Firefox Expands Fingerprint Protections',
-                    'url' => 'https://news.ycombinator.com/item?id=45888891',
-                    'summary' => 'Firefox has enhanced its browser fingerprinting protections to better safeguard users from tracking and profiling techniques on the web.',
-                ],
-                [
-                    'title' => 'Meta Replaces WhatsApp for Windows with a Web Wrapper',
-                    'url' => 'https://news.ycombinator.com/item?id=45910347',
-                    'summary' => 'Meta has replaced the native WhatsApp Windows app with a web wrapper version, sparking debate about performance and user experience implications.',
-                ],
-                [
-                    'title' => 'Google to Allow Sideloading Android Apps Without Verification',
-                    'url' => 'https://news.ycombinator.com/item?id=45908938',
-                    'summary' => 'Google announced plans to permit users to sideload Android applications without requiring developer verification, raising conversations around app security and user control.',
-                ],
-                [
-                    'title' => 'The Internet Is No Longer a Safe Haven for Software Hobbyists',
-                    'url' => 'https://news.ycombinator.com/item?id=45944870',
-                    'summary' => 'An opinion piece and community reactions reflecting concerns about increasing challenges and risks for hobbyist developers hosting personal projects online.',
+                    'title' => 'November 22nd, 2025 | The privacy nightmare of browser fingerprinting (Podcast)',
+                    'url' => 'https://podcasts.apple.com/us/podcast/november-22nd-2025-the-privacy-nightmare-of/id1681571416?i=1000737965528',
+                    'summary' => 'A podcast episode recapping the top Hacker News posts of the day, emphasizing browser fingerprinting’s privacy issues, Meta’s social media harm evidence, AI-driven 3D world generation, and other key topics.',
                 ],
             ],
         ]);

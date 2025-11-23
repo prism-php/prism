@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Providers\Perplexity\Maps\MessagesMapper;
+use Prism\Prism\Structured\Request as StructuredRequest;
 
 trait HandlesHttpRequests
 {
@@ -27,11 +28,23 @@ trait HandlesHttpRequests
      */
     protected function buildHttpRequestPayload(PrismRequest $request): array
     {
+        $responseFormat = null;
+
+        if ($request->is(StructuredRequest::class)) {
+            $responseFormat = Arr::whereNotNull([
+                'type' => 'json_schema',
+                'json_schema' => [
+                    'schema' => $request->schema()->toArray(),
+                ],
+            ]);
+        }
+
         return array_merge([
             'model' => $request->model(),
             'messages' => (new MessagesMapper($request->messages()))->toPayload(),
             'max_tokens' => $request->maxTokens(),
         ], Arr::whereNotNull([
+            'response_format' => $responseFormat,
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'top_k' => $request->providerOptions('top_k'),
