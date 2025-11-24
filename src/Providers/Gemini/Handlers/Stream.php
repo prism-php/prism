@@ -449,6 +449,22 @@ class Stream
             $tools = ['function_declarations' => ToolMap::map($request->tools())];
         }
 
+        $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
+
+        if (isset($providerOptions['thinkingBudget'])) {
+            $thinkingConfig = [
+                'thinkingBudget' => $providerOptions['thinkingBudget'],
+                'includeThoughts' => true,
+            ];
+        }
+
+        if (isset($providerOptions['thinkingLevel'])) {
+            $thinkingConfig = [
+                'thinkingLevel' => $providerOptions['thinkingLevel'],
+                'includeThoughts' => true,
+            ];
+        }
+
         return $this->client
             ->withOptions(['stream' => true])
             ->post(
@@ -460,10 +476,7 @@ class Stream
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
-                        'thinkingConfig' => Arr::whereNotNull([
-                            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            'includeThoughts' => true,
-                        ]) ?: null,
+                        'thinkingConfig' => $thinkingConfig,
                     ]) ?: null,
                     'tools' => $tools !== [] ? $tools : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,

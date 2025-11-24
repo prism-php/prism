@@ -553,4 +553,58 @@ describe('Thinking Mode for Gemini', function (): void {
         });
 
     });
+
+    it('can use thinking level with 3.0-pro', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-3.0-pro')
+            ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+            ->withProviderOptions(['thinkingLevel' => 'low'])
+            ->asText();
+
+        expect($response->usage->thoughtTokens)->toBe(1209);
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'])
+                ->toHaveKey('thinkingConfig')
+                ->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
+                    'thinkingLevel' => 'low',
+                ]);
+
+            return true;
+        });
+    });
+
+    it('configure pass a thinking config', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-3.0-pro')
+            ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+            ->withProviderOptions([
+                'thinkingConfig' => [
+                    'thinkingLevel' => 'low',
+                    'includeThoughts' => false,
+                ],
+            ])
+            ->asText();
+
+        expect($response->usage->thoughtTokens)->toBe(1209);
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'])
+                ->toHaveKey('thinkingConfig')
+                ->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
+                    'thinkingLevel' => 'low',
+                    'includeThoughts' => false,
+                ]);
+
+            return true;
+        });
+    });
 });
