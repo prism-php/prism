@@ -741,3 +741,28 @@ describe('citations', function (): void {
         expect($responseTwo->text)->toContain('Metcheck');
     });
 });
+
+it('passes store parameter when specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $store = false;
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Give me TLDR of this legal document')
+        ->withProviderOptions([
+            'store' => $store,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request) use ($store): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'store'))->toBe($store);
+
+        return true;
+    });
+});

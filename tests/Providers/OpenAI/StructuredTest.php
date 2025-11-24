@@ -580,3 +580,38 @@ it('supports nullable AnyOfSchema in structured output', function (): void {
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys(['name', 'flexible_value']);
 });
+
+it('passes store parameter when specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('query', 'Search internal documents'),
+        ],
+        ['query']
+    );
+
+    $store = false;
+
+    Prism::structured()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withSchema($schema)
+        ->withPrompt('What was the revenue in Q3?')
+        ->withProviderOptions([
+            'store' => $store,
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request) use ($store): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'store'))->toBe($store);
+
+        return true;
+    });
+});

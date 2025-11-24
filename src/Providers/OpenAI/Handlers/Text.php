@@ -144,6 +144,7 @@ class Text
                 ] : null,
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
+                'store' => $request->providerOptions('store'),
             ]))
         );
     }
