@@ -200,6 +200,18 @@ $response = Prism::text()
     ->asText();
 ```
 
+#### Store
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-5')
+    ->withPrompt('Give me a summary of the following legal document')
+    ->withProviderOptions([ // [!code focus]
+        'store' => false // true, false // [!code focus]
+    ]) // [!code focus]
+    ->asText();
+```
+
 ## Streaming
 
 OpenAI supports streaming responses in real-time. All the standard streaming methods work with OpenAI models:
