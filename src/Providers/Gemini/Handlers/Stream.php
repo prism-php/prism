@@ -214,7 +214,10 @@ class Stream
                     timestamp: time(),
                     finishReason: $finishReason,
                     usage: $this->state->usage(),
-                    additionalContent: $groundingMetadata !== null ? ['grounding_metadata' => $groundingMetadata] : []
+                    additionalContent: Arr::whereNotNull([
+                        'grounding_metadata' => $groundingMetadata,
+                        'thoughtSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
+                    ])
                 );
             }
         }
