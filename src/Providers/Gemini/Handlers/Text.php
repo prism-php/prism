@@ -91,14 +91,12 @@ class Text
         $tools = [];
 
         if ($request->providerTools() !== []) {
-            $tools = [
-                Arr::mapWithKeys(
-                    $request->providerTools(),
-                    fn (ProviderTool $providerTool): array => [
-                        $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
-                    ]
-                ),
-            ];
+            $tools = array_map(
+                fn (ProviderTool $providerTool): array => [
+                    $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                ],
+                $request->providerTools()
+            );
         }
 
         if ($request->tools() !== []) {

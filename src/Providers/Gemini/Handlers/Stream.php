@@ -431,14 +431,12 @@ class Stream
         $tools = [];
 
         if ($request->providerTools() !== []) {
-            $tools = [
-                Arr::mapWithKeys(
-                    $request->providerTools(),
-                    fn ($providerTool): array => [
-                        $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
-                    ]
-                ),
-            ];
+            $tools = array_map(
+                fn ($providerTool): array => [
+                    $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                ],
+                $request->providerTools()
+            );
         } elseif ($providerOptions['searchGrounding'] ?? false) {
             $tools = [
                 [
