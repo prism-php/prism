@@ -74,14 +74,27 @@ class Text
     {
         $providerOptions = $request->providerOptions();
 
+        $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
+
+        if (isset($providerOptions['thinkingBudget'])) {
+            $thinkingConfig = [
+                'thinkingBudget' => $providerOptions['thinkingBudget'],
+                'includeThoughts' => true,
+            ];
+        }
+
+        if (isset($providerOptions['thinkingLevel'])) {
+            $thinkingConfig = [
+                'thinkingLevel' => $providerOptions['thinkingLevel'],
+                'includeThoughts' => true,
+            ];
+        }
+
         $generationConfig = Arr::whereNotNull([
             'temperature' => $request->temperature(),
             'topP' => $request->topP(),
             'maxOutputTokens' => $request->maxTokens(),
-            'thinkingConfig' => isset($providerOptions['thinkingBudget']) ? [
-                'thinkingBudget' => $providerOptions['thinkingBudget'],
-                'includeThoughts' => true,
-            ] : null,
+            'thinkingConfig' => $thinkingConfig,
         ]);
 
         if ($request->tools() !== [] && $request->providerTools() != []) {

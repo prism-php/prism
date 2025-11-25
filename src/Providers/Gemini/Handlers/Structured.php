@@ -102,6 +102,20 @@ class Structured
             ];
         }
 
+        $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
+
+        if (isset($providerOptions['thinkingBudget'])) {
+            $thinkingConfig = [
+                'thinkingBudget' => $providerOptions['thinkingBudget'],
+            ];
+        }
+
+        if (isset($providerOptions['thinkingLevel'])) {
+            $thinkingConfig = [
+                'thinkingLevel' => $providerOptions['thinkingLevel'],
+            ];
+        }
+
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
@@ -113,9 +127,7 @@ class Structured
                     'temperature' => $request->temperature(),
                     'topP' => $request->topP(),
                     'maxOutputTokens' => $request->maxTokens(),
-                    'thinkingConfig' => Arr::whereNotNull([
-                        'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                    ]) ?: null,
+                    'thinkingConfig' => $thinkingConfig,
                 ]),
                 'tools' => $tools !== [] ? $tools : null,
                 'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
