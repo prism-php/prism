@@ -78,10 +78,11 @@ class Text
             'temperature' => $request->temperature(),
             'topP' => $request->topP(),
             'maxOutputTokens' => $request->maxTokens(),
-            'thinkingConfig' => isset($providerOptions['thinkingBudget']) ? [
-                'thinkingBudget' => $providerOptions['thinkingBudget'],
+            'thinkingConfig' => (isset($providerOptions['thinkingBudget']) || isset($providerOptions['thinkingLevel'])) ? Arr::whereNotNull([
+                'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
+                'thinkingLevel' => $providerOptions['thinkingLevel'] ?? null,
                 'includeThoughts' => true,
-            ] : null,
+            ]) : null,
         ]);
 
         if ($request->tools() !== [] && $request->providerTools() != []) {
