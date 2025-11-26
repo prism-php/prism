@@ -131,19 +131,11 @@ class Text
                 'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                 'max_output_tokens' => $request->maxTokens(),
             ], Arr::whereNotNull([
+                ...$request->providerOptions(),
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
-                'metadata' => $request->providerOptions('metadata'),
                 'tools' => $this->buildTools($request),
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
-                'previous_response_id' => $request->providerOptions('previous_response_id'),
-                'service_tier' => $request->providerOptions('service_tier'),
-                'text' => $request->providerOptions('text_verbosity') ? [
-                    'verbosity' => $request->providerOptions('text_verbosity'),
-                ] : null,
-                'truncation' => $request->providerOptions('truncation'),
-                'reasoning' => $request->providerOptions('reasoning'),
             ]))
         );
     }
