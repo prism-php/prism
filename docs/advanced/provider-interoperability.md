@@ -81,6 +81,49 @@ This approach can be especially helpful when you have complex or reusable provid
 > [!TIP]
 > The `whenProvider` method works with all request types in Prism including text, structured output, and embeddings requests.
 
+## Using `ProviderOption`
+
+The `ProviderOption` class provides a convenient way to define provider-specific options. It allows you to specify which provider an option applies to, ensuring options are only used with their intended provider.
+```php
+Prism::text()
+    ->using(Provider::OpenAI, 'gpt-4o')
+    ->withPrompt('Who are you?')
+    ->withProviderOptions([
+        new \Prism\Prism\ValueObjects\ProviderOption(
+            'cacheType', 
+            'ephemeral',
+            Provider::Anthropic,
+        ), 
+    ])
+    ->asText();
+```
+
+In this example, since OpenAI is used as the provider, the `cacheType` option is automatically skipped.
+
+### Custom Provider Options
+
+You can extend the `ProviderOption` class to create custom options with predefined keys and additional logic.
+
+```php
+class AnthropicCacheType extends ProviderOption
+{
+    public function __construct(string $value)
+    {
+        parent::__construct('cacheType', $value, Provider::Anthropic);
+    }
+}
+
+Prism::text()
+    ->using(Provider::OpenAI, 'gpt-4o')
+    ->withPrompt('Who are you?')
+    ->withProviderOptions([
+        new AnthropicCacheType('ephemeral'),
+    ])
+    ->asText();
+```
+
+Like the previous example, the `cacheType` option is skipped since OpenAI is the active provider.
+
 ## Best Practices
 
 ### Avoiding SystemMessages with Multiple Providers
