@@ -30,7 +30,7 @@ test('providerOptions returns null if the value path is not set', function (): v
     expect($class->providerOptions('foo'))->toBeNull();
 });
 
-test('providerOptions can be set using ProviderOption class', function (): void {
+test('providerOptions can be set without key using ProviderOption', function (): void {
     $class = new PendingRequest;
 
     $class->withProviderOptions([new ProviderOption('key', 'value')]);
@@ -38,18 +38,19 @@ test('providerOptions can be set using ProviderOption class', function (): void 
     expect($class->providerOptions('key'))->toBe('value');
 });
 
-test('providerOptions can be set using ProviderOption class and class key takes precedence', function (): void {
+test('providerOptions can be set using ProviderOption and class key takes precedence', function (): void {
     $class = new PendingRequest;
 
     $class->withProviderOptions(['key1' => new ProviderOption('key2', 'value')]);
 
     expect($class->providerOptions('key2'))->toBe('value');
+    expect($class->providerOptions('key'))->toBeNull();
 });
 
 test('providerOptions can be set without key when using extended ProviderOption class', function (): void {
     $class = new PendingRequest;
 
-    $option = new class('value') extends ProviderOption
+    $reasoningOption = new class('value') extends ProviderOption
     {
         public function __construct(string $value)
         {
@@ -57,7 +58,7 @@ test('providerOptions can be set without key when using extended ProviderOption 
         }
     };
 
-    $class->withProviderOptions(['key1' => $option]);
+    $class->withProviderOptions([$reasoningOption]);
 
     expect($class->providerOptions('reasoning'))->toBe('value');
 });
@@ -73,6 +74,19 @@ test('providerOptions wont return ProviderOption for incorrect provider', functi
     )]);
 
     expect($class->providerOptions('reasoning'))->toBeNull();
+});
+
+test('providerOptions returns ProviderOption for correct provider', function (): void {
+    $class = new PendingRequest;
+    $class->using(Provider::OpenAI);
+
+    $class->withProviderOptions([new ProviderOption(
+        'reasoning',
+        'value',
+        Provider::OpenAI,
+    )]);
+
+    expect($class->providerOptions('reasoning'))->toBe('value');
 });
 
 test('providerOptions will always return ProviderOption when option does not specify provider', function (): void {
