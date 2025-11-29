@@ -77,17 +77,17 @@ class Text
         $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
 
         if (isset($providerOptions['thinkingBudget'])) {
-            $thinkingConfig = [
+            $thinkingConfig = Arr::whereNotNull([
                 'thinkingBudget' => $providerOptions['thinkingBudget'],
-                'includeThoughts' => true,
-            ];
+                'includeThoughts' => $providerOptions['includeThoughts'] ?? null,
+            ]);
         }
 
         if (isset($providerOptions['thinkingLevel'])) {
-            $thinkingConfig = [
+            $thinkingConfig = Arr::whereNotNull([
                 'thinkingLevel' => $providerOptions['thinkingLevel'],
-                'includeThoughts' => true,
-            ];
+                'includeThoughts' => $providerOptions['includeThoughts'] ?? null,
+            ]);
         }
 
         $generationConfig = Arr::whereNotNull([
