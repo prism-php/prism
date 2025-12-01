@@ -335,80 +335,108 @@ Based on actual streaming output:
 
 ## Advanced Usage
 
-### Handling Stream Completion with Callbacks
+### Handling Completion with Callbacks
 
-Need to save a conversation to your database after the AI finishes responding? The `onComplete` callback lets you handle completed messages without interrupting the stream. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+Need to save a conversation to your database after the AI finishes responding? Pass a callback directly to your terminal method to handle the completed response. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
 
+#### Text Generation Callbacks
+
+For non-streaming requests, pass a callback to `asText()`:
+
+```php
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\Text\Response;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-7-sonnet')
+    ->withPrompt(request('message'))
+    ->asText(function (PendingRequest $request, Response $response) use ($conversationId) {
+        // Save the response to your database
+        ConversationMessage::create([
+            'conversation_id' => $conversationId,
+            'role' => 'assistant',
+            'content' => $response->text,
+            'tool_calls' => $response->toolCalls,
+        ]);
+    });
+
+// The response is still returned for further use
+return response()->json(['message' => $response->text]);
+```
+
+The callback receives the `PendingRequest` and the complete `Response` object, giving you access to the full response including text, tool calls, tool results, and usage statistics.
+
+#### Streaming Response Callbacks
+
+For streaming responses, pass a callback to receive all collected events when the stream completes:
 
 ```php
 use Illuminate\Support\Collection;
-use Prism\Prism\Contracts\Message;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 
 return Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet')
-    ->withTools([$weatherTool])
     ->withPrompt(request('message'))
-    ->onComplete(function (PendingRequest $request, Collection $messages) use ($conversationId) {
-        foreach ($messages as $message) {
-            if ($message instanceof AssistantMessage) {
-                // Save the assistant's text response
-                ConversationMessage::create([
-                    'conversation_id' => $conversationId,
-                    'role' => 'assistant',
-                    'content' => $message->content,
-                    'tool_calls' => $message->toolCalls,
-                ]);
-            }
+    ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use ($conversationId) {
+        // Reconstruct the full text from all delta events
+        $fullText = $events
+            ->filter(fn (StreamEvent $event) => $event instanceof TextDeltaEvent)
+            ->map(fn (TextDeltaEvent $event) => $event->delta)
+            ->join('');
 
-            if ($message instanceof ToolResultMessage) {
-                // Save tool execution results
-                foreach ($message->toolResults as $toolResult) {
-                    ConversationMessage::create([
-                        'conversation_id' => $conversationId,
-                        'role' => 'tool',
-                        'content' => json_encode($toolResult->result),
-                        'tool_name' => $toolResult->toolName,
-                        'tool_call_id' => $toolResult->toolCallId,
-                    ]);
-                }
-            }
-        }
-    })
-    ->asEventStreamResponse();
+        // Save the complete response
+        ConversationMessage::create([
+            'conversation_id' => $conversationId,
+            'role' => 'assistant',
+            'content' => $fullText,
+        ]);
+    });
 ```
+
+The callback receives:
+- `PendingRequest` - The original request configuration
+- `Collection<StreamEvent>` - All events that occurred during the stream
+
+This works with all streaming methods: `asEventStreamResponse()`, `asDataStreamResponse()`, and `asBroadcast()`.
 
 #### Using Invokable Classes
 
-For better organization, you can use invokable classes as callbacks:
+For better organization, use invokable classes as callbacks:
 
 ```php
 use Illuminate\Support\Collection;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 
-class SaveConversation
+class SaveStreamedConversation
 {
     public function __construct(
         protected string $conversationId
     ) {}
 
-    public function __invoke(PendingRequest $request, Collection $messages): void
+    public function __invoke(PendingRequest $request, Collection $events): void
     {
-        foreach ($messages as $message) {
-            if ($message instanceof AssistantMessage) {
-                ConversationMessage::create([
-                    'conversation_id' => $this->conversationId,
-                    'role' => 'assistant',
-                    'content' => $message->content,
-                    'tool_calls' => $message->toolCalls,
-                ]);
-            }
-        }
+        $fullText = $events
+            ->filter(fn (StreamEvent $event) => $event instanceof TextDeltaEvent)
+            ->map(fn (TextDeltaEvent $event) => $event->delta)
+            ->join('');
+
+        ConversationMessage::create([
+            'conversation_id' => $this->conversationId,
+            'role' => 'assistant',
+            'content' => $fullText,
+        ]);
     }
 }
+
+// Use with streaming responses
+return Prism::text()
+    ->using('anthropic', 'claude-3-7-sonnet')
+    ->withPrompt($message)
+    ->asEventStreamResponse(new SaveStreamedConversation($conversationId));
 ```
 
 ### Custom Event Processing

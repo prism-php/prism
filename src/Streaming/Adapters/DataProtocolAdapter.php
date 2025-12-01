@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Streaming\Adapters;
 
 use Generator;
+use Illuminate\Support\Collection;
 use Prism\Prism\Streaming\Events\ErrorEvent;
+use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -17,21 +19,35 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataProtocolAdapter
 {
-    public function __invoke(Generator $events): StreamedResponse
+    /**
+     * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
+     */
+    public function __invoke(Generator $events, ?PendingRequest $pendingRequest = null, ?callable $callback = null): StreamedResponse
     {
-        return response()->stream(function () use ($events): void {
+        return response()->stream(function () use ($events, $pendingRequest, $callback): void {
+            /** @var Collection<int, StreamEvent> $collectedEvents */
+            $collectedEvents = new Collection;
+
             foreach ($events as $event) {
+                $collectedEvents->push($event);
+
                 if (connection_aborted() !== 0) {
                     break;
                 }
 
                 $data = $this->handleEventConversion($event);
+
+                // Skip events that return null
+                if ($data === null) {
+                    continue;
+                }
 
                 echo "data: {$data}\n\n";
 
@@ -40,6 +56,10 @@ class DataProtocolAdapter
             }
 
             echo "data: [DONE]\n\n";
+
+            if ($callback !== null && $pendingRequest instanceof \Prism\Prism\Text\PendingRequest) {
+                $callback($pendingRequest, $collectedEvents);
+            }
         }, 200, [
             'Content-Type' => 'text/plain; charset=utf-8',
             'Cache-Control' => 'no-cache, no-transform',
@@ -48,7 +68,7 @@ class DataProtocolAdapter
         ]);
     }
 
-    protected function handleEventConversion(StreamEvent $event): string
+    protected function handleEventConversion(StreamEvent $event): ?string
     {
         $data = match ($event::class) {
             StreamStartEvent::class => $this->handleStreamStart($event),
@@ -60,10 +80,16 @@ class DataProtocolAdapter
             ThinkingCompleteEvent::class => $this->handleThinkingComplete($event),
             ToolCallEvent::class => $this->handleToolCall($event),
             ToolResultEvent::class => $this->handleToolResult($event),
+            ProviderToolEvent::class => $this->handleProviderTool($event),
             StreamEndEvent::class => $this->handleStreamEnd($event),
             ErrorEvent::class => $this->handleError($event),
             default => $this->handleDefault($event),
         };
+
+        // Skip events that return null (e.g., intermediate provider tool statuses)
+        if ($data === null) {
+            return null;
+        }
 
         $encoded = json_encode($data);
         if ($encoded === false) {
@@ -175,6 +201,29 @@ class DataProtocolAdapter
             'toolCallId' => $event->toolResult->toolCallId,
             'output' => $event->toolResult->result,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function handleProviderTool(ProviderToolEvent $event): ?array
+    {
+        // NOTE: this may only work with Anthropic provider tools
+        return match ($event->status) {
+            'started' => [
+                'type' => 'tool-input-available',
+                'toolCallId' => $event->itemId,
+                'toolName' => $event->toolType,
+                'input' => $event->data['input'] ?? [],
+            ],
+            'result_received' => [
+                'type' => 'tool-output-available',
+                'toolCallId' => $event->itemId,
+                'output' => json_encode($event->data['content'] ?? $event->data),
+            ],
+            // Skip intermediate statuses (like 'completed') - only send start and result
+            default => null,
+        };
     }
 
     /**

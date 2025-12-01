@@ -216,35 +216,37 @@ foreach ($response->responseMessages as $message) {
 
 ## Handling Completions with Callbacks
 
-Need to perform actions after text generation completes? The `onComplete()` callback lets you handle the generated messages without interrupting the response flow. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+Need to perform actions after text generation completes? Pass a callback directly to `asText()` to handle the response without interrupting the return flow. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
 
 ### Basic Example
 
 ```php
-use Illuminate\Support\Collection;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\Text\Response;
 
 $response = Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withPrompt('Explain Laravel middleware')
-    ->onComplete(function (PendingRequest $request, Collection $messages) {
+    ->asText(function (PendingRequest $request, Response $response) {
         // Save the conversation after generation completes
-        foreach ($messages as $message) {
-            ConversationLog::create([
-                'model' => $request->model,
-                'prompt' => $request->prompt,
-                'content' => $message->content,
-                'role' => 'assistant',
-            ]);
-        }
-    })
-    ->asText();
+        ConversationLog::create([
+            'content' => $response->text,
+            'role' => 'assistant',
+            'tool_calls' => $response->toolCalls,
+            'usage' => [
+                'prompt_tokens' => $response->usage->promptTokens,
+                'completion_tokens' => $response->usage->completionTokens,
+            ],
+        ]);
+    });
 
 // Response is still returned normally
 echo $response->text;
 ```
+
+The callback receives the `PendingRequest` and complete `Response` object, giving you access to the full response including text, tool calls, tool results, and usage statistics.
 
 ## Error Handling
 
