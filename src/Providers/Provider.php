@@ -7,6 +7,8 @@ namespace Prism\Prism\Providers;
 use Generator;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
+use Prism\Prism\Audio\ProviderIdResponse;
+use Prism\Prism\Audio\SpeechToTextAsyncRequest;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse as SpeechToTextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
@@ -54,6 +56,16 @@ abstract class Provider
     public function speechToText(SpeechToTextRequest $request): SpeechToTextResponse
     {
         throw PrismException::unsupportedProviderAction('speechToText', class_basename($this));
+    }
+
+    public function speechToTextProviderId(SpeechToTextRequest $request): ProviderIdResponse
+    {
+        throw PrismException::unsupportedProviderAction('speechToTextProviderId', class_basename($this));
+    }
+
+    public function speechToTextAsync(SpeechToTextAsyncRequest $request): SpeechToTextResponse
+    {
+        throw PrismException::unsupportedProviderAction('speechToTextAsync', class_basename($this));
     }
 
     /**
