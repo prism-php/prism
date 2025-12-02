@@ -27,11 +27,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class DataProtocolAdapter
 {
     /**
+     * Track tool call IDs that have sent tool-input-available.
+     * This prevents "tool-output-error must be preceded by a tool-input-available"
+     * errors when tool outputs arrive without corresponding inputs.
+     *
+     * @var array<string, bool>
+     */
+    protected array $startedToolCallIds = [];
+
+    /**
      * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
      */
     public function __invoke(Generator $events, ?PendingRequest $pendingRequest = null, ?callable $callback = null): StreamedResponse
     {
         return response()->stream(function () use ($events, $pendingRequest, $callback): void {
+            $this->startedToolCallIds = [];
+
             /** @var Collection<int, StreamEvent> $collectedEvents */
             $collectedEvents = new Collection;
 
@@ -183,6 +194,8 @@ class DataProtocolAdapter
      */
     protected function handleToolCall(ToolCallEvent $event): array
     {
+        $this->startedToolCallIds[$event->toolCall->id] = true;
+
         return [
             'type' => 'tool-input-available',
             'toolCallId' => $event->toolCall->id,
@@ -192,13 +205,19 @@ class DataProtocolAdapter
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, mixed>|null
      */
-    protected function handleToolResult(ToolResultEvent $event): array
+    protected function handleToolResult(ToolResultEvent $event): ?array
     {
+        $toolCallId = $event->toolResult->toolCallId;
+
+        if (! isset($this->startedToolCallIds[$toolCallId])) {
+            return null;
+        }
+
         return [
             'type' => 'tool-output-available',
-            'toolCallId' => $event->toolResult->toolCallId,
+            'toolCallId' => $toolCallId,
             'output' => $event->toolResult->result,
         ];
     }
@@ -208,22 +227,42 @@ class DataProtocolAdapter
      */
     protected function handleProviderTool(ProviderToolEvent $event): ?array
     {
-        // NOTE: this may only work with Anthropic provider tools
         return match ($event->status) {
-            'started' => [
-                'type' => 'tool-input-available',
-                'toolCallId' => $event->itemId,
-                'toolName' => $event->toolType,
-                'input' => $event->data['input'] ?? [],
-            ],
-            'result_received' => [
-                'type' => 'tool-output-available',
-                'toolCallId' => $event->itemId,
-                'output' => json_encode($event->data['content'] ?? $event->data),
-            ],
-            // Skip intermediate statuses (like 'completed') - only send start and result
+            'started' => $this->handleProviderToolStarted($event),
+            'result_received' => $this->handleProviderToolResult($event),
             default => null,
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function handleProviderToolStarted(ProviderToolEvent $event): array
+    {
+        $this->startedToolCallIds[$event->itemId] = true;
+
+        return [
+            'type' => 'tool-input-available',
+            'toolCallId' => $event->itemId,
+            'toolName' => $event->toolType,
+            'input' => $event->data['input'] ?? [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function handleProviderToolResult(ProviderToolEvent $event): ?array
+    {
+        if (! isset($this->startedToolCallIds[$event->itemId])) {
+            return null;
+        }
+
+        return [
+            'type' => 'tool-output-available',
+            'toolCallId' => $event->itemId,
+            'output' => json_encode($event->data['content'] ?? $event->data),
+        ];
     }
 
     /**
