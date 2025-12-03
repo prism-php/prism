@@ -174,6 +174,7 @@ class Text
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($clientResponse),
+                serviceTier: data_get($data, 'service_tier'),
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),

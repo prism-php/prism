@@ -13,5 +13,6 @@ readonly class Meta
         public string $id,
         public string $model,
         public array $rateLimits = [],
+        public ?string $serviceTier = null,
     ) {}
 }
