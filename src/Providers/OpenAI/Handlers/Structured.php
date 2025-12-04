@@ -91,7 +91,7 @@ class Structured
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): StructuredResponse
     {
-        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools(
+        $toolResults = $this->callTools(
             $request->tools(),
             ToolCallMap::map($this->extractFunctionCalls($data)),
         );
@@ -100,7 +100,7 @@ class Structured
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
-        if (!$hasDeferred && $this->shouldContinue($request)) {
+        if (!$this->hasDeferredTools($request->tools(), ToolCallMap::map($this->extractFunctionCalls($data))) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

@@ -15,29 +15,15 @@ use Throwable;
 trait CallsTools
 {
     /**
-     * Execute tools, skipping deferred ones (HITL or client-executed).
-     *
-     * Deferred tools are not executed - the frontend will provide their results
-     * after client-side execution.
-     *
-     * @param Tool[] $tools
-     * @param ToolCall[] $toolCalls
-     * @return array{results: ToolResult[], hasDeferred: bool}
-     * @throws PrismException
+     * @param  Tool[]  $tools
+     * @param  ToolCall[]  $toolCalls
+     * @return ToolResult[]
      */
     protected function callTools(array $tools, array $toolCalls): array
     {
-        $results = [];
-        $hasDeferred = false;
-
-        foreach ($toolCalls as $toolCall) {
+        return array_map(
+            function (ToolCall $toolCall) use ($tools): ToolResult {
                 $tool = $this->resolveTool($toolCall->name, $tools);
-
-                // Skip deferred tools - frontend will provide results
-                if ($tool->isClientExecuted()) {
-                    $hasDeferred = true;
-                    continue;
-                }
 
                 try {
                     $result = call_user_func_array(
@@ -45,7 +31,7 @@ trait CallsTools
                         $toolCall->arguments()
                     );
 
-                $results[] = new ToolResult(
+                    return new ToolResult(
                         toolCallId: $toolCall->id,
                         toolName: $toolCall->name,
                         args: $toolCall->arguments(),
@@ -59,9 +45,20 @@ trait CallsTools
 
                     throw PrismException::toolCallFailed($toolCall, $e);
                 }
-        }
 
-        return ['results' => $results, 'hasDeferred' => $hasDeferred];
+            },
+            array_filter($toolCalls, fn (ToolCall $toolCall): bool => ! $this->resolveTool($toolCall->name, $tools)->isClientExecuted())
+        );
+    }
+
+    /**
+     * @param Tool[] $tools
+     * @param ToolCall[] $toolCalls
+     * @return bool
+     */
+    protected function hasDeferredTools(array $tools, array $toolCalls): bool
+    {
+        return array_any($toolCalls, fn (ToolCall $toolCall): bool => $this->resolveTool($toolCall->name, $tools)->isClientExecuted());
     }
 
     /**

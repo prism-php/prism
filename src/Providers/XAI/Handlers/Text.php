@@ -77,13 +77,13 @@ class Text
             throw new PrismException('XAI: finish reason is tool_calls but no tool calls found in response');
         }
 
-        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools($request->tools(), $toolCalls);
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
         $request->addMessage(new ToolResultMessage($toolResults));
 
         $this->addStep($data, $request, $toolResults);
 
-        if (!$hasDeferred && $this->shouldContinue($request)) {
+        if (!$this->hasDeferredTools($request->tools(), $toolCalls) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

@@ -150,7 +150,7 @@ class Structured
     protected function executeCustomToolsAndFinalize(array $toolCalls, Response $tempResponse): Response
     {
         $customToolCalls = $this->filterCustomToolCalls($toolCalls);
-        ['results' => $toolResults] = $this->callTools($this->request->tools(), $customToolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
         return $this->responseBuilder->toResponse();
@@ -162,7 +162,7 @@ class Structured
     protected function executeCustomToolsAndContinue(array $toolCalls, Response $tempResponse): Response
     {
         $customToolCalls = $this->filterCustomToolCalls($toolCalls);
-        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools($this->request->tools(), $customToolCalls);
+        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
 
         $message = new ToolResultMessage($toolResults);
         if ($toolResultCacheType = $this->request->providerOptions('tool_result_cache_type')) {
@@ -172,7 +172,7 @@ class Structured
         $this->request->addMessage($message);
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
-        if (!$hasDeferred && $this->canContinue()) {
+        if (!$this->hasDeferredTools($this->request->tools(), $toolCalls) && $this->canContinue()) {
             return $this->handle();
         }
 

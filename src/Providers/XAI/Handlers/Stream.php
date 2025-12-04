@@ -335,7 +335,7 @@ class Stream
             );
         }
 
-        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools($request->tools(), $mappedToolCalls);
+        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
 
         foreach ($toolResults as $result) {
             yield new ToolResultEvent(
@@ -347,7 +347,7 @@ class Stream
         }
 
         // skip calling llm if there are pending deferred tools
-        if ($hasDeferred) {
+        if ($this->hasDeferredTools($request->tools(), $mappedToolCalls)) {
             yield new StreamEndEvent(
                 id: EventID::generate(),
                 timestamp: time(),

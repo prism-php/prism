@@ -88,7 +88,7 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): Response
     {
-        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools(
+        $toolResults = $this->callTools(
             $request->tools(),
             ToolCallMap::map(array_filter(
                 data_get($data, 'output', []),
@@ -100,7 +100,10 @@ class Text
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
-        if (!$hasDeferred && $this->shouldContinue($request)) {
+        if (!$this->hasDeferredTools($request->tools(), ToolCallMap::map(array_filter(data_get($data, 'output', []), fn(array $output): bool => $output['type'] === 'function_call')))
+            &&
+            $this->shouldContinue($request)
+        ) {
             return $this->handle($request);
         }
 

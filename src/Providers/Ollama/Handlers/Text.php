@@ -96,7 +96,7 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request): Response
     {
-        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools(
+        $toolResults = $this->callTools(
             $request->tools(),
             $this->mapToolCalls(data_get($data, 'message.tool_calls', [])),
         );
@@ -105,7 +105,7 @@ class Text
 
         $this->addStep($data, $request, $toolResults);
 
-        if (!$hasDeferred && $this->shouldContinue($request)) {
+        if (!$this->hasDeferredTools($request->tools(), $this->mapToolCalls(data_get($data, 'message.tool_calls', []))) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
