@@ -76,6 +76,30 @@ it('can generate text with a system prompt', function (): void {
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
+describe('client-executed tools', function (): void {
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
+            ->executesOnClient();
+
+        $response = Prism::text()
+            ->using(Provider::DeepSeek, 'deepseek-chat')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
 it('can generate text using multiple tools and multiple steps', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-multiple-tools');
 

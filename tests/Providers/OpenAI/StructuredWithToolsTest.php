@@ -148,6 +148,37 @@ describe('Structured output with tools for OpenAI', function (): void {
         expect($response->steps)->toHaveCount(1);
     });
 
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-with-client-executed-tool');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
+            ->executesOnClient();
+
+        $response = Prism::structured()
+            ->using(Provider::OpenAI, 'gpt-4o')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStructured();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('handles tool orchestration correctly with multiple tool types', function (): void {
         FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-with-tool-orchestration');
 

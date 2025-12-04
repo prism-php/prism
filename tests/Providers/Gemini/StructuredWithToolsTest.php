@@ -120,6 +120,37 @@ describe('Structured output with tools for Gemini', function (): void {
         expect($finalStep->structured)->toBeArray();
     });
 
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/structured-with-client-executed-tool');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
+            ->executesOnClient();
+
+        $response = Prism::structured()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStructured();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('returns structured output immediately when no tool calls needed', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/structured-without-tool-calls');
 

@@ -112,6 +112,42 @@ it('can generate text using tools with streaming', function (): void {
     expect($toolResultEvents)->not->toBeEmpty();
 });
 
+describe('client-executed tools', function (): void {
+    it('stops streaming when client-executed tool is called', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/chat/completions', 'mistral/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
+            ->executesOnClient();
+
+        $response = Prism::text()
+            ->using(Provider::Mistral, 'mistral-large-latest')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
 it('handles maximum tool call depth exceeded', function (): void {
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'mistral/stream-with-tools-1');
 

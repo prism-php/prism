@@ -127,6 +127,30 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
+describe('client-executed tools', function (): void {
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
+            ->executesOnClient();
+
+        $response = Prism::text()
+            ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
 it('forwards advanced provider options to openrouter', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-a-prompt');
 
