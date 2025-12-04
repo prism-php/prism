@@ -86,7 +86,7 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): TextResponse
     {
-        $toolResults = $this->callTools(
+        ['results' => $toolResults, 'hasDeferred' => $hasDeferred] = $this->callTools(
             $request->tools(),
             $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
         );
@@ -95,7 +95,7 @@ class Text
 
         $this->addStep($data, $request, $clientResponse, FinishReason::ToolCalls, $toolResults);
 
-        if ($this->shouldContinue($request)) {
+        if (!$hasDeferred && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

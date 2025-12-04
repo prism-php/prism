@@ -15,15 +15,29 @@ use Throwable;
 trait CallsTools
 {
     /**
-     * @param  Tool[]  $tools
-     * @param  ToolCall[]  $toolCalls
-     * @return ToolResult[]
+     * Execute tools, skipping deferred ones (HITL or client-executed).
+     *
+     * Deferred tools are not executed - the frontend will provide their results
+     * after client-side execution.
+     *
+     * @param Tool[] $tools
+     * @param ToolCall[] $toolCalls
+     * @return array{results: ToolResult[], hasDeferred: bool}
+     * @throws PrismException
      */
     protected function callTools(array $tools, array $toolCalls): array
     {
-        return array_map(
-            function (ToolCall $toolCall) use ($tools): ToolResult {
+        $results = [];
+        $hasDeferred = false;
+
+        foreach ($toolCalls as $toolCall) {
                 $tool = $this->resolveTool($toolCall->name, $tools);
+
+                // Skip deferred tools - frontend will provide results
+                if ($tool->isClientExecuted()) {
+                    $hasDeferred = true;
+                    continue;
+                }
 
                 try {
                     $result = call_user_func_array(
@@ -31,7 +45,7 @@ trait CallsTools
                         $toolCall->arguments()
                     );
 
-                    return new ToolResult(
+                $results[] = new ToolResult(
                         toolCallId: $toolCall->id,
                         toolName: $toolCall->name,
                         args: $toolCall->arguments(),
@@ -45,10 +59,9 @@ trait CallsTools
 
                     throw PrismException::toolCallFailed($toolCall, $e);
                 }
+        }
 
-            },
-            $toolCalls
-        );
+        return ['results' => $results, 'hasDeferred' => $hasDeferred];
     }
 
     /**
