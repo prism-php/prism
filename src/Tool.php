@@ -43,6 +43,8 @@ class Tool
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
     protected null|false|Closure $failedHandler = null;
 
+    protected bool $clientExecuted = false;
+
     public function __construct()
     {
         //
@@ -108,6 +110,29 @@ class Tool
         $this->failedHandler = $handler;
 
         return $this;
+    }
+
+    /**
+     * Mark this tool as executed on the client/frontend.
+     *
+     * Client-executed tools have no backend handler - the frontend
+     * executes the tool and sends the result back to continue the conversation.
+     *
+     * @see https://ai-sdk.dev/cookbook/next/render-visual-interface-in-chat
+     */
+    public function executesOnClient(): self
+    {
+        $this->clientExecuted = true;
+
+        return $this;
+    }
+
+    /**
+     * Check if this tool is executed on the client/frontend.
+     */
+    public function isClientExecuted(): bool
+    {
+        return $this->clientExecuted;
     }
 
     public function withParameter(Schema $parameter, bool $required = true): self
