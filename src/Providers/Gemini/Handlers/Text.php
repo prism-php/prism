@@ -204,6 +204,7 @@ class Text
                 'citations' => CitationMapper::mapFromGemini(data_get($data, 'candidates.0', [])) ?: null,
                 'searchEntryPoint' => data_get($data, 'candidates.0.groundingMetadata.searchEntryPoint'),
                 'searchQueries' => data_get($data, 'candidates.0.groundingMetadata.webSearchQueries'),
+                'urlMetadata' => data_get($data, 'candidates.0.urlContextMetadata.urlMetadata'),
                 'thoughtSummaries' => $thoughtSummaries !== [] ? $thoughtSummaries : null,
             ]),
         ));
