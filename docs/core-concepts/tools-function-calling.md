@@ -285,6 +285,26 @@ class SearchTool extends Tool
 }
 ```
 
+You can use `Tool::make($className)` if you need to resolve the dependencies:
+
+
+```php
+use App\Tools\SearchTool;
+use Prism\Prism\Facades\Tool;
+
+$tool = Tool::make(SearchTool::class);
+```
+
+## Using Laravel MCP Tools
+You can use existing [Laravel MCP](https://github.com/laravel/mcp) Tools in Prism directly, without using the Laravel MCP Server:
+
+```php
+use App\Mcp\Tools\CurrentWeatherTool;
+use Prism\Prism\Facades\Tool;
+
+$tool = Tool::make(CurrentWeatherTool::class);
+```
+
 ## Tool Choice Options
 
 You can control how the AI uses tools with the `withToolChoice` method:
