@@ -7,6 +7,7 @@ namespace Prism\Prism\Streaming\Adapters;
 use Generator;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
 use Prism\Prism\Events\Broadcasting\ProviderToolEventBroadcast;
@@ -33,6 +34,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Text\PendingRequest;
 
 class BroadcastAdapter
 {
@@ -43,10 +45,21 @@ class BroadcastAdapter
         protected Channel|array $channels
     ) {}
 
-    public function __invoke(Generator $events): void
+    /**
+     * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
+     */
+    public function __invoke(Generator $events, ?PendingRequest $pendingRequest = null, ?callable $callback = null): void
     {
+        /** @var Collection<int, StreamEvent> $collectedEvents */
+        $collectedEvents = new Collection;
+
         foreach ($events as $event) {
+            $collectedEvents->push($event);
             event($this->broadcastEvent($event));
+        }
+
+        if ($callback !== null && $pendingRequest instanceof \Prism\Prism\Text\PendingRequest) {
+            $callback($pendingRequest, $collectedEvents);
         }
     }
 
