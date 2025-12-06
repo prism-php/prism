@@ -234,7 +234,7 @@ class Structured
                 ),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),
-                    model: data_get($data, 'modelVersion'),
+                    model: data_get($data, 'modelVersion', ''),
                 ),
                 messages: $request->messages(),
                 systemPrompts: $request->systemPrompts(),
