@@ -100,6 +100,7 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post(
             'chat/completions',
             array_merge([

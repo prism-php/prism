@@ -116,6 +116,7 @@ class Structured
             ];
         }
 
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([

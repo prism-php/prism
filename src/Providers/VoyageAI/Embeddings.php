@@ -46,12 +46,15 @@ class Embeddings
     {
         $providerOptions = $this->request->providerOptions();
 
-        $this->httpResponse = $this->client->post('embeddings', Arr::whereNotNull([
+        /** @var Response $response */
+        $response = $this->client->post('embeddings', Arr::whereNotNull([
             'model' => $this->request->model(),
             'input' => $this->request->inputs(),
             'input_type' => $providerOptions['inputType'] ?? null,
             'truncation' => $providerOptions['truncation'] ?? null,
         ]));
+
+        $this->httpResponse = $response;
     }
 
     protected function validateResponse(): void

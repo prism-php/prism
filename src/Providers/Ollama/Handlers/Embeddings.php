@@ -42,7 +42,8 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        /** @var Response $response */
+        $response = $this->client->post(
             'api/embed',
             Arr::whereNotNull([
                 'model' => $request->model(),
@@ -51,5 +52,7 @@ class Embeddings
                 'options' => $request->providerOptions() ?: null,
             ])
         );
+
+        return $response;
     }
 }

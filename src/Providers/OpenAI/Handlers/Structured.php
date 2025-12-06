@@ -187,7 +187,8 @@ class Structured
      */
     protected function sendRequest(Request $request, array $responseFormat): ClientResponse
     {
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'responses',
             array_merge([
                 'model' => $request->model(),
@@ -209,6 +210,8 @@ class Structured
                 ],
             ]))
         );
+
+        return $response;
     }
 
     protected function handleAutoMode(Request $request): ClientResponse

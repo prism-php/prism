@@ -681,11 +681,14 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client
+        /** @var Response $response */
+        $response = $this->client
             ->withOptions(['stream' => true])
             ->post('messages', Arr::whereNotNull([
                 'stream' => true,
                 ...Text::buildHttpRequestPayload($request),
             ]));
+
+        return $response;
     }
 }

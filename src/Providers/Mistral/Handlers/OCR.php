@@ -51,6 +51,7 @@ class OCR
      */
     protected function sendRequest(): array
     {
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post('/ocr', [
             'model' => $this->model,
             'document' => (new DocumentMapper($this->document))->toPayload(),

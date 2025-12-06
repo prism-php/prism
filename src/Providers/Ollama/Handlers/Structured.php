@@ -73,6 +73,7 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post('api/chat', [
             'model' => $request->model(),
             'messages' => (new MessageMap(array_merge(

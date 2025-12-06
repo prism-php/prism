@@ -32,6 +32,7 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this
             ->client
             ->attach(

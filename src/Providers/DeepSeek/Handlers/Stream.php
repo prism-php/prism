@@ -387,7 +387,8 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        /** @var Response $response */
+        $response = $this->client->post(
             'chat/completions',
             array_merge([
                 'stream' => true,
@@ -401,6 +402,8 @@ class Stream
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             ]))
         );
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string

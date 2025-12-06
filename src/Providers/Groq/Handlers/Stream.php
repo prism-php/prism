@@ -344,7 +344,8 @@ class Stream
     protected function sendRequest(Request $request): Response
     {
         try {
-            return $this
+            /** @var Response $response */
+            $response = $this
                 ->client
                 ->withOptions(['stream' => true])
                 ->throw()
@@ -361,6 +362,8 @@ class Stream
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     ]))
                 );
+
+            return $response;
         } catch (\Illuminate\Http\Client\RequestException $e) {
             if ($e->response->getStatusCode() === 429) {
                 throw new PrismRateLimitedException(

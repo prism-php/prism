@@ -64,7 +64,8 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'chat/completions',
             Arr::whereNotNull([
                 'model' => $request->model(),
@@ -76,6 +77,8 @@ class Text
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             ])
         );
+
+        return $response;
     }
 
     /**

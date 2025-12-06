@@ -19,10 +19,13 @@ trait HandlesHttpRequests
 
     protected function sendRequest(): void
     {
-        $this->httpResponse = $this->client->post(
+        /** @var Response $response */
+        $response = $this->client->post(
             'messages',
             static::buildHttpRequestPayload($this->request)
         );
+
+        $this->httpResponse = $response;
 
         $this->handleResponseErrors();
     }

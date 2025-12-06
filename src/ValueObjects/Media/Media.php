@@ -290,7 +290,9 @@ class Media
             return;
         }
 
-        $content = Http::get($this->url)->body();
+        /** @var \Illuminate\Http\Client\Response $response */
+        $response = Http::get($this->url);
+        $content = $response->body();
 
         if (! $content) {
             throw new InvalidArgumentException("{$this->url} returns no content.");
