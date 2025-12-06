@@ -15,6 +15,7 @@ use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ProviderOption;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ProviderToolCall;
 use Tests\Fixtures\FixtureResponse;
@@ -442,13 +443,21 @@ it('uses meta to set text_verbosity', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $textVerbosity = 'medium';
+    $option = new class($textVerbosity = 'medium') extends ProviderOption
+    {
+        public function __construct(string $value)
+        {
+            parent::__construct('text', [
+                'verbosity' => $value,
+            ]);
+        }
+    };
 
     Prism::text()
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withPrompt('Who are you?')
         ->withProviderOptions([
-            'text_verbosity' => $textVerbosity,
+            $option,
         ])
         ->asText();
 
@@ -743,5 +752,30 @@ describe('citations', function (): void {
             ->asText();
 
         expect($responseTwo->text)->toContain('Metcheck');
+    });
+});
+
+it('passes store parameter when specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/generate-text-with-a-prompt'
+    );
+
+    $store = false;
+
+    Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('Give me TLDR of this legal document')
+        ->withProviderOptions([
+            'store' => $store,
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request) use ($store): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'store'))->toBe($store);
+
+        return true;
     });
 });
