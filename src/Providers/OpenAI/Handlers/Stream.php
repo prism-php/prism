@@ -250,6 +250,7 @@ class Stream
                     ),
                     additionalContent: Arr::whereNotNull([
                         'response_id' => data_get($data, 'response.id'),
+                        'reasoningSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
                     ])
                 );
             }

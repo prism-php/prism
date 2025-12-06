@@ -567,7 +567,7 @@ it('can analyze documents', function (): void {
 it('sends reasoning effort when defined', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-reasoning-effort');
 
-    Prism::text()
+    $response = Prism::text()
         ->using('openai', 'gpt-5')
         ->withPrompt('Who are you?')
         ->withProviderOptions([
@@ -578,6 +578,10 @@ it('sends reasoning effort when defined', function (): void {
         ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'low');
+
+    expect($response->additionalContent['reasoningSummaries'])->toBe([
+        'I should introduce myself to the user.',
+    ]);
 });
 
 describe('provider tool results', function (): void {

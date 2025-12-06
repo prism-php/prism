@@ -236,7 +236,10 @@ class Stream
             timestamp: time(),
             finishReason: FinishReason::Stop, // Default, will be updated by message_delta
             usage: $this->state->usage(),
-            citations: $this->state->citations() !== [] ? $this->state->citations() : null
+            citations: $this->state->citations() !== [] ? $this->state->citations() : null,
+            additionalContent: [
+                'thinking' => $this->state->thinkingSummaries() === [] ? null : implode('', $this->state->thinkingSummaries()),
+            ]
         );
     }
 

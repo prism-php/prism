@@ -24,6 +24,11 @@ class StreamState
 
     protected string $currentThinking = '';
 
+    /**
+     * @var array<array-key, string>
+     */
+    protected array $thinkingSummaries = [];
+
     protected ?int $currentBlockIndex = null;
 
     protected ?string $currentBlockType = null;
@@ -114,6 +119,7 @@ class StreamState
     public function appendThinking(string $thinking): self
     {
         $this->currentThinking .= $thinking;
+        $this->thinkingSummaries[] = $thinking;
 
         return $this;
     }
@@ -254,6 +260,14 @@ class StreamState
     public function currentThinking(): string
     {
         return $this->currentThinking;
+    }
+
+    /**
+     * @return array<array-key, string>
+     */
+    public function thinkingSummaries(): array
+    {
+        return $this->thinkingSummaries;
     }
 
     public function currentBlockIndex(): ?int

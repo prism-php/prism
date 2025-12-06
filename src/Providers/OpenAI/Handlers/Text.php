@@ -161,12 +161,15 @@ class Text
         ClientResponse $clientResponse,
         array $toolResults = []
     ): void {
+        /** @var array<array-key, array<string, mixed>> $output */
+        $output = data_get($data, 'output', []);
+
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
+            toolCalls: ToolCallMap::map(array_filter($output, fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
-            providerToolCalls: ProviderToolCallMap::map(data_get($data, 'output', [])),
+            providerToolCalls: ProviderToolCallMap::map($output),
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
                 completionTokens: data_get($data, 'usage.output_tokens'),
@@ -183,6 +186,11 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->citations,
+                'reasoningSummaries' => collect($output)
+                    ->filter(fn (array $output): bool => $output['type'] === 'reasoning')
+                    ->flatMap(fn (array $output): array => Arr::pluck($output['summary'] ?? [], 'text'))
+                    ->filter()
+                    ->toArray(),
             ]),
         ));
     }
