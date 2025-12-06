@@ -468,3 +468,57 @@ it('handles Prism exceptions during streaming gracefully', function (): void {
         fclose($outputBuffer);
     }
 });
+
+it('includes ErrorEvent in collected events passed to callback when exception occurs', function (): void {
+    $eventsBeforeError = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new TextDeltaEvent('evt-2', 1640995201, 'Hello', 'msg-456'),
+    ];
+
+    $exception = new RuntimeException('API connection failed', 500);
+
+    $pendingRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
+
+    $collectedEventsFromCallback = null;
+    $userCallback = function ($request, $events) use (&$collectedEventsFromCallback): void {
+        $collectedEventsFromCallback = $events;
+    };
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(
+        createThrowingGenerator($eventsBeforeError, $exception),
+        $pendingRequest,
+        $userCallback
+    );
+
+    $streamCallback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $streamCallback();
+        ob_end_flush();
+
+        // Verify callback was called with collected events
+        expect($collectedEventsFromCallback)->not->toBeNull();
+        expect($collectedEventsFromCallback)->toBeInstanceOf(\Illuminate\Support\Collection::class);
+
+        // Should have 3 events: StreamStart, TextDelta, and ErrorEvent
+        expect($collectedEventsFromCallback)->toHaveCount(3);
+
+        // Get the last event which should be the ErrorEvent
+        $errorEvent = $collectedEventsFromCallback->last();
+        expect($errorEvent)->toBeInstanceOf(\Prism\Prism\Streaming\Events\ErrorEvent::class);
+        expect($errorEvent->errorType)->toBe(RuntimeException::class);
+        expect($errorEvent->message)->toBe('API connection failed');
+        expect($errorEvent->recoverable)->toBeFalse();
+        expect($errorEvent->metadata['code'])->toBe(500);
+    } finally {
+        fclose($outputBuffer);
+    }
+});
