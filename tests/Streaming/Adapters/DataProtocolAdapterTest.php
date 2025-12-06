@@ -30,6 +30,20 @@ function createDataEventGenerator(array $events): Generator
     }
 }
 
+/**
+ * Creates a generator that throws an exception after yielding some events.
+ *
+ * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $eventsBeforeError
+ */
+function createThrowingGenerator(array $eventsBeforeError, Throwable $exception): Generator
+{
+    foreach ($eventsBeforeError as $event) {
+        yield $event;
+    }
+
+    throw $exception;
+}
+
 it('creates data protocol response with correct headers and structure', function (): void {
     $events = [
         new TextDeltaEvent('evt-123', 1640995200, 'Hello', 'msg-456'),
@@ -204,16 +218,27 @@ it('handles JSON encoding errors gracefully', function (): void {
     $response = ($adapter)(createDataEventGenerator([$event]));
     $callback = $response->getCallback();
 
-    // Should throw RuntimeException due to JSON encoding failure
-    expect(function () use ($callback): void {
-        // Capture output to prevent pollution
-        ob_start(fn ($buffer): string => '');
-        try {
-            $callback();
-        } finally {
-            ob_end_flush();
-        }
-    })->toThrow(RuntimeException::class, 'Failed to encode event data as JSON');
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Should output error event instead of throwing exception
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('Failed to encode event data as JSON');
+        expect($capturedOutput)->toContain('data: [DONE]');
+    } finally {
+        fclose($outputBuffer);
+    }
 });
 
 it('formats multiple events with correct data protocol structure', function (): void {
@@ -326,6 +351,119 @@ it('converts events to correct data protocol format', function (): void {
         expect($capturedOutput)->toContain('data: {"type":"text-end"');
         expect($capturedOutput)->toContain('data: {"type":"finish"');
         expect($capturedOutput)->toContain('data: [DONE]');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('catches exceptions during streaming and outputs error event', function (): void {
+    $eventsBeforeError = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new TextDeltaEvent('evt-2', 1640995201, 'Hello', 'msg-456'),
+    ];
+
+    $exception = new RuntimeException('API connection failed');
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createThrowingGenerator($eventsBeforeError, $exception));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify events before error were streamed
+        expect($capturedOutput)->toContain('data: {"type":"start"');
+        expect($capturedOutput)->toContain('data: {"type":"text-delta"');
+
+        // Verify error event was output
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('"errorText":"API connection failed"');
+
+        // Verify stream was properly terminated
+        expect($capturedOutput)->toContain('data: [DONE]');
+        expect($capturedOutput)->toEndWith("data: [DONE]\n\n");
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('catches exceptions at the start of streaming and outputs error event', function (): void {
+    $exception = new RuntimeException('Authentication failed');
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createThrowingGenerator([], $exception));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify error event was output
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('"errorText":"Authentication failed"');
+
+        // Verify stream was properly terminated
+        expect($capturedOutput)->toContain('data: [DONE]');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('handles Prism exceptions during streaming gracefully', function (): void {
+    $eventsBeforeError = [
+        new TextDeltaEvent('evt-1', 1640995200, 'Partial response', 'msg-456'),
+    ];
+
+    $exception = new \Prism\Prism\Exceptions\PrismException('Rate limit exceeded');
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createThrowingGenerator($eventsBeforeError, $exception));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify partial content was streamed
+        expect($capturedOutput)->toContain('"delta":"Partial response"');
+
+        // Verify error was captured and output as SSE event
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('Rate limit exceeded');
+
+        // Verify proper termination
+        expect($capturedOutput)->toEndWith("data: [DONE]\n\n");
     } finally {
         fclose($outputBuffer);
     }

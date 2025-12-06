@@ -6,6 +6,7 @@ namespace Prism\Prism\Streaming\Adapters;
 
 use Generator;
 use Illuminate\Support\Collection;
+use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -23,6 +24,7 @@ use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class DataProtocolAdapter
 {
@@ -46,29 +48,52 @@ class DataProtocolAdapter
             /** @var Collection<int, StreamEvent> $collectedEvents */
             $collectedEvents = new Collection;
 
-            foreach ($events as $event) {
-                $collectedEvents->push($event);
+            try {
+                foreach ($events as $event) {
+                    $collectedEvents->push($event);
 
-                if (connection_aborted() !== 0) {
-                    break;
+                    if (connection_aborted() !== 0) {
+                        break;
+                    }
+
+                    $data = $this->handleEventConversion($event);
+
+                    // Skip events that return null
+                    if ($data === null) {
+                        continue;
+                    }
+
+                    echo "data: {$data}\n\n";
+
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
+                    flush();
                 }
+            } catch (Throwable $e) {
+                $errorEvent = new ErrorEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    errorType: $e::class,
+                    message: $e->getMessage(),
+                    recoverable: false,
+                    metadata: [
+                        'code' => $e->getCode(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]
+                );
 
-                $data = $this->handleEventConversion($event);
-
-                // Skip events that return null
-                if ($data === null) {
-                    continue;
-                }
-
-                echo "data: {$data}\n\n";
-
-                if (ob_get_level() > 0) {
-                    ob_flush();
-                }
-                flush();
+                $collectedEvents->push($errorEvent);
+                $this->outputError($e->getMessage());
             }
 
             echo "data: [DONE]\n\n";
+
+            if (ob_get_level() > 0) {
+                ob_flush();
+            }
+            flush();
 
             if ($callback !== null && $pendingRequest instanceof \Prism\Prism\Text\PendingRequest) {
                 $callback($pendingRequest, $collectedEvents);
@@ -79,6 +104,21 @@ class DataProtocolAdapter
             'X-Accel-Buffering' => 'no',
             'x-vercel-ai-ui-message-stream' => 'v1',
         ]);
+    }
+
+    protected function outputError(string $message): void
+    {
+        $errorData = json_encode([
+            'type' => 'error',
+            'errorText' => $message,
+        ]);
+
+        echo "data: {$errorData}\n\n";
+
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+        flush();
     }
 
     protected function handleEventConversion(StreamEvent $event): ?string
