@@ -206,6 +206,7 @@ class Structured
                 'service_tier' => $request->providerOptions('service_tier'),
                 'truncation' => $request->providerOptions('truncation'),
                 'reasoning' => $request->providerOptions('reasoning'),
+                'store' => $request->providerOptions('store'),
                 'text' => [
                     'format' => $responseFormat,
                 ],
