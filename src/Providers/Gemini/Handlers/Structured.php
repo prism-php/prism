@@ -105,15 +105,17 @@ class Structured
         $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
 
         if (isset($providerOptions['thinkingBudget'])) {
-            $thinkingConfig = [
+            $thinkingConfig = Arr::whereNotNull([
                 'thinkingBudget' => $providerOptions['thinkingBudget'],
-            ];
+                'includeThoughts' => $providerOptions['includeThoughts'] ?? null,
+            ]);
         }
 
         if (isset($providerOptions['thinkingLevel'])) {
-            $thinkingConfig = [
+            $thinkingConfig = Arr::whereNotNull([
                 'thinkingLevel' => $providerOptions['thinkingLevel'],
-            ];
+                'includeThoughts' => $providerOptions['includeThoughts'] ?? null,
+            ]);
         }
 
         /** @var \Illuminate\Http\Client\Response $response */
