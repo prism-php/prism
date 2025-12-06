@@ -499,6 +499,85 @@ describe('Anthropic cache mapping', function (): void {
         'ephemeral',
         AnthropicCacheType::Ephemeral,
     ]);
+
+    it('sets the cache ttl on a UserMessage if cacheTtl providerOptions is set on message', function (): void {
+        expect(MessageMap::map([
+            (new UserMessage(content: 'Who are you?'))->withProviderOptions([
+                'cacheType' => 'ephemeral',
+                'cacheTtl' => '1h',
+            ]),
+        ]))->toBe([[
+            'role' => 'user',
+            'content' => [
+                [
+                    'type' => 'text',
+                    'text' => 'Who are you?',
+                    'cache_control' => ['type' => 'ephemeral', 'ttl' => '1h'],
+                ],
+            ],
+        ]]);
+    });
+
+    it('sets the cache ttl on an AssistantMessage if cacheTtl providerOptions is set on message', function (): void {
+        expect(MessageMap::map([
+            (new AssistantMessage(content: 'Who are you?'))->withProviderOptions([
+                'cacheType' => 'ephemeral',
+                'cacheTtl' => '5m',
+            ]),
+        ]))->toBe([[
+            'role' => 'assistant',
+            'content' => [
+                [
+                    'type' => 'text',
+                    'text' => 'Who are you?',
+                    'cache_control' => ['type' => AnthropicCacheType::Ephemeral->value, 'ttl' => '5m'],
+                ],
+            ],
+        ]]);
+    });
+
+    it('sets the cache ttl on a SystemMessage if cacheTtl providerOptions is set on message', function (): void {
+        expect(MessageMap::mapSystemMessages([
+            (new SystemMessage(content: 'Who are you?'))->withProviderOptions([
+                'cacheType' => 'ephemeral',
+                'cacheTtl' => '1h',
+            ]),
+        ]))->toBe([
+            [
+                'type' => 'text',
+                'text' => 'Who are you?',
+                'cache_control' => ['type' => AnthropicCacheType::Ephemeral->value, 'ttl' => '1h'],
+            ],
+        ]);
+    });
+
+    it('sets the cache ttl on a ToolResultMessage if cacheTtl providerOptions is set on message', function (): void {
+        expect(MessageMap::map([
+            (new ToolResultMessage([
+                new ToolResult(
+                    'tool_1234',
+                    'weather',
+                    ['city' => 'Dallas'],
+                    'It is 72°F and sunny in Dallas'
+                ),
+            ]))->withProviderOptions([
+                'cacheType' => 'ephemeral',
+                'cacheTtl' => '5m',
+            ]),
+        ]))->toBe([
+            [
+                'role' => 'user',
+                'content' => [
+                    [
+                        'type' => 'tool_result',
+                        'tool_use_id' => 'tool_1234',
+                        'content' => 'It is 72°F and sunny in Dallas',
+                        'cache_control' => ['type' => 'ephemeral', 'ttl' => '5m'],
+                    ],
+                ],
+            ],
+        ]);
+    });
 });
 
 describe('Anthropic citations mapping', function (): void {

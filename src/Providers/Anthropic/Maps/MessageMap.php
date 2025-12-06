@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Maps;
 
-use BackedEnum;
 use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Concerns\NormalizesCacheControl;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -19,6 +19,8 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 class MessageMap
 {
+    use NormalizesCacheControl;
+
     /**
      * @param  array<int, Message>  $messages
      * @param  array<string, mixed>  $requestProviderOptions
@@ -67,12 +69,10 @@ class MessageMap
      */
     protected static function mapSystemMessage(SystemMessage $systemMessage): array
     {
-        $cacheType = $systemMessage->providerOptions('cacheType');
-
         return array_filter([
             'type' => 'text',
             'text' => $systemMessage->content,
-            'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
+            'cache_control' => self::normalizeCacheControl($systemMessage),
         ]);
     }
 
@@ -81,15 +81,12 @@ class MessageMap
      */
     protected static function mapToolResultMessage(ToolResultMessage $message): array
     {
-        $cacheType = $message->providerOptions('cacheType');
-        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
-
         $toolResults = $message->toolResults;
         $totalResults = count($toolResults);
 
         return [
             'role' => 'user',
-            'content' => array_map(function (ToolResult $toolResult, int $index) use ($cacheControl, $totalResults): array {
+            'content' => array_map(function (ToolResult $toolResult, int $index) use ($message, $totalResults): array {
                 // Only add cache_control to the last tool result
                 $isLastResult = $index === $totalResults - 1;
 
@@ -97,7 +94,7 @@ class MessageMap
                     'type' => 'tool_result',
                     'tool_use_id' => $toolResult->toolCallId,
                     'content' => $toolResult->result,
-                    'cache_control' => $isLastResult ? $cacheControl : null,
+                    'cache_control' => $isLastResult ? self::normalizeCacheControl($message) : null,
                 ]);
             }, $toolResults, array_keys($toolResults)),
         ];
@@ -109,8 +106,7 @@ class MessageMap
      */
     protected static function mapUserMessage(UserMessage $message, array $requestProviderOptions = []): array
     {
-        $cacheType = $message->providerOptions('cacheType');
-        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheControl = self::normalizeCacheControl($message);
 
         return [
             'role' => 'user',
@@ -131,7 +127,7 @@ class MessageMap
      */
     protected static function mapAssistantMessage(AssistantMessage $message): array
     {
-        $cacheType = $message->providerOptions('cacheType');
+        $cacheControl = self::normalizeCacheControl($message);
 
         $content = [];
 
@@ -147,7 +143,7 @@ class MessageMap
             foreach ($message->additionalContent['citations'] as $part) {
                 $content[] = array_filter([
                     ...CitationsMapper::mapToAnthropic($part),
-                    'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
+                    'cache_control' => $cacheControl,
                 ]);
             }
         } elseif ($message->content !== '' && $message->content !== '0') {
@@ -155,7 +151,7 @@ class MessageMap
             $content[] = array_filter([
                 'type' => 'text',
                 'text' => $message->content,
-                'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
+                'cache_control' => $cacheControl,
             ]);
         }
 
