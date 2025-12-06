@@ -82,7 +82,8 @@ class Structured
 
         $responseFormat = $this->buildResponseFormat($request);
 
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -94,6 +95,8 @@ class Structured
                 'top_p' => $request->topP(),
             ]))
         );
+
+        return $response;
     }
 
     /**

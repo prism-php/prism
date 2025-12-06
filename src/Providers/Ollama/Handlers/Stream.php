@@ -295,7 +295,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        return $this
+        /** @var Response $response */
+        $response = $this
             ->client
             ->withOptions(['stream' => true])
             ->post('api/chat', [
@@ -316,6 +317,8 @@ class Stream
                     'top_p' => $request->topP(),
                 ], $request->providerOptions())),
             ]);
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string

@@ -42,7 +42,8 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        /** @var Response $response */
+        $response = $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),
@@ -50,5 +51,7 @@ class Embeddings
                 ...($request->providerOptions() ?? []),
             ]
         );
+
+        return $response;
     }
 }

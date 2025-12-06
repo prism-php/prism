@@ -118,7 +118,8 @@ class Text
             $tools['function_declarations'] = ToolMap::map($request->tools());
         }
 
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
                 ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
@@ -129,6 +130,8 @@ class Text
                 'safetySettings' => $providerOptions['safetySettings'] ?? null,
             ])
         );
+
+        return $response;
     }
 
     /**

@@ -26,6 +26,7 @@ class Audio
     {
         $mapper = new TextToSpeechRequestMapper($request);
 
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post('audio/speech', $mapper->toPayload());
 
         if (! $response->successful()) {
@@ -46,6 +47,7 @@ class Audio
     {
         $filename = $this->generateFilename($request->input()->mimeType());
 
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this
             ->client
             ->attach(

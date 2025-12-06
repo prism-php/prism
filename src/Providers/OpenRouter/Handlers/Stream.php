@@ -412,7 +412,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        return $this
+        /** @var Response $response */
+        $response = $this
             ->client
             ->withOptions(['stream' => true])
             ->post(
@@ -426,6 +427,8 @@ class Stream
                     'stream_options' => ['include_usage' => true],
                 ]))
             );
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string

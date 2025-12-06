@@ -124,7 +124,8 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'responses',
             array_merge([
                 'model' => $request->model(),
@@ -146,6 +147,8 @@ class Text
                 'reasoning' => $request->providerOptions('reasoning'),
             ]))
         );
+
+        return $response;
     }
 
     /**

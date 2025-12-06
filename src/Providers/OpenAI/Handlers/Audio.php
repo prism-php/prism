@@ -28,6 +28,7 @@ class Audio
     {
         $mapper = new TextToSpeechRequestMapper($request);
 
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post('audio/speech', $mapper->toPayload());
 
         if (! $response->successful()) {
@@ -46,6 +47,7 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this
             ->client
             ->attach(

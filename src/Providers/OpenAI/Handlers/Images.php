@@ -57,7 +57,10 @@ class Images
             return $this->sendImageEditRequest($request);
         }
 
-        return $this->client->post('images/generations', ImageRequestMap::map($request));
+        /** @var ClientResponse $response */
+        $response = $this->client->post('images/generations', ImageRequestMap::map($request));
+
+        return $response;
     }
 
     protected function sendImageEditRequest(Request $request): ClientResponse
@@ -87,9 +90,12 @@ class Images
                 );
         }
 
-        return $this
+        /** @var ClientResponse $response */
+        $response = $this
             ->client
             ->post('images/edits', ImageRequestMap::map($request));
+
+        return $response;
     }
 
     /**

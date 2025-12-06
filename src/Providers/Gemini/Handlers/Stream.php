@@ -465,7 +465,8 @@ class Stream
             ];
         }
 
-        return $this->client
+        /** @var Response $response */
+        $response = $this->client
             ->withOptions(['stream' => true])
             ->post(
                 "{$request->model()}:streamGenerateContent?alt=sse",
@@ -483,6 +484,8 @@ class Stream
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])
             );
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string

@@ -42,6 +42,7 @@ class Cache
             'ttl' => $this->ttl.'s',
         ]);
 
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = $this->client->post('/cachedContents', $request);
 
         return $response->json();

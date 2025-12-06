@@ -309,7 +309,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        return $this
+        /** @var Response $response */
+        $response = $this
             ->client
             ->withOptions(['stream' => true])
             ->post('chat/completions',
@@ -325,6 +326,8 @@ class Stream
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                 ]))
             );
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string
