@@ -2,6 +2,7 @@
 
 namespace Prism\Prism\Providers\Gemini\Maps;
 
+use Prism\Prism\Contracts\HasSchemaType;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
@@ -87,6 +88,9 @@ class SchemaMap
         }
         if ($this->schema instanceof ObjectSchema) {
             return 'object';
+        }
+        if ($this->schema instanceof HasSchemaType) {
+            return $this->schema->schemaType();
         }
 
         return 'string';
