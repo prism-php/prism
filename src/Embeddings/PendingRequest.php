@@ -9,6 +9,7 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Media\Image;
 
 class PendingRequest
 {
@@ -18,6 +19,9 @@ class PendingRequest
 
     /** @var array<string> */
     protected array $inputs = [];
+
+    /** @var array<Image> */
+    protected array $images = [];
 
     public function fromInput(string $input): self
     {
@@ -54,6 +58,33 @@ class PendingRequest
     }
 
     /**
+     * Add an image for embedding generation.
+     *
+     * Note: Not all providers support image embeddings. Check the provider's
+     * documentation to ensure the model you're using supports image input.
+     * Common providers that support image embeddings include CLIP-based models
+     * and multimodal embedding models like BGE-VL.
+     */
+    public function fromImage(Image $image): self
+    {
+        $this->images[] = $image;
+
+        return $this;
+    }
+
+    /**
+     * Add multiple images for embedding generation.
+     *
+     * @param  array<Image>  $images
+     */
+    public function fromImages(array $images): self
+    {
+        $this->images = array_merge($this->images, $images);
+
+        return $this;
+    }
+
+    /**
      * @deprecated Use `asEmbeddings` instead.
      */
     public function generate(): Response
@@ -63,8 +94,8 @@ class PendingRequest
 
     public function asEmbeddings(): Response
     {
-        if ($this->inputs === []) {
-            throw new PrismException('Embeddings input is required');
+        if ($this->inputs === [] && $this->images === []) {
+            throw new PrismException('Embeddings input is required (text or images)');
         }
 
         $request = $this->toRequest();
@@ -82,6 +113,7 @@ class PendingRequest
             model: $this->model,
             providerKey: $this->providerKey(),
             inputs: $this->inputs,
+            images: $this->images,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             providerOptions: $this->providerOptions
