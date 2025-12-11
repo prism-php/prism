@@ -122,3 +122,25 @@ it('returns model and provider from request', function () use ($testImageBase64)
     expect($request->model())->toBe('bge-visualized');
     expect($request->provider())->toBe('local-bge-vl');
 });
+
+it('chains fromImage and fromInput for multimodal requests', function () use ($testImageBase64): void {
+    $image = Image::fromBase64($testImageBase64);
+
+    $pendingRequest = new PendingRequest;
+    $result = $pendingRequest
+        ->fromImage($image)
+        ->fromInput('Find similar products but in red');
+
+    expect($result)->toBeInstanceOf(PendingRequest::class);
+});
+
+it('chains fromInput and fromImage in either order', function () use ($testImageBase64): void {
+    $image = Image::fromBase64($testImageBase64);
+
+    $pendingRequest = new PendingRequest;
+    $result = $pendingRequest
+        ->fromInput('Describe this product')
+        ->fromImage($image);
+
+    expect($result)->toBeInstanceOf(PendingRequest::class);
+});
