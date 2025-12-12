@@ -75,6 +75,7 @@ class DeepSeek extends Provider
             default => throw PrismException::providerRequestError($model, $e),
         };
     }
+
     /**
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
