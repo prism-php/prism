@@ -6,7 +6,9 @@ namespace Prism\Prism\Providers\DeepSeek;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Handlers\Stream;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
@@ -58,6 +60,21 @@ class DeepSeek extends Provider
         return $handler->handle($request);
     }
 
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        $statusCode = $e->response->getStatusCode();
+        $responseData = $e->response->json();
+        $errorMessage = data_get($responseData, 'error.message', 'Unknown error');
+
+        match ($statusCode) {
+
+            402 => throw PrismException::providerResponseError(
+                sprintf('DeepSeek Insufficient Balance: %s', $errorMessage)
+            ),
+
+            default => throw PrismException::providerRequestError($model, $e),
+        };
+    }
     /**
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
