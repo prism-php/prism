@@ -126,6 +126,10 @@ export default defineConfig({
                 link: "/core-concepts/image-generation",
               },
               {
+                text: "Moderation",
+                link: "/core-concepts/moderation",
+              },
+              {
                 text: "Audio",
                 link: "/core-concepts/audio",
               },
