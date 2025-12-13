@@ -102,7 +102,7 @@ it('supports both text and images in the same request', function () use ($testIm
 it('throws exception when no text or images are provided', function (): void {
     $pendingRequest = new PendingRequest;
 
-    expect(fn () => $pendingRequest->asEmbeddings())
+    expect(fn (): \Prism\Prism\Embeddings\Response => $pendingRequest->asEmbeddings())
         ->toThrow(PrismException::class, 'Embeddings input is required (text or images)');
 });
 
