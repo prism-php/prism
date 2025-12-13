@@ -46,30 +46,6 @@ class PendingRequest
         return $this;
     }
 
-    public function fromInput(string|Image $input): self
-    {
-        $this->inputs[] = $input;
-
-        return $this;
-    }
-
-    public function fromFile(string $path): self
-    {
-        if (! is_file($path)) {
-            throw new PrismException(sprintf('%s is not a valid file', $path));
-        }
-
-        $contents = file_get_contents($path);
-
-        if ($contents === false) {
-            throw new PrismException(sprintf('%s contents could not be read', $path));
-        }
-
-        $this->inputs[] = $contents;
-
-        return $this;
-    }
-
     public function asModeration(): Response
     {
 

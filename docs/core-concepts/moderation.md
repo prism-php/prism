@@ -163,45 +163,6 @@ $response = Prism::moderation()
     ->asModeration();
 ```
 
-### Using fromInput()
-
-The `fromInput()` method allows you to add a single input (text or image) at a time:
-
-```php
-use Prism\Prism\Facades\Prism;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Media\Image;
-
-// Add a single text input
-$response = Prism::moderation()
-    ->using(Provider::OpenAI)
-    ->fromInput('Text to check')
-    ->asModeration();
-
-// Add a single image input
-$response = Prism::moderation()
-    ->using(Provider::OpenAI, 'omni-moderation-latest')
-    ->fromInput(Image::fromUrl('https://example.com/image.png'))
-    ->asModeration();
-```
-
-### From File
-
-Need to check a larger document? Use the `fromFile()` convenience method:
-
-```php
-use Prism\Prism\Facades\Prism;
-use Prism\Prism\Enums\Provider;
-
-$response = Prism::moderation()
-    ->using(Provider::OpenAI)
-    ->fromFile('/path/to/your/document.txt')
-    ->asModeration();
-```
-
-> [!NOTE]
-> Make sure your file exists and is readable. The moderation checker will throw a helpful `PrismException` if there's any issue accessing the file.
-
 ### Image Sources
 
 Images can be created from various sources:
