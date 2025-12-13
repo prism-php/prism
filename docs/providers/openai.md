@@ -693,3 +693,121 @@ if ($audio->size() > 25 * 1024 * 1024) { // 25 MB
 ```
 
 For more information on the available options, please refer to the [OpenAI API documentation](https://platform.openai.com/docs/guides/speech-to-text).
+
+## Moderation
+
+OpenAI provides powerful content moderation capabilities through their moderation API. Prism supports both text and image moderation with OpenAI.
+
+### Supported Models
+
+| Model | Description |
+|-------|-------------|
+| `omni-moderation-latest` | Latest moderation model supporting both text and images |
+
+### Text Moderation
+
+Check text content for potentially harmful or inappropriate material:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::moderation()
+    ->using(Provider::OpenAI)
+    ->withInput('Your text to check goes here')
+    ->asModeration();
+
+if ($response->isFlagged()) {
+    $flagged = $response->firstFlagged();
+    // Handle flagged content
+}
+```
+
+### Image Moderation
+
+Moderate images using the `omni-moderation-latest` model:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::moderation()
+    ->using(Provider::OpenAI, 'omni-moderation-latest')
+    ->withInput(Image::fromUrl('https://example.com/image.png'))
+    ->asModeration();
+
+if ($response->isFlagged()) {
+    // Handle flagged image
+}
+```
+
+### Mixed Text and Image Moderation
+
+You can check both text and images in a single request:
+
+```php
+$response = Prism::moderation()
+    ->using(Provider::OpenAI, 'omni-moderation-latest')
+    ->withInput(
+        'Check this text',
+        Image::fromStoragePath('uploads/user-photo.jpg', 'public'),
+        'Another text to check',
+        Image::fromUrl('https://example.com/image.png')
+    )
+    ->asModeration();
+```
+
+> [!NOTE]
+> When mixing text and images in a single request, text inputs are treated as context/descriptions for the images, not as separate moderation inputs. If you need separate moderation results for text and images, make separate API calls for each type.
+
+### Multiple Inputs
+
+Check multiple inputs at once:
+
+```php
+// Multiple text inputs
+$response = Prism::moderation()
+    ->using(Provider::OpenAI)
+    ->withInput('Text 1', 'Text 2', 'Text 3')
+    ->asModeration();
+
+// Multiple images
+$response = Prism::moderation()
+    ->using(Provider::OpenAI, 'omni-moderation-latest')
+    ->withInput([
+        Image::fromUrl('https://example.com/image1.png'),
+        Image::fromStoragePath('uploads/image2.jpg', 'public'),
+    ])
+    ->asModeration();
+```
+
+### Response Handling
+
+Access moderation results and category information:
+
+```php
+$response = Prism::moderation()
+    ->using(Provider::OpenAI, 'omni-moderation-latest')
+    ->withInput('Your content here')
+    ->asModeration();
+
+// Check if any content was flagged
+if ($response->isFlagged()) {
+    // Get all flagged results
+    $flaggedResults = $response->flagged();
+    
+    foreach ($flaggedResults as $result) {
+        // Access categories
+        $categories = $result->categories; // Array of category => bool
+        $scores = $result->categoryScores; // Array of category => float
+        
+        // Check specific categories
+        if ($result->categories['hate'] ?? false) {
+            // Handle hate content
+        }
+    }
+}
+```
+
+For complete moderation documentation, including all available options and use cases, see [Moderation](/core-concepts/moderation).
