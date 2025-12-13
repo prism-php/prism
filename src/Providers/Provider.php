@@ -18,6 +18,8 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Moderation\Request as ModerationRequest;
+use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -44,6 +46,11 @@ abstract class Provider
     public function images(ImagesRequest $request): ImagesResponse
     {
         throw PrismException::unsupportedProviderAction('images', class_basename($this));
+    }
+
+    public function moderation(ModerationRequest $request): ModerationResponse
+    {
+        throw PrismException::unsupportedProviderAction('moderation', class_basename($this));
     }
 
     public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
