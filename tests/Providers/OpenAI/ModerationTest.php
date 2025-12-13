@@ -359,7 +359,7 @@ it('throws exception when withInput receives invalid types', function (): void {
                 Image::fromUrl('https://example.com/image.png'),
                 'not-an-image', // This should be fine - arrays can contain strings and Images
             ]);
-    })->not->toThrow();
+    })->not->toThrow(\Prism\Prism\Exceptions\PrismException::class, 'Array items must be strings or Image instances');
 
     // Test with actually invalid type in array
     expect(function (): void {
