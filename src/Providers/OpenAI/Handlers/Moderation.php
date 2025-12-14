@@ -110,6 +110,8 @@ class Moderation
 
     /**
      * Format an Image object for OpenAI moderation API
+     *
+     * @return array{type: string, image_url: array{url: string}}
      */
     protected function formatImageInput(Image $image): array
     {
@@ -123,7 +125,7 @@ class Moderation
                 $image->base64()
             );
         } elseif ($image->isUrl()) {
-            $imageUrl['url'] = $image->url();
+            $imageUrl['url'] = (string) $image->url();
         } else {
             $imageUrl['url'] = sprintf(
                 'data:%s;base64,%s',

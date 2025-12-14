@@ -21,10 +21,7 @@ class PendingRequest
     protected array $inputs = [];
 
     /**
-     * Add one or more inputs to moderate.
-     * Accepts strings, Image objects, or arrays of either.
-     *
-     * @param  string|Image|array<string|Image>  ...$inputs
+     * @param  string|Image|array<int, mixed>  ...$inputs
      */
     public function withInput(string|Image|array ...$inputs): self
     {
@@ -36,10 +33,8 @@ class PendingRequest
                     }
                     $this->inputs[] = $item;
                 }
-            } elseif (is_string($input) || $input instanceof Image) {
-                $this->inputs[] = $input;
             } else {
-                throw new PrismException('Input must be a string, Image instance, or array of strings/Images');
+                $this->inputs[] = $input;
             }
         }
 

@@ -17,6 +17,7 @@ use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Images\Request as ImageRequest;
 use Prism\Prism\Images\Response as ImageResponse;
+use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -51,7 +52,7 @@ class PrismFake extends Provider
     protected array $providerConfig = [];
 
     /**
-     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse|AudioResponse|AudioTextResponse>  $responses
+     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse|AudioResponse|AudioTextResponse|ModerationResponse>  $responses
      */
     public function __construct(protected array $responses = []) {}
 
