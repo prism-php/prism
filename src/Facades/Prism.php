@@ -13,6 +13,8 @@ use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Images\PendingRequest as PendingImageRequest;
 use Prism\Prism\Images\Response as ImageResponse;
+use Prism\Prism\Moderation\PendingRequest as PendingModerationRequest;
+use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\PrismManager;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\PendingRequest as PendingStructuredRequest;
@@ -27,13 +29,14 @@ use Prism\Prism\Text\Response as TextResponse;
  * @method static PendingEmbeddingRequest embeddings()
  * @method static PendingImageRequest image()
  * @method static PendingAudioRequest audio()
+ * @method static PendingModerationRequest moderation()
  *
  * @see \Prism\Prism\Prism
  */
 class Prism extends Facade
 {
     /**
-     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse|AudioResponse|AudioTextResponse>  $responses
+     * @param  array<int, TextResponse|StructuredResponse|EmbeddingResponse|ImageResponse|AudioResponse|AudioTextResponse|ModerationResponse>  $responses
      */
     public static function fake(array $responses = []): PrismFake
     {

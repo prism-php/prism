@@ -1,0 +1,86 @@
+{
+  "id": "modr-628",
+  "model": "omni-moderation-latest",
+  "results": [
+    {
+      "flagged": false,
+      "categories": {
+        "harassment": false,
+        "harassment/threatening": false,
+        "sexual": false,
+        "hate": false,
+        "hate/threatening": false,
+        "illicit": false,
+        "illicit/violent": false,
+        "self-harm/intent": false,
+        "self-harm/instructions": false,
+        "self-harm": false,
+        "sexual/minors": false,
+        "violence": false,
+        "violence/graphic": false
+      },
+      "category_scores": {
+        "harassment": 0.00008167381046669487,
+        "harassment/threatening": 8.220189478350845e-6,
+        "sexual": 0.00005614787461400803,
+        "hate": 8.750299760661308e-6,
+        "hate/threatening": 4.495181578513688e-7,
+        "illicit": 0.00004108485376346404,
+        "illicit/violent": 7.967300986103147e-6,
+        "self-harm/intent": 5.391084403253366e-6,
+        "self-harm/instructions": 2.0785170435063726e-6,
+        "self-harm": 0.0004703543012372018,
+        "sexual/minors": 2.3923509443082866e-6,
+        "violence": 0.0005935553564438082,
+        "violence/graphic": 0.000010554685795431098
+      },
+      "category_applied_input_types": {
+        "harassment": [
+          "text"
+        ],
+        "harassment/threatening": [
+          "text"
+        ],
+        "sexual": [
+          "text",
+          "image"
+        ],
+        "hate": [
+          "text"
+        ],
+        "hate/threatening": [
+          "text"
+        ],
+        "illicit": [
+          "text"
+        ],
+        "illicit/violent": [
+          "text"
+        ],
+        "self-harm/intent": [
+          "text",
+          "image"
+        ],
+        "self-harm/instructions": [
+          "text",
+          "image"
+        ],
+        "self-harm": [
+          "text",
+          "image"
+        ],
+        "sexual/minors": [
+          "text"
+        ],
+        "violence": [
+          "text",
+          "image"
+        ],
+        "violence/graphic": [
+          "text",
+          "image"
+        ]
+      }
+    }
+  ]
+}

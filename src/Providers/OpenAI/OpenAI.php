@@ -21,10 +21,13 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Moderation\Request as ModerationRequest;
+use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Audio;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;
+use Prism\Prism\Providers\OpenAI\Handlers\Moderation;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
 use Prism\Prism\Providers\OpenAI\Handlers\Structured;
 use Prism\Prism\Providers\OpenAI\Handlers\Text;
@@ -83,6 +86,17 @@ class OpenAI extends Provider
     public function images(ImagesRequest $request): ImagesResponse
     {
         $handler = new Images($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function moderation(ModerationRequest $request): ModerationResponse
+    {
+        $handler = new Moderation($this->client(
             $request->clientOptions(),
             $request->clientRetry()
         ));
