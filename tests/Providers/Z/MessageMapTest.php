@@ -11,7 +11,7 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ToolResult;
 
-test('MessageMap maps messages correctly', function (): void {
+it('MessageMap maps messages correctly', function (): void {
     $messages = [
         new UserMessage('Hello, how are you?'),
         new AssistantMessage('I am doing well, thank you!'),
