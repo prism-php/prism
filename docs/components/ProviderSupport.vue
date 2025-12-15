@@ -342,6 +342,18 @@ export default {
           moderation: Supported,
         },
         {
+          name: "Replicate",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Supported,
+          image: Supported,
+          "speech-to-text": Supported,
+          "text-to-speech": Supported,
+          tools: Unsupported,
+          documents: Unsupported,
+        },
+        {
           name: "VoyageAI",
           text: Unsupported,
           streaming: Unsupported,

@@ -60,5 +60,13 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+        'replicate' => [
+            'api_key' => env('REPLICATE_API_KEY', ''),
+            'url' => env('REPLICATE_URL', 'https://api.replicate.com/v1'),
+            'webhook_url' => env('REPLICATE_WEBHOOK_URL', null),
+            'use_sync_mode' => env('REPLICATE_USE_SYNC_MODE', true), // Use Prefer: wait header
+            'polling_interval' => env('REPLICATE_POLLING_INTERVAL', 1000),
+            'max_wait_time' => env('REPLICATE_MAX_WAIT_TIME', 60),
+        ],
     ],
 ];
