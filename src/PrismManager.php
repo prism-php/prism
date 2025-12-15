@@ -20,6 +20,7 @@ use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
+use Prism\Prism\Providers\Z\Z;
 use RuntimeException;
 
 class PrismManager
@@ -223,6 +224,17 @@ class PrismManager
         return new ElevenLabs(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createZProvider(array $config): Z
+    {
+        return new Z(
+            apiKey: $config['api_key'],
+            baseUrl: $config['url'],
         );
     }
 }
