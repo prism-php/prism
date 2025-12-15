@@ -21,6 +21,7 @@ class ZAIJSONEncoder
 
         return self::encodePropertySchema($schema);
     }
+
     public static function jsonEncode($schema, bool $prettyPrint = true): string
     {
         $encoded = self::encodeSchema($schema);
@@ -33,7 +34,7 @@ class ZAIJSONEncoder
         return json_encode($encoded, $flags);
     }
 
-    private static function encodeObjectSchema(ObjectSchema $schema): array
+    protected static function encodeObjectSchema(ObjectSchema $schema): array
     {
         $jsonSchema = [
             'type' => 'object',
@@ -55,7 +56,7 @@ class ZAIJSONEncoder
         return $jsonSchema;
     }
 
-    private static function encodePropertySchema($property): array
+    protected static function encodePropertySchema($property): array
     {
         $schema = [];
 

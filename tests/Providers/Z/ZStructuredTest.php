@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Providers\Z\Z;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Tests\TestStructuredRequest;
+use Tests\TestDoubles\TestStructuredRequest;
 
 test('Z provider handles structured request', function (): void {
     Http::fake([
@@ -49,12 +49,12 @@ test('Z provider handles structured request', function (): void {
 
     $response = $provider->structured($request);
 
-    expect($response->text)->toBe('{"name": "John", "age": 30}');
-    expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
-    expect($response->usage->promptTokens)->toBe(9);
-    expect($response->usage->completionTokens)->toBe(12);
-    expect($response->meta->id)->toBe('chatcmpl-123');
-    expect($response->meta->model)->toBe('z-model');
+    expect($response->text)->toBe('{"name": "John", "age": 30}')
+        ->and($response->structured)->toBe(['name' => 'John', 'age' => 30])
+        ->and($response->usage->promptTokens)->toBe(9)
+        ->and($response->usage->completionTokens)->toBe(12)
+        ->and($response->meta->id)->toBe('chatcmpl-123')
+        ->and($response->meta->model)->toBe('z-model');
 
     Http::assertSent(function (Request $request): bool {
         $data = $request->data();

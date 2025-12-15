@@ -18,8 +18,9 @@ test('MessageMap maps messages correctly', function (): void {
         new ToolResultMessage([
             new ToolResult(
                 'tool_123',
-                'result_data',
-                'tool_name'
+                'tool_name',
+                [],
+                'result_data'
             ),
         ]),
     ];
@@ -30,22 +31,22 @@ test('MessageMap maps messages correctly', function (): void {
     $messageMap = new MessageMap($messages, $systemPrompts);
     $mapped = $messageMap();
 
-    expect($mapped)->toHaveCount(4);
-    expect($mapped[0])->toBe([
-        'role' => 'system',
-        'content' => 'You are a helpful assistant.',
-    ]);
-    expect($mapped[1])->toBe([
-        'role' => 'user',
-        'content' => 'Hello, how are you?',
-    ]);
-    expect($mapped[2])->toBe([
-        'role' => 'assistant',
-        'content' => 'I am doing well, thank you!',
-    ]);
-    expect($mapped[3])->toBe([
-        'role' => 'tool',
-        'tool_call_id' => 'tool_123',
-        'content' => 'result_data',
-    ]);
+    expect($mapped)->toHaveCount(4)
+        ->and($mapped[0])->toBe([
+            'role' => 'system',
+            'content' => 'You are a helpful assistant.',
+        ])
+        ->and($mapped[1])->toBe([
+            'role' => 'user',
+            'content' => 'Hello, how are you?',
+        ])
+        ->and($mapped[2])->toBe([
+            'role' => 'assistant',
+            'content' => 'I am doing well, thank you!',
+        ])
+        ->and($mapped[3])->toBe([
+            'role' => 'tool',
+            'tool_call_id' => 'tool_123',
+            'content' => 'result_data',
+        ]);
 });

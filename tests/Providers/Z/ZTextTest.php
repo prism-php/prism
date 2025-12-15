@@ -7,8 +7,9 @@ namespace Tests\Providers\Z;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\Providers\Z\Z;
-use Tests\TestRequest;
+use Tests\TestDoubles\TestRequest;
 
 test('Z provider handles text request', function (): void {
     Http::fake([
@@ -40,12 +41,12 @@ test('Z provider handles text request', function (): void {
 
     $response = $provider->text($request);
 
-    expect($response->text)->toBe('Hello! How can I help you today?');
-    expect($response->finishReason)->toBe(FinishReason::Stop);
-    expect($response->usage->promptTokens)->toBe(9);
-    expect($response->usage->completionTokens)->toBe(12);
-    expect($response->meta->id)->toBe('chatcmpl-123');
-    expect($response->meta->model)->toBe('z-model');
+    expect($response->text)->toBe('Hello! How can I help you today?')
+        ->and($response->finishReason)->toBe(FinishReason::Stop)
+        ->and($response->usage->promptTokens)->toBe(9)
+        ->and($response->usage->completionTokens)->toBe(12)
+        ->and($response->meta->id)->toBe('chatcmpl-123')
+        ->and($response->meta->model)->toBe('z-model');
 
     Http::assertSent(function (Request $request): bool {
         $data = $request->data();
@@ -94,23 +95,18 @@ test('Z provider handles tool calls', function (): void {
     $provider = new Z('test-api-key', 'https://api.z.ai/v1');
     $request = new TestRequest(
         tools: [
-            [
-                'name' => 'test_function',
-                'description' => 'A test function',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'param' => ['type' => 'string'],
-                    ],
-                ],
-            ],
-        ]
+            Tool::as('test_function')
+                ->for('A test function')
+                ->withStringParameter('param', 'A parameter')
+                ->using(fn (string $param): string => "Result: {$param}"),
+        ],
+        maxSteps: 1
     );
 
     $response = $provider->text($request);
 
-    expect($response->steps)->toHaveCount(1);
-    expect($response->steps[0]->toolCalls)->toHaveCount(1);
-    expect($response->steps[0]->toolCalls[0]->name)->toBe('test_function');
-    expect($response->steps[0]->finishReason)->toBe(FinishReason::ToolCalls);
+    expect($response->steps)->toHaveCount(1)
+        ->and($response->steps[0]->toolCalls)->toHaveCount(1)
+        ->and($response->steps[0]->toolCalls[0]->name)->toBe('test_function')
+        ->and($response->steps[0]->finishReason)->toBe(FinishReason::ToolCalls);
 });

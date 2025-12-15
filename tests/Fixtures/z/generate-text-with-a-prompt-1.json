@@ -1,0 +1,23 @@
+{
+  "id": "febc7de9-9991-4b08-942a-c7082174225a",
+  "object": "chat.completion",
+  "created": 1731128928,
+  "model": "grok-beta",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I am Grok, an AI developed by xAI. I'm here to provide helpful and truthful answers to your questions, often with a dash of outside perspective on humanity. What's on your mind?",
+        "refusal": null
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 42,
+    "total_tokens": 52
+  },
+  "system_fingerprint": "fp_98261732b5"
+}

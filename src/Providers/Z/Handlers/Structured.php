@@ -66,7 +66,7 @@ class Structured
             'top_p' => $request->topP(),
         ]));
 
-        return $this->client->post('/chat/completions', $payload);
+        return $this->client->post('chat/completions', $payload);
     }
 
     /**
