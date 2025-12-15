@@ -17,7 +17,7 @@ it('Z provider handles text request', function (): void {
     FixtureResponse::fakeResponseSequence('chat/completions', 'z/generate-text-with-a-prompt');
 
     $response = Prism::text()
-        ->using(Provider::Z, 'glm-4.6')
+        ->using(Provider::Z, 'z-model')
         ->withPrompt('Hello!')
         ->asText();
 

@@ -60,7 +60,7 @@ it('Z provider handles structured request', function (): void {
     );
 
     $response = Prism::structured()
-        ->using(Provider::Z, 'glm-4.6')
+        ->using(Provider::Z, 'z-model')
         ->withSchema($schema)
         ->asStructured();
 
