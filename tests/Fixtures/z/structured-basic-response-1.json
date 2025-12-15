@@ -1,21 +1,25 @@
 {
-  "id": "chatcmpl-123",
-  "object": "chat.completion",
-  "created": 1677652288,
-  "model": "z-model",
   "choices": [
     {
+      "finish_reason": "stop",
       "index": 0,
       "message": {
-        "role": "assistant",
-        "content": "{\"name\": \"John\", \"age\": 30}"
-      },
-      "finish_reason": "stop"
+        "content": "{\"message\":\"That's a fantastic real-world application! Building a customer service chatbot with Laravel sounds like a great project that could really help streamline customer interactions. Let's shift gears a bit and talk about database optimization, which is crucial for backend performance. Have you had experience with database indexing, and can you share a situation where you needed to optimize database queries in a project?\",\"action\":\"ask_question\",\"status\":\"question_asked\",\"is_question\":true,\"question_type\":\"database_optimization\",\"move_to_next_question\":true}",
+        "role": "assistant"
+      }
     }
   ],
+  "created": 1765785136,
+  "id": "chatcmpl-123",
+  "model": "z-model",
+  "object": "chat.completion",
+  "request_id": "chatcmpl-123",
   "usage": {
-    "prompt_tokens": 9,
-    "completion_tokens": 12,
-    "total_tokens": 21
+    "completion_tokens": 129,
+    "prompt_tokens": 1309,
+    "prompt_tokens_details": {
+      "cached_tokens": 1227
+    },
+    "total_tokens": 1438
   }
 }
