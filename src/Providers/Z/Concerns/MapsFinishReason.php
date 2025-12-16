@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Z\Concerns;
 
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Providers\XAI\Maps\FinishReasonMap;
+use Prism\Prism\Providers\Z\Maps\FinishReasonMap;
 
 trait MapsFinishReason
 {
