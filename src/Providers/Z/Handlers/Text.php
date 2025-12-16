@@ -12,6 +12,8 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Z\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Z\Maps\MessageMap;
+use Prism\Prism\Providers\Z\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Z\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Text\ResponseBuilder;
@@ -106,16 +108,15 @@ class Text
         $payload = array_merge([
             'model' => $request->model(),
             'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-            'max_tokens' => $request->maxTokens() ?? 2048,
         ], Arr::whereNotNull([
+            'max_tokens' => $request->maxTokens(),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
-            'thinking' => [
-                'type' => 'disabled',
-            ],
+            'tools' => ToolMap::map($request->tools()),
+            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]));
 
-        return $this->client->post('/chat/completions', $payload);
+        return $this->client->timeout(100)->post('/chat/completions', $payload);
     }
 
     /**
