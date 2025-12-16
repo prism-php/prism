@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Z;
 
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Text\Response as TextResponse;
@@ -97,3 +100,42 @@ describe('Text generation for Z', function (): void {
             );
     });
 });
+
+it('handles specific tool choice', function (): void {
+    FixtureResponse::fakeResponseSequence('chat/completions', 'z/generate-text-with-required-tool-call');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::Z, 'z-model')
+        ->withPrompt('Do something')
+        ->withTools($tools)
+        ->withToolChoice(ToolChoice::Any)
+        ->asText();
+
+    expect($response)->toBeInstanceOf(TextResponse::class)
+        ->and($response->steps[0]->toolCalls[0]->name)->toBeIn(['weather', 'search']);
+});
+
+it('throws a PrismRateLimitedException for a 429 response code', function (): void {
+    Http::fake([
+        '*' => Http::response(
+            status: 429,
+        ),
+    ])->preventStrayRequests();
+
+    Prism::text()
+        ->using(Provider::Z, 'z-model')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+})->throws(PrismRateLimitedException::class);
