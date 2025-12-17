@@ -20,6 +20,8 @@ uses()->group('groq')->in('Providers/Groq');
 uses()->group('mistral')->in('Providers/Mistral');
 uses()->group('ollama')->in('Providers/Ollama');
 uses()->group('openai')->in('Providers/OpenAI');
+uses()->group('openrouter')->in('Providers/OpenRouter');
+uses()->group('opencodezen')->in('Providers/OpenCodeZen');
 uses()->group('xai')->in('Providers/XAI');
 
 /*

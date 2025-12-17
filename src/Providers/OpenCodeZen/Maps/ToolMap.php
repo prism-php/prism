@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Prism\Prism\Providers\OpenCodeZen\Maps;
+
+use Prism\Prism\Tool;
+
+class ToolMap
+{
+    /**
+     * @param  array<int, Tool>  $tools
+     * @return array<int, mixed>
+     */
+    public static function map(array $tools): array
+    {
+        return array_map(fn (Tool $tool): array => array_filter([
+            'type' => 'function',
+            'function' => [
+                'name' => $tool->name(),
+                'description' => $tool->description(),
+                ...$tool->hasParameters() ? [
+                    'parameters' => (function () use ($tool): array {
+                        $properties = $tool->parametersAsArray();
+
+                        return [
+                            'type' => 'object',
+                            'properties' => $properties === [] ? new \stdClass : $properties,
+                            'required' => $tool->requiredParameters(),
+                        ];
+                    })(),
+                ] : [],
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => $tool->hasParameters() ? $tool->parametersAsArray() : (object) [],
+                    'required' => $tool->requiredParameters(),
+                ],
+            ],
+            'strict' => $tool->providerOptions('strict'),
+        ]), $tools);
+    }
+}

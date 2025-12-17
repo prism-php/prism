@@ -60,5 +60,9 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+        'opencodezen' => [
+            'api_key' => env('OPENCODEZEN_API_KEY', ''),
+            'url' => env('OPENCODEZEN_URL', 'https://opencode.ai/zen/v1'),
+        ],
     ],
 ];

@@ -11,6 +11,7 @@ enum Provider: string
     case Ollama = 'ollama';
     case OpenAI = 'openai';
     case OpenRouter = 'openrouter';
+    case OpenCodeZen = 'opencodezen';
     case Mistral = 'mistral';
     case Groq = 'groq';
     case XAI = 'xai';
