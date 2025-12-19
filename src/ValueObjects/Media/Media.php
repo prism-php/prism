@@ -4,8 +4,8 @@ namespace Prism\Prism\ValueObjects\Media;
 
 use finfo;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\HasProviderOptions;
@@ -290,8 +290,7 @@ class Media
             return;
         }
 
-        /** @var \Illuminate\Http\Client\Response $response */
-        $response = Http::get($this->url);
+        $response = app(HttpFactory::class)->get($this->url);
         $content = $response->body();
 
         if (! $content) {
