@@ -169,6 +169,7 @@ export default {
         "Text-to-Speech",
         "Tools",
         "Documents",
+        "Moderation",
       ],
       providers: [
         {
@@ -182,6 +183,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Supported,
+          moderation: Unsupported,
         },
         {
           name: "Azure OpenAI",
@@ -194,6 +196,7 @@ export default {
           "text-to-speech": Planned,
           tools: Planned,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "Bedrock - Anthropic",
@@ -206,6 +209,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "Bedrock - Cohere",
@@ -218,6 +222,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Unsupported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "Bedrock - Converse",
@@ -230,6 +235,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Supported,
+          moderation: Unsupported,
         },
         {
           name: "DeepSeek",
@@ -242,6 +248,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "ElevenLabs",
@@ -254,6 +261,7 @@ export default {
           "text-to-speech": Planned,
           tools: Unsupported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "Gemini",
@@ -266,6 +274,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Supported,
+          moderation: Unsupported,
         },
         {
           name: "Groq",
@@ -278,6 +287,7 @@ export default {
           "text-to-speech": Supported,
           tools: Supported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "Mistral",
@@ -290,6 +300,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Supported,
+          moderation: Unsupported,
         },
         {
           name: "Ollama",
@@ -302,6 +313,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "OpenRouter",
@@ -314,6 +326,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "OpenAI",
@@ -326,6 +339,7 @@ export default {
           "text-to-speech": Supported,
           tools: Supported,
           documents: Supported,
+          moderation: Supported,
         },
         {
           name: "VoyageAI",
@@ -338,6 +352,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Unsupported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "xAI",
@@ -350,6 +365,7 @@ export default {
           "text-to-speech": Unsupported,
           tools: Supported,
           documents: Unsupported,
+          moderation: Unsupported,
         },
       ],
     };
