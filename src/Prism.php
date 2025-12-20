@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism;
 
+use Illuminate\Support\Traits\Macroable;
 use Prism\Prism\Audio\PendingRequest as PendingAudioRequest;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
 use Prism\Prism\Images\PendingRequest as PendingImageRequest;
@@ -13,6 +14,8 @@ use Prism\Prism\Text\PendingRequest as PendingTextRequest;
 
 class Prism
 {
+    use Macroable;
+
     public function text(): PendingTextRequest
     {
         return new PendingTextRequest;
