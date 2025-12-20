@@ -49,6 +49,7 @@ class MessageMap
             AssistantMessage::class => $this->mapAssistantMessage($message),
             ToolResultMessage::class => $this->mapToolResultMessage($message),
             SystemMessage::class => $this->mapSystemMessage($message),
+            default => throw new \InvalidArgumentException('Unsupported message type: '.$message::class),
         };
     }
 

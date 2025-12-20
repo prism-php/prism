@@ -116,7 +116,10 @@ class Text
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]));
 
-        return $this->client->timeout(100)->post('/chat/completions', $payload);
+        /** @var ClientResponse $response */
+        $response = $this->client->post('/chat/completions', $payload);
+
+        return $response;
     }
 
     /**
