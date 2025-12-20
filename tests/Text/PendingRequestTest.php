@@ -15,6 +15,12 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\TestDoubles\TestProvider;
 
+enum TestModel: string
+{
+    case Gpt4 = 'gpt-4';
+    case Gpt35 = 'gpt-3.5-turbo';
+}
+
 beforeEach(function (): void {
     $this->pendingRequest = new PendingRequest;
     $this->provider = new TestProvider;
@@ -430,4 +436,15 @@ test('withPrompt maintains backward compatibility without additional content', f
     expect($generated->prompt())->toBe('Hello AI')
         ->and($generated->messages()[0])->toBeInstanceOf(UserMessage::class)
         ->and($generated->messages()[0]->additionalContent)->toHaveCount(1); // Only Text
+});
+
+test('it can configure the model using a backed enum', function (): void {
+    $modelEnum = TestModel::Gpt4;
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, $modelEnum);
+
+    $generated = $request->toRequest();
+
+    expect($generated->model())->toBe('gpt-4');
 });
