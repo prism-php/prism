@@ -187,6 +187,13 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->citations,
+                'searchQueries' => collect($output)
+                    ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->map(fn (array $item): ?string => data_get($item, 'action.query'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray(),
                 'reasoningSummaries' => collect($output)
                     ->filter(fn (array $output): bool => $output['type'] === 'reasoning')
                     ->flatMap(fn (array $output): array => Arr::pluck($output['summary'] ?? [], 'text'))

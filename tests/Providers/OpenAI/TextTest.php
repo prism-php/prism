@@ -605,6 +605,9 @@ describe('provider tool results', function (): void {
         expect($providerTool->data)->toHaveKey('action');
         expect($providerTool->data['action']['type'])->toBe('search');
         expect($providerTool->data['action']['query'])->toContain('London weather');
+
+        expect($response->steps[0]->additionalContent)->toHaveKey('searchQueries');
+        expect($response->steps[0]->additionalContent['searchQueries'])->toBe(['London weather forecast today']);
     });
 
     it('captures code interpreter provider tool in providerToolCalls', function (): void {
