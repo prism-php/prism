@@ -15,6 +15,7 @@ use Prism\Prism\Facades\Tool;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -178,6 +179,45 @@ describe('Image support with Z', function (): void {
                 ->toBe([
                     'type' => 'text',
                     'text' => 'What are the files show about?',
+                ]);
+
+            return true;
+        });
+    });
+
+    it('can send video from url', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/text-video-from-url');
+
+        $videoUrl = 'https://cdn.bigmodel.cn/agent-demos/lark/113123.mov';
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model.v')
+            ->withMessages([
+                new UserMessage(
+                    'What are the video show about?',
+                    additionalContent: [
+                        Video::fromUrl($videoUrl),
+                    ],
+                ),
+            ])
+            ->asText();
+
+        expect($response)->toBeInstanceOf(TextResponse::class);
+
+        Http::assertSent(function (Request $request) use ($videoUrl): true {
+            $message = $request->data()['messages'][0]['content'];
+
+            expect($message[0])
+                ->toBe([
+                    'type' => 'video_url',
+                    'video_url' => [
+                        'url' => $videoUrl,
+                    ],
+                ])
+                ->and($message[1])
+                ->toBe([
+                    'type' => 'text',
+                    'text' => 'What are the video show about?',
                 ]);
 
             return true;
