@@ -24,7 +24,7 @@ trait ConfiguresProviders
     {
         $this->providerKey = is_string($provider) ? $provider : $provider->value;
 
-        $this->model = $model instanceof BackedEnum ? $model->value : $model;
+        $this->model = $model instanceof BackedEnum ? (string) $model->value : $model;
 
         return $this->usingProviderConfig($providerConfig);
     }
