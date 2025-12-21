@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\ValueObjects\Media;
 
 /**
- * Note: Prism currently only supports Documents with Anthropic.
+ * Note: Prism currently only supports Documents with Anthropic and OpenRouter.
  */
 class Document extends Media
 {

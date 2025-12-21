@@ -321,11 +321,11 @@ export default {
           streaming: Supported,
           structured: Supported,
           embeddings: Unsupported,
-          image: Unsupported,
+          image: Supported,
           "speech-to-text": Unsupported,
           "text-to-speech": Unsupported,
           tools: Supported,
-          documents: Unsupported,
+          documents: Supported,
           moderation: Unsupported,
         },
         {
