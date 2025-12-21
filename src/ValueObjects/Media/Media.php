@@ -4,8 +4,8 @@ namespace Prism\Prism\ValueObjects\Media;
 
 use finfo;
 use Illuminate\Filesystem\FilesystemAdapter;
-use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\HasProviderOptions;
@@ -256,8 +256,6 @@ class Media
     }
 
     /**
-     * Get a file resource suitable for HTTP multipart uploads
-     *
      * @return resource
      */
     public function resource()
@@ -290,7 +288,7 @@ class Media
             return;
         }
 
-        $response = app(HttpFactory::class)->get($this->url);
+        $response = Http::get($this->url);
         $content = $response->body();
 
         if (! $content) {
