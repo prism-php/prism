@@ -38,7 +38,12 @@ it('MessageMap maps messages correctly', function (): void {
         ])
         ->and($mapped[1])->toBe([
             'role' => 'user',
-            'content' => 'Hello, how are you?',
+            'content' => [
+                [
+                    'type' => 'text',
+                    'text' => 'Hello, how are you?',
+                ],
+            ],
         ])
         ->and($mapped[2])->toBe([
             'role' => 'assistant',
