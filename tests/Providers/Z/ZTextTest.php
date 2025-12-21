@@ -13,6 +13,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
@@ -138,6 +139,45 @@ describe('Image support with Z', function (): void {
                 ->toBe([
                     'type' => 'text',
                     'text' => 'What is this image',
+                ]);
+
+            return true;
+        });
+    });
+
+    it('can send file from url', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/text-file-from-url');
+
+        $file = 'https://cdn.bigmodel.cn/static/demo/demo2.txt';
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model.v')
+            ->withMessages([
+                new UserMessage(
+                    'What are the files show about?',
+                    additionalContent: [
+                        Document::fromUrl($file),
+                    ],
+                ),
+            ])
+            ->asText();
+
+        expect($response)->toBeInstanceOf(TextResponse::class);
+
+        Http::assertSent(function (Request $request) use ($file): true {
+            $message = $request->data()['messages'][0]['content'];
+
+            expect($message[0])
+                ->toBe([
+                    'type' => 'file_url',
+                    'file_url' => [
+                        'url' => $file,
+                    ],
+                ])
+                ->and($message[1])
+                ->toBe([
+                    'type' => 'text',
+                    'text' => 'What are the files show about?',
                 ]);
 
             return true;
