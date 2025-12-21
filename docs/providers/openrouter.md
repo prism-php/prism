@@ -116,6 +116,28 @@ echo $response->text;
 > [!TIP]
 > `Image` value objects are serialized into the `image_url` entries that OpenRouter expects, so you can attach multiple images or pair them with plain text in the same message.
 
+### Documents
+
+OpenRouter supports sending documents (PDFs) to compatible models:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Document;
+
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4')
+    ->withPrompt('Summarize this document.', [
+        Document::fromUrl('https://example.com/report.pdf', 'report.pdf'),
+    ])
+    ->generate();
+
+echo $response->text;
+```
+
+> [!TIP]
+> `Document` value objects support URLs and base64-encoded content. File IDs and chunks are not supported via OpenRouter.
+
 ### Streaming
 
 ```php
@@ -272,6 +294,8 @@ Visit [OpenRouter's models page](https://openrouter.ai/models) for a complete li
 - ✅ Provider Routing
 - ✅ Streaming
 - ✅ Reasoning/Thinking Tokens (for compatible models)
+- ✅ Image Support
+- ✅ Document Support
 - ❌ Embeddings (not yet implemented)
 - ❌ Image Generation (not yet implemented)
 

@@ -8,6 +8,7 @@ use BackedEnum;
 use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -131,6 +132,7 @@ class MessageMap
         // NOTE: mirrored from Gemini's multimodal mapper so we stay consistent across providers.
         $audioParts = array_map(fn (Audio $audio): array => (new AudioMapper($audio))->toPayload(), $message->audios());
         $videoParts = array_map(fn (Video $video): array => (new VideoMapper($video))->toPayload(), $message->videos());
+        $documentParts = array_map(fn (Document $document): array => (new DocumentMapper($document))->toPayload(), $message->documents());
 
         $this->mappedMessages[] = [
             'role' => 'user',
@@ -143,6 +145,7 @@ class MessageMap
                 ...$imageParts,
                 ...$audioParts,
                 ...$videoParts,
+                ...$documentParts,
             ],
         ];
     }

@@ -63,7 +63,7 @@ class UserMessage implements Message
     }
 
     /**
-     * Note: Prism currently only supports Documents with Anthropic.
+     * Note: Prism currently only supports Documents with Anthropic and OpenRouter.
      *
      * @return Document[]
      */
