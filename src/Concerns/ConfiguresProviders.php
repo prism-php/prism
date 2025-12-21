@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Concerns;
 
+use BackedEnum;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\PrismManager;
 use Prism\Prism\Providers\Provider;
@@ -19,11 +20,11 @@ trait ConfiguresProviders
     /**
      * @param  array<string, mixed>  $providerConfig
      */
-    public function using(string|ProviderEnum $provider, string $model = '', array $providerConfig = []): self
+    public function using(string|ProviderEnum $provider, string|BackedEnum $model = '', array $providerConfig = []): self
     {
         $this->providerKey = is_string($provider) ? $provider : $provider->value;
 
-        $this->model = $model;
+        $this->model = $model instanceof BackedEnum ? (string) $model->value : $model;
 
         return $this->usingProviderConfig($providerConfig);
     }
