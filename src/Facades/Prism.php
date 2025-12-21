@@ -48,7 +48,7 @@ class Prism extends Facade
                 private readonly PrismFake $fake
             ) {}
 
-            public function resolve(ProviderEnum|string $name, array $providerConfig = []): \Prism\Prism\Testing\PrismFake
+            public function resolve(ProviderEnum|string $name, array $providerConfig = []): Provider
             {
                 $this->fake->setProviderConfig($providerConfig);
 

@@ -6,6 +6,7 @@ namespace Tests\Embeddings;
 
 use Prism\Prism\Embeddings\PendingRequest;
 use Prism\Prism\Embeddings\Request;
+use Prism\Prism\Embeddings\Response;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Media\Image;
 
@@ -102,7 +103,7 @@ it('supports both text and images in the same request', function () use ($testIm
 it('throws exception when no text or images are provided', function (): void {
     $pendingRequest = new PendingRequest;
 
-    expect(fn (): \Prism\Prism\Embeddings\Response => $pendingRequest->asEmbeddings())
+    expect(fn (): Response => $pendingRequest->asEmbeddings())
         ->toThrow(PrismException::class, 'Embeddings input is required (text or images)');
 });
 
