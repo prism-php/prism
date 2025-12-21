@@ -19,7 +19,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
-    config()->set('prism.providers.z.api_key', env('Z_API_KEY', 'f4ce7d9da2b5415390b92d0a05ca420e.5tM4uBhy6AfFgcek'));
+    config()->set('prism.providers.z.api_key', env('Z_API_KEY', 'zai-123'));
 });
 
 describe('Text generation for Z', function (): void {
