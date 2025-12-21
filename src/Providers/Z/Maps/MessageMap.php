@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Z\Maps;
 
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Providers\Z\Enums\DocumentType;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Media;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -74,9 +77,18 @@ class MessageMap
 
     protected function mapUserMessage(UserMessage $message): void
     {
+        $images = array_map(fn (Media $media): array => (new DocumentMapper($media, DocumentType::ImageUrl))->toPayload(), $message->images());
+        $documents = array_map(fn (Document $document): array => (new DocumentMapper($document, DocumentType::FileUrl))->toPayload(), $message->documents());
+        $videos = array_map(fn (Media $media): array => (new DocumentMapper($media, DocumentType::VideoUrl))->toPayload(), $message->videos());
+
         $this->mappedMessages[] = [
             'role' => 'user',
-            'content' => $message->text(),
+            'content' => [
+                ...$images,
+                ...$documents,
+                ...$videos,
+                ['type' => 'text', 'text' => $message->text()],
+            ],
         ];
     }
 

@@ -15,10 +15,9 @@ use Prism\Prism\Schema\StringSchema;
 class ZAIJSONEncoder
 {
     /**
-     * @param  Schema  $schema
      * @return array<string, mixed>
      */
-    public static function encodeSchema($schema): array
+    public static function encodeSchema(Schema $schema): array
     {
         if ($schema instanceof ObjectSchema) {
             return self::encodeObjectSchema($schema);

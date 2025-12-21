@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Z;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
@@ -12,10 +13,12 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
-    config()->set('prism.providers.z.api_key', env('Z_API_KEY', 'zai-123'));
+    config()->set('prism.providers.z.api_key', env('Z_API_KEY', 'f4ce7d9da2b5415390b92d0a05ca420e.5tM4uBhy6AfFgcek'));
 });
 
 describe('Text generation for Z', function (): void {
@@ -98,6 +101,47 @@ describe('Text generation for Z', function (): void {
             ->and($response->text)->toBe(
                 "\nBased on the information I gathered:\n\n**Tigers Game Time:** The Tigers game today in Detroit is at 3:00 PM.\n\n**Weather and Coat Recommendation:** The weather will be 45° and cold. Yes, you should definitely wear a coat to the game! At 45 degrees, it will be quite chilly, especially if you'll be sitting outdoors for several hours. You might want to consider wearing a warm coat, and possibly dressing in layers with a hat and gloves for extra comfort during the game."
             );
+    });
+});
+
+describe('Image support with Z', function (): void {
+    it('can send images from url', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/text-image-from-url');
+
+        $image = 'https://prismphp.com/storage/diamond.png';
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model.v')
+            ->withMessages([
+                new UserMessage(
+                    'What is this image',
+                    additionalContent: [
+                        Image::fromUrl($image),
+                    ],
+                ),
+            ])
+            ->asText();
+
+        expect($response)->toBeInstanceOf(TextResponse::class);
+
+        Http::assertSent(function (Request $request) use ($image): true {
+            $message = $request->data()['messages'][0]['content'];
+
+            expect($message[0])
+                ->toBe([
+                    'type' => 'image_url',
+                    'image_url' => [
+                        'url' => $image,
+                    ],
+                ])
+                ->and($message[1])
+                ->toBe([
+                    'type' => 'text',
+                    'text' => 'What is this image',
+                ]);
+
+            return true;
+        });
     });
 });
 
