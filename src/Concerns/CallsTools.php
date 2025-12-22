@@ -16,6 +16,10 @@ use Throwable;
 trait CallsTools
 {
     /**
+     * @param  Tool[]  $tools
+     * @param  ToolCall[]  $toolCalls
+     * @return ToolResult[]
+     *
      * @throws PrismException|JsonException
      */
     protected function callTools(array $tools, array $toolCalls): array
