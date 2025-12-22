@@ -161,9 +161,7 @@ describe('Structured output with tools for OpenAI', function (): void {
         $tool = (new Tool)
             ->as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter')
-            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
-            ->executesOnClient();
+            ->withStringParameter('input', 'Input parameter');
 
         $response = Prism::structured()
             ->using(Provider::OpenAI, 'gpt-4o')

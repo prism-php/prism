@@ -37,13 +37,11 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():string|callable():string */
-    protected $fn;
+    /** @var Closure():string|callable():string|null */
+    protected $fn = null;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
     protected null|false|Closure $failedHandler = null;
-
-    protected bool $clientExecuted = false;
 
     public function __construct()
     {
@@ -108,20 +106,6 @@ class Tool
     public function withErrorHandling(?Closure $handler = null): self
     {
         $this->failedHandler = $handler;
-
-        return $this;
-    }
-
-    /**
-     * Mark this tool as executed on the client/frontend.
-     *
-     * Client-executed tools have no backend handler - the frontend
-     * executes the tool and sends the result back to continue the conversation.
-     *
-     */
-    public function executesOnClient(): self
-    {
-        $this->clientExecuted = true;
 
         return $this;
     }
@@ -248,7 +232,7 @@ class Tool
 
     public function isClientExecuted(): bool
     {
-        return $this->clientExecuted;
+        return $this->fn === null;
     }
 
     /**

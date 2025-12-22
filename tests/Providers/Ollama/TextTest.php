@@ -110,9 +110,7 @@ describe('client-executed tools', function (): void {
 
         $tool = Tool::as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter')
-            ->using(fn (string $input): string => throw new \Exception('Should not be called'))
-            ->executesOnClient();
+            ->withStringParameter('input', 'Input parameter');
 
         $response = Prism::text()
             ->using('ollama', 'qwen2.5:14b')
