@@ -38,7 +38,7 @@ class Tool
     protected array $requiredParameters = [];
 
     /** @var Closure():string|callable():string|null */
-    protected $fn = null;
+    protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
     protected null|false|Closure $failedHandler = null;

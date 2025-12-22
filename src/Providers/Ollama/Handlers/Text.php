@@ -137,9 +137,9 @@ class Text
 
         // Ollama sends done_reason: "stop" even when there are tool calls
         // Override finish reason to ToolCalls when tool calls are present
-        $finishReason = ! empty($toolCalls)
-            ? FinishReason::ToolCalls
-            : $this->mapFinishReason($data);
+        $finishReason = $toolCalls === []
+            ? $this->mapFinishReason($data)
+            : FinishReason::ToolCalls;
 
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'message.content') ?? '',
