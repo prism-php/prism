@@ -250,6 +250,10 @@ class Tool
      */
     public function handle(...$args): string
     {
+        if ($this->fn === null) {
+            throw PrismException::toolHandlerNotDefined($this->name);
+        }
+
         try {
             $value = call_user_func($this->fn, ...$args);
 
