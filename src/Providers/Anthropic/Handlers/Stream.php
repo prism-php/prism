@@ -487,11 +487,11 @@ class Stream
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage(
                 content: $this->state->currentText(),
-                additionalContent: ! empty($this->state->currentThinking()) ? [
+                toolCalls: $toolCalls,
+                additionalContent: in_array($this->state->currentThinking(), ['', '0'], true) ? [] : [
                     'thinking' => $this->state->currentThinking(),
                     'thinking_signature' => $this->state->currentThinkingSignature(),
-                ] : [],
-                toolCalls: $toolCalls
+                ]
             ));
 
             $request->addMessage(new ToolResultMessage($toolResults));
