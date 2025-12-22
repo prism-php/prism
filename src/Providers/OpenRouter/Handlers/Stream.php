@@ -256,7 +256,7 @@ class Stream
      */
     protected function hasToolCalls(array $data): bool
     {
-        return isset($data['choices'][0]['delta']['tool_calls']);
+        return ! empty($data['choices'][0]['delta']['tool_calls']);
     }
 
     /**
