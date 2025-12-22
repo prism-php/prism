@@ -6,6 +6,7 @@ namespace Prism\Prism\Concerns;
 
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
+use JsonException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -15,9 +16,10 @@ use Throwable;
 trait CallsTools
 {
     /**
-     * @param  Tool[]  $tools
-     * @param  ToolCall[]  $toolCalls
-     * @return ToolResult[]
+     * @param array $tools
+     * @param array $toolCalls
+     * @return array
+     * @throws PrismException|JsonException
      */
     protected function callTools(array $tools, array $toolCalls): array
     {
@@ -55,6 +57,7 @@ trait CallsTools
      * @param Tool[] $tools
      * @param ToolCall[] $toolCalls
      * @return bool
+     * @throws PrismException
      */
     protected function hasDeferredTools(array $tools, array $toolCalls): bool
     {
@@ -62,7 +65,8 @@ trait CallsTools
     }
 
     /**
-     * @param  Tool[]  $tools
+     * @param Tool[] $tools
+     * @throws PrismException
      */
     protected function resolveTool(string $name, array $tools): Tool
     {
