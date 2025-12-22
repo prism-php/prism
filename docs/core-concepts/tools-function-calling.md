@@ -305,6 +305,56 @@ use Prism\Prism\Facades\Tool;
 $tool = Tool::make(CurrentWeatherTool::class);
 ```
 
+## Client-Executed Tools
+
+Sometimes you need tools that are executed by the client (e.g., frontend application) rather than on the server. Client-executed tools are defined without a handler function - simply omit the `using()` call:
+
+```php
+use Prism\Prism\Facades\Tool;
+
+$clientTool = Tool::as('browser_action')
+    ->for('Perform an action in the user\'s browser')
+    ->withStringParameter('action', 'The action to perform');
+    // Note: No using() call - this tool will be executed by the client
+```
+
+When the AI calls a client-executed tool, Prism will:
+1. Stop execution and return control to your application
+2. Set the response's `finishReason` to `FinishReason::ToolCalls`
+3. Include the tool calls in the response for your client to execute
+
+### Handling Client-Executed Tools
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\FinishReason;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withTools([$clientTool])
+    ->withMaxSteps(3)
+    ->withPrompt('Click the submit button')
+    ->asText();
+
+```
+
+### Streaming with Client-Executed Tools
+
+When streaming, client-executed tools emit a `ToolCallEvent` but no `ToolResultEvent`:
+
+```php
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withTools([$clientTool])
+    ->withMaxSteps(3)
+    ->withPrompt('Click the submit button')
+    ->asStream();
+```
+
+> [!NOTE]
+> Client-executed tools are useful for scenarios like browser automation, UI interactions, or any operation that must run on the user's device rather than the server.
+
 ## Tool Choice Options
 
 You can control how the AI uses tools with the `withToolChoice` method:
