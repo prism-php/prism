@@ -118,21 +118,12 @@ class Tool
      * Client-executed tools have no backend handler - the frontend
      * executes the tool and sends the result back to continue the conversation.
      *
-     * @see https://ai-sdk.dev/cookbook/next/render-visual-interface-in-chat
      */
     public function executesOnClient(): self
     {
         $this->clientExecuted = true;
 
         return $this;
-    }
-
-    /**
-     * Check if this tool is executed on the client/frontend.
-     */
-    public function isClientExecuted(): bool
-    {
-        return $this->clientExecuted;
     }
 
     public function withParameter(Schema $parameter, bool $required = true): self
@@ -253,6 +244,11 @@ class Tool
     public function hasParameters(): bool
     {
         return (bool) count($this->parameters);
+    }
+
+    public function isClientExecuted(): bool
+    {
+        return $this->clientExecuted;
     }
 
     /**
