@@ -16,6 +16,8 @@ use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -89,6 +91,15 @@ class Stream
                     timestamp: time(),
                     model: $data['model'] ?? $request->model(),
                     provider: 'openrouter'
+                );
+            }
+
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
                 );
             }
 
@@ -216,6 +227,12 @@ class Stream
                 }
 
                 $usage = $this->extractUsage($data);
+
+                $this->state->markStepFinished();
+                yield new StepFinishEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
 
                 yield new StreamEndEvent(
                     id: EventID::generate(),
@@ -373,6 +390,12 @@ class Stream
             ->withMessageId(EventID::generate('msg'));
 
         $depth++;
+
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         if ($depth < $request->maxSteps()) {
             $nextResponse = $this->sendRequest($request);
