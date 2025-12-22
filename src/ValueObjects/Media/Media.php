@@ -256,8 +256,6 @@ class Media
     }
 
     /**
-     * Get a file resource suitable for HTTP multipart uploads
-     *
      * @return resource
      */
     public function resource()
@@ -290,7 +288,6 @@ class Media
             return;
         }
 
-        /** @var \Illuminate\Http\Client\Response $response */
         $response = Http::get($this->url);
         $content = $response->body();
 

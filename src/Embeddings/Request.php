@@ -8,6 +8,7 @@ use Closure;
 use Prism\Prism\Concerns\ChecksSelf;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\PrismRequest;
+use Prism\Prism\ValueObjects\Media\Image;
 
 class Request implements PrismRequest
 {
@@ -15,6 +16,7 @@ class Request implements PrismRequest
 
     /**
      * @param  array<string>  $inputs
+     * @param  array<Image>  $images
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
@@ -23,6 +25,7 @@ class Request implements PrismRequest
         protected string $model,
         protected string $providerKey,
         protected array $inputs,
+        protected array $images,
         protected array $clientOptions,
         protected array $clientRetry,
         array $providerOptions = [],
@@ -52,6 +55,32 @@ class Request implements PrismRequest
     public function inputs(): array
     {
         return $this->inputs;
+    }
+
+    /**
+     * Get image inputs for embedding generation.
+     *
+     * @return array<Image>
+     */
+    public function images(): array
+    {
+        return $this->images;
+    }
+
+    /**
+     * Check if the request contains image inputs.
+     */
+    public function hasImages(): bool
+    {
+        return $this->images !== [];
+    }
+
+    /**
+     * Check if the request contains text inputs.
+     */
+    public function hasInputs(): bool
+    {
+        return $this->inputs !== [];
     }
 
     #[\Override]
