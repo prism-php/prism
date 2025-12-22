@@ -100,7 +100,7 @@ class Structured
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
-        if (!$this->hasDeferredTools($request->tools(), ToolCallMap::map($this->extractFunctionCalls($data))) && $this->shouldContinue($request)) {
+        if (! $this->hasDeferredTools($request->tools(), ToolCallMap::map($this->extractFunctionCalls($data))) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

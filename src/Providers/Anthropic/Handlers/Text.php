@@ -113,7 +113,7 @@ class Text
 
         $this->addStep($toolResults);
 
-        if (!$this->hasDeferredTools($this->request->tools(), $this->tempResponse->toolCalls) && $this->responseBuilder->steps->count() < $this->request->maxSteps()) {
+        if (! $this->hasDeferredTools($this->request->tools(), $this->tempResponse->toolCalls) && $this->responseBuilder->steps->count() < $this->request->maxSteps()) {
             return $this->handle();
         }
 

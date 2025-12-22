@@ -95,7 +95,7 @@ class Text
 
         $this->addStep($data, $request, $clientResponse, FinishReason::ToolCalls, $toolResults);
 
-        if (!$this->hasDeferredTools($request->tools(), $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? [])) && $this->shouldContinue($request)) {
+        if (! $this->hasDeferredTools($request->tools(), $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? [])) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

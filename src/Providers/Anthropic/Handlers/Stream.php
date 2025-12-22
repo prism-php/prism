@@ -451,6 +451,7 @@ class Stream
                 // Skip deferred tools - frontend will provide results
                 if ($tool->isClientExecuted()) {
                     $hasDeferred = true;
+
                     continue;
                 }
 
@@ -498,6 +499,7 @@ class Stream
                 timestamp: time(),
                 finishReason: FinishReason::ToolCalls
             );
+
             return;
         }
 

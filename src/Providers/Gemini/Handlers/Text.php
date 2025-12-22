@@ -156,7 +156,7 @@ class Text
 
         $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
 
-        if (!$this->hasDeferredTools($request->tools(), ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []))) && $this->shouldContinue($request)) {
+        if (! $this->hasDeferredTools($request->tools(), ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []))) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

@@ -100,7 +100,7 @@ class Text
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
-        if (!$this->hasDeferredTools($request->tools(), ToolCallMap::map(array_filter(data_get($data, 'output', []), fn(array $output): bool => $output['type'] === 'function_call')))
+        if (! $this->hasDeferredTools($request->tools(), ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')))
             &&
             $this->shouldContinue($request)
         ) {

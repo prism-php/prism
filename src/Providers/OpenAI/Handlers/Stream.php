@@ -359,6 +359,7 @@ class Stream
                 timestamp: time(),
                 finishReason: FinishReason::ToolCalls
             );
+
             return;
         }
 

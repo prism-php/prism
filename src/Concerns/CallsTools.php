@@ -16,9 +16,6 @@ use Throwable;
 trait CallsTools
 {
     /**
-     * @param array $tools
-     * @param array $toolCalls
-     * @return array
      * @throws PrismException|JsonException
      */
     protected function callTools(array $tools, array $toolCalls): array
@@ -54,9 +51,9 @@ trait CallsTools
     }
 
     /**
-     * @param Tool[] $tools
-     * @param ToolCall[] $toolCalls
-     * @return bool
+     * @param  Tool[]  $tools
+     * @param  ToolCall[]  $toolCalls
+     *
      * @throws PrismException
      */
     protected function hasDeferredTools(array $tools, array $toolCalls): bool
@@ -65,7 +62,8 @@ trait CallsTools
     }
 
     /**
-     * @param Tool[] $tools
+     * @param  Tool[]  $tools
+     *
      * @throws PrismException
      */
     protected function resolveTool(string $name, array $tools): Tool
