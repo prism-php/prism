@@ -95,7 +95,7 @@ class DataProtocolAdapter
             }
             flush();
 
-            if ($callback !== null && $pendingRequest instanceof \Prism\Prism\Text\PendingRequest) {
+            if ($callback !== null && $pendingRequest instanceof PendingRequest) {
                 $callback($pendingRequest, $collectedEvents);
             }
         }, 200, [
@@ -271,6 +271,7 @@ class DataProtocolAdapter
     {
         return match ($event->status) {
             'started' => $this->handleProviderToolStarted($event),
+            'completed' => $this->handleProviderToolCompleted($event),
             'result_received' => $this->handleProviderToolResult($event),
             default => null,
         };
@@ -288,6 +289,22 @@ class DataProtocolAdapter
             'toolCallId' => $event->itemId,
             'toolName' => $event->toolType,
             'input' => $event->data['input'] ?? [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function handleProviderToolCompleted(ProviderToolEvent $event): array
+    {
+        $inputJson = $event->data['input'] ?? '';
+        $input = is_string($inputJson) && $inputJson !== '' ? json_decode($inputJson, true) : [];
+
+        return [
+            'type' => 'tool-input-available',
+            'toolCallId' => $event->itemId,
+            'toolName' => $event->toolType,
+            'input' => $input ?? [],
         ];
     }
 
