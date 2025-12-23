@@ -4,6 +4,7 @@ namespace Prism\Prism\ValueObjects\Media;
 
 use finfo;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -288,6 +289,7 @@ class Media
             return;
         }
 
+        /** @var Response */
         $response = Http::get($this->url);
         $content = $response->body();
 
