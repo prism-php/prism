@@ -23,7 +23,7 @@ it('sends correct basic text generation payload', function (): void {
     Http::assertSent(function (Request $request): bool {
         $payload = $request->data();
 
-        expect($payload)->toHaveKeys(['model', 'messages', 'max_tokens']);
+        expect($payload)->toHaveKeys(['model', 'messages']);
         expect($payload['model'])->toBe('claude-3-5-haiku-latest');
         expect($payload['messages'])->toBe([
             [
@@ -36,7 +36,6 @@ it('sends correct basic text generation payload', function (): void {
                 ],
             ],
         ]);
-        expect($payload['max_tokens'])->toBe(2048);
 
         return true;
     });

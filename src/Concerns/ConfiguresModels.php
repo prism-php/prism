@@ -6,7 +6,7 @@ namespace Prism\Prism\Concerns;
 
 trait ConfiguresModels
 {
-    protected ?int $maxTokens = 2048;
+    protected ?int $maxTokens = null;
 
     protected int|float|null $temperature = null;
 

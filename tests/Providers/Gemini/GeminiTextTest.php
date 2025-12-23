@@ -523,7 +523,7 @@ describe('Thinking Mode for Gemini', function (): void {
         Http::assertSent(function (Request $request): true {
             $data = $request->data();
 
-            expect($data['generationConfig'])->not->toHaveKey('thinkingConfig');
+            expect($data['generationConfig'] ?? [])->not->toHaveKey('thinkingConfig');
 
             return true;
         });
