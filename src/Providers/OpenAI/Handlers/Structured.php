@@ -194,8 +194,8 @@ class Structured
             array_merge([
                 'model' => $request->model(),
                 'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_output_tokens' => $request->maxTokens(),
             ], Arr::whereNotNull([
+                'max_output_tokens' => $request->maxTokens(),
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
                 'metadata' => $request->providerOptions('metadata'),
