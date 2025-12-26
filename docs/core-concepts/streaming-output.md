@@ -254,6 +254,7 @@ All streaming approaches emit the same core events with consistent data structur
 - **`thinking_complete`** - End of reasoning session
 - **`tool_call`** - Tool invocation with arguments
 - **`tool_result`** - Tool execution results
+- **`tool_call_delta`** - Incremental tool call params chunks as they're generated
 - **`provider_tool_event`** - Provider-specific tool events (e.g., image generation, web search)
 - **`error`** - Error handling with recovery information
 - **`stream_end`** - Stream completion with usage statistics
