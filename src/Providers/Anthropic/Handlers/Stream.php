@@ -26,6 +26,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\Request;
@@ -371,12 +372,23 @@ class Stream
     /**
      * @param  array<string, mixed>  $delta
      */
-    protected function handleToolInputDelta(array $delta): null
+    protected function handleToolInputDelta(array $delta): ?ToolCallDeltaEvent
     {
         $partialJson = $delta['partial_json'] ?? '';
 
         if ($this->state->currentBlockIndex() !== null && isset($this->state->toolCalls()[$this->state->currentBlockIndex()])) {
             $this->state->appendToolCallInput($this->state->currentBlockIndex(), $partialJson);
+
+            $toolCall = $this->state->toolCalls()[$this->state->currentBlockIndex()];
+
+            return new ToolCallDeltaEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolId: $toolCall['id'],
+                toolName: $toolCall['name'],
+                delta: $partialJson,
+                messageId: $this->state->messageId()
+            );
         }
 
         return null;
