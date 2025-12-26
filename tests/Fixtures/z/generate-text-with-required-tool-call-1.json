@@ -1,0 +1,37 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "message": {
+        "content": "",
+        "reasoning_content": "\nThe user has just said \"Do something\" which is very vague and doesn't provide any specific instructions or requests. I have access to two tools:\n1. weather - for getting weather conditions for a city\n2. search - for searching current events or data\n\nSince the user hasn't specified what they want me to do, I should ask them for clarification about what they would like me to help them with. I shouldn't make assumptions or use the tools without understanding what they want.",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"query\":\"current events news today\"}",
+              "name": "search"
+            },
+            "id": "call_-8062758106233394160",
+            "index": 0,
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1765889375,
+  "id": "2025121620493361e6fbd932f44eec",
+  "model": "z-model",
+  "object": "chat.completion",
+  "request_id": "2025121620493361e6fbd932f44eec",
+  "usage": {
+    "completion_tokens": 117,
+    "prompt_tokens": 238,
+    "prompt_tokens_details": {
+      "cached_tokens": 43
+    },
+    "total_tokens": 355
+  }
+}
