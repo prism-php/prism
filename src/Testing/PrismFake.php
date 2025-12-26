@@ -20,6 +20,8 @@ use Prism\Prism\Images\Response as ImageResponse;
 use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -244,7 +246,15 @@ class PrismFake extends Provider
             provider: 'fake'
         );
 
+        yield new StepStartEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
         if ($response->steps->isNotEmpty()) {
+            $stepIndex = 0;
+            $totalSteps = $response->steps->count();
+
             foreach ($response->steps as $step) {
                 if ($step->text !== '') {
                     yield new TextStartEvent(
@@ -287,6 +297,20 @@ class PrismFake extends Provider
                         success: true
                     );
                 }
+
+                $stepIndex++;
+
+                // If this step has tool calls/results and there are more steps, end current step and start new one
+                if (($step->toolCalls !== [] || $step->toolResults !== []) && $stepIndex < $totalSteps) {
+                    yield new StepFinishEvent(
+                        id: EventID::generate(),
+                        timestamp: time()
+                    );
+                    yield new StepStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time()
+                    );
+                }
             }
         } elseif ($response->text !== '') {
             yield new TextStartEvent(
@@ -308,6 +332,11 @@ class PrismFake extends Provider
                 messageId: $messageId
             );
         }
+
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         yield new StreamEndEvent(
             id: EventID::generate(),

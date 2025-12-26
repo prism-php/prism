@@ -16,6 +16,8 @@ class StreamState
 
     protected bool $streamStarted = false;
 
+    protected bool $stepStarted = false;
+
     protected bool $textStarted = false;
 
     protected bool $thinkingStarted = false;
@@ -91,6 +93,20 @@ class StreamState
     public function markStreamStarted(): self
     {
         $this->streamStarted = true;
+
+        return $this;
+    }
+
+    public function markStepStarted(): self
+    {
+        $this->stepStarted = true;
+
+        return $this;
+    }
+
+    public function markStepFinished(): self
+    {
+        $this->stepStarted = false;
 
         return $this;
     }
@@ -314,6 +330,11 @@ class StreamState
     public function shouldEmitStreamStart(): bool
     {
         return ! $this->streamStarted;
+    }
+
+    public function shouldEmitStepStart(): bool
+    {
+        return ! $this->stepStarted;
     }
 
     public function shouldEmitTextStart(): bool
