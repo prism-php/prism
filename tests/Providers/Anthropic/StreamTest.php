@@ -312,8 +312,8 @@ describe('tools', function (): void {
 
         // Verify concatenated deltas from ToolCallDelta events of the first tool call is a valid json
         $paramsJsonString = collect($toolCallDeltaEvents)
-            ->filter(fn (ToolCallDeltaEvent $event) => $event->toolName === $firstToolCallDeltaEvent->toolName)
-            ->map(fn (ToolCallDeltaEvent $event) => $event->delta)
+            ->filter(fn (ToolCallDeltaEvent $event): bool => $event->toolName === $firstToolCallDeltaEvent->toolName)
+            ->map(fn (ToolCallDeltaEvent $event): string => $event->delta)
             ->join('');
 
         expect($paramsJsonString)->toBeJson();
