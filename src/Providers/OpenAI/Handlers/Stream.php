@@ -30,6 +30,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamState;
@@ -168,7 +169,11 @@ class Stream
             }
 
             if ($this->hasToolCalls($data)) {
-                $this->extractToolCalls($data, $reasoningItems);
+                $toolCallDeltaEvent = $this->extractToolCalls($data, $reasoningItems);
+
+                if ($toolCallDeltaEvent instanceof ToolCallDeltaEvent) {
+                    yield $toolCallDeltaEvent;
+                }
 
                 if ($this->isToolCallComplete($data)) {
                     $completedToolCall = $this->getCompletedToolCall($data);
@@ -289,7 +294,7 @@ class Stream
      * @param  array<string, mixed>  $data
      * @param  array<int, array<string, mixed>>  $reasoningItems
      */
-    protected function extractToolCalls(array $data, array $reasoningItems = []): void
+    protected function extractToolCalls(array $data, array $reasoningItems = []): ?ToolCallDeltaEvent
     {
         $type = data_get($data, 'type', '');
 
@@ -312,11 +317,29 @@ class Stream
 
             $this->state->addToolCall($index, $toolCall);
 
-            return;
+            return null;
         }
 
         if ($type === 'response.function_call_arguments.delta') {
-            // continue for now, only needed if we want to support streaming argument chunks
+            $callId = data_get($data, 'item_id');
+            $delta = data_get($data, 'delta', '');
+
+            $toolCalls = $this->state->toolCalls();
+            foreach ($toolCalls as $index => $call) {
+                if (($call['id'] ?? null) === $callId) {
+                    $currentArgs = $call['arguments'] ?? '';
+                    $this->state->updateToolCall($index, ['arguments' => $currentArgs.$delta]);
+
+                    return new ToolCallDeltaEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        toolId: $call['id'],
+                        toolName: $call['name'],
+                        delta: $delta,
+                        messageId: $this->state->messageId()
+                    );
+                }
+            }
         }
 
         if ($type === 'response.function_call_arguments.done') {
@@ -333,6 +356,8 @@ class Stream
                 }
             }
         }
+
+        return null;
     }
 
     /**
