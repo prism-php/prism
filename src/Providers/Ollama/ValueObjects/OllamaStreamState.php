@@ -39,8 +39,8 @@ class OllamaStreamState extends StreamState
     public function reset(): self
     {
         parent::reset();
-        $this->promptTokens = 0;
-        $this->completionTokens = 0;
+        // Note: Token counts are intentionally NOT reset here.
+        // They accumulate across tool-call turns to provide total usage.
 
         return $this;
     }

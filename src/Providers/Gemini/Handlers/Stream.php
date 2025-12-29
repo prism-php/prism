@@ -183,11 +183,9 @@ class Stream
                 }
             }
 
-            // Handle completion
             $finishReason = $this->mapFinishReason($data);
 
             if ($finishReason !== FinishReason::Unknown) {
-                // Emit thinking complete if we had thinking
                 if ($this->state->reasoningId() !== '') {
                     yield new ThinkingCompleteEvent(
                         id: EventID::generate(),
@@ -196,7 +194,6 @@ class Stream
                     );
                 }
 
-                // Emit text complete if we had text
                 if ($this->state->hasTextStarted()) {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
@@ -205,27 +202,29 @@ class Stream
                     );
                 }
 
-                // Extract grounding metadata if available
-                $groundingMetadata = $this->extractGroundingMetadata($data);
-
-                // Emit stream end event
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $finishReason,
-                    usage: $this->state->usage(),
-                    additionalContent: Arr::whereNotNull([
-                        'grounding_metadata' => $groundingMetadata,
-                        'thoughtSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
-                    ])
-                );
+                $this->state->withFinishReason($finishReason);
+                $this->state->withMetadata([
+                    'grounding_metadata' => $this->extractGroundingMetadata($data),
+                ]);
             }
         }
 
-        // Handle tool calls if present and not already handled
-        if ($this->state->hasToolCalls() && $this->mapFinishReason([]) === FinishReason::Unknown) {
+        if ($this->state->hasToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
+
+            return;
         }
+
+        yield new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage(),
+            additionalContent: Arr::whereNotNull([
+                'grounding_metadata' => $this->state->metadata()['grounding_metadata'] ?? null,
+                'thoughtSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
+            ])
+        );
     }
 
     /**
@@ -333,16 +332,26 @@ class Stream
             }
         }
 
-        // Add messages for next turn and continue streaming
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
             $request->addMessage(new ToolResultMessage($toolResults));
 
             $depth++;
             if ($depth < $request->maxSteps()) {
+                $previousUsage = $this->state->usage();
                 $this->state->reset();
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
+
+                if ($previousUsage instanceof \Prism\Prism\ValueObjects\Usage && $this->state->usage() instanceof \Prism\Prism\ValueObjects\Usage) {
+                    $this->state->withUsage(new Usage(
+                        promptTokens: $previousUsage->promptTokens + $this->state->usage()->promptTokens,
+                        completionTokens: $previousUsage->completionTokens + $this->state->usage()->completionTokens,
+                        cacheWriteInputTokens: ($previousUsage->cacheWriteInputTokens ?? 0) + ($this->state->usage()->cacheWriteInputTokens ?? 0),
+                        cacheReadInputTokens: ($previousUsage->cacheReadInputTokens ?? 0) + ($this->state->usage()->cacheReadInputTokens ?? 0),
+                        thoughtTokens: ($previousUsage->thoughtTokens ?? 0) + ($this->state->usage()->thoughtTokens ?? 0)
+                    ));
+                }
             }
         }
     }

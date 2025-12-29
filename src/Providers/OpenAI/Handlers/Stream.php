@@ -243,27 +243,33 @@ class Stream
             }
 
             if (data_get($data, 'type') === 'response.completed') {
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $this->mapFinishReason($data),
-                    usage: new Usage(
-                        promptTokens: data_get($data, 'response.usage.input_tokens'),
-                        completionTokens: data_get($data, 'response.usage.output_tokens'),
-                        cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
-                        thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
-                    ),
-                    additionalContent: Arr::whereNotNull([
-                        'response_id' => data_get($data, 'response.id'),
-                        'reasoningSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
-                    ])
-                );
+                $this->state->withFinishReason($this->mapFinishReason($data));
+                $this->state->addUsage(new Usage(
+                    promptTokens: data_get($data, 'response.usage.input_tokens'),
+                    completionTokens: data_get($data, 'response.usage.output_tokens'),
+                    cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
+                    thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
+                ));
+                $this->state->withMetadata(['response_id' => data_get($data, 'response.id')]);
             }
         }
 
         if ($this->state->hasToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
+
+            return;
         }
+
+        yield new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage() ?? new Usage(0, 0),
+            additionalContent: Arr::whereNotNull([
+                'response_id' => $this->state->metadata()['response_id'] ?? null,
+                'reasoningSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
+            ])
+        );
     }
 
     /**

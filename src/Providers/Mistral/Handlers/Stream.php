@@ -163,16 +163,21 @@ class Stream
                     );
                 }
 
-                $usage = $this->extractUsage($data);
+                $this->state->withFinishReason($finishReason);
 
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $finishReason,
-                    usage: $usage
-                );
+                $usage = $this->extractUsage($data);
+                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                    $this->state->addUsage($usage);
+                }
             }
         }
+
+        yield new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage()
+        );
     }
 
     /**

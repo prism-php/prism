@@ -165,7 +165,14 @@ class Stream
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
             if ($rawFinishReason !== null) {
                 $finishReason = $this->extractFinishReason($data);
+                if ($finishReason instanceof \Prism\Prism\Enums\FinishReason) {
+                    $this->state->withFinishReason($finishReason);
+                }
+
                 $usage = $this->extractUsage($data);
+                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                    $this->state->addUsage($usage);
+                }
             }
         }
 
@@ -194,8 +201,8 @@ class Stream
         yield new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
-            finishReason: $finishReason ?? FinishReason::Stop,
-            usage: $usage
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage()
         );
     }
 
