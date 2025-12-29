@@ -15,6 +15,7 @@ use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -123,6 +124,55 @@ it('can generate text using tools with streaming', function (): void {
             && isset($body['tools'])
             && $body['stream'] === true;
     });
+});
+
+it('emits ToolCallDelta events during streaming', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-tools-responses');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => "Search results for: {$query}"),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withTools($tools)
+        ->withMaxSteps(3)
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->asStream();
+
+    $toolCallDeltaEvents = [];
+
+    foreach ($response as $event) {
+        if ($event instanceof ToolCallDeltaEvent) {
+            $toolCallDeltaEvents[] = $event;
+        }
+    }
+
+    expect($toolCallDeltaEvents)->not->toBeEmpty('Expected to find at least one ToolCallDeltaEvent event');
+
+    // Verify ToolCallDelta events have the expected structure
+    $firstToolCallDeltaEvent = $toolCallDeltaEvents[0];
+    expect($firstToolCallDeltaEvent->id)->not->toBeEmpty();
+    expect($firstToolCallDeltaEvent->timestamp)->not->toBeEmpty()->toBeInt();
+    expect($firstToolCallDeltaEvent->toolId)->not->toBeEmpty();
+    expect($firstToolCallDeltaEvent->toolName)->not->toBeEmpty();
+    expect($firstToolCallDeltaEvent->delta)->toBeString();
+
+    // Verify concatenated deltas from ToolCallDelta events of the first tool call is a valid json
+    $paramsJsonString = collect($toolCallDeltaEvents)
+        ->filter(fn (ToolCallDeltaEvent $event): bool => $event->toolName === $firstToolCallDeltaEvent->toolName)
+        ->map(fn (ToolCallDeltaEvent $event): string => $event->delta)
+        ->join('');
+
+    expect($paramsJsonString)->toBeJson();
 });
 
 it('can process a complete conversation with multiple tool calls', function (): void {
