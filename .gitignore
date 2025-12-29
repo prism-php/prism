@@ -13,3 +13,4 @@ ray.php
 CLAUDE.md
 .phpunit.result.cache
 .ddev/
+.claude/
