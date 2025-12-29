@@ -83,10 +83,13 @@ class Stream
             }
         }
 
-        // Handle tool calls if present
         if ($this->state->hasToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
+
+            return;
         }
+
+        yield $this->emitStreamEndEvent();
     }
 
     /**
@@ -116,10 +119,9 @@ class Stream
         $message = $event['message'] ?? [];
         $this->state->withMessageId($message['id'] ?? EventID::generate());
 
-        // Capture initial usage data
         $usageData = $message['usage'] ?? [];
         if (! empty($usageData)) {
-            $this->state->withUsage(new Usage(
+            $this->state->addUsage(new Usage(
                 promptTokens: $usageData['input_tokens'] ?? 0,
                 completionTokens: $usageData['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
@@ -230,12 +232,21 @@ class Stream
     /**
      * @param  array<string, mixed>  $event
      */
-    protected function handleMessageStop(array $event): StreamEndEvent
+    protected function handleMessageStop(array $event): ?StreamEndEvent
+    {
+        if (! $this->state->finishReason() instanceof \Prism\Prism\Enums\FinishReason) {
+            $this->state->withFinishReason(FinishReason::Stop);
+        }
+
+        return null;
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
     {
         return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
-            finishReason: FinishReason::Stop, // Default, will be updated by message_delta
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
             usage: $this->state->usage(),
             citations: $this->state->citations() !== [] ? $this->state->citations() : null,
             additionalContent: [

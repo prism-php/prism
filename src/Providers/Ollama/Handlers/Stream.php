@@ -66,7 +66,10 @@ class Stream
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
 
-        $this->state->reset();
+        if ($depth === 0) {
+            $this->state->reset();
+        }
+
         $text = '';
 
         while (! $response->getBody()->eof()) {
@@ -280,6 +283,7 @@ class Stream
         // Continue streaming if within step limit
         $depth++;
         if ($depth < $request->maxSteps()) {
+            $this->state->reset();
             $nextResponse = $this->sendRequest($request);
             yield from $this->processStream($nextResponse, $request, $depth);
         }

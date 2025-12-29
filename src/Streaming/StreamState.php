@@ -202,6 +202,25 @@ class StreamState
         return $this;
     }
 
+    public function addUsage(Usage $usage): self
+    {
+        if (! $this->usage instanceof \Prism\Prism\ValueObjects\Usage) {
+            $this->usage = $usage;
+
+            return $this;
+        }
+
+        $this->usage = new Usage(
+            promptTokens: $this->usage->promptTokens + $usage->promptTokens,
+            completionTokens: $this->usage->completionTokens + $usage->completionTokens,
+            cacheWriteInputTokens: ($this->usage->cacheWriteInputTokens ?? 0) + ($usage->cacheWriteInputTokens ?? 0),
+            cacheReadInputTokens: ($this->usage->cacheReadInputTokens ?? 0) + ($usage->cacheReadInputTokens ?? 0),
+            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0)
+        );
+
+        return $this;
+    }
+
     public function withFinishReason(FinishReason $finishReason): self
     {
         $this->finishReason = $finishReason;
@@ -330,7 +349,9 @@ class StreamState
     {
         $this->messageId = '';
         $this->reasoningId = '';
-        $this->streamStarted = false;
+        // Note: streamStarted is intentionally NOT reset here.
+        // Fresh state is created per-call via constructor; reset() is only called
+        // between tool-call turns where we need to preserve streamStarted = true.
         $this->textStarted = false;
         $this->thinkingStarted = false;
         $this->currentText = '';
@@ -339,8 +360,6 @@ class StreamState
         $this->currentBlockType = null;
         $this->toolCalls = [];
         $this->citations = [];
-        $this->usage = null;
-        $this->finishReason = null;
         $this->model = '';
         $this->provider = '';
         $this->metadata = null;

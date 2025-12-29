@@ -150,7 +150,6 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                // Complete text if we have any
                 if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
@@ -159,17 +158,21 @@ class Stream
                     );
                 }
 
-                // Extract usage information from the final chunk
-                $usage = $this->extractUsage($data);
+                $this->state->withFinishReason($finishReason);
 
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $finishReason,
-                    usage: $usage
-                );
+                $usage = $this->extractUsage($data);
+                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                    $this->state->addUsage($usage);
+                }
             }
         }
+
+        yield new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage()
+        );
     }
 
     /**

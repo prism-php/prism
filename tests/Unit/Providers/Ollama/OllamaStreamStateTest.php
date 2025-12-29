@@ -113,18 +113,18 @@ it('supports fluent chaining with base StreamState methods', function (): void {
         ->and($state->hasStreamStarted())->toBeTrue();
 });
 
-it('reset clears token counts', function (): void {
+it('reset preserves token counts for accumulation across turns', function (): void {
     $state = new OllamaStreamState;
     $state->addPromptTokens(100);
     $state->addCompletionTokens(50);
 
     $state->reset();
 
-    expect($state->promptTokens())->toBe(0)
-        ->and($state->completionTokens())->toBe(0);
+    expect($state->promptTokens())->toBe(100)
+        ->and($state->completionTokens())->toBe(50);
 });
 
-it('reset clears base StreamState properties', function (): void {
+it('reset preserves stream and usage state for multi-turn conversations', function (): void {
     $state = new OllamaStreamState;
     $state->withMessageId('msg-123')
         ->withModel('llama2')
@@ -141,12 +141,12 @@ it('reset clears base StreamState properties', function (): void {
     expect($state->messageId())->toBe('')
         ->and($state->model())->toBe('')
         ->and($state->provider())->toBe('')
-        ->and($state->hasStreamStarted())->toBeFalse()
+        ->and($state->hasStreamStarted())->toBeTrue()
         ->and($state->currentText())->toBe('')
         ->and($state->toolCalls())->toBe([])
-        ->and($state->usage())->toBeNull()
-        ->and($state->promptTokens())->toBe(0)
-        ->and($state->completionTokens())->toBe(0);
+        ->and($state->usage())->not->toBeNull()
+        ->and($state->promptTokens())->toBe(200)
+        ->and($state->completionTokens())->toBe(100);
 });
 
 it('reset returns self for fluent chaining', function (): void {
@@ -189,7 +189,7 @@ it('maintains independent token counters', function (): void {
     expect($state->completionTokens())->toBe(50);
 });
 
-it('reset allows reuse of state object', function (): void {
+it('reset accumulates tokens across resets for multi-turn usage', function (): void {
     $state = new OllamaStreamState;
 
     $state->addPromptTokens(100)->addCompletionTokens(50);
@@ -197,12 +197,12 @@ it('reset allows reuse of state object', function (): void {
     expect($state->completionTokens())->toBe(50);
 
     $state->reset();
-    expect($state->promptTokens())->toBe(0);
-    expect($state->completionTokens())->toBe(0);
+    expect($state->promptTokens())->toBe(100);
+    expect($state->completionTokens())->toBe(50);
 
     $state->addPromptTokens(200)->addCompletionTokens(75);
-    expect($state->promptTokens())->toBe(200);
-    expect($state->completionTokens())->toBe(75);
+    expect($state->promptTokens())->toBe(300);
+    expect($state->completionTokens())->toBe(125);
 });
 
 it('works with base StreamState text accumulation', function (): void {
