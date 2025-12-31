@@ -10,6 +10,8 @@ use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -126,6 +128,7 @@ class DataProtocolAdapter
     {
         $data = match ($event::class) {
             StreamStartEvent::class => $this->handleStreamStart($event),
+            StepStartEvent::class => $this->handleStepStart($event),
             TextStartEvent::class => $this->handleTextStart($event),
             TextDeltaEvent::class => $this->handleTextDelta($event),
             TextCompleteEvent::class => $this->handleTextComplete($event),
@@ -136,6 +139,7 @@ class DataProtocolAdapter
             ToolResultEvent::class => $this->handleToolResult($event),
             ArtifactEvent::class => $this->handleArtifact($event),
             ProviderToolEvent::class => $this->handleProviderTool($event),
+            StepFinishEvent::class => $this->handleStepFinish($event),
             StreamEndEvent::class => $this->handleStreamEnd($event),
             ErrorEvent::class => $this->handleError($event),
             default => $this->handleDefault($event),
@@ -385,6 +389,26 @@ class DataProtocolAdapter
         return [
             'type' => 'data-'.$event->type()->value,
             'data' => $event->toArray(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function handleStepStart(StepStartEvent $event): array
+    {
+        return [
+            'type' => 'start-step',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function handleStepFinish(StepFinishEvent $event): array
+    {
+        return [
+            'type' => 'finish-step',
         ];
     }
 }

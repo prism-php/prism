@@ -10,7 +10,10 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
@@ -286,4 +289,77 @@ it('emits thinking chunks when provider sends thinking field', function (): void
     expect($thinkingTexts)->not->toBeEmpty();
     expect($finalText)->toContain('Here is the answer:');
     expect($lastFinishReason)->toBe(FinishReason::Stop);
+});
+
+it('emits step start and step finish events', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-basic-text');
+
+    $response = Prism::text()
+        ->using('ollama', 'granite3-dense:8b')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    // Check for StepStartEvent after StreamStartEvent
+    $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+    expect($stepStartEvents)->toHaveCount(1);
+
+    // Check for StepFinishEvent before StreamEndEvent
+    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+    expect($stepFinishEvents)->toHaveCount(1);
+
+    // Verify order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
+    $eventTypes = array_map(get_class(...), $events);
+    $streamStartIndex = array_search(StreamStartEvent::class, $eventTypes);
+    $stepStartIndex = array_search(StepStartEvent::class, $eventTypes);
+    $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+    $streamEndIndex = array_search(StreamEndEvent::class, $eventTypes);
+
+    expect($streamStartIndex)->toBeLessThan($stepStartIndex);
+    expect($stepStartIndex)->toBeLessThan($stepFinishIndex);
+    expect($stepFinishIndex)->toBeLessThan($streamEndIndex);
+});
+
+it('emits multiple step events with tool calls', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-tools');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => 'The tigers game is at 3pm today'),
+    ];
+
+    $response = Prism::text()
+        ->using('ollama', 'qwen3:14b')
+        ->withTools($tools)
+        ->withMaxSteps(6)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    // With tool calls, we should have multiple step start/finish pairs
+    $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+
+    // At least 2 steps: one for tool call, one for final response
+    expect(count($stepStartEvents))->toBeGreaterThanOrEqual(2);
+    expect(count($stepFinishEvents))->toBeGreaterThanOrEqual(2);
+
+    // Verify step start/finish pairs are balanced
+    expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
 });

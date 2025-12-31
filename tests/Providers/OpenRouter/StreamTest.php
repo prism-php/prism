@@ -8,7 +8,10 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -50,15 +53,15 @@ it('can stream text with a prompt', function (): void {
     expect($events[0]->provider)->toBe('openrouter');
 
     // Check we have TextStartEvent
-    $textStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextStartEvent);
+    $textStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof TextStartEvent);
     expect($textStartEvents)->toHaveCount(1);
 
     // Check we have TextDeltaEvents
-    $textDeltaEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextDeltaEvent);
+    $textDeltaEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof TextDeltaEvent);
     expect($textDeltaEvents)->not->toBeEmpty();
 
     // Check we have TextCompleteEvent
-    $textCompleteEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextCompleteEvent);
+    $textCompleteEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof TextCompleteEvent);
     expect($textCompleteEvents)->toHaveCount(1);
 
     // Check last event is StreamEndEvent
@@ -241,7 +244,7 @@ it('can stream text with empty parameters tool calls when using gpt-5', function
     expect($toolResultEvents)->toHaveCount(1);
     expect($text)->toContain('The current time is '.$currentTime);
 
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StreamEndEvent);
     expect($streamEndEvents)->not->toBeEmpty();
 });
 
@@ -272,7 +275,7 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
     expect($events)->not->toBeEmpty();
 
     // Check for ThinkingStartEvent
-    $thinkingStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof ThinkingStartEvent);
+    $thinkingStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof ThinkingStartEvent);
     expect($thinkingStartEvents)->toHaveCount(1);
 
     // Check for ThinkingEvent
@@ -283,10 +286,104 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
     expect($text)->toBe('The answer to 2 + 2 is 4.');
 
     // Check for usage with reasoning tokens
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StreamEndEvent);
     expect($streamEndEvents)->toHaveCount(1);
 
     $streamEndEvent = array_values($streamEndEvents)[0];
     expect($streamEndEvent->usage)->not->toBeNull();
     expect($streamEndEvent->usage->thoughtTokens)->toBe(12);
+});
+
+it('emits step start and step finish events', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-a-prompt');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    // Check for StepStartEvent after StreamStartEvent
+    $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+    expect($stepStartEvents)->toHaveCount(1);
+
+    // Check for StepFinishEvent before StreamEndEvent
+    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+    expect($stepFinishEvents)->toHaveCount(1);
+
+    // Verify order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
+    $eventTypes = array_map(get_class(...), $events);
+    $streamStartIndex = array_search(StreamStartEvent::class, $eventTypes);
+    $stepStartIndex = array_search(StepStartEvent::class, $eventTypes);
+    $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+    $streamEndIndex = array_search(StreamEndEvent::class, $eventTypes);
+
+    expect($streamStartIndex)->toBeLessThan($stepStartIndex);
+    expect($stepStartIndex)->toBeLessThan($stepFinishIndex);
+    expect($stepFinishIndex)->toBeLessThan($streamEndIndex);
+});
+
+it('emits multiple step events with tool calls', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-tools');
+
+    $weatherTool = Tool::as('weather')
+        ->for('Get weather for a city')
+        ->withStringParameter('city', 'The city name')
+        ->using(fn (string $city): string => "The weather in {$city} is 75°F and sunny");
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withTools([$weatherTool])
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in San Francisco?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    // Extract step events
+    $stepStartEvents = array_values(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent));
+    $stepFinishEvents = array_values(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent));
+
+    // Should have 2 steps: tool call step + final response step
+    expect($stepStartEvents)->toHaveCount(2);
+    expect($stepFinishEvents)->toHaveCount(2);
+
+    // Verify step start/finish pairs are balanced
+    expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
+
+    // Verify event ordering using indices
+    $getIndices = fn (string $class): array => array_keys(array_filter($events, fn (StreamEvent $e): bool => $e instanceof $class));
+
+    $streamStartIdx = $getIndices(StreamStartEvent::class)[0];
+    $stepStartIndices = $getIndices(StepStartEvent::class);
+    $stepFinishIndices = $getIndices(StepFinishEvent::class);
+    $toolCallIndices = $getIndices(ToolCallEvent::class);
+    $toolResultIndices = $getIndices(ToolResultEvent::class);
+    $streamEndIdx = $getIndices(StreamEndEvent::class)[0];
+
+    // Verify overall structure: StreamStart -> Steps -> StreamEnd
+    expect($streamStartIdx)->toBeLessThan($stepStartIndices[0]);
+    expect($stepFinishIndices[count($stepFinishIndices) - 1])->toBeLessThan($streamEndIdx);
+
+    // Verify each step has proper start/finish ordering
+    foreach ($stepStartIndices as $i => $startIdx) {
+        expect($startIdx)->toBeLessThan($stepFinishIndices[$i], "Step $i: start should come before finish");
+    }
+
+    // Verify tool call happens within first step (before first step finish)
+    expect($toolCallIndices[0])->toBeGreaterThan($stepStartIndices[0]);
+    expect($toolCallIndices[0])->toBeLessThan($stepFinishIndices[0]);
+
+    // Verify tool result happens after tool call but before second step starts
+    expect($toolResultIndices[0])->toBeGreaterThan($toolCallIndices[0]);
+    expect($toolResultIndices[0])->toBeLessThan($stepStartIndices[1]);
 });
