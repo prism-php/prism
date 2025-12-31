@@ -17,6 +17,8 @@ use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -96,6 +98,16 @@ class Stream
                     provider: 'gemini'
                 );
                 $this->state->markStreamStarted();
+            }
+
+            // Emit step start event once per step
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
             }
 
             // Update usage data from each chunk
@@ -217,6 +229,13 @@ class Stream
             return;
         }
 
+        // Emit step finish before stream end
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
         yield new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -337,6 +356,13 @@ class Stream
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
             $request->addMessage(new ToolResultMessage($toolResults));
+
+            // Emit step finish after tool calls
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
 
             $depth++;
             if ($depth < $request->maxSteps()) {

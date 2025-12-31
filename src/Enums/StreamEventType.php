@@ -20,4 +20,6 @@ enum StreamEventType: string
     case Citation = 'citation';
     case Error = 'error';
     case StreamEnd = 'stream_end';
+    case StepStart = 'step_start';
+    case StepFinish = 'step_finish';
 }
