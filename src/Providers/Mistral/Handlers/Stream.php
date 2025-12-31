@@ -20,6 +20,8 @@ use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -91,6 +93,15 @@ class Stream
                     timestamp: time(),
                     model: $request->model(),
                     provider: 'mistral'
+                );
+            }
+
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
                 );
             }
 
@@ -171,6 +182,12 @@ class Stream
                 }
             }
         }
+
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         yield new StreamEndEvent(
             id: EventID::generate(),
@@ -258,6 +275,12 @@ class Stream
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         $this->state->resetTextState();
         $this->state->withMessageId(EventID::generate());
