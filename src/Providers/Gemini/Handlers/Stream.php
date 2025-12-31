@@ -121,6 +121,8 @@ class Stream
                 // Check if this is the final part of the tool calls
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                     yield from $this->handleToolCalls($request, $depth, $data);
+
+                    return;
                 }
 
                 continue;

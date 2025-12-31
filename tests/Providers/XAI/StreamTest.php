@@ -113,6 +113,12 @@ it('can generate text using tools with streaming', function (): void {
         ->and($toolCallEvents)->toHaveCount(2)
         ->and($toolResultEvents)->toHaveCount(2);
 
+    // Verify only one StreamStartEvent and one StreamEndEvent
+    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    expect($streamStartEvents)->toHaveCount(1);
+    expect($streamEndEvents)->toHaveCount(1);
+
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);

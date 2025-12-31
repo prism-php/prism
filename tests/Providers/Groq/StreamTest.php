@@ -12,6 +12,7 @@ use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -111,6 +112,12 @@ it('can generate text using tools with streaming', function (): void {
     expect($text)->not->toBeEmpty();
     expect($toolCallEvents)->not->toBeEmpty();
     expect($toolResultEvents)->not->toBeEmpty();
+
+    // Verify only one StreamStartEvent and one StreamEndEvent
+    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    expect($streamStartEvents)->toHaveCount(1);
+    expect($streamEndEvents)->toHaveCount(1);
 });
 
 it('handles maximum tool call depth exceeded', function (): void {

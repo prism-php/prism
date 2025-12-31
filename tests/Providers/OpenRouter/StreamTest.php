@@ -187,9 +187,11 @@ it('can stream text with tool calls', function (): void {
     // Verify text from first response
     expect($text)->toContain("I'll help you get the weather for you.");
 
-    // Check for StreamEndEvent with usage
+    // Verify only one StreamStartEvent and one StreamEndEvent
+    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamStartEvent);
     $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof StreamEndEvent);
-    expect($streamEndEvents)->not->toBeEmpty();
+    expect($streamStartEvents)->toHaveCount(1);
+    expect($streamEndEvents)->toHaveCount(1);
 
     $lastStreamEnd = array_values($streamEndEvents)[array_key_last(array_values($streamEndEvents))];
     expect($lastStreamEnd->usage)->not->toBeNull();
