@@ -215,6 +215,10 @@ export default defineConfig({
                 text: "XAI",
                 link: "/providers/xai",
               },
+              {
+                text: "Perplexity",
+                link: "/providers/perplexity",
+              },
             ],
           },
           {

@@ -93,6 +93,7 @@ We currently offer first-party support for these leading AI providers:
 - [Ollama](/providers/ollama.md)
 - [OpenAI](/providers/openai.md)
 - [xAI](/providers/xai.md)
+- [Perplexity](/providers/perplexity.md)
 
 Each provider brings its own strengths to the table, and Prism makes it easy to use them all through a consistent, elegant interface.
 

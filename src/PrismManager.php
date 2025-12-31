@@ -20,6 +20,7 @@ use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
+use Prism\Prism\Providers\Perplexity\Perplexity;
 use RuntimeException;
 
 class PrismManager
@@ -148,6 +149,11 @@ class PrismManager
             apiKey: $config['api_key'] ?? '',
             baseUrl: $config['url'] ?? ''
         );
+    }
+
+    protected function createPerplexityProvider(array $config): Perplexity
+    {
+        return new Perplexity(apiKey: $config['api_key'] ?? '', url: $config['url'] ?? '');
     }
 
     /**
