@@ -268,9 +268,15 @@ it('yields ToolCall events before ToolResult events', function (): void {
 
     $toolCallEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolCallEvent);
     $toolResultEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolResultEvent);
+    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
 
     expect($toolCallEvents)->not->toBeEmpty();
     expect($toolResultEvents)->not->toBeEmpty();
+
+    // Verify only one StreamStartEvent and one StreamEndEvent
+    expect($streamStartEvents)->toHaveCount(1);
+    expect($streamEndEvents)->toHaveCount(1);
 
     $firstToolCallEvent = array_values($toolCallEvents)[0];
     expect($firstToolCallEvent->toolCall)->not->toBeNull();

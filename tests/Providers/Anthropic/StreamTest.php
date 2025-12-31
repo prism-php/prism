@@ -19,6 +19,7 @@ use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
@@ -163,6 +164,12 @@ describe('tools', function (): void {
         $lastEvent = end($events);
         expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
         expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
+
+        // Verify only one StreamStartEvent and one StreamEndEvent
+        $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+        $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
+        expect($streamStartEvents)->toHaveCount(1);
+        expect($streamEndEvents)->toHaveCount(1);
 
         // Verify the HTTP request
         Http::assertSent(function (Request $request): bool {

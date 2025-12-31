@@ -114,7 +114,7 @@ class Stream
     /**
      * @param  array<string, mixed>  $event
      */
-    protected function handleMessageStart(array $event): StreamStartEvent
+    protected function handleMessageStart(array $event): ?StreamStartEvent
     {
         $message = $event['message'] ?? [];
         $this->state->withMessageId($message['id'] ?? EventID::generate());
@@ -128,6 +128,13 @@ class Stream
                 cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null
             ));
         }
+
+        // Only emit StreamStartEvent once per streaming session
+        if (! $this->state->shouldEmitStreamStart()) {
+            return null;
+        }
+
+        $this->state->markStreamStarted();
 
         return new StreamStartEvent(
             id: EventID::generate(),

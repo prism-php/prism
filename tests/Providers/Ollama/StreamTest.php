@@ -115,6 +115,12 @@ it('can generate text using tools with streaming', function (): void {
 
     // For the basic tools test, validate completion state
     expect($finishReasonFound)->toBeTrue();
+
+    // Verify only one StreamStartEvent and one StreamEndEvent
+    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    expect($streamStartEvents)->toHaveCount(1);
+    expect($streamEndEvents)->toHaveCount(1);
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
