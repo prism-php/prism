@@ -1,0 +1,26 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "\nThis image is a **stylized black - and - white illustration of a diamond (gemstone)**. It features the characteristic geometric shape of a diamond, with triangular facets (both on the upper and lower portions) and bold black outlines that define its structure. This type of graphic is often used to represent concepts like luxury, value, jewelry, or preciousness, and it has a clean, minimalist design typical of iconography or simple symbolic art. Diamond",
+        "reasoning_content": "Okay, let's see. The image is a black and white outline of a diamond, like a gemstone. It's a simple geometric shape with triangular facets, typical of a diamond's cut. So it's a diamond icon or symbol, maybe used for representing jewelry, value, or something precious. The design is stylized with straight lines forming the diamond's shape, including the top and bottom parts with the triangular divisions. Yep, that's a diamond illustration, probably a vector or simple graphic.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1766220958,
+  "id": "20251220165552f3cf03baa3604788",
+  "model": "z-model.v",
+  "object": "chat.completion",
+  "request_id": "20251220165552f3cf03baa3604788",
+  "usage": {
+    "completion_tokens": 199,
+    "prompt_tokens": 853,
+    "prompt_tokens_details": {
+      "cached_tokens": 5
+    },
+    "total_tokens": 1052
+  }
+}
