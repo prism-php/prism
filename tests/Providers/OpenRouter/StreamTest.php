@@ -248,6 +248,40 @@ it('can stream text with empty parameters tool calls when using gpt-5', function
     expect($streamEndEvents)->not->toBeEmpty();
 });
 
+describe('client-executed tools', function (): void {
+    it('stops streaming when client-executed tool is called', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
 it('can handle reasoning/thinking tokens in streaming', function (): void {
     FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-reasoning');
 
