@@ -461,6 +461,40 @@ it('can pass parallel tool call setting', function (): void {
     Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
 });
 
+describe('client-executed tools', function (): void {
+    it('stops streaming when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::ToolCalls);
+    });
+});
+
 it('emits usage information', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 

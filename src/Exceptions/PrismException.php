@@ -76,4 +76,11 @@ class PrismException extends Exception
             $provider,
         ));
     }
+
+    public static function toolHandlerNotDefined(string $toolName): self
+    {
+        return new self(
+            sprintf('Tool (%s) has no handler defined', $toolName)
+        );
+    }
 }

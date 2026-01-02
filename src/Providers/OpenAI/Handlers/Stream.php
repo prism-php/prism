@@ -108,6 +108,16 @@ class Stream
 
                 $this->state->markStreamStarted();
 
+                // Emit step start after stream start
+                if ($this->state->shouldEmitStepStart()) {
+                    $this->state->markStepStarted();
+
+                    yield new StepStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time()
+                    );
+                }
+
                 continue;
             }
 
@@ -398,6 +408,23 @@ class Stream
                 toolResult: $result,
                 messageId: EventID::generate()
             );
+        }
+
+        // skip calling llm if there are pending deferred tools
+        if ($this->hasDeferredTools($request->tools(), $mappedToolCalls)) {
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
+            yield new StreamEndEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                finishReason: FinishReason::ToolCalls
+            );
+
+            return;
         }
 
         $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
