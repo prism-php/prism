@@ -39,7 +39,7 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():mixed|callable():mixed */
+    /** @var Closure():mixed|callable():mixed|null */
     protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
@@ -69,6 +69,19 @@ class Tool
     public function using(Closure|callable $fn): self
     {
         $this->fn = $fn;
+
+        return $this;
+    }
+
+    /**
+     * Mark this tool as client-executed (no server-side handler).
+     *
+     * Client-executed tools are sent to the AI model but their execution
+     * is handled by the client application rather than the server.
+     */
+    public function clientExecuted(): self
+    {
+        $this->fn = null;
 
         return $this;
     }
@@ -246,6 +259,11 @@ class Tool
         return (bool) count($this->parameters);
     }
 
+    public function isClientExecuted(): bool
+    {
+        return $this->fn === null;
+    }
+
     /**
      * @return null|false|Closure(Throwable,array<int|string,mixed>):string
      */
@@ -261,6 +279,10 @@ class Tool
      */
     public function handle(...$args): string|ToolOutput|ToolError
     {
+        if ($this->fn === null) {
+            throw PrismException::toolHandlerNotDefined($this->name);
+        }
+
         try {
             $value = call_user_func($this->fn, ...$args);
 

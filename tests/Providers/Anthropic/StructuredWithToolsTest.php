@@ -202,6 +202,36 @@ describe('Structured output with tools for Anthropic', function (): void {
         expect($response->toolResults)->toBeArray();
     });
 
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'anthropic/structured-with-client-executed-tool');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withProviderOptions(['use_tool_calling' => true])
+            ->withPrompt('Use the client tool')
+            ->asStructured();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('includes strict field in tool definition when specified', function (): void {
         Prism::fake();
 
