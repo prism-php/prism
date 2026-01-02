@@ -1,0 +1,2 @@
+{"id":"chatcmpl-client-executed","object":"chat.completion","created":1740311145,"model":"llama-3.3-70b-versatile","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call_client_tool","type":"function","function":{"name":"client_tool","arguments":"{\"input\": \"test input\"}"}}]},"logprobs":null,"finish_reason":"tool_calls"}],"usage":{"queue_time":0.1,"prompt_tokens":100,"prompt_time":0.01,"completion_tokens":50,"completion_time":0.1,"total_tokens":150,"total_time":0.2},"system_fingerprint":"fp_test"}
+

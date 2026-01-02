@@ -38,7 +38,7 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():mixed|callable():mixed */
+    /** @var Closure():mixed|callable():mixed|null */
     protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
@@ -231,6 +231,11 @@ class Tool
         return (bool) count($this->parameters);
     }
 
+    public function isClientExecuted(): bool
+    {
+        return $this->fn === null;
+    }
+
     /**
      * @return null|false|Closure(Throwable,array<int|string,mixed>):string
      */
@@ -246,6 +251,10 @@ class Tool
      */
     public function handle(...$args): string|ToolOutput
     {
+        if ($this->fn === null) {
+            throw PrismException::toolHandlerNotDefined($this->name);
+        }
+
         try {
             $value = call_user_func($this->fn, ...$args);
 

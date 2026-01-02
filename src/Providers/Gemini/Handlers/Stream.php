@@ -305,6 +305,7 @@ class Stream
         array $data = []
     ): Generator {
         $mappedToolCalls = [];
+        $hasDeferred = false;
 
         // Convert tool calls to ToolCall objects
         foreach ($this->state->toolCalls() as $toolCallData) {
@@ -316,6 +317,14 @@ class Stream
         foreach ($mappedToolCalls as $toolCall) {
             try {
                 $tool = $this->resolveTool($toolCall->name, $request->tools());
+
+                // Skip deferred tools - frontend will provide results
+                if ($tool->isClientExecuted()) {
+                    $hasDeferred = true;
+
+                    continue;
+                }
+
                 $output = call_user_func_array($tool->handle(...), $toolCall->arguments());
 
                 if (is_string($output)) {
@@ -371,6 +380,24 @@ class Stream
             }
         }
 
+        // skip calling llm if there are pending deferred tools
+        if ($hasDeferred) {
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
+            yield new StreamEndEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                finishReason: FinishReason::ToolCalls
+            );
+
+            return;
+        }
+
+        // Add messages for next turn and continue streaming
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
             $request->addMessage(new ToolResultMessage($toolResults));

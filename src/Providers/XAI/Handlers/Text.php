@@ -83,7 +83,7 @@ class Text
 
         $this->addStep($data, $request, $toolResults);
 
-        if ($this->shouldContinue($request)) {
+        if (! $this->hasDeferredTools($request->tools(), $toolCalls) && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

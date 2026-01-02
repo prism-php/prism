@@ -1,0 +1,2 @@
+{"model":"claude-sonnet-4-20250514","id":"msg_client_executed_structured","type":"message","role":"assistant","content":[{"type":"text","text":"I'll use the client tool to help you with that request."},{"type":"tool_use","id":"toolu_client_structured","name":"client_tool","input":{"input":"test input"}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":200,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":50}}
+

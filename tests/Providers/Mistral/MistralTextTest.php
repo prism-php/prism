@@ -106,6 +106,26 @@ describe('Text generation', function (): void {
         );
     });
 
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('mistral', 'mistral-large-latest')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('handles specific tool choice', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/generate-text-with-required-tool-call');
 

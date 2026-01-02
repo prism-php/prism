@@ -107,6 +107,26 @@ describe('Text generation for Groq', function (): void {
         );
     });
 
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'groq/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('groq', 'llama-3.3-70b-versatile')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->generate();
+
+        expect($response->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('handles specific tool choice', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/generate-text-with-required-tool-call');
 
