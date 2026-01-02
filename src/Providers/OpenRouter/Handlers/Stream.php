@@ -102,6 +102,13 @@ class Stream
                 );
             }
 
+            // Extract usage from any chunk that has it
+            // OpenRouter sends usage in a separate final chunk when stream_options.include_usage=true
+            $usage = $this->extractUsage($data);
+            if ($usage instanceof Usage) {
+                $this->state->addUsage($usage);
+            }
+
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
@@ -232,13 +239,6 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
-            }
-
-            // Extract usage from any chunk that has it
-            // OpenRouter sends usage in a separate final chunk when stream_options.include_usage=true
-            $usage = $this->extractUsage($data);
-            if ($usage instanceof Usage) {
-                $this->state->addUsage($usage);
             }
         }
 
@@ -389,7 +389,15 @@ class Stream
         }
 
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->markStepFinished();
         yield new StepFinishEvent(

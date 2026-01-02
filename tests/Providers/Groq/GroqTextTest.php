@@ -7,6 +7,7 @@ namespace Tests\Providers\Groq;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -116,6 +117,26 @@ describe('Text generation for Groq', function (): void {
         expect($response->text)->toBe(
             "Based on the weather, you won't need a coat for the Tigers game today in Detroit. It's going to be 75° and sunny. The game starts at 3 pm."
         );
+    });
+
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'groq/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('groq', 'llama-3.3-70b-versatile')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
     });
 
     it('handles specific tool choice', function (): void {

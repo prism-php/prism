@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Citations\CitationSourcePositionType;
 use Prism\Prism\Enums\Citations\CitationSourceType;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -549,6 +550,66 @@ describe('Anthropic extended thinking', function (): void {
         expect($response->steps->last()->messages[1])
             ->additionalContent->thinking->toBe($expected_thinking)
             ->additionalContent->thinking_signature->toBe($expected_signature);
+    });
+});
+
+describe('client-executed tools', function (): void {
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
+    it('executes server tools and stops for client-executed tools in mixed scenario', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-mixed-tools');
+
+        // Server-executed tool (has handler)
+        $serverTool = Tool::as('server_tool')
+            ->for('A server-side tool')
+            ->withStringParameter('query', 'Search query')
+            ->using(fn (string $query): string => "Result for: {$query}");
+
+        // Client-executed tool (no handler)
+        $clientTool = Tool::as('client_tool')
+            ->for('A client-side tool')
+            ->withStringParameter('action', 'Action to perform');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools([$serverTool, $clientTool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use both tools')
+            ->asText();
+
+        // Should stop with ToolCalls finish reason (client tool pending)
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+
+        // Should have both tool calls in response
+        expect($response->toolCalls)->toHaveCount(2);
+        expect($response->toolCalls[0]->name)->toBe('server_tool');
+        expect($response->toolCalls[1]->name)->toBe('client_tool');
+
+        // Server tool should have been executed (result in toolResults)
+        expect($response->toolResults)->toHaveCount(1);
+        expect($response->toolResults[0]->toolName)->toBe('server_tool');
+        expect($response->toolResults[0]->result)->toBe('Result for: weather in SF');
+
+        // Only one step (stopped for client tool)
+        expect($response->steps)->toHaveCount(1);
     });
 });
 

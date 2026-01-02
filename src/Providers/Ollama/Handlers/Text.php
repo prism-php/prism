@@ -91,7 +91,12 @@ class Text
     {
         $toolCalls = $this->mapToolCalls(data_get($data, 'message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $toolResults = $this->callTools(
+            $request->tools(),
+            $toolCalls,
+            $hasPendingToolCalls,
+        );
 
         $this->addStep($data, $request, $toolResults);
 
@@ -102,7 +107,7 @@ class Text
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
@@ -130,10 +135,18 @@ class Text
      */
     protected function addStep(array $data, Request $request, array $toolResults = []): void
     {
+        $toolCalls = $this->mapToolCalls(data_get($data, 'message.tool_calls', []) ?? []);
+
+        // Ollama sends done_reason: "stop" even when there are tool calls
+        // Override finish reason to ToolCalls when tool calls are present
+        $finishReason = $toolCalls === []
+            ? $this->mapFinishReason($data)
+            : FinishReason::ToolCalls;
+
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'message.content') ?? '',
-            finishReason: $this->mapFinishReason($data),
-            toolCalls: $this->mapToolCalls(data_get($data, 'message.tool_calls', []) ?? []),
+            finishReason: $finishReason,
+            toolCalls: $toolCalls,
             toolResults: $toolResults,
             providerToolCalls: [],
             usage: new Usage(

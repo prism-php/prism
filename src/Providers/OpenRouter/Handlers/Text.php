@@ -58,7 +58,12 @@ class Text
     {
         $toolCalls = ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $toolResults = $this->callTools(
+            $request->tools(),
+            $toolCalls,
+            $hasPendingToolCalls,
+        );
 
         $this->addStep($data, $request, $toolResults);
 
@@ -70,7 +75,7 @@ class Text
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

@@ -8,10 +8,15 @@ use Generator;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
+use JsonException;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolOutput;
@@ -25,13 +30,15 @@ trait CallsTools
      * @param  Tool[]  $tools
      * @param  ToolCall[]  $toolCalls
      * @return ToolResult[]
+     *
+     * @throws PrismException|JsonException
      */
-    protected function callTools(array $tools, array $toolCalls): array
+    protected function callTools(array $tools, array $toolCalls, bool &$hasPendingToolCalls): array
     {
         $toolResults = [];
 
         // Consume generator to execute all tools and collect results
-        foreach ($this->callToolsAndYieldEvents($tools, $toolCalls, EventID::generate(), $toolResults) as $event) {
+        foreach ($this->callToolsAndYieldEvents($tools, $toolCalls, EventID::generate(), $toolResults, $hasPendingToolCalls) as $event) {
             // Events are discarded for non-streaming handlers
         }
 
@@ -46,13 +53,15 @@ trait CallsTools
      * @param  ToolResult[]  $toolResults  Results are collected into this array by reference
      * @return Generator<ToolResultEvent|ArtifactEvent>
      */
-    protected function callToolsAndYieldEvents(array $tools, array $toolCalls, string $messageId, array &$toolResults): Generator
+    protected function callToolsAndYieldEvents(array $tools, array $toolCalls, string $messageId, array &$toolResults, bool &$hasPendingToolCalls): Generator
     {
-        $groupedToolCalls = $this->groupToolCallsByConcurrency($tools, $toolCalls);
+        $serverToolCalls = $this->filterServerExecutedToolCalls($tools, $toolCalls, $hasPendingToolCalls);
+
+        $groupedToolCalls = $this->groupToolCallsByConcurrency($tools, $serverToolCalls);
 
         $executionResults = $this->executeToolsWithConcurrency($tools, $groupedToolCalls, $messageId);
 
-        foreach (array_keys($toolCalls) as $index) {
+        foreach (collect($executionResults)->keys()->sort() as $index) {
             $result = $executionResults[$index];
 
             $toolResults[] = $result['toolResult'];
@@ -64,8 +73,39 @@ trait CallsTools
     }
 
     /**
+     * Filter out client-executed tool calls, setting the pending flag if any are found.
+     *
      * @param  Tool[]  $tools
      * @param  ToolCall[]  $toolCalls
+     * @return array<int, ToolCall> Server-executed tool calls with original indices preserved
+     */
+    protected function filterServerExecutedToolCalls(array $tools, array $toolCalls, bool &$hasPendingToolCalls): array
+    {
+        $serverToolCalls = [];
+
+        foreach ($toolCalls as $index => $toolCall) {
+            try {
+                $tool = $this->resolveTool($toolCall->name, $tools);
+
+                if ($tool->isClientExecuted()) {
+                    $hasPendingToolCalls = true;
+
+                    continue;
+                }
+
+                $serverToolCalls[$index] = $toolCall;
+            } catch (PrismException) {
+                // Unknown tool - keep it so error handling works in executeToolCall
+                $serverToolCalls[$index] = $toolCall;
+            }
+        }
+
+        return $serverToolCalls;
+    }
+
+    /**
+     * @param  Tool[]  $tools
+     * @param  array<int, ToolCall>  $toolCalls
      * @return array{concurrent: array<int, ToolCall>, sequential: array<int, ToolCall>}
      */
     protected function groupToolCallsByConcurrency(array $tools, array $toolCalls): array
@@ -198,7 +238,30 @@ trait CallsTools
     }
 
     /**
+     * Yield stream completion events when client-executed tools are pending.
+     *
+     * @return Generator<StepFinishEvent|StreamEndEvent>
+     */
+    protected function yieldToolCallsFinishEvents(StreamState $state): Generator
+    {
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
+        yield new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: FinishReason::ToolCalls,
+            usage: $state->usage(),
+            citations: $state->citations(),
+        );
+    }
+
+    /**
      * @param  Tool[]  $tools
+     *
+     * @throws PrismException
      */
     protected function resolveTool(string $name, array $tools): Tool
     {
