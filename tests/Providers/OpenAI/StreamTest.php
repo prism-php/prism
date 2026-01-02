@@ -11,7 +11,10 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
@@ -458,6 +461,40 @@ it('can pass parallel tool call setting', function (): void {
     Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
 });
 
+describe('client-executed tools', function (): void {
+    it('stops streaming when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::ToolCalls);
+    });
+});
+
 it('emits usage information', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
 
@@ -647,4 +684,75 @@ it('filters text_verbosity if null', function (): void {
 
         return true;
     });
+});
+
+it('emits step start and step finish events', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-basic-text-responses');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    // Check for StepStartEvent after StreamStartEvent
+    $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+    expect($stepStartEvents)->toHaveCount(1);
+
+    // Check for StepFinishEvent before StreamEndEvent
+    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+    expect($stepFinishEvents)->toHaveCount(1);
+
+    // Verify order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
+    $eventTypes = array_map(get_class(...), $events);
+    $streamStartIndex = array_search(StreamStartEvent::class, $eventTypes);
+    $stepStartIndex = array_search(StepStartEvent::class, $eventTypes);
+    $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+    $streamEndIndex = array_search(StreamEndEvent::class, $eventTypes);
+
+    expect($streamStartIndex)->toBeLessThan($stepStartIndex);
+    expect($stepStartIndex)->toBeLessThan($stepFinishIndex);
+    expect($stepFinishIndex)->toBeLessThan($streamEndIndex);
+});
+
+it('emits multiple step events with tool calls', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-tools-responses');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => "Search results for: {$query}"),
+    ];
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withTools($tools)
+        ->withMaxSteps(4)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    // With tool calls, we should have multiple step start/finish pairs
+    $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+
+    // At least 2 steps: one for tool call, one for final response
+    expect(count($stepStartEvents))->toBeGreaterThanOrEqual(2)
+        ->and(count($stepFinishEvents))->toBeGreaterThanOrEqual(2)
+        ->and(count($stepStartEvents))->toBe(count($stepFinishEvents));
 });

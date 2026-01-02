@@ -523,6 +523,28 @@ describe('Anthropic extended thinking', function (): void {
     });
 });
 
+describe('client-executed tools', function (): void {
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asText();
+
+        expect($response->finishReason)->toBe(\Prism\Prism\Enums\FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
 describe('exceptions', function (): void {
     it('throws a RateLimitException if the Anthropic responds with a 429', function (): void {
         Http::fake([

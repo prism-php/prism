@@ -1,0 +1,40 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "functionCall": {
+              "name": "client_tool",
+              "args": {
+                "input": "test input"
+              }
+            }
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.00003298009687569
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 100,
+    "candidatesTokenCount": 50,
+    "totalTokenCount": 150,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 100
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 50
+      }
+    ]
+  },
+  "modelVersion": "gemini-1.5-flash"
+}
+

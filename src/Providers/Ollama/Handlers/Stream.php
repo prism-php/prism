@@ -17,6 +17,8 @@ use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -88,6 +90,16 @@ class Stream
                     provider: 'ollama'
                 );
                 $this->state->markStreamStarted()->withMessageId(EventID::generate());
+            }
+
+            // Emit step start event once per step
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
             }
 
             // Accumulate token counts
@@ -185,6 +197,13 @@ class Stream
                     );
                 }
 
+                // Emit step finish before stream end
+                $this->state->markStepFinished();
+                yield new StepFinishEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
+
                 // Emit stream end event with usage
                 yield new StreamEndEvent(
                     id: EventID::generate(),
@@ -276,9 +295,33 @@ class Stream
             );
         }
 
+        // skip calling llm if there are pending deferred tools
+        if ($this->hasDeferredTools($request->tools(), $mappedToolCalls)) {
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
+            yield new StreamEndEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                finishReason: FinishReason::ToolCalls
+            );
+
+            return;
+        }
+
         // Add messages for next turn
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+
+        // Emit step finish after tool calls
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         // Continue streaming if within step limit
         $depth++;

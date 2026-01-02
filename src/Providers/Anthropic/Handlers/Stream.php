@@ -17,6 +17,8 @@ use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -77,17 +79,27 @@ class Stream
             $streamEvent = $this->processEvent($event);
 
             if ($streamEvent instanceof Generator) {
-                yield from $streamEvent;
+                foreach ($streamEvent as $event) {
+                    yield $event;
+                }
             } elseif ($streamEvent instanceof StreamEvent) {
                 yield $streamEvent;
             }
         }
 
         if ($this->state->hasToolCalls()) {
-            yield from $this->handleToolCalls($request, $depth);
+            foreach ($this->handleToolCalls($request, $depth) as $item) {
+                yield $item;
+            }
 
             return;
         }
+
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         yield $this->emitStreamEndEvent();
     }
@@ -113,8 +125,9 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $event
+     * @return Generator<StreamEvent>
      */
-    protected function handleMessageStart(array $event): ?StreamStartEvent
+    protected function handleMessageStart(array $event): Generator
     {
         $message = $event['message'] ?? [];
         $this->state->withMessageId($message['id'] ?? EventID::generate());
@@ -130,18 +143,25 @@ class Stream
         }
 
         // Only emit StreamStartEvent once per streaming session
-        if (! $this->state->shouldEmitStreamStart()) {
-            return null;
+        if ($this->state->shouldEmitStreamStart()) {
+            $this->state->markStreamStarted();
+
+            yield new StreamStartEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                model: $message['model'] ?? 'unknown',
+                provider: 'anthropic'
+            );
         }
 
-        $this->state->markStreamStarted();
+        if ($this->state->shouldEmitStepStart()) {
+            $this->state->markStepStarted();
 
-        return new StreamStartEvent(
-            id: EventID::generate(),
-            timestamp: time(),
-            model: $message['model'] ?? 'unknown',
-            provider: 'anthropic'
-        );
+            yield new StepStartEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+        }
     }
 
     /**
@@ -473,9 +493,18 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
+        $hasDeferred = false;
         foreach ($toolCalls as $toolCall) {
             try {
                 $tool = $this->resolveTool($toolCall->name, $request->tools());
+
+                // Skip deferred tools - frontend will provide results
+                if ($tool->isClientExecuted()) {
+                    $hasDeferred = true;
+
+                    continue;
+                }
+
                 $result = call_user_func_array($tool->handle(...), $toolCall->arguments());
 
                 $toolResult = new ToolResult(
@@ -513,6 +542,23 @@ class Stream
             }
         }
 
+        // skip calling llm if there are pending deferred tools
+        if ($hasDeferred) {
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
+            yield new StreamEndEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                finishReason: FinishReason::ToolCalls
+            );
+
+            return;
+        }
+
         // Add messages to request for next turn
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage(
@@ -525,6 +571,13 @@ class Stream
             ));
 
             $request->addMessage(new ToolResultMessage($toolResults));
+
+            // Emit step finish after tool calls
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
 
             // Continue streaming if within step limit
             $depth++;

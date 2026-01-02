@@ -172,7 +172,7 @@ class Structured
         $this->request->addMessage($message);
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
-        if ($this->canContinue()) {
+        if (! $this->hasDeferredTools($this->request->tools(), $toolCalls) && $this->canContinue()) {
             return $this->handle();
         }
 

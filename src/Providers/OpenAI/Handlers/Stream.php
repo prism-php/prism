@@ -21,6 +21,8 @@ use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -106,7 +108,26 @@ class Stream
 
                 $this->state->markStreamStarted();
 
+                // Emit step start after stream start
+                if ($this->state->shouldEmitStepStart()) {
+                    $this->state->markStepStarted();
+
+                    yield new StepStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time()
+                    );
+                }
+
                 continue;
+            }
+
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
             }
 
             if ($this->hasReasoningSummaryDelta($data)) {
@@ -260,6 +281,12 @@ class Stream
             return;
         }
 
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
         yield new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -383,8 +410,32 @@ class Stream
             );
         }
 
+        // skip calling llm if there are pending deferred tools
+        if ($this->hasDeferredTools($request->tools(), $mappedToolCalls)) {
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
+            yield new StreamEndEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                finishReason: FinishReason::ToolCalls
+            );
+
+            return;
+        }
+
         $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+
+        // Emit step finish after tool calls
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         $depth++;
 
