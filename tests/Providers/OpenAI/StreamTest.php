@@ -6,6 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
@@ -461,6 +462,40 @@ it('can pass parallel tool call setting', function (): void {
     expect($fullResponse)->not->toBeEmpty();
 
     Http::assertSent(fn (Request $request): bool => $request->data()['parallel_tool_calls'] === false);
+});
+
+describe('client-executed tools', function (): void {
+    it('stops streaming when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter');
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
 });
 
 it('emits usage information', function (): void {

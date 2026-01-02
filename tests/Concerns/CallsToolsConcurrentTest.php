@@ -49,11 +49,13 @@ it('executes sequential tools in order', function (): void {
     ];
 
     $toolResults = [];
+    $hasPendingToolCalls = false;
     $events = iterator_to_array($this->caller->callToolsAndYieldEvents(
         [$tool1, $tool2],
         $toolCalls,
         'msg123',
-        $toolResults
+        $toolResults,
+        $hasPendingToolCalls
     ));
 
     expect($toolResults)->toHaveCount(2);
@@ -99,11 +101,13 @@ it('executes concurrent tools in parallel but maintains event order', function (
     ];
 
     $toolResults = [];
+    $hasPendingToolCalls = false;
     $events = iterator_to_array($this->caller->callToolsAndYieldEvents(
         [$tool1, $tool2, $tool3],
         $toolCalls,
         'msg123',
-        $toolResults
+        $toolResults,
+        $hasPendingToolCalls
     ));
 
     // Verify results are in original order despite parallel execution
@@ -161,11 +165,13 @@ it('handles mixed concurrent and sequential tools correctly', function (): void 
     ];
 
     $toolResults = [];
+    $hasPendingToolCalls = false;
     $events = iterator_to_array($this->caller->callToolsAndYieldEvents(
         [$concurrentTool1, $sequentialTool, $concurrentTool2],
         $toolCalls,
         'msg123',
-        $toolResults
+        $toolResults,
+        $hasPendingToolCalls
     ));
 
     // Verify all tools executed
@@ -211,11 +217,13 @@ it('handles errors in concurrent tools while maintaining order', function (): vo
     ];
 
     $toolResults = [];
+    $hasPendingToolCalls = false;
     $events = iterator_to_array($this->caller->callToolsAndYieldEvents(
         [$tool1, $tool3],
         $toolCalls,
         'msg123',
-        $toolResults
+        $toolResults,
+        $hasPendingToolCalls
     ));
 
     // All tool calls should have results (including error)
@@ -260,10 +268,11 @@ it('groups tools correctly by concurrency status', function (): void {
         new ToolCall('call1', 'concurrent', ['input' => 'test1']),
         new ToolCall('call2', 'sequential', ['input' => 'test2']),
     ];
-
+    $hasPendingToolCalls = false;
     $grouped = $this->caller->groupToolCallsByConcurrency(
         [$concurrentTool, $sequentialTool],
-        $toolCalls
+        $toolCalls,
+        $hasPendingToolCalls
     );
 
     expect($grouped)->toHaveKeys(['concurrent', 'sequential']);

@@ -150,7 +150,8 @@ class Structured
     protected function executeCustomToolsAndFinalize(array $toolCalls, Response $tempResponse): Response
     {
         $customToolCalls = $this->filterCustomToolCalls($toolCalls);
-        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
+        $hasPendingToolCalls = false;
+        $toolResults = $this->callTools($this->request->tools(), $customToolCalls, $hasPendingToolCalls);
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
         return $this->responseBuilder->toResponse();
@@ -162,7 +163,8 @@ class Structured
     protected function executeCustomToolsAndContinue(array $toolCalls, Response $tempResponse): Response
     {
         $customToolCalls = $this->filterCustomToolCalls($toolCalls);
-        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
+        $hasPendingToolCalls = false;
+        $toolResults = $this->callTools($this->request->tools(), $customToolCalls, $hasPendingToolCalls);
 
         $message = new ToolResultMessage($toolResults);
         if ($toolResultCacheType = $this->request->providerOptions('tool_result_cache_type')) {
@@ -173,7 +175,7 @@ class Structured
         $this->request->resetToolChoice();
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
-        if ($this->canContinue()) {
+        if (! $hasPendingToolCalls && $this->canContinue()) {
             return $this->handle();
         }
 
