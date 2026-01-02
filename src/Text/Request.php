@@ -11,6 +11,7 @@ use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Media\Media;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
 
@@ -25,6 +26,7 @@ class Request implements PrismRequest
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
+     * @param  Media[]  $additionalContent
      * @param  array<int, ProviderTool>  $providerTools
      */
     public function __construct(
@@ -41,6 +43,7 @@ class Request implements PrismRequest
         protected array $clientOptions,
         protected array $clientRetry,
         protected string|ToolChoice|null $toolChoice,
+        protected array $additionalContent,
         array $providerOptions = [],
         protected array $providerTools = [],
     ) {
@@ -141,5 +144,13 @@ class Request implements PrismRequest
         $this->messages = array_merge($this->messages, [$message]);
 
         return $this;
+    }
+
+    /**
+     * @return Media[]
+     */
+    public function additionalContent(): array
+    {
+        return $this->additionalContent;
     }
 }
