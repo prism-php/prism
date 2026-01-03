@@ -9,6 +9,7 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
+use Prism\Prism\Events\Broadcasting\ArtifactBroadcast;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
 use Prism\Prism\Events\Broadcasting\ProviderToolEventBroadcast;
 use Prism\Prism\Events\Broadcasting\StreamEndBroadcast;
@@ -21,6 +22,7 @@ use Prism\Prism\Events\Broadcasting\ThinkingCompleteBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingStartBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolResultBroadcast;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -75,6 +77,7 @@ class BroadcastAdapter
             ThinkingCompleteEvent::class => new ThinkingCompleteBroadcast($event, $this->channels),
             ToolCallEvent::class => new ToolCallBroadcast($event, $this->channels),
             ToolResultEvent::class => new ToolResultBroadcast($event, $this->channels),
+            ArtifactEvent::class => new ArtifactBroadcast($event, $this->channels),
             ProviderToolEvent::class => new ProviderToolEventBroadcast($event, $this->channels),
             ErrorEvent::class => new ErrorBroadcast($event, $this->channels),
             StreamEndEvent::class => new StreamEndBroadcast($event, $this->channels),

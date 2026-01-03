@@ -9,6 +9,7 @@ use Illuminate\Support\MultipleItemsFoundException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolOutput;
 use Prism\Prism\ValueObjects\ToolResult;
 use Throwable;
 
@@ -26,17 +27,22 @@ trait CallsTools
                 $tool = $this->resolveTool($toolCall->name, $tools);
 
                 try {
-                    $result = call_user_func_array(
+                    $output = call_user_func_array(
                         $tool->handle(...),
                         $toolCall->arguments()
                     );
+
+                    if (is_string($output)) {
+                        $output = new ToolOutput(result: $output);
+                    }
 
                     return new ToolResult(
                         toolCallId: $toolCall->id,
                         toolName: $toolCall->name,
                         args: $toolCall->arguments(),
-                        result: $result,
+                        result: $output->result,
                         toolCallResultId: $toolCall->resultId,
+                        artifacts: $output->artifacts,
                     );
                 } catch (Throwable $e) {
                     if ($e instanceof PrismException) {

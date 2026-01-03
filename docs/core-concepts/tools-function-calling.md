@@ -369,6 +369,145 @@ foreach ($response->steps as $step) {
 }
 ```
 
+## Tool Artifacts
+
+Sometimes tools need to produce binary data like images, audio, or files alongside their text response. Prism's Artifact system lets you return rich data without bloating the LLM's context window.
+
+### The Problem with Binary Data
+
+Normally, everything your tool returns goes to the LLM as context. This works fine for text, but for binary data like generated images:
+- Base64-encoded images would waste tokens
+- The LLM can't meaningfully process raw binary data
+- Large payloads slow down responses
+
+### The Solution: ToolOutput with Artifacts
+
+Instead of returning a string, return a `ToolOutput` that separates the text result (for the LLM) from artifacts (for your application):
+
+```php
+use Prism\Prism\Facades\Tool;
+use Prism\Prism\ValueObjects\Artifact;
+use Prism\Prism\ValueObjects\ToolOutput;
+
+$imageTool = Tool::as('generate_image')
+    ->for('Generate an image from a prompt')
+    ->withStringParameter('prompt', 'The image prompt')
+    ->using(function (string $prompt): ToolOutput {
+        // Your image generation logic
+        $imageData = $this->imageGenerator->generate($prompt);
+
+        return new ToolOutput(
+            result: json_encode(['status' => 'success', 'description' => $prompt]),
+            artifacts: [
+                Artifact::fromRawContent(
+                    content: $imageData,
+                    mimeType: 'image/png',
+                    metadata: ['width' => 1024, 'height' => 1024],
+                    id: 'generated-image-001',
+                ),
+            ],
+        );
+    });
+```
+
+The `result` goes to the LLM. The `artifacts` travel through the streaming system to your application.
+
+### Creating Artifacts
+
+The `Artifact` class represents binary or structured data:
+
+```php
+use Prism\Prism\ValueObjects\Artifact;
+
+// From raw content (automatically base64 encoded)
+$artifact = Artifact::fromRawContent(
+    content: file_get_contents('image.png'),
+    mimeType: 'image/png',
+    metadata: ['width' => 800, 'height' => 600],
+    id: 'my-image-id',
+);
+
+// From already base64-encoded data
+$artifact = new Artifact(
+    data: base64_encode($rawData),
+    mimeType: 'application/pdf',
+    metadata: ['pages' => 5],
+    id: 'report-001',
+);
+
+// Get raw content back
+$rawContent = $artifact->rawContent();
+```
+
+### Handling Artifacts in Streams
+
+Artifacts are emitted as `ArtifactEvent` through all streaming methods:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
+
+// Using asStream()
+foreach (Prism::text()->withTools([$imageTool])->asStream() as $event) {
+    if ($event instanceof ArtifactEvent) {
+        $artifact = $event->artifact;
+        file_put_contents(
+            "output/{$event->toolName}_{$artifact->id}.png",
+            $artifact->rawContent()
+        );
+    }
+}
+
+// Using asDataStreamResponse() with callback
+Prism::text()
+    ->withTools([$imageTool])
+    ->asDataStreamResponse(function ($pendingRequest, $events) use ($conversationId) {
+        foreach ($events as $event) {
+            if ($event instanceof ArtifactEvent) {
+                Attachment::create([
+                    'conversation_id' => $conversationId,
+                    'data' => $event->artifact->rawContent(),
+                    'mime_type' => $event->artifact->mimeType,
+                ]);
+            }
+        }
+    });
+```
+
+### Non-Streaming Mode
+
+In non-streaming mode, artifacts are available on the `ToolResult` objects:
+
+```php
+$response = Prism::text()
+    ->withTools([$imageTool])
+    ->withMaxSteps(3)
+    ->withPrompt('Generate an image of a sunset')
+    ->asText();
+
+foreach ($response->toolResults as $result) {
+    if ($result->hasArtifacts()) {
+        foreach ($result->artifacts as $artifact) {
+            // Process artifact
+            file_put_contents(
+                "output/{$artifact->id}.png",
+                $artifact->rawContent()
+            );
+        }
+    }
+}
+```
+
+### Backward Compatibility
+
+Tools returning `string` continue to work unchanged. The `ToolOutput` return type is optional:
+
+```php
+// Both are valid:
+->using(fn (string $query): string => "Result: {$query}");
+->using(fn (string $query): ToolOutput => new ToolOutput(result: "Result: {$query}"));
+```
+
 ## Provider Tools
 
 In addition to custom tools that you define, Prism supports **provider tools** - built-in capabilities offered directly by AI providers. These are specialized tools that leverage the provider's own infrastructure and services.
