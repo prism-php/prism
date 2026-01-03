@@ -20,6 +20,7 @@ use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tools\LaravelMcpTool;
+use Prism\Prism\ValueObjects\ToolOutput;
 use Throwable;
 use TypeError;
 
@@ -37,7 +38,7 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():string|callable():string */
+    /** @var Closure():mixed|callable():mixed */
     protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
@@ -243,16 +244,23 @@ class Tool
      *
      * @throws PrismException|Throwable
      */
-    public function handle(...$args): string
+    public function handle(...$args): string|ToolOutput
     {
         try {
             $value = call_user_func($this->fn, ...$args);
 
-            if (! is_string($value)) {
-                throw PrismException::invalidReturnTypeInTool($this->name, new TypeError('Return value must be of type string'));
+            if (is_string($value)) {
+                return $value;
             }
 
-            return $value;
+            if ($value instanceof ToolOutput) {
+                return $value;
+            }
+
+            throw PrismException::invalidReturnTypeInTool(
+                $this->name,
+                new TypeError('Return value must be of type string or ToolOutput')
+            );
         } catch (Throwable $e) {
             return $this->handleToolException($e, $args);
         }

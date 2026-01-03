@@ -16,6 +16,7 @@ use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -368,6 +369,17 @@ class Stream
                 toolResult: $result,
                 messageId: $this->state->messageId()
             );
+
+            foreach ($result->artifacts as $artifact) {
+                yield new ArtifactEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    artifact: $artifact,
+                    toolCallId: $result->toolCallId,
+                    toolName: $result->toolName,
+                    messageId: $this->state->messageId(),
+                );
+            }
         }
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));

@@ -14,6 +14,7 @@ use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Providers\Anthropic\ValueObjects\AnthropicStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
@@ -35,6 +36,7 @@ use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolOutput;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
@@ -476,13 +478,18 @@ class Stream
         foreach ($toolCalls as $toolCall) {
             try {
                 $tool = $this->resolveTool($toolCall->name, $request->tools());
-                $result = call_user_func_array($tool->handle(...), $toolCall->arguments());
+                $output = call_user_func_array($tool->handle(...), $toolCall->arguments());
+
+                if (is_string($output)) {
+                    $output = new ToolOutput(result: $output);
+                }
 
                 $toolResult = new ToolResult(
                     toolCallId: $toolCall->id,
                     toolName: $toolCall->name,
                     args: $toolCall->arguments(),
-                    result: $result
+                    result: $output->result,
+                    artifacts: $output->artifacts,
                 );
 
                 $toolResults[] = $toolResult;
@@ -494,6 +501,17 @@ class Stream
                     messageId: $this->state->messageId(),
                     success: true
                 );
+
+                foreach ($toolResult->artifacts as $artifact) {
+                    yield new ArtifactEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        artifact: $artifact,
+                        toolCallId: $toolCall->id,
+                        toolName: $toolCall->name,
+                        messageId: $this->state->messageId(),
+                    );
+                }
             } catch (Throwable $e) {
                 $errorResultObj = new ToolResult(
                     toolCallId: $toolCall->id,

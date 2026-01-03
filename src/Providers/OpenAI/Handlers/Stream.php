@@ -20,6 +20,7 @@ use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
@@ -381,6 +382,17 @@ class Stream
                 toolResult: $result,
                 messageId: EventID::generate()
             );
+
+            foreach ($result->artifacts as $artifact) {
+                yield new ArtifactEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    artifact: $artifact,
+                    toolCallId: $result->toolCallId,
+                    toolName: $result->toolName,
+                    messageId: $this->state->messageId(),
+                );
+            }
         }
 
         $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));

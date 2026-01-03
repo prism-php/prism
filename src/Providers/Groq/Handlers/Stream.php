@@ -20,6 +20,7 @@ use Prism\Prism\Providers\Groq\Maps\MessageMap;
 use Prism\Prism\Providers\Groq\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Groq\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
@@ -258,6 +259,17 @@ class Stream
                 toolResult: $result,
                 messageId: $this->state->messageId()
             );
+
+            foreach ($result->artifacts as $artifact) {
+                yield new ArtifactEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    artifact: $artifact,
+                    toolCallId: $result->toolCallId,
+                    toolName: $result->toolName,
+                    messageId: $this->state->messageId(),
+                );
+            }
         }
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));

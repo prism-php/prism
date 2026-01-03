@@ -7,6 +7,7 @@ namespace Prism\Prism\Streaming\Adapters;
 use Generator;
 use Illuminate\Support\Collection;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -133,6 +134,7 @@ class DataProtocolAdapter
             ThinkingCompleteEvent::class => $this->handleThinkingComplete($event),
             ToolCallEvent::class => $this->handleToolCall($event),
             ToolResultEvent::class => $this->handleToolResult($event),
+            ArtifactEvent::class => $this->handleArtifact($event),
             ProviderToolEvent::class => $this->handleProviderTool($event),
             StreamEndEvent::class => $this->handleStreamEnd($event),
             ErrorEvent::class => $this->handleError($event),
@@ -261,6 +263,24 @@ class DataProtocolAdapter
             'type' => 'tool-output-available',
             'toolCallId' => $toolCallId,
             'output' => $event->toolResult->result,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function handleArtifact(ArtifactEvent $event): array
+    {
+        return [
+            'type' => 'artifact',
+            'toolCallId' => $event->toolCallId,
+            'toolName' => $event->toolName,
+            'artifact' => [
+                'id' => $event->artifact->id,
+                'mimeType' => $event->artifact->mimeType,
+                'data' => $event->artifact->data,
+                'metadata' => $event->artifact->metadata,
+            ],
         ];
     }
 
