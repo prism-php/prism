@@ -190,6 +190,7 @@ class Text
             fn (ProviderTool $tool): array => [
                 'type' => $tool->type,
                 'name' => $tool->name,
+                ...$tool->options,
             ],
             $request->providerTools()
         );
