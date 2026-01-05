@@ -18,6 +18,7 @@ enum StreamEventType: string
     case ProviderToolEvent = 'provider_tool_event';
     case ToolResult = 'tool_result';
     case Citation = 'citation';
+    case Artifact = 'artifact';
     case Error = 'error';
     case StreamEnd = 'stream_end';
 }
