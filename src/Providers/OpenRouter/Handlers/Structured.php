@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismStructuredDecodingException;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
@@ -109,6 +110,17 @@ class Structured
 
         $this->responseBuilder->addStep($step);
 
-        return $this->responseBuilder->toResponse();
+        try {
+            return $this->responseBuilder->toResponse();
+        } catch (PrismStructuredDecodingException $e) {
+            $context = sprintf(
+                "\nModel: %s\nFinish reason: %s\nRaw choices: %s",
+                data_get($data, 'model', 'unknown'),
+                data_get($data, 'choices.0.finish_reason', 'unknown'),
+                json_encode(data_get($data, 'choices'), JSON_PRETTY_PRINT)
+            );
+
+            throw new PrismStructuredDecodingException($e->getMessage().$context);
+        }
     }
 }
