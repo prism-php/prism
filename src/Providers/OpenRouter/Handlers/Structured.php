@@ -95,8 +95,8 @@ class Structured
             text: $text,
             finishReason: FinishReasonMap::map(data_get($data, 'choices.0.finish_reason', '')),
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                (int) data_get($data, 'usage.prompt_tokens', 0),
+                (int) data_get($data, 'usage.completion_tokens', 0),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
