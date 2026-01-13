@@ -54,6 +54,32 @@ it('returns structured output', function (): void {
     expect($response->usage->completionTokens)->toBe(26);
 });
 
+it('handles responses with missing id and model fields', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured-with-missing-meta');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('What time is the tigers game today?')
+        ->asStructured();
+
+    expect($response)->toBeInstanceOf(StructuredResponse::class);
+    expect($response->meta->id)->toBe('');
+    expect($response->meta->model)->toBe('openai/gpt-4-turbo');
+    expect($response->structured['weather'])->toBe('75º');
+});
+
 it('forwards provider options for structured requests', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured');
 

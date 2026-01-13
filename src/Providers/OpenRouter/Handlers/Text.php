@@ -129,8 +129,8 @@ class Text
                 data_get($data, 'usage.completion_tokens'),
             ),
             meta: new Meta(
-                id: data_get($data, 'id'),
-                model: data_get($data, 'model'),
+                id: data_get($data, 'id', ''),
+                model: data_get($data, 'model', $request->model()),
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
