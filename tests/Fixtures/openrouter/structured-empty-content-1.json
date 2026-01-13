@@ -1,0 +1,17 @@
+{
+    "id": "gen-structured-empty",
+    "model": "anthropic/claude-3.5-sonnet",
+    "choices": [
+        {
+            "message": {
+                "role": "assistant",
+                "content": null
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 0
+    }
+}
