@@ -42,6 +42,20 @@ it('can generate text with a prompt', function (): void {
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
+it('handles missing usage data in response', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/text-missing-usage');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    expect($response)->toBeInstanceOf(TextResponse::class);
+    expect($response->usage->promptTokens)->toBe(0);
+    expect($response->usage->completionTokens)->toBe(0);
+    expect($response->text)->toBe("Hello! I'm an AI assistant. How can I help you today?");
+});
+
 it('can generate text with a system prompt', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-system-prompt');
 

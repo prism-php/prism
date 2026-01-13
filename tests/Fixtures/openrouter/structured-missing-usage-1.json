@@ -1,0 +1,1 @@
+{"id":"gen-structured-no-usage","object":"chat.completion","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"message":{"role":"assistant","content":"{\"weather\":\"75º\",\"game_time\":\"3pm\",\"coat_required\":false}"},"logprobs":null,"finish_reason":"stop"}]}
