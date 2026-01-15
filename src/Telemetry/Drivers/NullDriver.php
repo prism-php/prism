@@ -5,26 +5,20 @@ declare(strict_types=1);
 namespace Prism\Prism\Telemetry\Drivers;
 
 use Prism\Prism\Contracts\TelemetryDriver;
+use Prism\Prism\Telemetry\SpanData;
 
+/**
+ * Null telemetry driver.
+ *
+ * Discards all telemetry data. Used when telemetry is disabled.
+ */
 class NullDriver implements TelemetryDriver
 {
-    public function startSpan(string $operation, array $attributes = []): string
+    /**
+     * Record a span (no-op).
+     */
+    public function recordSpan(SpanData $span): void
     {
-        return '';
-    }
-
-    public function endSpan(string $spanId, array $attributes = []): void
-    {
-        //
-    }
-
-    public function addEvent(string $spanId, string $name, array $attributes = []): void
-    {
-        //
-    }
-
-    public function recordException(string $spanId, \Throwable $exception): void
-    {
-        //
+        // Intentionally empty - discards all telemetry
     }
 }

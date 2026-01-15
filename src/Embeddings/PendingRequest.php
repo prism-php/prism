@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Prism\Prism\Embeddings;
 
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Context;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
+use Prism\Prism\Concerns\EmitsTelemetry;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasTelemetryContext;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted;
 use Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted;
@@ -20,7 +19,9 @@ class PendingRequest
 {
     use ConfiguresClient;
     use ConfiguresProviders;
+    use EmitsTelemetry;
     use HasProviderOptions;
+    use HasTelemetryContext;
 
     /** @var array<string> */
     protected array $inputs = [];
@@ -105,46 +106,23 @@ class PendingRequest
 
         $request = $this->toRequest();
 
-        if (config('prism.telemetry.enabled', false)) {
-            $spanId = Str::uuid()->toString();
-            $parentSpanId = Context::get('prism.telemetry.current_span_id');
-            $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
-
-            Context::add('prism.telemetry.current_span_id', $spanId);
-            Context::add('prism.telemetry.root_span_id', $rootSpanId);
-
-            Event::dispatch(new EmbeddingGenerationStarted(
-                spanId: $spanId,
-                request: $request,
-                context: [
-                    'parent_span_id' => $parentSpanId,
-                    'root_span_id' => $rootSpanId,
-                ]
-            ));
-
-            try {
-                $response = $this->provider->embeddings($request);
-
-                Event::dispatch(new EmbeddingGenerationCompleted(
+        try {
+            return $this->withTelemetry(
+                startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): \Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted => new EmbeddingGenerationStarted(
                     spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                ),
+                endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, Response $response): \Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted => new EmbeddingGenerationCompleted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
                     request: $request,
                     response: $response,
-                    context: [
-                        'parent_span_id' => $parentSpanId,
-                        'root_span_id' => $rootSpanId,
-                    ]
-                ));
-
-                return $response;
-            } catch (RequestException $e) {
-                $this->provider->handleRequestException($request->model(), $e);
-            } finally {
-                Context::add('prism.telemetry.current_span_id', $parentSpanId);
-            }
-        }
-
-        try {
-            return $this->provider->embeddings($request);
+                ),
+                execute: fn (): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($request),
+            );
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }

@@ -59,7 +59,7 @@ it('does not emit telemetry events when disabled', function (): void {
     expect($response)->toBeInstanceOf(Response::class);
 });
 
-it('includes context in embedding telemetry events', function (): void {
+it('includes traceId and parentSpanId in embedding telemetry events', function (): void {
     config(['prism.telemetry.enabled' => true]);
     Event::fake();
 
@@ -79,11 +79,11 @@ it('includes context in embedding telemetry events', function (): void {
         ->asEmbeddings();
 
     Event::assertDispatched(EmbeddingGenerationStarted::class, fn ($event): bool => ! empty($event->spanId)
-        && $event->request !== null
-        && is_array($event->context));
+        && ! empty($event->traceId)
+        && $event->request !== null);
 
     Event::assertDispatched(EmbeddingGenerationCompleted::class, fn ($event): bool => ! empty($event->spanId)
+        && ! empty($event->traceId)
         && $event->request !== null
-        && $event->response !== null
-        && is_array($event->context));
+        && $event->response !== null);
 });

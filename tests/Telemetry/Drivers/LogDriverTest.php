@@ -2,55 +2,110 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Log;
 use Prism\Prism\Telemetry\Drivers\LogDriver;
+use Prism\Prism\Telemetry\SpanData;
 
-it('returns uuid for span start', function (): void {
+it('logs span data when recordSpan is called', function (): void {
+    Log::shouldReceive('channel')
+        ->with('test-channel')
+        ->once()
+        ->andReturnSelf();
+
+    Log::shouldReceive('info')
+        ->once()
+        ->with('Span recorded', Mockery::on(fn ($data): bool => $data['span_id'] === 'test-span-id'
+            && $data['operation'] === 'text_generation'
+            && isset($data['duration_ms'])
+            && $data['has_error'] === false
+            && isset($data['attributes'])));
+
     $driver = new LogDriver('test-channel');
-    $spanId = $driver->startSpan('test-operation', ['key' => 'value']);
+    $spanData = createLogSpanData();
 
-    expect($spanId)->toBeString();
-    expect($spanId)->not->toBeEmpty();
-    expect($spanId)->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/');
+    $driver->recordSpan($spanData);
 });
 
-it('does not throw exceptions for span operations', function (): void {
+it('logs error when span has exception', function (): void {
+    Log::shouldReceive('channel')
+        ->with('test-channel')
+        ->once()
+        ->andReturnSelf();
+
+    Log::shouldReceive('info')
+        ->once()
+        ->with('Span recorded', Mockery::on(fn ($data): bool => $data['span_id'] === 'test-span-id'
+            && $data['has_error'] === true
+            && isset($data['exception'])
+            && $data['exception']['class'] === Exception::class
+            && $data['exception']['message'] === 'Test exception'));
+
     $driver = new LogDriver('test-channel');
+    $exception = new Exception('Test exception');
+    $spanData = createLogSpanData(exception: $exception);
 
-    $spanId = $driver->startSpan('test-operation', ['key' => 'value']);
-    $driver->endSpan($spanId, ['duration' => 100]);
-    $driver->addEvent($spanId, 'http.request', ['url' => 'https://example.com']);
-    $driver->recordException($spanId, new Exception('Test exception'));
-
-    expect(true)->toBeTrue();
+    $driver->recordSpan($spanData);
 });
 
 it('handles different channel configurations', function (): void {
+    Log::shouldReceive('channel')
+        ->with('default')
+        ->once()
+        ->andReturnSelf();
+
+    Log::shouldReceive('info')
+        ->once();
+
     $defaultDriver = new LogDriver;
-    $customDriver = new LogDriver('custom-channel');
-
-    $defaultSpanId = $defaultDriver->startSpan('test-operation');
-    $customSpanId = $customDriver->startSpan('test-operation');
-
-    expect($defaultSpanId)->toBeString();
-    expect($customSpanId)->toBeString();
-    expect($defaultSpanId)->not->toBe($customSpanId);
+    $defaultDriver->recordSpan(createLogSpanData());
 });
 
-it('handles empty attributes gracefully', function (): void {
+it('logs generic attributes directly from span data', function (): void {
+    Log::shouldReceive('channel')
+        ->with('test-channel')
+        ->once()
+        ->andReturnSelf();
+
+    Log::shouldReceive('info')
+        ->once()
+        ->with('Span recorded', Mockery::on(
+            // Generic attributes (not OpenInference)
+
+            fn ($data): bool => $data['attributes']['model'] === 'gpt-4'
+            && $data['attributes']['provider'] === 'openai'
+            && $data['attributes']['usage']['prompt_tokens'] === 10));
+
     $driver = new LogDriver('test-channel');
+    $spanData = createLogSpanData();
 
-    $spanId = $driver->startSpan('test-operation');
-    $driver->endSpan($spanId);
-    $driver->addEvent($spanId, 'event');
-
-    expect($spanId)->toBeString();
+    $driver->recordSpan($spanData);
 });
 
-it('handles exception logging', function (): void {
-    $driver = new LogDriver('test-channel');
-    $exception = new Exception('Test exception', 123);
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-    $driver->recordException('span-id', $exception);
-
-    expect(true)->toBeTrue();
-});
+function createLogSpanData(?\Throwable $exception = null): SpanData
+{
+    return new SpanData(
+        spanId: 'test-span-id',
+        traceId: bin2hex(random_bytes(16)),
+        parentSpanId: null,
+        operation: 'text_generation',
+        startTimeNano: (int) (microtime(true) * 1_000_000_000),
+        endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
+        attributes: [
+            // Generic Prism attributes (NOT OpenInference)
+            'model' => 'gpt-4',
+            'provider' => 'openai',
+            'temperature' => 0.7,
+            'output' => 'Hello there!',
+            'usage' => [
+                'prompt_tokens' => 10,
+                'completion_tokens' => 5,
+            ],
+        ],
+        events: [],
+        exception: $exception,
+    );
+}

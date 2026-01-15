@@ -8,24 +8,25 @@ use Generator;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Context;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresGeneration;
 use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\ConfiguresTools;
+use Prism\Prism\Concerns\EmitsTelemetry;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
+use Prism\Prism\Concerns\HasTelemetryContext;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
 use Prism\Prism\Streaming\Adapters\SSEAdapter;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Telemetry\Events\StreamingCompleted;
 use Prism\Prism\Telemetry\Events\StreamingStarted;
 use Prism\Prism\Telemetry\Events\TextGenerationCompleted;
@@ -41,10 +42,12 @@ class PendingRequest
     use ConfiguresModels;
     use ConfiguresProviders;
     use ConfiguresTools;
+    use EmitsTelemetry;
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
     use HasProviderTools;
+    use HasTelemetryContext;
     use HasTools;
 
     /**
@@ -64,56 +67,31 @@ class PendingRequest
     {
         $request = $this->toRequest();
 
-        if (config('prism.telemetry.enabled', false)) {
-            $spanId = Str::uuid()->toString();
-            $parentSpanId = Context::get('prism.telemetry.current_span_id');
-            $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
-
-            Context::add('prism.telemetry.current_span_id', $spanId);
-            Context::add('prism.telemetry.root_span_id', $rootSpanId);
-
-            Event::dispatch(new TextGenerationStarted(
-                spanId: $spanId,
-                request: $request,
-                context: [
-                    'parent_span_id' => $parentSpanId,
-                    'root_span_id' => $rootSpanId,
-                ]
-            ));
-
-            try {
-                $response = $this->provider->text($request);
-
-                if ($callback !== null) {
-                    $callback($this, $response);
-                }
-
-                Event::dispatch(new TextGenerationCompleted(
+        try {
+            return $this->withTelemetry(
+                startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): \Prism\Prism\Telemetry\Events\TextGenerationStarted => new TextGenerationStarted(
                     spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                ),
+                endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, Response $response): \Prism\Prism\Telemetry\Events\TextGenerationCompleted => new TextGenerationCompleted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
                     request: $request,
                     response: $response,
-                    context: [
-                        'parent_span_id' => $parentSpanId,
-                        'root_span_id' => $rootSpanId,
-                    ]
-                ));
+                ),
+                execute: function () use ($request, $callback): Response {
+                    $response = $this->provider->text($request);
 
-                return $response;
-            } catch (RequestException $e) {
-                $this->provider->handleRequestException($request->model(), $e);
-            } finally {
-                Context::add('prism.telemetry.current_span_id', $parentSpanId);
-            }
-        }
+                    if ($callback !== null) {
+                        $callback($this, $response);
+                    }
 
-        try {
-            $response = $this->provider->text($request);
-
-            if ($callback !== null) {
-                $callback($this, $response);
-            }
-
-            return $response;
+                    return $response;
+                },
+            );
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
@@ -126,47 +104,26 @@ class PendingRequest
     {
         $request = $this->toRequest();
 
-        if (config('prism.telemetry.enabled', false)) {
-            $spanId = Str::uuid()->toString();
-            $parentSpanId = Context::get('prism.telemetry.current_span_id');
-            $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
-
-            Context::add('prism.telemetry.current_span_id', $spanId);
-            Context::add('prism.telemetry.root_span_id', $rootSpanId);
-
-            Event::dispatch(new StreamingStarted(
-                spanId: $spanId,
-                request: $request,
-                context: [
-                    'parent_span_id' => $parentSpanId,
-                    'root_span_id' => $rootSpanId,
-                ]
-            ));
-
-            try {
-                foreach ($this->provider->stream($request) as $chunk) {
-                    yield $chunk;
-                }
-
-                Event::dispatch(new StreamingCompleted(
-                    spanId: $spanId,
-                    request: $request,
-                    context: [
-                        'parent_span_id' => $parentSpanId,
-                        'root_span_id' => $rootSpanId,
-                    ]
-                ));
-            } catch (RequestException $e) {
-                $this->provider->handleRequestException($request->model(), $e);
-            } finally {
-                Context::add('prism.telemetry.current_span_id', $parentSpanId);
-            }
-
-            return;
-        }
-
         try {
-            yield from $this->provider->stream($request);
+            yield from $this->withStreamingTelemetry(
+                startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, ?StreamStartEvent $streamStart): \Prism\Prism\Telemetry\Events\StreamingStarted => new StreamingStarted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                    streamStart: $streamStart,
+                ),
+                endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, ?StreamEndEvent $streamEnd): \Prism\Prism\Telemetry\Events\StreamingCompleted => new StreamingCompleted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                    streamEnd: $streamEnd,
+                ),
+                execute: fn (): \Generator => $this->provider->stream($request),
+                startEventType: StreamStartEvent::class,
+                endEventType: StreamEndEvent::class,
+            );
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }

@@ -37,8 +37,6 @@ use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
-use Prism\Prism\ValueObjects\ToolOutput;
-use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
@@ -451,6 +449,7 @@ class Stream
 
     /**
      * @return Generator<StreamEvent>
+     *
      * @throws PrismException
      */
     protected function handleToolCalls(Request $request, int $depth): Generator

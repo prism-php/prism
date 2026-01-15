@@ -4,25 +4,28 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Telemetry;
 
-use Closure;
 use Illuminate\Contracts\Foundation\Application;
 use InvalidArgumentException;
 use Prism\Prism\Contracts\TelemetryDriver;
 use Prism\Prism\Telemetry\Drivers\LogDriver;
 use Prism\Prism\Telemetry\Drivers\NullDriver;
+use Prism\Prism\Telemetry\Drivers\OtlpDriver;
+use Prism\Prism\Telemetry\Otel\OtlpExporter;
 use RuntimeException;
 
 class TelemetryManager
 {
-    /** @var array<string, Closure> */
-    protected array $customCreators = [];
-
     public function __construct(
         protected Application $app
     ) {}
 
     /**
-     * @param  array<string, mixed>  $driverConfig
+     * Resolve a telemetry driver by name.
+     *
+     * The driver config should contain a 'driver' key specifying the actual driver type.
+     * This allows multiple named configs using the same underlying driver.
+     *
+     * @param  array<string, mixed>  $driverConfig  Optional config overrides
      *
      * @throws InvalidArgumentException
      */
@@ -30,39 +33,22 @@ class TelemetryManager
     {
         $config = array_merge($this->getConfig($name), $driverConfig);
 
-        if (isset($this->customCreators[$name])) {
-            return $this->callCustomCreator($name, $config);
-        }
+        // Get the actual driver type from config (e.g., 'otlp', 'log', 'null')
+        $driverType = $config['driver'] ?? $name;
 
-        $factory = sprintf('create%sDriver', ucfirst($name));
+        $factory = sprintf('create%sDriver', ucfirst($driverType));
 
         if (method_exists($this, $factory)) {
-            return $this->{$factory}($config);
+            return $this->{$factory}($name, $config);
         }
 
-        throw new InvalidArgumentException("Telemetry driver [{$name}] is not supported.");
-    }
-
-    /**
-     * @throws RuntimeException
-     */
-    public function extend(string $driver, Closure $callback): self
-    {
-        if (($callback = $callback->bindTo($this, $this)) instanceof \Closure) {
-            $this->customCreators[$driver] = $callback;
-
-            return $this;
-        }
-
-        throw new RuntimeException(
-            sprintf('Couldn\'t bind %s', $driver)
-        );
+        throw new InvalidArgumentException("Telemetry driver [{$driverType}] is not supported.");
     }
 
     /**
      * @param  array<string, mixed>  $config
      */
-    protected function createNullDriver(array $config): NullDriver
+    protected function createNullDriver(string $name, array $config): NullDriver
     {
         return new NullDriver;
     }
@@ -70,7 +56,7 @@ class TelemetryManager
     /**
      * @param  array<string, mixed>  $config
      */
-    protected function createLogDriver(array $config): LogDriver
+    protected function createLogDriver(string $name, array $config): LogDriver
     {
         return new LogDriver(
             channel: $config['channel'] ?? 'default'
@@ -78,11 +64,43 @@ class TelemetryManager
     }
 
     /**
+     * Generic OTLP driver - works for any OTLP-compatible backend.
+     *
      * @param  array<string, mixed>  $config
+     *
+     * @throws RuntimeException
      */
-    protected function callCustomCreator(string $driver, array $config): TelemetryDriver
+    protected function createOtlpDriver(string $name, array $config): OtlpDriver
     {
-        return $this->customCreators[$driver]($this->app, $config);
+        OtlpExporter::ensureSdkAvailable();
+
+        return new OtlpDriver(driver: $name);
+    }
+
+    /**
+     * Custom driver - allows external packages/apps to provide their own driver.
+     *
+     * Config should include a 'via' key with a class that implements __invoke($app, $config).
+     *
+     * @param  array<string, mixed>  $config
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function createCustomDriver(string $name, array $config): TelemetryDriver
+    {
+        if (! isset($config['via'])) {
+            throw new InvalidArgumentException(
+                "Custom telemetry driver [{$name}] requires a 'via' configuration option."
+            );
+        }
+
+        $factory = $config['via'];
+
+        if (is_string($factory)) {
+            $factory = $this->app->make($factory);
+        }
+
+        return $factory($this->app, $config);
     }
 
     /**

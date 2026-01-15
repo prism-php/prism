@@ -11,6 +11,7 @@ use Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted;
 use Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted;
 use Prism\Prism\Telemetry\Events\HttpCallCompleted;
 use Prism\Prism\Telemetry\Events\HttpCallStarted;
+use Prism\Prism\Telemetry\Events\SpanException;
 use Prism\Prism\Telemetry\Events\StreamingCompleted;
 use Prism\Prism\Telemetry\Events\StreamingStarted;
 use Prism\Prism\Telemetry\Events\StructuredOutputCompleted;
@@ -34,8 +35,12 @@ class TelemetryServiceProvider extends ServiceProvider
             return $manager->resolve($driver);
         });
 
-        $this->app->singleton(TelemetryEventListener::class, fn (): \Prism\Prism\Telemetry\Listeners\TelemetryEventListener => new TelemetryEventListener(
+        $this->app->scoped(SpanCollector::class, fn (): SpanCollector => new SpanCollector(
             $this->app->make(TelemetryDriver::class)
+        ));
+
+        $this->app->scoped(TelemetryEventListener::class, fn (): TelemetryEventListener => new TelemetryEventListener(
+            $this->app->make(SpanCollector::class)
         ));
     }
 
@@ -62,5 +67,6 @@ class TelemetryServiceProvider extends ServiceProvider
         Event::listen(HttpCallCompleted::class, $listener->handleHttpCallCompleted(...));
         Event::listen(ToolCallStarted::class, $listener->handleToolCallStarted(...));
         Event::listen(ToolCallCompleted::class, $listener->handleToolCallCompleted(...));
+        Event::listen(SpanException::class, $listener->handleSpanException(...));
     }
 }

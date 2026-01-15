@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Concerns;
 
-use Illuminate\Support\Facades\Context;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
-use Illuminate\Support\Str;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Telemetry\Events\ToolCallCompleted;
 use Prism\Prism\Telemetry\Events\ToolCallStarted;
@@ -20,6 +17,8 @@ use Throwable;
 
 trait CallsTools
 {
+    use EmitsTelemetry;
+
     /**
      * @param  Tool[]  $tools
      * @param  ToolCall[]  $toolCalls
@@ -31,78 +30,49 @@ trait CallsTools
             function (ToolCall $toolCall) use ($tools): ToolResult {
                 $tool = $this->resolveTool($toolCall->name, $tools);
 
-                // Emit telemetry event for tool call start
-                $spanId = null;
-                if (config('prism.telemetry.enabled', false)) {
-                    $spanId = Str::uuid()->toString();
-                    $parentSpanId = Context::get('prism.telemetry.current_span_id');
-                    $rootSpanId = Context::get('prism.telemetry.root_span_id') ?? $spanId;
-
-                    Context::add('prism.telemetry.current_span_id', $spanId);
-                    Context::add('prism.telemetry.parent_span_id', $parentSpanId);
-
-                    Event::dispatch(new ToolCallStarted(
+                return $this->withTelemetry(
+                    startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): \Prism\Prism\Telemetry\Events\ToolCallStarted => new ToolCallStarted(
                         spanId: $spanId,
+                        traceId: $traceId,
+                        parentSpanId: $parentSpanId,
                         toolCall: $toolCall,
-                        context: [
-                            'parent_span_id' => $parentSpanId,
-                            'root_span_id' => $rootSpanId,
-                        ]
-                    ));
-                }
+                        tool: $tool,
+                    ),
+                    endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, ToolResult $result): \Prism\Prism\Telemetry\Events\ToolCallCompleted => new ToolCallCompleted(
+                        spanId: $spanId,
+                        traceId: $traceId,
+                        parentSpanId: $parentSpanId,
+                        toolCall: $toolCall,
+                        toolResult: $result,
+                    ),
+                    execute: function () use ($tool, $toolCall): ToolResult {
+                        try {
+                            $output = call_user_func_array(
+                                $tool->handle(...),
+                                $toolCall->arguments()
+                            );
 
-                try {
-                    $output = call_user_func_array(
-                        $tool->handle(...),
-                        $toolCall->arguments()
-                    );
+                            if (is_string($output)) {
+                                $output = new ToolOutput(result: $output);
+                            }
 
-                    if (is_string($output)) {
-                        $output = new ToolOutput(result: $output);
-                    }
+                            return new ToolResult(
+                                toolCallId: $toolCall->id,
+                                toolName: $toolCall->name,
+                                args: $toolCall->arguments(),
+                                result: $output->result,
+                                toolCallResultId: $toolCall->resultId,
+                                artifacts: $output->artifacts,
+                            );
+                        } catch (Throwable $e) {
+                            if ($e instanceof PrismException) {
+                                throw $e;
+                            }
 
-                    $toolResult = new ToolResult(
-                        toolCallId: $toolCall->id,
-                        toolName: $toolCall->name,
-                        args: $toolCall->arguments(),
-                        result: $output->result,
-                        toolCallResultId: $toolCall->resultId,
-                        artifacts: $output->artifacts,
-                    );
-
-                    // Emit telemetry event for tool call completion
-                    if (config('prism.telemetry.enabled', false) && $spanId) {
-                        $parentSpanId = Context::get('prism.telemetry.parent_span_id');
-                        $rootSpanId = Context::get('prism.telemetry.root_span_id');
-
-                        Event::dispatch(new ToolCallCompleted(
-                            spanId: $spanId,
-                            toolCall: $toolCall,
-                            toolResult: $toolResult,
-                            context: [
-                                'parent_span_id' => $parentSpanId,
-                                'root_span_id' => $rootSpanId,
-                            ]
-                        ));
-
-                        Context::add('prism.telemetry.current_span_id', $parentSpanId);
-                    }
-
-                    return $toolResult;
-                } catch (Throwable $e) {
-                    // Restore context on error
-                    if (config('prism.telemetry.enabled', false) && $spanId) {
-                        $parentSpanId = Context::get('prism.telemetry.parent_span_id');
-                        Context::add('prism.telemetry.current_span_id', $parentSpanId);
-                    }
-
-                    if ($e instanceof PrismException) {
-                        throw $e;
-                    }
-
-                    throw PrismException::toolCallFailed($toolCall, $e);
-                }
-
+                            throw PrismException::toolCallFailed($toolCall, $e);
+                        }
+                    },
+                );
             },
             $toolCalls
         );

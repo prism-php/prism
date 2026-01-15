@@ -5,59 +5,47 @@ declare(strict_types=1);
 namespace Prism\Prism\Telemetry\Drivers;
 
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Prism\Prism\Contracts\TelemetryDriver;
+use Prism\Prism\Telemetry\SpanData;
+use Throwable;
 
+/**
+ * Log telemetry driver.
+ *
+ * Logs generic Prism span attributes directly for debugging and development.
+ * Uses human-readable attribute names (not OpenInference).
+ */
 class LogDriver implements TelemetryDriver
 {
+    /**
+     * @param  string  $channel  Laravel log channel name
+     */
     public function __construct(
         protected string $channel = 'default'
     ) {}
 
-    public function startSpan(string $operation, array $attributes = []): string
+    /**
+     * Log a completed span with readable attributes.
+     */
+    public function recordSpan(SpanData $span): void
     {
-        $spanId = Str::uuid()->toString();
-
-        Log::channel($this->channel)->info('Span started', [
-            'span_id' => $spanId,
-            'operation' => $operation,
-            'attributes' => $attributes,
-            'timestamp' => now()->toISOString(),
-        ]);
-
-        return $spanId;
-    }
-
-    public function endSpan(string $spanId, array $attributes = []): void
-    {
-        Log::channel($this->channel)->info('Span ended', [
-            'span_id' => $spanId,
-            'attributes' => $attributes,
-            'timestamp' => now()->toISOString(),
-        ]);
-    }
-
-    public function addEvent(string $spanId, string $name, array $attributes = []): void
-    {
-        Log::channel($this->channel)->info('Span event', [
-            'span_id' => $spanId,
-            'event_name' => $name,
-            'attributes' => $attributes,
-            'timestamp' => now()->toISOString(),
-        ]);
-    }
-
-    public function recordException(string $spanId, \Throwable $exception): void
-    {
-        Log::channel($this->channel)->error('Span exception', [
-            'span_id' => $spanId,
-            'exception' => [
-                'class' => $exception::class,
-                'message' => $exception->getMessage(),
-                'file' => $exception->getFile(),
-                'line' => $exception->getLine(),
-                'trace' => $exception->getTraceAsString(),
-            ],
+        Log::channel($this->channel)->info('Span recorded', [
+            'span_id' => $span->spanId,
+            'trace_id' => $span->traceId,
+            'parent_span_id' => $span->parentSpanId,
+            'operation' => $span->operation,
+            'start_time_nano' => $span->startTimeNano,
+            'end_time_nano' => $span->endTimeNano,
+            'duration_ms' => $span->durationMs(),
+            'attributes' => $span->attributes,
+            'events' => $span->events,
+            'has_error' => $span->hasError(),
+            'exception' => $span->exception instanceof Throwable ? [
+                'class' => $span->exception::class,
+                'message' => $span->exception->getMessage(),
+                'file' => $span->exception->getFile(),
+                'line' => $span->exception->getLine(),
+            ] : null,
             'timestamp' => now()->toISOString(),
         ]);
     }

@@ -96,7 +96,7 @@ it('does not emit tool call events when telemetry is disabled', function (): voi
     expect($results)->toHaveCount(1);
 });
 
-it('includes context in tool call telemetry events', function (): void {
+it('includes traceId and parentSpanId in tool call telemetry events', function (): void {
     config([
         'prism.telemetry.enabled' => true,
         'prism.telemetry.driver' => 'null',
@@ -133,10 +133,16 @@ it('includes context in tool call telemetry events', function (): void {
     // Execute the tool call
     $results = $testHandler->testCallTools([$tool], [$toolCall]);
 
-    // Verify tool call events contain context
-    Event::assertDispatched(ToolCallStarted::class, fn (ToolCallStarted $event): bool => array_key_exists('root_span_id', $event->context) && array_key_exists('parent_span_id', $event->context));
+    // Verify tool call events contain traceId and parentSpanId as properties
+    Event::assertDispatched(ToolCallStarted::class, function (ToolCallStarted $event): bool {
+        return ! empty($event->spanId)
+            && ! empty($event->traceId)
+            && $event->parentSpanId === null; // No parent when called directly
+    });
 
-    Event::assertDispatched(ToolCallCompleted::class, fn (ToolCallCompleted $event): bool => array_key_exists('root_span_id', $event->context) && array_key_exists('parent_span_id', $event->context));
+    Event::assertDispatched(ToolCallCompleted::class, fn (ToolCallCompleted $event): bool => ! empty($event->spanId)
+        && ! empty($event->traceId)
+        && $event->parentSpanId === null);
 
     expect($results)->toHaveCount(1);
 });

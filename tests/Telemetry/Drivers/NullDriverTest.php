@@ -3,33 +3,65 @@
 declare(strict_types=1);
 
 use Prism\Prism\Telemetry\Drivers\NullDriver;
+use Prism\Prism\Telemetry\SpanData;
 
-it('returns empty string for span id', function (): void {
+it('does not throw when recording a span', function (): void {
     $driver = new NullDriver;
+    $spanData = createNullDriverSpanData();
 
-    $spanId = $driver->startSpan('test-operation');
-
-    expect($spanId)->toBe('');
-});
-
-it('does not throw exceptions for any operations', function (): void {
-    $driver = new NullDriver;
-
-    $driver->startSpan('test', ['key' => 'value']);
-    $driver->endSpan('span-id', ['key' => 'value']);
-    $driver->addEvent('span-id', 'event', ['key' => 'value']);
-    $driver->recordException('span-id', new Exception('test'));
+    $driver->recordSpan($spanData);
 
     expect(true)->toBeTrue();
 });
 
-it('handles null and empty values gracefully', function (): void {
+it('handles spans with exceptions gracefully', function (): void {
     $driver = new NullDriver;
+    $spanData = createNullDriverSpanData(new Exception('Test exception'));
 
-    $driver->startSpan('');
-    $driver->endSpan('');
-    $driver->addEvent('', '');
-    $driver->recordException('', new Exception);
+    $driver->recordSpan($spanData);
 
     expect(true)->toBeTrue();
 });
+
+it('handles spans with events gracefully', function (): void {
+    $driver = new NullDriver;
+
+    $spanData = new SpanData(
+        spanId: 'test-span-id',
+        traceId: bin2hex(random_bytes(16)),
+        parentSpanId: null,
+        operation: 'text_generation',
+        startTimeNano: (int) (microtime(true) * 1_000_000_000),
+        endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
+        attributes: ['model' => 'gpt-4'],
+        events: [
+            ['name' => 'event1', 'timeNano' => 1000, 'attributes' => []],
+            ['name' => 'event2', 'timeNano' => 2000, 'attributes' => ['key' => 'value']],
+        ],
+    );
+
+    $driver->recordSpan($spanData);
+
+    expect(true)->toBeTrue();
+});
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+function createNullDriverSpanData(?\Throwable $exception = null): SpanData
+{
+    return new SpanData(
+        spanId: 'test-span-id',
+        traceId: bin2hex(random_bytes(16)),
+        parentSpanId: null,
+        operation: 'text_generation',
+        startTimeNano: (int) (microtime(true) * 1_000_000_000),
+        endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
+        attributes: [
+            'model' => 'gpt-4',
+        ],
+        events: [],
+        exception: $exception,
+    );
+}
