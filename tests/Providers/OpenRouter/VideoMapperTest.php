@@ -57,14 +57,6 @@ it('maps YouTube URLs directly', function (): void {
     ]);
 });
 
-it('defaults to video/mp4 mime type when not specified', function (): void {
-    $video = Video::fromRawContent('video-content');
-
-    $payload = (new VideoMapper($video))->toPayload();
-
-    expect($payload['video_url']['url'])->toStartWith('data:video/mp4;base64,');
-});
-
 it('maps videos from local path', function (): void {
     $video = Video::fromLocalPath('tests/Fixtures/sample-video.mp4');
 

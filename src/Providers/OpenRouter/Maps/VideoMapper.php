@@ -28,8 +28,7 @@ class VideoMapper extends ProviderMediaMapper
             ];
         }
 
-        $mimeType = $this->media->mimeType() ?? 'video/mp4';
-        $dataUrl = "data:{$mimeType};base64,".$this->media->base64();
+        $dataUrl = "data:{$this->media->mimeType()};base64,".$this->media->base64();
 
         return [
             'type' => 'video_url',
@@ -49,6 +48,7 @@ class VideoMapper extends ProviderMediaMapper
         if ($this->media->hasRawContent()) {
             return true;
         }
+
         return $this->media->isUrl();
     }
 }
