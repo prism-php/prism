@@ -17,7 +17,6 @@ use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
 use Prism\Prism\Streaming\EventID;
-use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -30,7 +29,6 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -284,28 +282,8 @@ class Stream
         }
 
         // Execute tools and emit results
-        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
-
-        foreach ($toolResults as $result) {
-            yield new ToolResultEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                toolResult: $result,
-                messageId: $this->state->messageId(),
-                success: true
-            );
-
-            foreach ($result->artifacts as $artifact) {
-                yield new ArtifactEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    artifact: $artifact,
-                    toolCallId: $result->toolCallId,
-                    toolName: $result->toolName,
-                    messageId: $this->state->messageId(),
-                );
-            }
-        }
+        $toolResults = [];
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         // Add messages for next turn
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));

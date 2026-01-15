@@ -20,7 +20,6 @@ use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Streaming\EventID;
-use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
@@ -35,7 +34,6 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -390,27 +388,8 @@ class Stream
     protected function handleToolCalls(Request $request, int $depth): Generator
     {
         $mappedToolCalls = $this->mapToolCalls($this->state->toolCalls());
-        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
-
-        foreach ($toolResults as $result) {
-            yield new ToolResultEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                toolResult: $result,
-                messageId: EventID::generate()
-            );
-
-            foreach ($result->artifacts as $artifact) {
-                yield new ArtifactEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    artifact: $artifact,
-                    toolCallId: $result->toolCallId,
-                    toolName: $result->toolName,
-                    messageId: $this->state->messageId(),
-                );
-            }
-        }
+        $toolResults = [];
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));

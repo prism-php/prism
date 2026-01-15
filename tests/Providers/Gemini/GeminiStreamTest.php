@@ -185,7 +185,7 @@ it('can generate text stream using tools ', function (): void {
         ->and($toolCalls[0]->reasoningId)->not->toBeNull()
         ->and($toolCalls[0]->reasoningId)->toBe('Eq0ECqoEAdHtim8E9iAxfKwT6QsjWgFpC3mNjNoEc0uf/khdTIkry0wbRzOTpYuw1HdLFm5263kddqUYf+HKlTGq5fbXQb8e+MyBxsft/WzOcmMKTGxbnW1Nx7JPsMhu9TQltjp0w+EIOd7CSJnIcubiZ13tzGR7MOF8OIzTXidrdtNWRRND8kYKIMIBbW2EWuE2CJUzihJFct9JQSQulq/WpJ1ctiI1bl89HcoIGXTuTNK90CncMw/+ink6edobepVG4umPGIdgx2B6bE9uchv+kjKWSwnDsY5hvUP/uSseFZ5fpZbsrhB3IAMVrLBtFTKiLkuvkUh664EQ91rgfYGJ2NTu3SwpEfLy3ftUxqI1d/t84lMWo9X0om5ihM4sFpD//DxGeEKbs3XtAPEJoWawy24aXoVQb59SSt23Yr87epA261b8a2pDPW7QnUCg4GWSquAZ8z39BxO3DJ4fyU72QpRzs9m3G5XYt5iV8+ndMHjJsIxmeXYqqteq3QCNLbAwKCBLbpq4HyYgyu7R4RpnUEx1t8/3seXPfhEUSaP5Prjr9TEwdOB/fgig2BV2eJ4AuAvbw4A7/RkkBhvUQ+0KW3HByDBN5g8X59K5S3fasUhcDRU4QsGQOh9DShH2bi+o71SWpRw5zdKT3AmdDEQqrg5ybVK+plpA6XLSmDIekNl4lqn0YsUzPtzCdvD0rlI1OP85jNnYwQeRS1Dbm8viYbGdZWjTehd+jK1xIxU=')
         ->and($toolResults)->not->toBeEmpty()
-        ->and($toolResults[0]->result)->toBe(['result' => 'The weather will be 75° and sunny in San Francisco'])
+        ->and($toolResults[0]->result)->toBe('The weather will be 75° and sunny in San Francisco')
         ->and($text)->toContain('The current weather in San Francisco is 75°F and sunny. You likely won\'t need a coat, but you might want to bring a light jacket just in case it gets breezy or cools down later.');
 
     $lastEvent = end($events);
