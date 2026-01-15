@@ -339,4 +339,62 @@ describe('Media support with Gemini', function (): void {
         });
     });
 
+    it('can send video with media_resolution provider option', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/media-detection');
+
+        $videoContent = file_get_contents('tests/Fixtures/sample-video.mp4');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withMessages([
+                new UserMessage(
+                    'What is in this video',
+                    additionalContent: [
+                        Video::fromRawContent($videoContent, 'video/mp4')
+                            ->withProviderOptions(['mediaResolution' => 'MEDIA_RESOLUTION_HIGH']),
+                    ],
+                ),
+            ])
+            ->asText();
+
+        Http::assertSent(function (Request $request): bool {
+            $message = $request->data()['contents'][0]['parts'];
+
+            expect($message[1]['inline_data']['mime_type'])
+                ->toBe('video/mp4')
+                ->and($message[1])->toHaveKey('media_resolution')
+                ->and($message[1]['media_resolution'])->toBe(['level' => 'MEDIA_RESOLUTION_HIGH']);
+
+            return true;
+        });
+    });
+
+    it('can send audio with media_resolution provider option', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/media-detection');
+
+        $audioContent = file_get_contents('tests/Fixtures/sample-audio.wav');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withMessages([
+                new UserMessage(
+                    'Transcribe this audio',
+                    additionalContent: [
+                        Audio::fromRawContent($audioContent, 'audio/wav')
+                            ->withProviderOptions(['mediaResolution' => 'MEDIA_RESOLUTION_LOW']),
+                    ],
+                ),
+            ])
+            ->asText();
+
+        Http::assertSent(function (Request $request): bool {
+            $message = $request->data()['contents'][0]['parts'];
+
+            expect($message[1])->toHaveKey('media_resolution')
+                ->and($message[1]['media_resolution'])->toBe(['level' => 'MEDIA_RESOLUTION_LOW']);
+
+            return true;
+        });
+    });
+
 });

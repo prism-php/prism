@@ -22,19 +22,25 @@ class AudioVideoMapper extends ProviderMediaMapper
         $url = $this->media->url();
 
         if ($this->media->isUrl() && $url !== null && MediaUrlDetector::shouldPassAsFileUri($url)) {
-            return [
+            $payload = [
                 'file_data' => [
                     'file_uri' => $url,
                 ],
             ];
+        } else {
+            $payload = [
+                'inline_data' => [
+                    'mime_type' => $this->media->mimeType(),
+                    'data' => $this->media->base64(),
+                ],
+            ];
         }
 
-        return [
-            'inline_data' => [
-                'mime_type' => $this->media->mimeType(),
-                'data' => $this->media->base64(),
-            ],
-        ];
+        if ($mediaResolution = $this->media->providerOptions('mediaResolution')) {
+            $payload['media_resolution'] = ['level' => $mediaResolution];
+        }
+
+        return $payload;
     }
 
     protected function provider(): string|Provider

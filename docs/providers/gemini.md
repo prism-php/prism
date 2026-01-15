@@ -492,7 +492,36 @@ For complete streaming documentation, see [Streaming Output](/core-concepts/stre
 
 ## Media Support
 
-Gemini has robust support for processing multimedia content:
+Gemini has robust support for processing multimedia content.
+
+### Media Resolution
+
+Gemini 3 models support the `mediaResolution` provider option to control the quality vs token usage tradeoff for images, videos, documents, and audio. Higher resolutions improve fine detail recognition but increase token consumption.
+
+| Resolution | Image Tokens | Video Tokens (per frame) | PDF Tokens |
+|------------|--------------|--------------------------|------------|
+| `MEDIA_RESOLUTION_LOW` | 280 | 70 | 280 + text |
+| `MEDIA_RESOLUTION_MEDIUM` | 560 | 70 | 560 + text |
+| `MEDIA_RESOLUTION_HIGH` | 1120 | 280 | 1120 + text |
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-3-flash-preview')
+    ->withMessages([
+        new UserMessage(
+            'Read the fine print in this document.',
+            additionalContent: [
+                Image::fromLocalPath('/path/to/document.png')
+                    ->withProviderOptions(['mediaResolution' => 'MEDIA_RESOLUTION_HIGH']),
+            ],
+        ),
+    ])
+    ->asText();
+```
 
 ### Video Analysis
 
