@@ -6,6 +6,7 @@ return [
         'middleware' => [],
         'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
+    'request_timeout' => env('PRISM_REQUEST_TIMEOUT', 30), // The timeout for requests in seconds.
     'providers' => [
         'openai' => [
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),

@@ -13,8 +13,12 @@ trait InitializesClient
 {
     protected function baseClient(): PendingRequest
     {
+        $timeout = (int) config('prism.request_timeout', 30);
+
         return Http::withRequestMiddleware(fn (RequestInterface $request): RequestInterface => $request)
             ->withResponseMiddleware(fn (ResponseInterface $response): ResponseInterface => $response)
+            ->timeout($timeout)
+            ->connectTimeout($timeout)
             ->throw();
     }
 }
