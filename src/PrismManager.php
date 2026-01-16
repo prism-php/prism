@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use InvalidArgumentException;
 use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Providers\Anthropic\Anthropic;
+use Prism\Prism\Providers\Azure\Azure;
 use Prism\Prism\Providers\DeepSeek\DeepSeek;
 use Prism\Prism\Providers\ElevenLabs\ElevenLabs;
 use Prism\Prism\Providers\Gemini\Gemini;
@@ -212,6 +213,19 @@ class PrismManager
             url: $config['url'] ?? 'https://openrouter.ai/api/v1',
             httpReferer: $site['http_referer'] ?? null,
             xTitle: $site['x_title'] ?? null,
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createAzureProvider(array $config): Azure
+    {
+        return new Azure(
+            url: $config['url'] ?? '',
+            apiKey: $config['api_key'] ?? '',
+            apiVersion: $config['api_version'] ?? '2024-10-21',
+            deploymentName: $config['deployment_name'] ?? null,
         );
     }
 
