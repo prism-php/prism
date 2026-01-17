@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismStructuredDecodingException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
@@ -153,4 +154,54 @@ it('forwards provider options for structured requests', function (): void {
             && $payload['user'] === 'structured-user-21'
             && $payload['verbosity'] === 'medium';
     });
+});
+
+it('throws enriched exception when content is empty', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured-empty-content');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('data', 'Some data'),
+        ],
+        ['data']
+    );
+
+    expect(fn () => Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenRouter, 'anthropic/claude-3.5-sonnet')
+        ->withPrompt('Give me some data')
+        ->asStructured()
+    )->toThrow(PrismStructuredDecodingException::class);
+});
+
+it('includes raw response context in decoding exception', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured-empty-content');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('data', 'Some data'),
+        ],
+        ['data']
+    );
+
+    try {
+        Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::OpenRouter, 'anthropic/claude-3.5-sonnet')
+            ->withPrompt('Give me some data')
+            ->asStructured();
+
+        $this->fail('Expected PrismStructuredDecodingException to be thrown');
+    } catch (PrismStructuredDecodingException $e) {
+        expect($e->getMessage())
+            ->toContain('Structured object could not be decoded')
+            ->toContain('Model: anthropic/claude-3.5-sonnet')
+            ->toContain('Finish reason: stop')
+            ->toContain('Raw choices:')
+            ->toContain('"content": null');
+    }
 });
