@@ -56,6 +56,21 @@ it('handles missing usage data in response', function (): void {
     expect($response->text)->toBe("Hello! I'm an AI assistant. How can I help you today?");
 });
 
+it('handles responses with missing id and model fields', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-missing-meta');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    expect($response)->toBeInstanceOf(TextResponse::class);
+    expect($response->meta->id)->toBe('');
+    expect($response->meta->model)->toBe('openai/gpt-4-turbo');
+    expect($response->text)->toContain("Hello! I'm an AI assistant");
+    expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
 it('can generate text with a system prompt', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-system-prompt');
 

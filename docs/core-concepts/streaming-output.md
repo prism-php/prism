@@ -179,6 +179,11 @@ function ChatComponent() {
             setIsComplete(false);
         },
         
+        '.step_start': (data) => {
+            console.log('Step started:', data);
+            // A new generation cycle is beginning
+        },
+        
         '.text_start': (data) => {
             console.log('Text start event received:', data);
             setCurrentMessage('');
@@ -200,6 +205,11 @@ function ChatComponent() {
         
         '.tool_result': (data) => {
             console.log('Tool result:', data.result);
+        },
+        
+        '.step_finish': (data) => {
+            console.log('Step finished:', data);
+            // Generation cycle complete, may be followed by another step
         },
         
         '.stream_end': (data) => {
@@ -246,6 +256,7 @@ All streaming approaches emit the same core events with consistent data structur
 ### Available Events
 
 - **`stream_start`** - Stream initialization with model and provider info
+- **`step_start`** - Beginning of a generation step (emitted before each AI response cycle)
 - **`text_start`** - Beginning of a text message
 - **`text_delta`** - Incremental text chunks as they're generated
 - **`text_complete`** - End of a complete text message
@@ -257,8 +268,12 @@ All streaming approaches emit the same core events with consistent data structur
 - **`tool_call_delta`** - Incremental tool call params chunks as they're generated
 - **`artifact`** - Binary artifacts produced by tools (images, audio, files)
 - **`provider_tool_event`** - Provider-specific tool events (e.g., image generation, web search)
+- **`step_finish`** - End of a generation step (emitted after tool calls or before stream end)
 - **`error`** - Error handling with recovery information
 - **`stream_end`** - Stream completion with usage statistics
+
+> [!TIP]
+> **Understanding Steps**: A "step" represents one cycle of AI generation. In a simple request without tools, there's typically one step. When using tools, each cycle of "AI generates → tools execute → AI continues" creates a new step. Use `step_start` and `step_finish` events to track these cycles in multi-turn tool interactions.
 
 ### Event Data Examples
 
@@ -275,6 +290,12 @@ Based on actual streaming output:
         "request_id": "msg_01BS7MKgXvUESY8yAEugphV2",
         "rate_limits": []
     }
+}
+
+// step_start event
+{
+    "id": "anthropic_evt_abc123step",
+    "timestamp": 1756412888
 }
 
 // text_start event
@@ -336,6 +357,12 @@ Based on actual streaming output:
             "height": 1024
         }
     }
+}
+
+// step_finish event
+{
+    "id": "anthropic_evt_def456step",
+    "timestamp": 1756412895
 }
 
 // stream_end event
@@ -673,11 +700,15 @@ The Vercel AI SDK format provides structured streaming data:
 ```
 data: {"type":"start","messageId":"anthropic_evt_NPbGJs7D0oQhvz2K"}
 
+data: {"type":"start-step"}
+
 data: {"type":"text-start","id":"msg_013P3F8KkVG3Qasjeay3NUmY"}
 
 data: {"type":"text-delta","id":"msg_013P3F8KkVG3Qasjeay3NUmY","delta":"Hello"}
 
 data: {"type":"text-end","id":"msg_013P3F8KkVG3Qasjeay3NUmY"}
+
+data: {"type":"finish-step"}
 
 data: {"type":"finish","messageMetadata":{"finishReason":"stop","usage":{"promptTokens":1998,"completionTokens":288}}}
 
