@@ -138,6 +138,39 @@ echo $response->text;
 > [!TIP]
 > `Document` value objects support URLs and base64-encoded content. File IDs and chunks are not supported via OpenRouter.
 
+### Videos
+
+OpenRouter supports sending video files to compatible models (like Gemini). Videos can be provided as URLs or base64-encoded content:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Media\Video;
+
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'google/gemini-3-flash-preview')
+    ->withPrompt('Describe what happens in this video.', [
+        Video::fromLocalPath('/path/to/video.mp4'),
+    ])
+    ->generate();
+
+echo $response->text;
+```
+
+You can also use YouTube URLs with Gemini models via OpenRouter:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'google/gemini-3-flash-preview')
+    ->withPrompt('Summarize this video.', [
+        Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+    ])
+    ->generate();
+```
+
+> [!NOTE]
+> Video support varies by model. Check [OpenRouter's models page](https://openrouter.ai/models?input_modalities=video) for models with video input support.
+
 ### Streaming
 
 ```php
@@ -295,6 +328,7 @@ Visit [OpenRouter's models page](https://openrouter.ai/models) for a complete li
 - ✅ Streaming
 - ✅ Reasoning/Thinking Tokens (for compatible models)
 - ✅ Image Support
+- ✅ Video Support
 - ✅ Document Support
 - ❌ Embeddings (not yet implemented)
 - ❌ Image Generation (not yet implemented)

@@ -8,7 +8,9 @@ use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
 
 /**
- * NOTE: mirrored from Gemini's AudioVideoMapper so future refactors can consolidate.
+ * Maps video media to OpenRouter's video_url format.
+ *
+ * @see https://openrouter.ai/docs/guides/overview/multimodal/videos
  */
 class VideoMapper extends ProviderMediaMapper
 {
@@ -17,11 +19,21 @@ class VideoMapper extends ProviderMediaMapper
      */
     public function toPayload(): array
     {
+        if ($this->media->isUrl()) {
+            return [
+                'type' => 'video_url',
+                'video_url' => [
+                    'url' => $this->media->url(),
+                ],
+            ];
+        }
+
+        $dataUrl = "data:{$this->media->mimeType()};base64,".$this->media->base64();
+
         return [
-            'type' => 'input_video',
-            'input_video' => [
-                'data' => $this->media->base64(),
-                'format' => $this->determineFormat(),
+            'type' => 'video_url',
+            'video_url' => [
+                'url' => $dataUrl,
             ],
         ];
     }
@@ -33,18 +45,10 @@ class VideoMapper extends ProviderMediaMapper
 
     protected function validateMedia(): bool
     {
-        return $this->media->hasRawContent();
-    }
+        if ($this->media->hasRawContent()) {
+            return true;
+        }
 
-    protected function determineFormat(): string
-    {
-        $mimeType = $this->media->mimeType();
-
-        return match ($mimeType) {
-            'video/mp4' => 'mp4',
-            'video/webm' => 'webm',
-            'video/ogg', 'video/ogv' => 'ogg',
-            default => 'mp4',
-        };
+        return $this->media->isUrl();
     }
 }
