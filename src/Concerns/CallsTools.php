@@ -11,6 +11,8 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Telemetry\Events\ToolCallCompleted;
+use Prism\Prism\Telemetry\Events\ToolCallStarted;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolOutput;
@@ -18,6 +20,8 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 trait CallsTools
 {
+    use EmitsTelemetry;
+
     /**
      * Execute tools and return results (for non-streaming handlers).
      *
@@ -48,66 +52,85 @@ trait CallsTools
     protected function callToolsAndYieldEvents(array $tools, array $toolCalls, string $messageId, array &$toolResults): Generator
     {
         foreach ($toolCalls as $toolCall) {
-            try {
-                $tool = $this->resolveTool($toolCall->name, $tools);
-                $output = call_user_func_array(
-                    $tool->handle(...),
-                    $toolCall->arguments()
-                );
+            yield from $this->withStreamingTelemetry(
+                startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): ToolCallStarted => new ToolCallStarted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    toolCall: $toolCall,
+                ),
+                endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, ToolResultEvent $event): ToolCallCompleted => new ToolCallCompleted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    toolCall: $toolCall,
+                    toolResult: $event->toolResult,
+                ),
+                execute: function () use ($tools, $toolCall, $messageId, &$toolResults): Generator {
+                    try {
+                        $tool = $this->resolveTool($toolCall->name, $tools);
 
-                if (is_string($output)) {
-                    $output = new ToolOutput(result: $output);
-                }
+                        $output = call_user_func_array(
+                            $tool->handle(...),
+                            $toolCall->arguments()
+                        );
 
-                $toolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: $output->result,
-                    toolCallResultId: $toolCall->resultId,
-                    artifacts: $output->artifacts,
-                );
+                        if (is_string($output)) {
+                            $output = new ToolOutput(result: $output);
+                        }
 
-                $toolResults[] = $toolResult;
+                        $toolResult = new ToolResult(
+                            toolCallId: $toolCall->id,
+                            toolName: $toolCall->name,
+                            args: $toolCall->arguments(),
+                            result: $output->result,
+                            toolCallResultId: $toolCall->resultId,
+                            artifacts: $output->artifacts,
+                        );
 
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $toolResult,
-                    messageId: $messageId,
-                    success: true
-                );
+                        $toolResults[] = $toolResult;
 
-                foreach ($toolResult->artifacts as $artifact) {
-                    yield new ArtifactEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        artifact: $artifact,
-                        toolCallId: $toolCall->id,
-                        toolName: $toolCall->name,
-                        messageId: $messageId,
-                    );
-                }
-            } catch (PrismException $e) {
-                $toolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: $e->getMessage(),
-                    toolCallResultId: $toolCall->resultId,
-                );
+                        yield new ToolResultEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            toolResult: $toolResult,
+                            messageId: $messageId,
+                            success: true,
+                        );
 
-                $toolResults[] = $toolResult;
+                        foreach ($toolResult->artifacts as $artifact) {
+                            yield new ArtifactEvent(
+                                id: EventID::generate(),
+                                timestamp: time(),
+                                artifact: $artifact,
+                                toolCallId: $toolCall->id,
+                                toolName: $toolCall->name,
+                                messageId: $messageId,
+                            );
+                        }
+                    } catch (PrismException $e) {
+                        $toolResult = new ToolResult(
+                            toolCallId: $toolCall->id,
+                            toolName: $toolCall->name,
+                            args: $toolCall->arguments(),
+                            result: $e->getMessage(),
+                            toolCallResultId: $toolCall->resultId,
+                        );
 
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $toolResult,
-                    messageId: $messageId,
-                    success: false,
-                    error: $e->getMessage()
-                );
-            }
+                        $toolResults[] = $toolResult;
+
+                        yield new ToolResultEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            toolResult: $toolResult,
+                            messageId: $messageId,
+                            success: false,
+                            error: $e->getMessage()
+                        );
+                    }
+                },
+                endEventType: ToolResultEvent::class,
+            );
         }
     }
 

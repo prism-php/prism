@@ -62,4 +62,52 @@ return [
             ],
         ],
     ],
+    'telemetry' => [
+        'enabled' => env('PRISM_TELEMETRY_ENABLED', false),
+        'driver' => env('PRISM_TELEMETRY_DRIVER', 'null'),
+
+        // Each named driver config specifies a 'driver' key for the actual driver type.
+        // This allows multiple configs using the same underlying driver (e.g., multiple OTLP endpoints).
+        'drivers' => [
+            'null' => [
+                'driver' => 'null',
+            ],
+
+            'log' => [
+                'driver' => 'log',
+                'channel' => env('PRISM_TELEMETRY_LOG_CHANNEL', 'prism-telemetry'),
+            ],
+
+            // Phoenix Arize - OTLP with OpenInference semantic conventions
+            'phoenix' => [
+                'driver' => 'otlp',
+                'endpoint' => env('PHOENIX_ENDPOINT', 'https://app.phoenix.arize.com/v1/traces'),
+                'api_key' => env('PHOENIX_API_KEY'),
+                'service_name' => env('PHOENIX_SERVICE_NAME', 'prism'),
+                'mapper' => \Prism\Prism\Telemetry\Semantics\OpenInferenceMapper::class,
+                'timeout' => 30.0,
+                // Tags applied to all spans (useful for filtering)
+                'tags' => [
+                    'environment' => env('APP_ENV', 'production'),
+                    'app' => env('APP_NAME', 'laravel'),
+                ],
+            ],
+
+            // Example: Langfuse OTLP backend
+            // 'langfuse' => [
+            //     'driver' => 'otlp',
+            //     'endpoint' => env('LANGFUSE_ENDPOINT', 'https://cloud.langfuse.com/api/public/otel/v1/traces'),
+            //     'api_key' => env('LANGFUSE_API_KEY'),
+            //     'service_name' => env('LANGFUSE_SERVICE_NAME', 'prism'),
+            //     'mapper' => \Prism\Prism\Telemetry\Semantics\PassthroughMapper::class,
+            // ],
+
+            // Example: Custom driver via factory class
+            // 'my-custom' => [
+            //     'driver' => 'custom',
+            //     'via' => App\Telemetry\MyCustomDriverFactory::class,
+            //     // Pass any additional config your factory needs...
+            // ],
+        ],
+    ],
 ];
