@@ -9,7 +9,7 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Prism\Prism\Streaming\Events\StreamEvent;
 
-abstract class ToolCallDeltaBroadcast implements ShouldBroadcastNow
+class ToolCallDeltaBroadcast implements ShouldBroadcastNow
 {
     use InteractsWithSockets;
 
