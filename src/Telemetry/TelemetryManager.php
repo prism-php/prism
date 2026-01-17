@@ -6,11 +6,12 @@ namespace Prism\Prism\Telemetry;
 
 use Illuminate\Contracts\Foundation\Application;
 use InvalidArgumentException;
+use OpenTelemetry\Contrib\Otlp\SpanExporter;
+use OpenTelemetry\SDK\Trace\TracerProvider;
 use Prism\Prism\Contracts\TelemetryDriver;
 use Prism\Prism\Telemetry\Drivers\LogDriver;
 use Prism\Prism\Telemetry\Drivers\NullDriver;
 use Prism\Prism\Telemetry\Drivers\OtlpDriver;
-use Prism\Prism\Telemetry\Otel\OtlpExporter;
 use RuntimeException;
 
 class TelemetryManager
@@ -72,7 +73,12 @@ class TelemetryManager
      */
     protected function createOtlpDriver(string $name, array $config): OtlpDriver
     {
-        OtlpExporter::ensureSdkAvailable();
+        if (! class_exists(SpanExporter::class) || ! class_exists(TracerProvider::class)) {
+            throw new RuntimeException(
+                'OpenTelemetry SDK required for OTLP telemetry. '.
+                'Run: composer require open-telemetry/sdk open-telemetry/exporter-otlp'
+            );
+        }
 
         return new OtlpDriver(driver: $name);
     }

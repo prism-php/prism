@@ -2,164 +2,224 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Queue;
+use OpenTelemetry\SDK\Trace\SpanExporterInterface;
 use Prism\Prism\Telemetry\Drivers\OtlpDriver;
-use Prism\Prism\Telemetry\Jobs\ExportSpanJob;
+use Prism\Prism\Telemetry\Otel\PrimedIdGenerator;
 use Prism\Prism\Telemetry\SpanData;
 
-beforeEach(function (): void {
-    Queue::fake();
-});
+describe('ID Preservation', function (): void {
+    it('uses exact span ID from SpanData', function (): void {
+        $spanId = bin2hex(random_bytes(8));
+        $traceId = bin2hex(random_bytes(16));
 
-it('dispatches job when recording a span', function (): void {
-    $driver = new OtlpDriver('otlp');
+        $exportedSpans = [];
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+            $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
+        });
 
-    $spanData = createOtlpSpanData();
-    $driver->recordSpan($spanData);
+        $driver->recordSpan(new SpanData(
+            spanId: $spanId,
+            traceId: $traceId,
+            parentSpanId: null,
+            operation: 'test_operation',
+            startTimeNano: hrtime(true),
+            endTimeNano: hrtime(true) + 1_000_000,
+            attributes: [],
+            events: [],
+        ));
 
-    Queue::assertPushed(ExportSpanJob::class);
-});
+        $driver->shutdown();
 
-it('passes SpanData object and driver name to job', function (): void {
-    $driver = new OtlpDriver('phoenix');
+        expect($exportedSpans)->toHaveCount(1)
+            ->and($exportedSpans[0]->getSpanId())->toBe($spanId)
+            ->and($exportedSpans[0]->getTraceId())->toBe($traceId);
+    });
 
-    $spanData = createOtlpSpanData();
-    $driver->recordSpan($spanData);
+    it('preserves parent span ID in context', function (): void {
+        $spanId = bin2hex(random_bytes(8));
+        $traceId = bin2hex(random_bytes(16));
+        $parentSpanId = bin2hex(random_bytes(8));
 
-    Queue::assertPushed(ExportSpanJob::class, function ($job): bool {
-        $reflection = new ReflectionClass($job);
+        $exportedSpans = [];
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+            $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
+        });
 
-        $spanDataProp = $reflection->getProperty('spanData');
-        $jobSpanData = $spanDataProp->getValue($job);
+        $driver->recordSpan(new SpanData(
+            spanId: $spanId,
+            traceId: $traceId,
+            parentSpanId: $parentSpanId,
+            operation: 'child_operation',
+            startTimeNano: hrtime(true),
+            endTimeNano: hrtime(true) + 1_000_000,
+            attributes: [],
+            events: [],
+        ));
 
-        $driverProp = $reflection->getProperty('driver');
-        $jobDriver = $driverProp->getValue($job);
+        $driver->shutdown();
 
-        return $jobSpanData instanceof SpanData
-            && $jobSpanData->attributes['model'] === 'gpt-4'
-            && $jobDriver === 'phoenix';
+        expect($exportedSpans[0]->getParentSpanId())->toBe($parentSpanId);
     });
 });
 
-it('returns driver name', function (): void {
-    $driver = new OtlpDriver('phoenix');
+describe('SDK Batching', function (): void {
+    it('batches multiple spans via SDK BatchSpanProcessor', function (): void {
+        $exportCount = 0;
+        $totalSpans = 0;
 
-    expect($driver->getDriver())->toBe('phoenix');
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportCount, &$totalSpans) {
+            $exportCount++;
+            $totalSpans += count(iterator_to_array($spans));
+        });
+
+        $driver->recordSpan(createOtlpTestSpanData());
+        $driver->recordSpan(createOtlpTestSpanData());
+        $driver->recordSpan(createOtlpTestSpanData());
+
+        $driver->shutdown();
+
+        // SDK batches spans - typically one export call
+        expect($totalSpans)->toBe(3);
+    });
+
+    it('flushes all spans on shutdown', function (): void {
+        $exportCount = 0;
+
+        $driver = createTestableOtlpDriver(function () use (&$exportCount) {
+            $exportCount++;
+        });
+
+        $driver->recordSpan(createOtlpTestSpanData());
+        $driver->recordSpan(createOtlpTestSpanData());
+
+        $driver->shutdown();
+
+        // All spans should be exported
+        expect($exportCount)->toBe(2);
+
+        // Second shutdown should not export anything
+        $driver->shutdown();
+        expect($exportCount)->toBe(2);
+    });
 });
 
-it('defaults to otlp driver name', function (): void {
-    $driver = new OtlpDriver;
+describe('Error Handling', function (): void {
+    it('sets error status for failed spans', function (): void {
+        $exportedSpans = [];
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+            $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
+        });
 
-    expect($driver->getDriver())->toBe('otlp');
+        $driver->recordSpan(new SpanData(
+            spanId: bin2hex(random_bytes(8)),
+            traceId: bin2hex(random_bytes(16)),
+            parentSpanId: null,
+            operation: 'failed_operation',
+            startTimeNano: hrtime(true),
+            endTimeNano: hrtime(true) + 1_000_000,
+            attributes: [],
+            events: [],
+            exception: new RuntimeException('Something failed'),
+        ));
+
+        $driver->shutdown();
+
+        expect($exportedSpans[0]->getStatus()->getCode())->toBe('Error')
+            ->and($exportedSpans[0]->getStatus()->getDescription())->toBe('Something failed');
+    });
 });
 
-it('passes SpanData with error to job', function (): void {
-    $driver = new OtlpDriver('otlp');
+describe('Driver Identity', function (): void {
+    it('returns configured driver name', function (): void {
+        expect((new OtlpDriver('phoenix'))->getDriver())->toBe('phoenix');
+    });
 
-    $spanData = new SpanData(
-        spanId: bin2hex(random_bytes(8)),
-        traceId: bin2hex(random_bytes(16)),
-        parentSpanId: null,
-        operation: 'text_generation',
-        startTimeNano: (int) (microtime(true) * 1_000_000_000),
-        endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
-        attributes: ['model' => 'gpt-4'],
-        events: [
-            [
-                'name' => 'exception',
-                'timeNano' => (int) (microtime(true) * 1_000_000_000),
-                'attributes' => ['type' => 'RuntimeException', 'message' => 'Test error'],
-            ],
-        ],
-        exception: new RuntimeException('Test error'),
+    it('defaults to otlp', function (): void {
+        expect((new OtlpDriver)->getDriver())->toBe('otlp');
+    });
+});
+
+describe('Configuration', function (): void {
+    it('applies tags from config', function (): void {
+        config(['prism.telemetry.drivers.tagged' => [
+            'tags' => ['env' => 'testing'],
+            'mapper' => \Prism\Prism\Telemetry\Semantics\OpenInferenceMapper::class,
+        ]]);
+
+        $exportedSpans = [];
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+            $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
+        }, 'tagged');
+
+        $driver->recordSpan(createOtlpTestSpanData());
+        $driver->shutdown();
+
+        $tagsTags = $exportedSpans[0]->getAttributes()->get('tag.tags');
+        expect($tagsTags)->toContain('env:testing');
+    });
+});
+
+describe('PrimedIdGenerator Integration', function (): void {
+    it('uses PrimedIdGenerator for ID generation', function (): void {
+        $driver = new OtlpDriver('otlp');
+
+        $ref = new ReflectionMethod($driver, 'idGenerator');
+        $generator = $ref->invoke($driver);
+
+        expect($generator)->toBeInstanceOf(PrimedIdGenerator::class);
+    });
+});
+
+function createTestableOtlpDriver(callable $onExport, string $driverName = 'otlp'): OtlpDriver
+{
+    $driver = new OtlpDriver($driverName);
+
+    // Create mock exporter
+    $mockExporter = Mockery::mock(SpanExporterInterface::class);
+    $mockExporter->shouldReceive('export')
+        ->andReturnUsing(function ($spans) use ($onExport) {
+            $onExport($spans);
+
+            $future = Mockery::mock(\OpenTelemetry\SDK\Common\Future\FutureInterface::class);
+            $future->shouldReceive('await')->andReturn(true);
+
+            return $future;
+        });
+    $mockExporter->shouldReceive('shutdown')->andReturn(true);
+
+    // Create TracerProvider with mock exporter but real PrimedIdGenerator
+    $idGenerator = new PrimedIdGenerator;
+    $provider = new \OpenTelemetry\SDK\Trace\TracerProvider(
+        spanProcessors: [new \OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor($mockExporter)],
+        sampler: new \OpenTelemetry\SDK\Trace\Sampler\AlwaysOnSampler,
+        resource: \OpenTelemetry\SDK\Resource\ResourceInfo::create(
+            \OpenTelemetry\SDK\Common\Attribute\Attributes::create(['service.name' => 'test'])
+        ),
+        idGenerator: $idGenerator,
     );
 
-    $driver->recordSpan($spanData);
+    // Inject via reflection
+    $providerRef = new ReflectionProperty($driver, 'provider');
+    $providerRef->setValue($driver, $provider);
 
-    Queue::assertPushed(ExportSpanJob::class, function ($job): bool {
-        $reflection = new ReflectionClass($job);
-        $property = $reflection->getProperty('spanData');
-        $spanData = $property->getValue($job);
+    $idGenRef = new ReflectionProperty($driver, 'idGenerator');
+    $idGenRef->setValue($driver, $idGenerator);
 
-        return $spanData instanceof SpanData && $spanData->hasError();
-    });
-});
+    return $driver;
+}
 
-it('passes all span data fields to job', function (): void {
-    $driver = new OtlpDriver('otlp');
-
-    $spanData = createOtlpSpanData();
-    $driver->recordSpan($spanData);
-
-    Queue::assertPushed(ExportSpanJob::class, function ($job) use ($spanData): bool {
-        $reflection = new ReflectionClass($job);
-        $property = $reflection->getProperty('spanData');
-        $jobSpanData = $property->getValue($job);
-
-        return $jobSpanData->spanId === $spanData->spanId
-            && $jobSpanData->traceId === $spanData->traceId
-            && $jobSpanData->operation === $spanData->operation
-            && $jobSpanData->startTimeNano === $spanData->startTimeNano
-            && $jobSpanData->endTimeNano === $spanData->endTimeNano;
-    });
-});
-
-it('dispatches to queue when sync is false', function (): void {
-    config(['prism.telemetry.drivers.otlp.sync' => false]);
-
-    $driver = new OtlpDriver('otlp');
-    $driver->recordSpan(createOtlpSpanData());
-
-    Queue::assertPushed(ExportSpanJob::class);
-});
-
-it('executes synchronously when sync is true', function (): void {
-    \Illuminate\Support\Facades\Http::fake([
-        '*' => \Illuminate\Support\Facades\Http::response('', 200),
-    ]);
-
-    config([
-        'prism.telemetry.drivers.test_sync' => [
-            'sync' => true,
-            'endpoint' => 'http://localhost:4318/v1/traces',
-            'mapper' => \Prism\Prism\Telemetry\Semantics\PassthroughMapper::class,
-        ],
-    ]);
-
-    $driver = new OtlpDriver('test_sync');
-    $driver->recordSpan(createOtlpSpanData());
-
-    // When sync=true, job should NOT be dispatched to queue
-    Queue::assertNotPushed(ExportSpanJob::class);
-});
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-function createOtlpSpanData(): SpanData
+function createOtlpTestSpanData(): SpanData
 {
     return new SpanData(
         spanId: bin2hex(random_bytes(8)),
         traceId: bin2hex(random_bytes(16)),
         parentSpanId: null,
         operation: 'text_generation',
-        startTimeNano: (int) (microtime(true) * 1_000_000_000),
-        endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
+        startTimeNano: hrtime(true),
+        endTimeNano: hrtime(true) + 1_000_000,
         attributes: [
             'model' => 'gpt-4',
             'provider' => 'openai',
-            'temperature' => 0.7,
-            'max_tokens' => 100,
-            'input' => 'Hello',
-            'output' => 'Hello there!',
-            'usage' => [
-                'prompt_tokens' => 10,
-                'completion_tokens' => 5,
-            ],
-            'messages' => [
-                ['role' => 'user', 'content' => 'Hello'],
-            ],
         ],
         events: [],
     );

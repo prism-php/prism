@@ -81,6 +81,8 @@ it('resolves custom driver via class', function (): void {
     $customDriver = new class implements TelemetryDriver
     {
         public function recordSpan(SpanData $span): void {}
+
+        public function shutdown(): void {}
     };
 
     $factoryClass = new class($customDriver)
@@ -112,6 +114,8 @@ it('resolves custom driver via closure', function (): void {
     $customDriver = new class implements TelemetryDriver
     {
         public function recordSpan(SpanData $span): void {}
+
+        public function shutdown(): void {}
     };
 
     config([
@@ -150,6 +154,8 @@ it('passes config to custom driver factory', function (): void {
                 return new class implements TelemetryDriver
                 {
                     public function recordSpan(SpanData $span): void {}
+
+                    public function shutdown(): void {}
                 };
             },
             'custom_option' => 'test-value',

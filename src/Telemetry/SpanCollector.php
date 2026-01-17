@@ -94,6 +94,16 @@ class SpanCollector
     }
 
     /**
+     * Shutdown the telemetry driver, flushing any buffered spans.
+     *
+     * Should be called when a Prism operation completes.
+     */
+    public function shutdown(): void
+    {
+        $this->driver->shutdown();
+    }
+
+    /**
      * @param  array<string, mixed>  $attributes
      */
     public function addEvent(string $spanId, string $name, array $attributes = []): void

@@ -21,4 +21,12 @@ class NullDriver implements TelemetryDriver
     {
         // Intentionally empty - discards all telemetry
     }
+
+    /**
+     * Shutdown (no-op).
+     */
+    public function shutdown(): void
+    {
+        // Nothing to flush
+    }
 }

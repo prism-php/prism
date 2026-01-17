@@ -28,7 +28,7 @@ class TelemetryServiceProvider extends ServiceProvider
     {
         $this->app->singleton(TelemetryManager::class);
 
-        $this->app->bind(TelemetryDriver::class, function () {
+        $this->app->scoped(TelemetryDriver::class, function () {
             $manager = $this->app->make(TelemetryManager::class);
             $driver = config('prism.telemetry.driver', 'null');
 

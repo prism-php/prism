@@ -7,6 +7,7 @@ namespace Prism\Prism\Concerns;
 use Generator;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Event;
+use Prism\Prism\Contracts\TelemetryDriver;
 use Prism\Prism\Telemetry\Events\SpanException;
 
 trait EmitsTelemetry
@@ -58,6 +59,9 @@ trait EmitsTelemetry
             throw $e;
         } finally {
             Context::addHidden('prism.telemetry.current_span_id', $parentSpanId);
+
+            // Shutdown driver to flush any buffered spans
+            app(TelemetryDriver::class)->shutdown();
         }
     }
 
@@ -131,6 +135,9 @@ trait EmitsTelemetry
             throw $e;
         } finally {
             Context::addHidden('prism.telemetry.current_span_id', $parentSpanId);
+
+            // Shutdown driver to flush any buffered spans
+            app(TelemetryDriver::class)->shutdown();
         }
     }
 }

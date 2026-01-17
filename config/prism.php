@@ -78,30 +78,26 @@ return [
             ],
 
             // Phoenix Arize - OTLP with OpenInference semantic conventions
-            // Note: Provide the full OTLP traces endpoint URL
             'phoenix' => [
                 'driver' => 'otlp',
                 'endpoint' => env('PHOENIX_ENDPOINT', 'https://app.phoenix.arize.com/v1/traces'),
                 'api_key' => env('PHOENIX_API_KEY'),
                 'service_name' => env('PHOENIX_SERVICE_NAME', 'prism'),
-                'sync' => env('PRISM_OTEL_SYNC', false),
-                'queue' => env('PHOENIX_QUEUE', 'default'),
                 'mapper' => \Prism\Prism\Telemetry\Semantics\OpenInferenceMapper::class,
-                // Tags applied to all spans for this driver (useful for filtering in Phoenix)
+                'timeout' => 30.0,
+                // Tags applied to all spans (useful for filtering)
                 'tags' => [
                     'environment' => env('APP_ENV', 'production'),
                     'app' => env('APP_NAME', 'laravel'),
                 ],
             ],
 
-            // Example: Additional OTLP backend (provide full endpoint URL)
+            // Example: Langfuse OTLP backend
             // 'langfuse' => [
             //     'driver' => 'otlp',
             //     'endpoint' => env('LANGFUSE_ENDPOINT', 'https://cloud.langfuse.com/api/public/otel/v1/traces'),
             //     'api_key' => env('LANGFUSE_API_KEY'),
             //     'service_name' => env('LANGFUSE_SERVICE_NAME', 'prism'),
-            //     'sync' => env('PRISM_OTEL_SYNC', false),
-            //     'queue' => env('LANGFUSE_QUEUE', 'default'),
             //     'mapper' => \Prism\Prism\Telemetry\Semantics\PassthroughMapper::class,
             // ],
 

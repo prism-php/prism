@@ -49,4 +49,12 @@ class LogDriver implements TelemetryDriver
             'timestamp' => now()->toISOString(),
         ]);
     }
+
+    /**
+     * Shutdown (no-op for log driver - logs immediately).
+     */
+    public function shutdown(): void
+    {
+        // Log driver writes immediately, nothing to flush
+    }
 }

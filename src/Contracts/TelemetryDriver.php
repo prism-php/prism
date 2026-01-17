@@ -15,4 +15,12 @@ interface TelemetryDriver
      * for formatting and exporting it to the appropriate backend.
      */
     public function recordSpan(SpanData $span): void;
+
+    /**
+     * Shutdown the driver, flushing any buffered spans.
+     *
+     * Called when a Prism operation completes to ensure all
+     * telemetry data is exported.
+     */
+    public function shutdown(): void;
 }
