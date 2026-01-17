@@ -125,8 +125,8 @@ class Text
             toolResults: $toolResults,
             providerToolCalls: [],
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                (int) data_get($data, 'usage.prompt_tokens', 0),
+                (int) data_get($data, 'usage.completion_tokens', 0),
             ),
             meta: new Meta(
                 id: data_get($data, 'id', ''),

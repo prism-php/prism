@@ -54,6 +54,33 @@ it('returns structured output', function (): void {
     expect($response->usage->completionTokens)->toBe(26);
 });
 
+it('handles missing usage data in response', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured-missing-usage');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withSystemPrompt('The tigers game is at 3pm in Detroit, the temperature is expected to be 75º')
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->asStructured();
+
+    expect($response)->toBeInstanceOf(StructuredResponse::class);
+    expect($response->structured)->toBeArray();
+    expect($response->usage->promptTokens)->toBe(0);
+    expect($response->usage->completionTokens)->toBe(0);
+});
+
 it('handles responses with missing id and model fields', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/structured-with-missing-meta');
 
