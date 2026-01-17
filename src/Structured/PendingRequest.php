@@ -11,14 +11,18 @@ use Prism\Prism\Concerns\ConfiguresModels;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\ConfiguresStructuredOutput;
 use Prism\Prism\Concerns\ConfiguresTools;
+use Prism\Prism\Concerns\EmitsTelemetry;
 use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasSchema;
+use Prism\Prism\Concerns\HasTelemetryContext;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Events\StructuredOutputCompleted;
+use Prism\Prism\Telemetry\Events\StructuredOutputStarted;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 class PendingRequest
@@ -29,11 +33,13 @@ class PendingRequest
     use ConfiguresProviders;
     use ConfiguresStructuredOutput;
     use ConfiguresTools;
+    use EmitsTelemetry;
     use HasMessages;
     use HasPrompts;
     use HasProviderOptions;
     use HasProviderTools;
     use HasSchema;
+    use HasTelemetryContext;
     use HasTools;
 
     /**
@@ -49,7 +55,22 @@ class PendingRequest
         $request = $this->toRequest();
 
         try {
-            return $this->provider->structured($request);
+            return $this->withTelemetry(
+                startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): \Prism\Prism\Telemetry\Events\StructuredOutputStarted => new StructuredOutputStarted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                ),
+                endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, Response $response): \Prism\Prism\Telemetry\Events\StructuredOutputCompleted => new StructuredOutputCompleted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                    response: $response,
+                ),
+                execute: fn (): \Prism\Prism\Structured\Response => $this->provider->structured($request),
+            );
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }

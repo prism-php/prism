@@ -7,6 +7,8 @@ namespace Prism\Prism\Concerns;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Events\ToolCallCompleted;
+use Prism\Prism\Telemetry\Events\ToolCallStarted;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolOutput;
@@ -15,6 +17,8 @@ use Throwable;
 
 trait CallsTools
 {
+    use EmitsTelemetry;
+
     /**
      * @param  Tool[]  $tools
      * @param  ToolCall[]  $toolCalls
@@ -26,32 +30,49 @@ trait CallsTools
             function (ToolCall $toolCall) use ($tools): ToolResult {
                 $tool = $this->resolveTool($toolCall->name, $tools);
 
-                try {
-                    $output = call_user_func_array(
-                        $tool->handle(...),
-                        $toolCall->arguments()
-                    );
+                return $this->withTelemetry(
+                    startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): \Prism\Prism\Telemetry\Events\ToolCallStarted => new ToolCallStarted(
+                        spanId: $spanId,
+                        traceId: $traceId,
+                        parentSpanId: $parentSpanId,
+                        toolCall: $toolCall,
+                    ),
+                    endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, ToolResult $result): \Prism\Prism\Telemetry\Events\ToolCallCompleted => new ToolCallCompleted(
+                        spanId: $spanId,
+                        traceId: $traceId,
+                        parentSpanId: $parentSpanId,
+                        toolCall: $toolCall,
+                        tool: $tool,
+                        toolResult: $result,
+                    ),
+                    execute: function () use ($tool, $toolCall): ToolResult {
+                        try {
+                            $output = call_user_func_array(
+                                $tool->handle(...),
+                                $toolCall->arguments()
+                            );
 
-                    if (is_string($output)) {
-                        $output = new ToolOutput(result: $output);
-                    }
+                            if (is_string($output)) {
+                                $output = new ToolOutput(result: $output);
+                            }
 
-                    return new ToolResult(
-                        toolCallId: $toolCall->id,
-                        toolName: $toolCall->name,
-                        args: $toolCall->arguments(),
-                        result: $output->result,
-                        toolCallResultId: $toolCall->resultId,
-                        artifacts: $output->artifacts,
-                    );
-                } catch (Throwable $e) {
-                    if ($e instanceof PrismException) {
-                        throw $e;
-                    }
+                            return new ToolResult(
+                                toolCallId: $toolCall->id,
+                                toolName: $toolCall->name,
+                                args: $toolCall->arguments(),
+                                result: $output->result,
+                                toolCallResultId: $toolCall->resultId,
+                                artifacts: $output->artifacts,
+                            );
+                        } catch (Throwable $e) {
+                            if ($e instanceof PrismException) {
+                                throw $e;
+                            }
 
-                    throw PrismException::toolCallFailed($toolCall, $e);
-                }
-
+                            throw PrismException::toolCallFailed($toolCall, $e);
+                        }
+                    },
+                );
             },
             $toolCalls
         );

@@ -16,3 +16,14 @@ if (! function_exists('prism')) {
         return App::make(Prism::class);
     }
 }
+
+if (! function_exists('now_nanos')) {
+
+    /**
+     * Get the current Unix timestamp in nanoseconds.
+     */
+    function now_nanos(): int
+    {
+        return (int) (microtime(true) * 1_000_000_000);
+    }
+}
