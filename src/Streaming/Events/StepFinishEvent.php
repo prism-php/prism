@@ -8,13 +8,6 @@ use Prism\Prism\Enums\StreamEventType;
 
 readonly class StepFinishEvent extends StreamEvent
 {
-    public function __construct(
-        string $id,
-        int $timestamp
-    ) {
-        parent::__construct($id, $timestamp);
-    }
-
     public function type(): StreamEventType
     {
         return StreamEventType::StepFinish;
