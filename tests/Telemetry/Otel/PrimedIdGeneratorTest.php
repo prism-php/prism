@@ -41,14 +41,14 @@ describe('PrimedIdGenerator', function (): void {
     it('throws when span ID not primed', function (): void {
         $generator = new PrimedIdGenerator;
 
-        expect(fn () => $generator->generateSpanId())
+        expect(fn (): string => $generator->generateSpanId())
             ->toThrow(RuntimeException::class, 'spanId not primed');
     });
 
     it('throws when trace ID not primed', function (): void {
         $generator = new PrimedIdGenerator;
 
-        expect(fn () => $generator->generateTraceId())
+        expect(fn (): string => $generator->generateTraceId())
             ->toThrow(RuntimeException::class, 'traceId not primed');
     });
 
@@ -59,7 +59,7 @@ describe('PrimedIdGenerator', function (): void {
         $generator->primeSpanId($spanId);
         $generator->generateSpanId(); // Consumes the primed ID
 
-        expect(fn () => $generator->generateSpanId())
+        expect(fn (): string => $generator->generateSpanId())
             ->toThrow(RuntimeException::class);
     });
 });

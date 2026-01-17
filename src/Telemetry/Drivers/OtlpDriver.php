@@ -79,7 +79,7 @@ class OtlpDriver implements TelemetryDriver
         }
 
         foreach ($this->mapper->mapEvents($spanData->events) as $event) {
-            $span->addEvent($event['name'], Attributes::create($event['attributes']), $event['timeNano']);
+            $span->addEvent($event['name'], Attributes::create($event['attributes']), $event['timeNanos']);
         }
 
         if ($spanData->hasError()) {
@@ -103,7 +103,7 @@ class OtlpDriver implements TelemetryDriver
 
     protected function provider(): TracerProvider
     {
-        if ($this->provider) {
+        if ($this->provider instanceof \OpenTelemetry\SDK\Trace\TracerProvider) {
             return $this->provider;
         }
 

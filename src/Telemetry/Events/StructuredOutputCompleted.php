@@ -16,10 +16,13 @@ use Prism\Prism\Structured\Response;
  * @property-read string|null $parentSpanId Parent span ID for nested operations
  * @property-read Request $request The structured output request
  * @property-read Response $response The generated structured response
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class StructuredOutputCompleted
 {
     use Dispatchable;
+
+    public readonly int $timeNanos;
 
     public function __construct(
         public readonly string $spanId,
@@ -27,5 +30,8 @@ class StructuredOutputCompleted
         public readonly ?string $parentSpanId,
         public readonly Request $request,
         public readonly Response $response,
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }

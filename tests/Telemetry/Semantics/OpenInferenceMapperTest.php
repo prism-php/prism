@@ -264,7 +264,7 @@ it('maps exception events correctly', function (): void {
     $events = [
         [
             'name' => 'exception',
-            'timeNano' => 1000000000,
+            'timeNanos' => 1000000000,
             'attributes' => [
                 'type' => 'RuntimeException',
                 'message' => 'Test error',

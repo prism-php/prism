@@ -15,13 +15,19 @@ use Throwable;
  *
  * @property-read string $spanId The span ID where the exception occurred (16 hex chars)
  * @property-read Throwable $exception The exception that was thrown
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class SpanException
 {
     use Dispatchable;
 
+    public readonly int $timeNanos;
+
     public function __construct(
         public readonly string $spanId,
         public readonly Throwable $exception,
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }

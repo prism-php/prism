@@ -16,10 +16,13 @@ use Prism\Prism\ValueObjects\ToolCall;
  * @property-read string|null $parentSpanId Parent span ID for nested operations
  * @property-read ToolCall $toolCall The tool call being executed
  * @property-read Tool|null $tool The resolved tool instance (if available)
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class ToolCallStarted
 {
     use Dispatchable;
+
+    public readonly int $timeNanos;
 
     public function __construct(
         public readonly string $spanId,
@@ -27,5 +30,8 @@ class ToolCallStarted
         public readonly ?string $parentSpanId,
         public readonly ToolCall $toolCall,
         public readonly ?Tool $tool = null,
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }

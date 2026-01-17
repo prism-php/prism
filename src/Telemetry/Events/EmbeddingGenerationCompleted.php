@@ -16,10 +16,13 @@ use Prism\Prism\Embeddings\Response;
  * @property-read string|null $parentSpanId Parent span ID for nested operations
  * @property-read Request $request The embedding request
  * @property-read Response $response The generated embeddings response
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class EmbeddingGenerationCompleted
 {
     use Dispatchable;
+
+    public readonly int $timeNanos;
 
     public function __construct(
         public readonly string $spanId,
@@ -27,5 +30,8 @@ class EmbeddingGenerationCompleted
         public readonly ?string $parentSpanId,
         public readonly Request $request,
         public readonly Response $response,
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }

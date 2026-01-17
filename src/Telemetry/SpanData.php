@@ -20,7 +20,7 @@ readonly class SpanData
      * @param  int  $startTimeNano  Start time in Unix epoch nanoseconds
      * @param  int  $endTimeNano  End time in Unix epoch nanoseconds
      * @param  array<string, mixed>  $attributes  Driver-agnostic span attributes
-     * @param  array<int, array{name: string, timeNano: int, attributes: array<string, mixed>}>  $events  Mid-span events (exceptions, annotations)
+     * @param  array<int, array{name: string, timeNanos: int, attributes: array<string, mixed>}>  $events  Mid-span events (exceptions, annotations)
      * @param  \Throwable|null  $exception  Exception if the span failed
      */
     public function __construct(

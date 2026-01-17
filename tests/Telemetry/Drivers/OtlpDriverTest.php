@@ -13,7 +13,7 @@ describe('ID Preservation', function (): void {
         $traceId = bin2hex(random_bytes(16));
 
         $exportedSpans = [];
-        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans): void {
             $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
         });
 
@@ -41,7 +41,7 @@ describe('ID Preservation', function (): void {
         $parentSpanId = bin2hex(random_bytes(8));
 
         $exportedSpans = [];
-        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans): void {
             $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
         });
 
@@ -67,7 +67,7 @@ describe('SDK Batching', function (): void {
         $exportCount = 0;
         $totalSpans = 0;
 
-        $driver = createTestableOtlpDriver(function ($spans) use (&$exportCount, &$totalSpans) {
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportCount, &$totalSpans): void {
             $exportCount++;
             $totalSpans += count(iterator_to_array($spans));
         });
@@ -85,7 +85,7 @@ describe('SDK Batching', function (): void {
     it('flushes all spans on shutdown', function (): void {
         $exportCount = 0;
 
-        $driver = createTestableOtlpDriver(function () use (&$exportCount) {
+        $driver = createTestableOtlpDriver(function () use (&$exportCount): void {
             $exportCount++;
         });
 
@@ -106,7 +106,7 @@ describe('SDK Batching', function (): void {
 describe('Error Handling', function (): void {
     it('sets error status for failed spans', function (): void {
         $exportedSpans = [];
-        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans): void {
             $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
         });
 
@@ -147,7 +147,7 @@ describe('Configuration', function (): void {
         ]]);
 
         $exportedSpans = [];
-        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans) {
+        $driver = createTestableOtlpDriver(function ($spans) use (&$exportedSpans): void {
             $exportedSpans = array_merge($exportedSpans, iterator_to_array($spans));
         }, 'tagged');
 

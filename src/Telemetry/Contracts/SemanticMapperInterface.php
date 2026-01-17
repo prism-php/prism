@@ -24,8 +24,8 @@ interface SemanticMapperInterface
     /**
      * Map events to semantic convention format.
      *
-     * @param  array<int, array{name: string, timeNano: int, attributes: array<string, mixed>}>  $events
-     * @return array<int, array{name: string, timeNano: int, attributes: array<string, mixed>}>
+     * @param  array<int, array{name: string, timeNanos: int, attributes: array<string, mixed>}>  $events
+     * @return array<int, array{name: string, timeNanos: int, attributes: array<string, mixed>}>
      */
     public function mapEvents(array $events): array;
 }

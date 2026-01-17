@@ -15,10 +15,13 @@ use Illuminate\Foundation\Events\Dispatchable;
  * @property-read string $method HTTP method (GET, POST, etc.)
  * @property-read string $url The request URL
  * @property-read array<string, mixed> $headers Request headers
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class HttpCallStarted
 {
     use Dispatchable;
+
+    public readonly int $timeNanos;
 
     /**
      * @param  array<string, mixed>  $headers  Request headers
@@ -30,5 +33,8 @@ class HttpCallStarted
         public readonly string $method,
         public readonly string $url,
         public readonly array $headers = [],
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }

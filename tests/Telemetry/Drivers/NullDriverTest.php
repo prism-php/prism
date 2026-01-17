@@ -35,8 +35,8 @@ it('handles spans with events gracefully', function (): void {
         endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
         attributes: ['model' => 'gpt-4'],
         events: [
-            ['name' => 'event1', 'timeNano' => 1000, 'attributes' => []],
-            ['name' => 'event2', 'timeNano' => 2000, 'attributes' => ['key' => 'value']],
+            ['name' => 'event1', 'timeNanos' => 1000, 'attributes' => []],
+            ['name' => 'event2', 'timeNanos' => 2000, 'attributes' => ['key' => 'value']],
         ],
     );
 

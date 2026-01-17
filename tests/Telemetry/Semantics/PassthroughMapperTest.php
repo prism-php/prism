@@ -32,7 +32,7 @@ it('returns events unchanged', function (): void {
     $events = [
         [
             'name' => 'test_event',
-            'timeNano' => 1000000000,
+            'timeNanos' => 1000000000,
             'attributes' => ['key' => 'value'],
         ],
     ];

@@ -13,7 +13,7 @@ it('creates immutable span data with all properties', function (): void {
         startTimeNano: 1000000000,
         endTimeNano: 2000000000,
         attributes: ['model' => 'gpt-4'],
-        events: [['name' => 'event1', 'timeNano' => 1500000000, 'attributes' => []]],
+        events: [['name' => 'event1', 'timeNanos' => 1500000000, 'attributes' => []]],
     );
 
     expect($spanData->spanId)->toBe('span-123')
@@ -144,9 +144,9 @@ describe('events', function (): void {
             endTimeNano: 2000000000,
             attributes: [],
             events: [
-                ['name' => 'first', 'timeNano' => 1100000000, 'attributes' => ['size' => 10]],
-                ['name' => 'second', 'timeNano' => 1200000000, 'attributes' => ['size' => 15]],
-                ['name' => 'third', 'timeNano' => 1300000000, 'attributes' => []],
+                ['name' => 'first', 'timeNanos' => 1100000000, 'attributes' => ['size' => 10]],
+                ['name' => 'second', 'timeNanos' => 1200000000, 'attributes' => ['size' => 15]],
+                ['name' => 'third', 'timeNanos' => 1300000000, 'attributes' => []],
             ],
         );
 

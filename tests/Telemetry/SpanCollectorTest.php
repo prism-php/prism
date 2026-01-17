@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Context;
 use Prism\Prism\Contracts\TelemetryDriver;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Telemetry\Events\SpanException;
 use Prism\Prism\Telemetry\Events\TextGenerationCompleted;
 use Prism\Prism\Telemetry\Events\TextGenerationStarted;
 use Prism\Prism\Telemetry\SpanCollector;
@@ -114,8 +115,8 @@ describe('span events', function (): void {
         $collector = new SpanCollector($driver);
 
         $collector->startSpan(createCollectorMockStartEvent('test-span-id'));
-        $collector->addEvent('test-span-id', 'token_generated', ['token_count' => 10]);
-        $collector->addEvent('test-span-id', 'chunk_received');
+        $collector->addEvent('test-span-id', 'token_generated', now_nanos(), ['token_count' => 10]);
+        $collector->addEvent('test-span-id', 'chunk_received', now_nanos());
         $collector->endSpan(createCollectorMockEndEvent('test-span-id'));
 
         expect($capturedSpan->events)->toHaveCount(2)
@@ -128,7 +129,7 @@ describe('span events', function (): void {
         $driver = Mockery::mock(TelemetryDriver::class)->shouldIgnoreMissing();
         $collector = new SpanCollector($driver);
 
-        $collector->addEvent('unknown-span-id', 'event', ['key' => 'value']);
+        $collector->addEvent('unknown-span-id', 'event', now_nanos(), ['key' => 'value']);
 
         expect(true)->toBeTrue();
     });
@@ -142,7 +143,7 @@ describe('exception handling', function (): void {
         $exception = new Exception('Test error');
 
         $collector->startSpan(createCollectorMockStartEvent('test-span-id'));
-        $collector->recordException('test-span-id', $exception);
+        $collector->recordException(new SpanException('test-span-id', $exception));
         $collector->endSpan(createCollectorMockEndEvent('test-span-id'));
 
         expect($capturedSpan->hasError())->toBeTrue()
@@ -156,7 +157,7 @@ describe('exception handling', function (): void {
         $driver = Mockery::mock(TelemetryDriver::class)->shouldIgnoreMissing();
         $collector = new SpanCollector($driver);
 
-        $collector->recordException('unknown-span-id', new Exception('Test error'));
+        $collector->recordException(new SpanException('unknown-span-id', new Exception('Test error')));
 
         expect(true)->toBeTrue();
     });

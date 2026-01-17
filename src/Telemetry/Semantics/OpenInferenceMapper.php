@@ -38,14 +38,14 @@ class OpenInferenceMapper implements SemanticMapperInterface
     /**
      * Convert events to OpenInference format.
      *
-     * @param  array<int, array{name: string, timeNano: int, attributes: array<string, mixed>}>  $events
-     * @return array<int, array{name: string, timeNano: int, attributes: array<string, mixed>}>
+     * @param  array<int, array{name: string, timeNanos: int, attributes: array<string, mixed>}>  $events
+     * @return array<int, array{name: string, timeNanos: int, attributes: array<string, mixed>}>
      */
     public function mapEvents(array $events): array
     {
         return array_map(fn (array $e): array => [
             'name' => $e['name'],
-            'timeNano' => $e['timeNano'],
+            'timeNanos' => $e['timeNanos'],
             'attributes' => $e['name'] === 'exception' ? [
                 'exception.type' => $e['attributes']['type'] ?? 'Unknown',
                 'exception.message' => $e['attributes']['message'] ?? '',

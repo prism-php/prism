@@ -13,6 +13,7 @@ use Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted;
 use Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted;
 use Prism\Prism\Telemetry\Events\HttpCallCompleted;
 use Prism\Prism\Telemetry\Events\HttpCallStarted;
+use Prism\Prism\Telemetry\Events\SpanException;
 use Prism\Prism\Telemetry\Events\StreamingCompleted;
 use Prism\Prism\Telemetry\Events\StreamingStarted;
 use Prism\Prism\Telemetry\Events\StructuredOutputCompleted;
@@ -49,7 +50,7 @@ class SpanCollector
             'traceId' => $event->traceId,
             'parentSpanId' => $event->parentSpanId,
             'operation' => $this->getOperation($event),
-            'startTimeNano' => $this->nowNano(),
+            'startTimeNano' => $event->timeNanos,
             'attributes' => $this->extractStartAttributes($event),
             'events' => [],
             'exception' => null,
@@ -84,7 +85,7 @@ class SpanCollector
             parentSpanId: $pending['parentSpanId'],
             operation: $pending['operation'],
             startTimeNano: $pending['startTimeNano'],
-            endTimeNano: $this->nowNano(),
+            endTimeNano: $event->timeNanos,
             attributes: $this->filterNulls($pending['attributes']),
             events: $pending['events'],
             exception: $pending['exception'],
@@ -106,28 +107,28 @@ class SpanCollector
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function addEvent(string $spanId, string $name, array $attributes = []): void
+    public function addEvent(string $spanId, string $name, int $timeNanos, array $attributes = []): void
     {
         if (isset($this->pendingSpans[$spanId])) {
             $this->pendingSpans[$spanId]['events'][] = [
                 'name' => $name,
-                'timeNano' => $this->nowNano(),
+                'timeNanos' => $timeNanos,
                 'attributes' => $attributes,
             ];
         }
     }
 
-    public function recordException(string $spanId, \Throwable $exception): void
+    public function recordException(SpanException $event): void
     {
-        if (isset($this->pendingSpans[$spanId])) {
-            $this->pendingSpans[$spanId]['exception'] = $exception;
-            $this->pendingSpans[$spanId]['events'][] = [
+        if (isset($this->pendingSpans[$event->spanId])) {
+            $this->pendingSpans[$event->spanId]['exception'] = $event->exception;
+            $this->pendingSpans[$event->spanId]['events'][] = [
                 'name' => 'exception',
-                'timeNano' => $this->nowNano(),
+                'timeNanos' => $event->timeNanos,
                 'attributes' => [
-                    'type' => $exception::class,
-                    'message' => $exception->getMessage(),
-                    'stacktrace' => $exception->getTraceAsString(),
+                    'type' => $event->exception::class,
+                    'message' => $event->exception->getMessage(),
+                    'stacktrace' => $event->exception->getTraceAsString(),
                 ],
             ];
         }
@@ -444,10 +445,5 @@ class SpanCollector
     protected function filterNulls(array $array): array
     {
         return array_filter($array, fn ($v): bool => $v !== null);
-    }
-
-    protected function nowNano(): int
-    {
-        return (int) (microtime(true) * 1_000_000_000);
     }
 }

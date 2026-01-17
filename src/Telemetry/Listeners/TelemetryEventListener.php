@@ -87,6 +87,6 @@ class TelemetryEventListener
 
     public function handleSpanException(SpanException $event): void
     {
-        $this->collector->recordException($event->spanId, $event->exception);
+        $this->collector->recordException($event);
     }
 }

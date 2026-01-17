@@ -16,10 +16,13 @@ use Prism\Prism\Text\Request;
  * @property-read string|null $parentSpanId Parent span ID for nested operations
  * @property-read Request $request The streaming request
  * @property-read StreamStartEvent|null $streamStart The stream start event with model/provider info
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class StreamingStarted
 {
     use Dispatchable;
+
+    public readonly int $timeNanos;
 
     public function __construct(
         public readonly string $spanId,
@@ -27,5 +30,8 @@ class StreamingStarted
         public readonly ?string $parentSpanId,
         public readonly Request $request,
         public readonly ?StreamStartEvent $streamStart = null,
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }

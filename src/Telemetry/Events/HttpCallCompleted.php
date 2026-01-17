@@ -15,10 +15,13 @@ use Illuminate\Foundation\Events\Dispatchable;
  * @property-read string $method HTTP method (GET, POST, etc.)
  * @property-read string $url The request URL
  * @property-read int $statusCode HTTP response status code
+ * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
 class HttpCallCompleted
 {
     use Dispatchable;
+
+    public readonly int $timeNanos;
 
     public function __construct(
         public readonly string $spanId,
@@ -27,5 +30,8 @@ class HttpCallCompleted
         public readonly string $method,
         public readonly string $url,
         public readonly int $statusCode,
-    ) {}
+        ?int $timeNanos = null,
+    ) {
+        $this->timeNanos = $timeNanos ?? now_nanos();
+    }
 }
