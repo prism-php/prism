@@ -121,7 +121,7 @@ it('executes synchronously when sync is true', function (): void {
     config([
         'prism.telemetry.drivers.test_sync' => [
             'sync' => true,
-            'endpoint' => 'http://localhost:4318',
+            'endpoint' => 'http://localhost:4318/v1/traces',
             'mapper' => \Prism\Prism\Telemetry\Semantics\PassthroughMapper::class,
         ],
     ]);

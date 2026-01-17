@@ -23,8 +23,9 @@
     "laravel/framework": "^11.0|^12.0"
   },
   "suggest": {
-    "open-telemetry/sdk": "Required for telemetry drivers (Phoenix, Langfuse, etc.)",
-    "open-telemetry/exporter-otlp": "Required for telemetry drivers"
+    "open-telemetry/sdk": "Required for OTLP telemetry drivers (Phoenix, Langfuse, etc.)",
+    "open-telemetry/exporter-otlp": "Required for OTLP telemetry drivers",
+    "google/protobuf": "Required for OTLP telemetry export (or ext-protobuf)"
   },
   "config": {
     "allow-plugins": {
@@ -51,7 +52,8 @@
     "spatie/laravel-ray": "^1.39",
     "laravel/mcp": "^0.3.2",
     "open-telemetry/sdk": "^1.10",
-    "open-telemetry/exporter-otlp": "^1.3"
+    "open-telemetry/exporter-otlp": "^1.3",
+    "google/protobuf": "^4.29"
   },
   "autoload-dev": {
     "psr-4": {
