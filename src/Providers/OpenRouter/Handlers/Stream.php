@@ -222,7 +222,7 @@ class Stream
             // Extract usage from any chunk that has it
             // OpenRouter sends usage in a separate final chunk when stream_options.include_usage=true
             $usage = $this->extractUsage($data);
-            if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+            if ($usage instanceof Usage) {
                 $this->state->addUsage($usage);
             }
         }
