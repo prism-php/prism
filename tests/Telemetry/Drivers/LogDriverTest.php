@@ -6,6 +6,12 @@ use Illuminate\Support\Facades\Log;
 use Prism\Prism\Telemetry\Drivers\LogDriver;
 use Prism\Prism\Telemetry\SpanData;
 
+beforeEach(function (): void {
+    // Allow any unexpected channel calls (e.g., deprecations channel)
+    Log::shouldReceive('channel')->byDefault()->andReturnSelf();
+    Log::shouldReceive('warning')->byDefault();
+});
+
 it('logs span data when recordSpan is called', function (): void {
     Log::shouldReceive('channel')
         ->with('test-channel')
@@ -69,8 +75,6 @@ it('logs generic attributes directly from span data', function (): void {
     Log::shouldReceive('info')
         ->once()
         ->with('Span recorded', Mockery::on(
-            // Generic attributes (not OpenInference)
-
             fn ($data): bool => $data['attributes']['model'] === 'gpt-4'
             && $data['attributes']['provider'] === 'openai'
             && $data['attributes']['usage']['prompt_tokens'] === 10));
@@ -80,10 +84,6 @@ it('logs generic attributes directly from span data', function (): void {
 
     $driver->recordSpan($spanData);
 });
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
 
 function createLogSpanData(?\Throwable $exception = null): SpanData
 {
@@ -95,7 +95,6 @@ function createLogSpanData(?\Throwable $exception = null): SpanData
         startTimeNano: (int) (microtime(true) * 1_000_000_000),
         endTimeNano: (int) (microtime(true) * 1_000_000_000) + 100_000_000,
         attributes: [
-            // Generic Prism attributes (NOT OpenInference)
             'model' => 'gpt-4',
             'provider' => 'openai',
             'temperature' => 0.7,
