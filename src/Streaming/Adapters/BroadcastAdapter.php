@@ -21,6 +21,7 @@ use Prism\Prism\Events\Broadcasting\ThinkingBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingCompleteBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingStartBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallBroadcast;
+use Prism\Prism\Events\Broadcasting\ToolCallDeltaBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolResultBroadcast;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
@@ -34,6 +35,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\PendingRequest;
@@ -76,6 +78,7 @@ class BroadcastAdapter
             ThinkingEvent::class => new ThinkingBroadcast($event, $this->channels),
             ThinkingCompleteEvent::class => new ThinkingCompleteBroadcast($event, $this->channels),
             ToolCallEvent::class => new ToolCallBroadcast($event, $this->channels),
+            ToolCallDeltaEvent::class => new ToolCallDeltaBroadcast($event, $this->channels),
             ToolResultEvent::class => new ToolResultBroadcast($event, $this->channels),
             ArtifactEvent::class => new ArtifactBroadcast($event, $this->channels),
             ProviderToolEvent::class => new ProviderToolEventBroadcast($event, $this->channels),
