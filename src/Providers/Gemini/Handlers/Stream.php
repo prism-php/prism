@@ -17,7 +17,6 @@ use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
-use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -30,14 +29,11 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
-use Prism\Prism\ValueObjects\ToolOutput;
-use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
@@ -313,63 +309,7 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        foreach ($mappedToolCalls as $toolCall) {
-            try {
-                $tool = $this->resolveTool($toolCall->name, $request->tools());
-                $output = call_user_func_array($tool->handle(...), $toolCall->arguments());
-
-                if (is_string($output)) {
-                    $output = new ToolOutput(result: $output);
-                }
-
-                $toolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: is_array($output->result) ? $output->result : ['result' => $output->result],
-                    artifacts: $output->artifacts,
-                );
-
-                $toolResults[] = $toolResult;
-
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $toolResult,
-                    messageId: $this->state->messageId(),
-                    success: true
-                );
-
-                foreach ($toolResult->artifacts as $artifact) {
-                    yield new ArtifactEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        artifact: $artifact,
-                        toolCallId: $toolCall->id,
-                        toolName: $toolCall->name,
-                        messageId: $this->state->messageId(),
-                    );
-                }
-            } catch (Throwable $e) {
-                $errorResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: []
-                );
-
-                $toolResults[] = $errorResult;
-
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $errorResult,
-                    messageId: $this->state->messageId(),
-                    success: false,
-                    error: $e->getMessage()
-                );
-            }
-        }
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         if ($toolResults !== []) {
             $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
