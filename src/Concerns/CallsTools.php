@@ -36,13 +36,13 @@ trait CallsTools
                         traceId: $traceId,
                         parentSpanId: $parentSpanId,
                         toolCall: $toolCall,
-                        tool: $tool,
                     ),
                     endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, ToolResult $result): \Prism\Prism\Telemetry\Events\ToolCallCompleted => new ToolCallCompleted(
                         spanId: $spanId,
                         traceId: $traceId,
                         parentSpanId: $parentSpanId,
                         toolCall: $toolCall,
+                        tool: $tool,
                         toolResult: $result,
                     ),
                     execute: function () use ($tool, $toolCall): ToolResult {

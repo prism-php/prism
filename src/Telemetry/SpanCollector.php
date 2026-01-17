@@ -180,7 +180,7 @@ class SpanCollector
             $event instanceof EmbeddingGenerationCompleted => $this->extractEmbeddingEnd($event),
             $event instanceof StreamingCompleted => $this->extractStreamingEnd($event),
             $event instanceof HttpCallCompleted => ['http' => ['status_code' => $event->statusCode]],
-            $event instanceof ToolCallCompleted => ['output' => $event->toolResult->result],
+            $event instanceof ToolCallCompleted => $this->extractToolCallEnd($event),
         };
     }
 
@@ -257,12 +257,6 @@ class SpanCollector
                 'name' => $tc->name,
                 'call_id' => $tc->id,
                 'arguments' => $tc->arguments(),
-                'description' => $event->tool?->description(),
-                'parameters' => $event->tool ? [
-                    'type' => 'object',
-                    'properties' => $event->tool->parametersAsArray(),
-                    'required' => $event->tool->requiredParameters(),
-                ] : null,
             ],
             'input' => $tc->arguments(),
         ];
@@ -341,6 +335,22 @@ class SpanCollector
         }
 
         return $event->streamEnd->toArray();
+    }
+
+    /** @return array<string, mixed> */
+    protected function extractToolCallEnd(ToolCallCompleted $event): array
+    {
+        return [
+            'output' => $event->toolResult->result,
+            'tool' => [
+                'description' => $event->tool->description(),
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => $event->tool->parametersAsArray(),
+                    'required' => $event->tool->requiredParameters(),
+                ],
+            ],
+        ];
     }
 
     // ========================================================================

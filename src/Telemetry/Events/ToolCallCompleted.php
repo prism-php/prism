@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Telemetry\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 
@@ -15,6 +16,7 @@ use Prism\Prism\ValueObjects\ToolResult;
  * @property-read string $traceId Trace identifier linking related spans (32 hex chars)
  * @property-read string|null $parentSpanId Parent span ID for nested operations
  * @property-read ToolCall $toolCall The tool call that was executed
+ * @property-read Tool $tool The resolved tool instance
  * @property-read ToolResult $toolResult The result of the tool execution
  * @property-read int $timeNanos Unix epoch timestamp in nanoseconds
  */
@@ -29,6 +31,7 @@ class ToolCallCompleted
         public readonly string $traceId,
         public readonly ?string $parentSpanId,
         public readonly ToolCall $toolCall,
+        public readonly Tool $tool,
         public readonly ToolResult $toolResult,
         ?int $timeNanos = null,
     ) {
