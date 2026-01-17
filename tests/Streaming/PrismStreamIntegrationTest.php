@@ -5,7 +5,10 @@ declare(strict_types=1);
 use Illuminate\Broadcasting\PrivateChannel;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -33,13 +36,15 @@ it('asStream returns generator of stream events with simple text response', func
 
     $eventArray = iterator_to_array($events);
 
-    expect(count($eventArray))->toBeGreaterThanOrEqual(5);
+    expect(count($eventArray))->toBeGreaterThanOrEqual(7); // StreamStart, StepStart, TextStart, TextDelta(s), TextComplete, StepFinish, StreamEnd
     expect($eventArray[0])->toBeInstanceOf(StreamStartEvent::class);
-    expect($eventArray[1])->toBeInstanceOf(TextStartEvent::class);
+    expect($eventArray[1])->toBeInstanceOf(StepStartEvent::class);
+    expect($eventArray[2])->toBeInstanceOf(TextStartEvent::class);
 
     $lastIndex = count($eventArray) - 1;
     expect($eventArray[$lastIndex])->toBeInstanceOf(StreamEndEvent::class);
-    expect($eventArray[$lastIndex - 1])->toBeInstanceOf(TextCompleteEvent::class);
+    expect($eventArray[$lastIndex - 1])->toBeInstanceOf(StepFinishEvent::class);
+    expect($eventArray[$lastIndex - 2])->toBeInstanceOf(TextCompleteEvent::class);
 });
 
 it('asStream yields text delta events with chunked content', function (): void {
@@ -181,9 +186,12 @@ it('asStream handles empty text response', function (): void {
 
     $eventArray = iterator_to_array($events);
 
-    expect($eventArray)->toHaveCount(2);
+    // StreamStart, StepStart, StepFinish, StreamEnd (no text events for empty response)
+    expect($eventArray)->toHaveCount(4);
     expect($eventArray[0])->toBeInstanceOf(StreamStartEvent::class);
-    expect($eventArray[1])->toBeInstanceOf(StreamEndEvent::class);
+    expect($eventArray[1])->toBeInstanceOf(StepStartEvent::class);
+    expect($eventArray[2])->toBeInstanceOf(StepFinishEvent::class);
+    expect($eventArray[3])->toBeInstanceOf(StreamEndEvent::class);
 });
 
 it('asStream handles multi-step responses with text and tool calls', function (): void {
@@ -800,4 +808,207 @@ it('asDataStreamResponse works after multiple fake setups', function (): void {
 
     expect($response1)->toBeInstanceOf(StreamedResponse::class);
     expect($response2)->toBeInstanceOf(StreamedResponse::class);
+});
+
+describe('step events', function (): void {
+    it('emits step start and finish events for simple text response', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('Hello World'),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('openai', 'gpt-4')
+                ->withPrompt('Test')
+                ->asStream()
+        );
+
+        $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+        $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+
+        // Single response = 1 step
+        expect($stepStartEvents)->toHaveCount(1);
+        expect($stepFinishEvents)->toHaveCount(1);
+    });
+
+    it('emits step events in correct order relative to stream events', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('Test message'),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('anthropic', 'claude-3-sonnet')
+                ->withPrompt('Test')
+                ->asStream()
+        );
+
+        $eventTypes = array_map(fn (StreamEvent $e): string => $e::class, $events);
+
+        $streamStartIdx = array_search(StreamStartEvent::class, $eventTypes);
+        $stepStartIdx = array_search(StepStartEvent::class, $eventTypes);
+        $stepFinishIdx = array_search(StepFinishEvent::class, $eventTypes);
+        $streamEndIdx = array_search(StreamEndEvent::class, $eventTypes);
+
+        // Order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
+        expect($streamStartIdx)->toBeLessThan($stepStartIdx);
+        expect($stepStartIdx)->toBeLessThan($stepFinishIdx);
+        expect($stepFinishIdx)->toBeLessThan($streamEndIdx);
+    });
+
+    it('emits multiple step events for multi-step tool call conversation', function (): void {
+        $toolCall = new ToolCall('tool-1', 'calculator', ['a' => 1, 'b' => 2]);
+        $toolResult = new ToolResult('tool-1', 'calculator', ['a' => 1, 'b' => 2], ['result' => 3]);
+
+        Prism::fake([
+            TextResponseFake::make()->withSteps(collect([
+                TextStepFake::make()
+                    ->withText('Let me calculate')
+                    ->withToolCalls([$toolCall]),
+                TextStepFake::make()
+                    ->withToolResults([$toolResult]),
+                TextStepFake::make()
+                    ->withText('The answer is 3'),
+            ])),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('openai', 'gpt-4')
+                ->withPrompt('What is 1 + 2?')
+                ->asStream()
+        );
+
+        $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+        $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+
+        // Multiple steps = multiple step events
+        expect(count($stepStartEvents))->toBeGreaterThanOrEqual(2);
+        expect(count($stepFinishEvents))->toBeGreaterThanOrEqual(2);
+
+        // Start and finish counts should match
+        expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
+    });
+
+    it('maintains step start/finish pairing for each step', function (): void {
+        $toolCall = new ToolCall('tool-1', 'search', ['q' => 'test']);
+        $toolResult = new ToolResult('tool-1', 'search', ['q' => 'test'], ['found' => true]);
+
+        Prism::fake([
+            TextResponseFake::make()->withSteps(collect([
+                TextStepFake::make()->withToolCalls([$toolCall]),
+                TextStepFake::make()->withToolResults([$toolResult]),
+                TextStepFake::make()->withText('Done'),
+            ])),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('anthropic', 'claude-3-sonnet')
+                ->withPrompt('Search')
+                ->asStream()
+        );
+
+        // Get indices of step events
+        $stepStartIndices = array_keys(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent));
+        $stepFinishIndices = array_keys(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent));
+
+        // Re-index
+        $stepStartIndices = array_values($stepStartIndices);
+        $stepFinishIndices = array_values($stepFinishIndices);
+
+        // Each step start should be followed by its corresponding finish
+        foreach ($stepStartIndices as $i => $startIdx) {
+            if (isset($stepFinishIndices[$i])) {
+                expect($startIdx)->toBeLessThan($stepFinishIndices[$i],
+                    "Step $i: start index ($startIdx) should be less than finish index ({$stepFinishIndices[$i]})");
+            }
+        }
+    });
+
+    it('places tool events within step boundaries', function (): void {
+        $toolCall = new ToolCall('tool-1', 'weather', ['city' => 'NYC']);
+        $toolResult = new ToolResult('tool-1', 'weather', ['city' => 'NYC'], ['temp' => 72]);
+
+        Prism::fake([
+            TextResponseFake::make()->withSteps(collect([
+                TextStepFake::make()
+                    ->withText('Checking weather')
+                    ->withToolCalls([$toolCall]),
+                TextStepFake::make()
+                    ->withToolResults([$toolResult]),
+                TextStepFake::make()
+                    ->withText('It is 72 degrees'),
+            ])),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('openai', 'gpt-4')
+                ->withPrompt('Weather in NYC?')
+                ->asStream()
+        );
+
+        $getFirstIndex = fn (string $class): ?int => array_key_first(
+            array_filter($events, fn (StreamEvent $e): bool => $e instanceof $class)
+        );
+
+        $stepStartIdx = $getFirstIndex(StepStartEvent::class);
+        $toolCallIdx = $getFirstIndex(ToolCallEvent::class);
+        $stepFinishIndices = array_keys(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent));
+
+        // Tool call should occur after first step start
+        expect($toolCallIdx)->toBeGreaterThan($stepStartIdx);
+
+        // Tool call should occur before first step finish
+        expect($toolCallIdx)->toBeLessThan($stepFinishIndices[0]);
+    });
+
+    it('step events have valid id and timestamp', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('Test'),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('openai', 'gpt-4')
+                ->withPrompt('Test')
+                ->asStream()
+        );
+
+        $stepEvents = array_filter(
+            $events,
+            fn (StreamEvent $e): bool => $e instanceof StepStartEvent || $e instanceof StepFinishEvent
+        );
+
+        foreach ($stepEvents as $event) {
+            expect($event->id)->toBeString()->not->toBeEmpty();
+            expect($event->timestamp)->toBeInt()->toBeGreaterThan(0);
+        }
+    });
+
+    it('step events can be converted to array', function (): void {
+        Prism::fake([
+            TextResponseFake::make()->withText('Test'),
+        ]);
+
+        $events = iterator_to_array(
+            Prism::text()
+                ->using('openai', 'gpt-4')
+                ->withPrompt('Test')
+                ->asStream()
+        );
+
+        $stepEvents = array_filter(
+            $events,
+            fn (StreamEvent $e): bool => $e instanceof StepStartEvent || $e instanceof StepFinishEvent
+        );
+
+        foreach ($stepEvents as $event) {
+            $array = $event->toArray();
+            expect($array)->toBeArray();
+            expect($array)->toHaveKey('id');
+            expect($array)->toHaveKey('timestamp');
+        }
+    });
 });

@@ -22,6 +22,8 @@ use Prism\Prism\Providers\Groq\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -96,6 +98,16 @@ class Stream
                 );
             }
 
+            // Emit step start event once per step
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
+            }
+
             if ($this->hasError($data)) {
                 yield from $this->handleErrors($data, $request);
 
@@ -167,6 +179,13 @@ class Stream
                 }
             }
         }
+
+        // Emit step finish before stream end
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         yield new StreamEndEvent(
             id: EventID::generate(),
@@ -274,6 +293,13 @@ class Stream
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+
+        // Emit step finish after tool calls
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         // Reset text state for next response
         $this->state->resetTextState();
