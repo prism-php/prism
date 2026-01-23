@@ -204,19 +204,24 @@ class Stream
                 );
 
                 // Emit stream end event with usage
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: FinishReason::Stop,
-                    usage: new Usage(
-                        promptTokens: $this->state->promptTokens(),
-                        completionTokens: $this->state->completionTokens()
-                    )
-                );
+                yield $this->emitStreamEndEvent();
 
                 return;
             }
         }
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: FinishReason::Stop,
+            usage: new Usage(
+                promptTokens: $this->state->promptTokens(),
+                completionTokens: $this->state->completionTokens()
+            )
+        );
     }
 
     /**
@@ -302,6 +307,8 @@ class Stream
             $this->state->reset();
             $nextResponse = $this->sendRequest($request);
             yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
         }
     }
 
