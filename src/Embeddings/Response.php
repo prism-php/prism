@@ -12,10 +12,12 @@ readonly class Response
 {
     /**
      * @param  Embedding[]  $embeddings
+     * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
         public array $embeddings,
         public EmbeddingsUsage $usage,
-        public Meta $meta
+        public Meta $meta,
+        public ?array $raw = null
     ) {}
 }

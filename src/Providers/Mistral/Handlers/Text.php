@@ -131,6 +131,7 @@ class Text
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: $this->extractThinking(data_get($data, 'choices.0.message', [])),
+            raw: $data,
         ));
     }
 

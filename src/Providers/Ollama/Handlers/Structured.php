@@ -65,6 +65,7 @@ class Structured
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            raw: $data,
         ));
     }
 

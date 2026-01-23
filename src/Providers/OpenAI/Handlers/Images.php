@@ -46,6 +46,7 @@ class Images
                 rateLimits: $this->processRateLimits($response),
             ),
             images: $images,
+            raw: $data,
         );
 
         return $responseBuilder->toResponse();

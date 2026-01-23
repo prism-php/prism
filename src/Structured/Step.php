@@ -21,6 +21,7 @@ readonly class Step
      * @param  array<string,mixed>  $structured
      * @param  array<int, ToolCall>  $toolCalls
      * @param  array<int, ToolResult>  $toolResults
+     * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
         public string $text,
@@ -32,6 +33,7 @@ readonly class Step
         public array $additionalContent = [],
         public array $structured = [],
         public array $toolCalls = [],
-        public array $toolResults = []
+        public array $toolResults = [],
+        public ?array $raw = null
     ) {}
 }

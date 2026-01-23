@@ -122,8 +122,8 @@ echo $response->finishReason->name;
 echo "Prompt tokens: {$response->usage->promptTokens}";
 echo "Completion tokens: {$response->usage->completionTokens}";
 
-// Access provider-specific response data
-$rawResponse = $response->response;
+// Access the raw API response data
+$rawResponse = $response->raw;
 ```
 
 > [!TIP]

@@ -74,6 +74,7 @@ class Structured
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
             structured: $parsed ?? [],
+            raw: $data,
         ));
     }
 

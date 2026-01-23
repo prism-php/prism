@@ -41,6 +41,7 @@ class Images
                 model: data_get($data, 'modelVersion', ''),
             ),
             images: $images,
+            raw: $data,
         );
 
         return $responseBuilder->toResponse();

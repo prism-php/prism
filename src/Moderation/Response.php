@@ -11,10 +11,12 @@ readonly class Response
 {
     /**
      * @param  ModerationResult[]  $results
+     * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
         public array $results,
-        public Meta $meta
+        public Meta $meta,
+        public ?array $raw = null
     ) {}
 
     /**

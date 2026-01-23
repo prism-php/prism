@@ -41,6 +41,7 @@ class Embeddings
                 id: '',
                 model: '',
             ),
+            raw: $data,
         );
     }
 

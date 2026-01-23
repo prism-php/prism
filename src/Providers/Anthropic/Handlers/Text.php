@@ -132,6 +132,8 @@ class Text
      */
     protected function addStep(array $toolResults = []): void
     {
+        $data = $this->httpResponse->json();
+
         $this->responseBuilder->addStep(new Step(
             text: $this->tempResponse->text,
             finishReason: $this->tempResponse->finishReason,
@@ -143,6 +145,7 @@ class Text
             messages: $this->request->messages(),
             systemPrompts: $this->request->systemPrompts(),
             additionalContent: $this->tempResponse->additionalContent,
+            raw: $data,
         ));
     }
 

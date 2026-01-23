@@ -135,6 +135,7 @@ class Text
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            raw: $data,
         ));
     }
 }

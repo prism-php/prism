@@ -39,6 +39,7 @@ readonly class ResponseBuilder
             meta: $finalStep->meta,
             messages: collect($finalStep->messages),
             additionalContent: $finalStep->additionalContent,
+            raw: $finalStep->raw,
         );
     }
 
