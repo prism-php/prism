@@ -50,6 +50,7 @@ class ImageRequestMap
                 'responseModalities' => $providerOptions['response_modalities'] ?? ['TEXT', 'IMAGE'],
                 'imageConfig' => [
                     'aspectRatio' => $providerOptions['aspect_ratio'] ?? null,
+                    'imageSize' => $providerOptions['image_size'] ?? null,
                 ],
             ],
         ];
