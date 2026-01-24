@@ -1,7 +1,7 @@
 <template>
   <div>
     <div style="overflow-x: auto !important; display: block !important; width: 100% !important;">
-      <table style="width: 100% !important; min-width: 850px !important;">
+      <table style="width: max-content !important; min-width: 850px !important;">
         <thead>
           <tr>
             <th scope="col">Provider</th>
