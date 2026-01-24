@@ -1,6 +1,6 @@
 <template>
   <div>
-    <table>
+    <table style="width: max-content !important;">
       <thead>
         <tr>
           <th scope="col">Provider</th>
