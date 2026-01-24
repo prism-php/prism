@@ -276,6 +276,7 @@ class Stream
             citations: $this->state->citations() !== [] ? $this->state->citations() : null,
             additionalContent: [
                 'thinking' => $this->state->thinkingSummaries() === [] ? null : implode('', $this->state->thinkingSummaries()),
+                'thinking_signature' => $this->state->currentThinkingSignature() === '' ? null : $this->state->currentThinkingSignature(),
             ]
         );
     }
