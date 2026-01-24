@@ -170,6 +170,7 @@ class Structured
         }
 
         $this->request->addMessage($message);
+        $this->request->resetToolChoice();
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
         if ($this->canContinue()) {

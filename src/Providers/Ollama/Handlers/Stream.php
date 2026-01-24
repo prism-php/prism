@@ -293,6 +293,7 @@ class Stream
         // Add messages for next turn
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         // Emit step finish after tool calls
         $this->state->markStepFinished();

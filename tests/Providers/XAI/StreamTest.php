@@ -323,7 +323,17 @@ it('handles tool choice parameter correctly', function (): void {
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
 
-        return isset($body['tool_choice'])
+        // First request has specific tool choice, subsequent requests have 'auto' after resetToolChoice()
+        if (! isset($body['tool_choice'])) {
+            return false;
+        }
+
+        // After tool calls, toolChoice is reset to 'auto'
+        if ($body['tool_choice'] === 'auto') {
+            return true;
+        }
+
+        return is_array($body['tool_choice'])
             && $body['tool_choice']['type'] === 'function'
             && $body['tool_choice']['function']['name'] === 'get_weather';
     });
