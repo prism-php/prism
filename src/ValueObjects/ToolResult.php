@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-readonly class ToolResult
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+readonly class ToolResult implements Arrayable
 {
     /**
      * @param  array<string, mixed>  $args
@@ -23,5 +28,21 @@ readonly class ToolResult
     public function hasArtifacts(): bool
     {
         return $this->artifacts !== [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'tool_call_id' => $this->toolCallId,
+            'tool_name' => $this->toolName,
+            'args' => $this->args,
+            'result' => $this->result,
+            'tool_call_result_id' => $this->toolCallResultId,
+            'artifacts' => array_map(fn (Artifact $artifact): array => $artifact->toArray(), $this->artifacts),
+        ];
     }
 }

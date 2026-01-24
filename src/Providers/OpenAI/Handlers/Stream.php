@@ -434,7 +434,7 @@ class Stream
                 reasoningId: data_get($toolCall, 'reasoning_id'),
                 reasoningSummary: data_get($toolCall, 'reasoning_summary', []),
             ))
-            ->toArray();
+            ->all();
     }
 
     /**

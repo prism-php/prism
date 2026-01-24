@@ -143,7 +143,7 @@ class PrismChatController
                 'system' => new SystemMessage($this->extractTextContent($message['content'])),
                 default => throw new PrismServerException("Couldn't map messages to Prism messages")
             })
-            ->toArray();
+            ->all();
     }
 
     /**

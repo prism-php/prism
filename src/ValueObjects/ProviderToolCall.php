@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-readonly class ProviderToolCall
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+readonly class ProviderToolCall implements Arrayable
 {
     /**
      * @param  array<string, mixed>  $data
@@ -15,4 +20,18 @@ readonly class ProviderToolCall
         public string $status,
         public array $data,
     ) {}
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'type' => $this->type,
+            'status' => $this->status,
+            'data' => $this->data,
+        ];
+    }
 }

@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Images;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
-readonly class Response
+/**
+ * @implements Arrayable<string, mixed>
+ */
+readonly class Response implements Arrayable
 {
     /**
      * @param  GeneratedImage[]  $images
@@ -36,5 +40,20 @@ readonly class Response
     public function imageCount(): int
     {
         return count($this->images);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'images' => array_map(fn (GeneratedImage $image): array => $image->toArray(), $this->images),
+            'usage' => $this->usage->toArray(),
+            'meta' => $this->meta->toArray(),
+            'additional_content' => $this->additionalContent,
+            'raw' => $this->raw,
+        ];
     }
 }
