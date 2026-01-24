@@ -110,6 +110,7 @@ class Text
         }
 
         $this->request->addMessage($message);
+        $this->request->resetToolChoice();
 
         $this->addStep($toolResults);
 

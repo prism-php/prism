@@ -810,3 +810,25 @@ it('passes store parameter when specified', function (): void {
         return true;
     });
 });
+
+it('does not loop infinitely when using specific tool choice', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-with-specific-tool-choice');
+
+    $weatherTool = Tool::as('weather')
+        ->for('Get weather for a city')
+        ->withStringParameter('city', 'City name')
+        ->using(fn (string $city): string => "72°F in {$city}");
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('What is the weather in New York?')
+        ->withTools([$weatherTool])
+        ->withToolChoice('weather')
+        ->withMaxSteps(5)
+        ->asText();
+
+    // Should complete in 2 steps (tool call + final response), not 5 (maxSteps)
+    expect($response->steps)->toHaveCount(2);
+    expect($response->text)->not->toBeEmpty();
+    expect($response->finishReason)->toBe(FinishReason::Stop);
+});

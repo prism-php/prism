@@ -387,6 +387,7 @@ class Stream
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         $this->state
             ->resetTextState()

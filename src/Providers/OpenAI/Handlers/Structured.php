@@ -97,6 +97,7 @@ class Structured
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
