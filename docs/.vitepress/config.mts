@@ -264,7 +264,7 @@ export default defineConfig({
     ],
     footer: {
       message: "Released under the MIT License.",
-      copyright: "Copyright © 2024-present TJ Miller",
+      copyright: "Copyright © 2026-present TJ Miller",
     },
   },
   vite: {
