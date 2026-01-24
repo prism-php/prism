@@ -608,6 +608,43 @@ describe('provider tool results', function (): void {
 
         expect($response->steps[0]->additionalContent)->toHaveKey('searchQueries');
         expect($response->steps[0]->additionalContent['searchQueries'])->toBe(['London weather forecast today']);
+
+        // open_page and find_in_page arrays should be empty for this fixture (only has search actions)
+        expect($response->steps[0]->additionalContent)->not->toHaveKey('openPageUrls');
+        expect($response->steps[0]->additionalContent)->not->toHaveKey('findInPagePatterns');
+    });
+
+    it('extracts openPageUrls and findInPagePatterns from web search actions', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-mixed-actions');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-5.2')
+            ->withPrompt('Go to https://prismphp.com and find information about providers. Search the page for "OpenAI" to find which providers are supported.')
+            ->withProviderTools([new ProviderTool(type: 'web_search', name: 'web_search')])
+            ->asText();
+
+        $step = $response->steps[0];
+
+        // This fixture has open_page and find_in_page actions, but no search actions
+        expect($step->additionalContent)->not->toHaveKey('searchQueries');
+
+        // Verify openPageUrls contains URLs from open_page actions
+        expect($step->additionalContent)->toHaveKey('openPageUrls');
+        expect($step->additionalContent['openPageUrls'])->toBe([
+            'https://prismphp.com/',
+            'https://prismphp.com/getting-started/introduction.html',
+        ]);
+
+        // Verify findInPagePatterns contains patterns from find_in_page actions
+        expect($step->additionalContent)->toHaveKey('findInPagePatterns');
+        expect($step->additionalContent['findInPagePatterns'])->toBe(['OpenAI']);
+
+        // Verify providerToolCalls contains all the raw action data
+        expect($step->providerToolCalls)->toHaveCount(3);
+        expect($step->providerToolCalls[0]->type)->toBe('web_search_call');
+        expect($step->providerToolCalls[0]->data['action']['type'])->toBe('open_page');
+        expect($step->providerToolCalls[1]->data['action']['type'])->toBe('open_page');
+        expect($step->providerToolCalls[2]->data['action']['type'])->toBe('find_in_page');
     });
 
     it('captures code interpreter provider tool in providerToolCalls', function (): void {

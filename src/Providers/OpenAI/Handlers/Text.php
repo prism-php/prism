@@ -189,11 +189,28 @@ class Text
                 'citations' => $this->citations,
                 'searchQueries' => collect($output)
                     ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->filter(fn (array $item): bool => data_get($item, 'action.type') === 'search')
                     ->map(fn (array $item): ?string => data_get($item, 'action.query'))
                     ->filter()
                     ->unique()
                     ->values()
-                    ->toArray(),
+                    ->toArray() ?: null,
+                'openPageUrls' => collect($output)
+                    ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->filter(fn (array $item): bool => data_get($item, 'action.type') === 'open_page')
+                    ->map(fn (array $item): ?string => data_get($item, 'action.url'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray() ?: null,
+                'findInPagePatterns' => collect($output)
+                    ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->filter(fn (array $item): bool => data_get($item, 'action.type') === 'find_in_page')
+                    ->map(fn (array $item): ?string => data_get($item, 'action.pattern'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray() ?: null,
                 'reasoningSummaries' => collect($output)
                     ->filter(fn (array $output): bool => $output['type'] === 'reasoning')
                     ->flatMap(fn (array $output): array => Arr::pluck($output['summary'] ?? [], 'text'))
