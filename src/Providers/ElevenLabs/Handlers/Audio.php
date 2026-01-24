@@ -10,11 +10,14 @@ use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\GeneratesAudioFilename;
 use Prism\Prism\Providers\ElevenLabs\Maps\TextToSpeechRequestMapper;
 use Prism\Prism\ValueObjects\GeneratedAudio;
 
 class Audio
 {
+    use GeneratesAudioFilename;
+
     public function __construct(protected readonly PendingRequest $client) {}
 
     public function handleTextToSpeech(TextToSpeechRequest $request): AudioResponse
@@ -45,7 +48,7 @@ class Audio
             ->attach(
                 'file',
                 $request->input()->resource(),
-                'audio',
+                $this->generateFilename($request->input()->mimeType()),
                 ['Content-Type' => $request->input()->mimeType()]
             )
             ->post('speech-to-text', array_filter([

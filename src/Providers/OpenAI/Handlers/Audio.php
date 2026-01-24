@@ -11,6 +11,7 @@ use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\GeneratesAudioFilename;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits as ConcernsProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\TextToSpeechRequestMapper;
@@ -20,6 +21,7 @@ use Prism\Prism\ValueObjects\Usage;
 class Audio
 {
     use ConcernsProcessesRateLimits;
+    use GeneratesAudioFilename;
     use ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
@@ -53,7 +55,7 @@ class Audio
             ->attach(
                 'file',
                 $request->input()->resource(),
-                'audio',
+                $this->generateFilename($request->input()->mimeType()),
                 ['Content-Type' => $request->input()->mimeType()]
             )
             ->post('audio/transcriptions', Arr::whereNotNull([
