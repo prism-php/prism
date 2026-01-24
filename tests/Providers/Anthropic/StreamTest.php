@@ -586,6 +586,26 @@ describe('thinking', function (): void {
                 && $body['thinking']['budget_tokens'] === $customBudget;
         });
     });
+
+    it('includes thinking_signature in StreamEndEvent additionalContent', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withPrompt('What is the meaning of life?')
+            ->withProviderOptions(['thinking' => ['enabled' => true]])
+            ->asStream();
+
+        $events = collect($response);
+
+        $streamEndEvent = $events->last();
+
+        expect($streamEndEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($streamEndEvent->additionalContent)->toHaveKey('thinking');
+        expect($streamEndEvent->additionalContent['thinking'])->not->toBeEmpty();
+        expect($streamEndEvent->additionalContent)->toHaveKey('thinking_signature');
+        expect($streamEndEvent->additionalContent['thinking_signature'])->not->toBeEmpty();
+    });
 });
 
 describe('exception handling', function (): void {
