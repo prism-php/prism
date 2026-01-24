@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-readonly class ModerationResult
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+readonly class ModerationResult implements Arrayable
 {
     /**
      * @param  array<string, bool>  $categories
@@ -26,5 +31,18 @@ readonly class ModerationResult
             categories: data_get($data, 'categories', []) ?: [],
             categoryScores: data_get($data, 'category_scores', []) ?: [],
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'flagged' => $this->flagged,
+            'categories' => $this->categories,
+            'category_scores' => $this->categoryScores,
+        ];
     }
 }

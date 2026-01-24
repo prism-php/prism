@@ -95,4 +95,16 @@ class Document extends Media
     {
         return $this->chunks;
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return array_merge(parent::toArray(), [
+            'document_title' => $this->documentTitle,
+            'chunks' => $this->chunks,
+        ]);
+    }
 }

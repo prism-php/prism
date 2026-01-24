@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-class ToolCall
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+class ToolCall implements Arrayable
 {
     /**
      * @param  string|array<string, mixed>  $arguments
@@ -42,5 +47,21 @@ class ToolCall
         $arguments = $this->arguments;
 
         return $arguments;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'arguments' => $this->arguments,
+            'result_id' => $this->resultId,
+            'reasoning_id' => $this->reasoningId,
+            'reasoning_summary' => $this->reasoningSummary,
+        ];
     }
 }

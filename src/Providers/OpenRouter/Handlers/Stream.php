@@ -435,7 +435,7 @@ class Stream
                     $arguments,
                 );
             })
-            ->toArray();
+            ->all();
     }
 
     protected function sendRequest(Request $request): Response

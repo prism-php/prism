@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Moderation;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ModerationResult;
 
-readonly class Response
+/**
+ * @implements Arrayable<string, mixed>
+ */
+readonly class Response implements Arrayable
 {
     /**
      * @param  ModerationResult[]  $results
@@ -63,5 +67,18 @@ readonly class Response
         }
 
         return $flagged;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'results' => array_map(fn (ModerationResult $result): array => $result->toArray(), $this->results),
+            'meta' => $this->meta->toArray(),
+            'raw' => $this->raw,
+        ];
     }
 }

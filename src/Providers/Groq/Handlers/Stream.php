@@ -326,7 +326,7 @@ class Stream
                     $arguments,
                 );
             })
-            ->toArray();
+            ->all();
     }
 
     /**

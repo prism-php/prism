@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-readonly class Meta
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+readonly class Meta implements Arrayable
 {
     /**
      * @param  ProviderRateLimit[]  $rateLimits
@@ -15,4 +20,18 @@ readonly class Meta
         public array $rateLimits = [],
         public ?string $serviceTier = null,
     ) {}
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'model' => $this->model,
+            'rate_limits' => array_map(fn (ProviderRateLimit $rateLimit): array => $rateLimit->toArray(), $this->rateLimits),
+            'service_tier' => $this->serviceTier,
+        ];
+    }
 }
