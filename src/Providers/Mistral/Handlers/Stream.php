@@ -104,6 +104,11 @@ class Stream
                 );
             }
 
+            $usage = $this->extractUsage($data);
+            if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                $this->state->addUsage($usage);
+            }
+
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
@@ -174,11 +179,6 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
-
-                $usage = $this->extractUsage($data);
-                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
-                    $this->state->addUsage($usage);
-                }
             }
         }
 
