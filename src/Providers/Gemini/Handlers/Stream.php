@@ -113,19 +113,24 @@ class Stream
 
             // Process tool calls
             if ($this->hasToolCalls($data)) {
+                // Track existing indices before extraction
+                $existingIndices = array_keys($this->state->toolCalls());
+
                 $toolCalls = $this->extractToolCalls($data, $this->state->toolCalls());
                 foreach ($toolCalls as $index => $toolCall) {
                     $this->state->addToolCall($index, $toolCall);
                 }
 
-                // Emit tool call events
-                foreach ($this->state->toolCalls() as $toolCallData) {
-                    yield new ToolCallEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        toolCall: $this->mapToolCall($toolCallData),
-                        messageId: $this->state->messageId()
-                    );
+                // Emit tool call events only for NEWLY added tool calls
+                foreach ($this->state->toolCalls() as $index => $toolCallData) {
+                    if (! in_array($index, $existingIndices, true)) {
+                        yield new ToolCallEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            toolCall: $this->mapToolCall($toolCallData),
+                            messageId: $this->state->messageId()
+                        );
+                    }
                 }
 
                 // Check if this is the final part of the tool calls
@@ -283,13 +288,17 @@ class Stream
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
         $parts = data_get($data, 'candidates.0.content.parts', []);
+        $nextIndex = $toolCalls === [] ? 0 : max(array_keys($toolCalls)) + 1;
 
-        foreach ($parts as $index => $part) {
+        foreach ($parts as $part) {
             if (isset($part['functionCall'])) {
-                $toolCalls[$index]['id'] = EventID::generate('gm');
-                $toolCalls[$index]['name'] = data_get($part, 'functionCall.name');
-                $toolCalls[$index]['arguments'] = data_get($part, 'functionCall.args', []);
-                $toolCalls[$index]['reasoningId'] = data_get($part, 'thoughtSignature');
+                $toolCalls[$nextIndex] = [
+                    'id' => EventID::generate('gm'),
+                    'name' => data_get($part, 'functionCall.name'),
+                    'arguments' => data_get($part, 'functionCall.args', []),
+                    'reasoningId' => data_get($part, 'thoughtSignature'),
+                ];
+                $nextIndex++;
             }
         }
 
