@@ -286,3 +286,37 @@ it('emits multiple step events with tool calls', function (): void {
     // Verify step start/finish pairs are balanced
     expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
 });
+
+it('sends StreamEndEvent using tools with streaming and max steps = 1', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-tools');
+
+    $tools = [
+        Tool::as('get_weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => "Search results for: {$query}"),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withTools($tools)
+        ->withMaxSteps(1)
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    expect($events)->not->toBeEmpty();
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+});
