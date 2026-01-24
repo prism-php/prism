@@ -276,7 +276,12 @@ class Stream
             timestamp: time()
         );
 
-        yield new StreamEndEvent(
+        yield $this->emitStreamEndEvent();
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
@@ -407,6 +412,8 @@ class Stream
             $nextResponse = $this->sendRequest($request);
 
             yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
         }
     }
 

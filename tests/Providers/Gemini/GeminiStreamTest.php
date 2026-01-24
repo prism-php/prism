@@ -359,3 +359,32 @@ it('emits multiple step events with tool calls', function (): void {
     // Verify step start/finish pairs are balanced
     expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
 });
+
+it('sends StreamEndEvent using tools with streaming and max steps = 1', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withTools($tools)
+        ->withMaxSteps(1)
+        ->withPrompt('What is the weather in San Francisco?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    expect($events)->not->toBeEmpty();
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+});

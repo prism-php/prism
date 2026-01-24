@@ -387,3 +387,30 @@ it('emits multiple step events with tool calls', function (): void {
     expect($toolResultIndices[0])->toBeGreaterThan($toolCallIndices[0]);
     expect($toolResultIndices[0])->toBeLessThan($stepStartIndices[1]);
 });
+
+it('sends StreamEndEvent using tools with streaming and max steps = 1', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-tools');
+
+    $weatherTool = Tool::as('weather')
+        ->for('Get weather for a city')
+        ->withStringParameter('city', 'The city name')
+        ->using(fn (string $city): string => "The weather in {$city} is 75°F and sunny");
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withTools([$weatherTool])
+        ->withMaxSteps(1)
+        ->withPrompt('What is the weather in San Francisco?')
+        ->asStream();
+
+    $events = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    expect($events)->not->toBeEmpty();
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+});

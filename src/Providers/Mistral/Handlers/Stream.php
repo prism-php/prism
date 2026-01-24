@@ -104,6 +104,11 @@ class Stream
                 );
             }
 
+            $usage = $this->extractUsage($data);
+            if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                $this->state->addUsage($usage);
+            }
+
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
@@ -174,11 +179,6 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
-
-                $usage = $this->extractUsage($data);
-                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
-                    $this->state->addUsage($usage);
-                }
             }
         }
 
@@ -188,7 +188,12 @@ class Stream
             timestamp: time()
         );
 
-        yield new StreamEndEvent(
+        yield $this->emitStreamEndEvent();
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
@@ -276,8 +281,13 @@ class Stream
         $this->state->resetTextState();
         $this->state->withMessageId(EventID::generate());
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $depth++;
+        if ($depth < $request->maxSteps()) {
+            $nextResponse = $this->sendRequest($request);
+            yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
+        }
     }
 
     /**

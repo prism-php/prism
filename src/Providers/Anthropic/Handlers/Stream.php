@@ -519,6 +519,8 @@ class Stream
                 $this->state->reset();
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
+            } else {
+                yield $this->emitStreamEndEvent();
             }
         }
     }

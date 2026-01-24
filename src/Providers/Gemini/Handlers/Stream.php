@@ -234,7 +234,12 @@ class Stream
             timestamp: time()
         );
 
-        yield new StreamEndEvent(
+        yield $this->emitStreamEndEvent();
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
@@ -338,6 +343,8 @@ class Stream
                         thoughtTokens: ($previousUsage->thoughtTokens ?? 0) + ($this->state->usage()->thoughtTokens ?? 0)
                     ));
                 }
+            } else {
+                yield $this->emitStreamEndEvent();
             }
         }
     }
