@@ -200,10 +200,15 @@ echo $response->finishReason->name;
 echo "Prompt tokens: {$response->usage->promptTokens}";
 echo "Completion tokens: {$response->usage->completionTokens}";
 
+// Access the raw API response data
+$rawResponse = $response->raw;
+
 // For multi-step generations, examine each step
 foreach ($response->steps as $step) {
     echo "Step text: {$step->text}";
     echo "Step tokens: {$step->usage->completionTokens}";
+    // Access raw response for individual steps
+    $stepRawResponse = $step->raw;
 }
 
 // Access message history

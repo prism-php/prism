@@ -41,6 +41,7 @@ readonly class ResponseBuilder
             toolCalls: $this->aggregateToolCalls(),
             toolResults: $this->aggregateToolResults(),
             additionalContent: $finalStep->additionalContent,
+            raw: $finalStep->raw,
         );
     }
 

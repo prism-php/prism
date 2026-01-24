@@ -37,6 +37,7 @@ class Embeddings
                 id: '',
                 model: data_get($data, 'model', ''),
             ),
+            raw: $data,
         );
     }
 

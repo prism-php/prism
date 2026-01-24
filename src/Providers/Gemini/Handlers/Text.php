@@ -205,6 +205,7 @@ class Text
                 'urlMetadata' => data_get($data, 'candidates.0.urlContextMetadata.urlMetadata'),
                 'thoughtSummaries' => $thoughtSummaries !== [] ? $thoughtSummaries : null,
             ]),
+            raw: $data,
         ));
     }
 

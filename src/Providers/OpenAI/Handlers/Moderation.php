@@ -39,6 +39,7 @@ class Moderation
                 model: data_get($data, 'model', $request->model()),
                 rateLimits: $this->processRateLimits($response),
             ),
+            raw: $data,
         );
     }
 

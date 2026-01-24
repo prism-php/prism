@@ -200,6 +200,7 @@ class Text
                     ->filter()
                     ->toArray(),
             ]),
+            raw: $data,
         ));
     }
 }

@@ -13,12 +13,14 @@ readonly class Response
     /**
      * @param  GeneratedImage[]  $images
      * @param  array<string,mixed>  $additionalContent
+     * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
         public array $images,
         public Usage $usage,
         public Meta $meta,
-        public array $additionalContent = []
+        public array $additionalContent = [],
+        public ?array $raw = null
     ) {}
 
     public function firstImage(): ?GeneratedImage

@@ -156,6 +156,7 @@ class Structured
             structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'output.{last}.content.0.text') ?? '') : [],
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            raw: $data,
         ));
     }
 

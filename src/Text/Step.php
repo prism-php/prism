@@ -22,6 +22,7 @@ readonly class Step
      * @param  Message[]  $messages
      * @param  SystemMessage[]  $systemPrompts
      * @param  array<string,mixed>  $additionalContent
+     * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
         public string $text,
@@ -33,6 +34,7 @@ readonly class Step
         public Meta $meta,
         public array $messages,
         public array $systemPrompts,
-        public array $additionalContent = []
+        public array $additionalContent = [],
+        public ?array $raw = null
     ) {}
 }

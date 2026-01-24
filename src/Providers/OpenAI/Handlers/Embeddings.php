@@ -37,6 +37,7 @@ class Embeddings
                 model: data_get($data, 'model', ''),
                 rateLimits: $this->processRateLimits($response),
             ),
+            raw: $data,
         );
     }
 

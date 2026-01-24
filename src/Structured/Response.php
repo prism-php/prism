@@ -19,6 +19,7 @@ readonly class Response
      * @param  array<int, ToolCall>  $toolCalls
      * @param  array<int, ToolResult>  $toolResults
      * @param  array<string,mixed>  $additionalContent
+     * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
         public Collection $steps,
@@ -29,6 +30,7 @@ readonly class Response
         public Meta $meta,
         public array $toolCalls = [],
         public array $toolResults = [],
-        public array $additionalContent = []
+        public array $additionalContent = [],
+        public ?array $raw = null
     ) {}
 }

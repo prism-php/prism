@@ -243,6 +243,7 @@ class Structured
                 structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'candidates.0.content.parts.0.text') ?? '') : [],
                 toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
                 toolResults: $toolResults,
+                raw: $data,
             )
         );
     }
