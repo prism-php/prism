@@ -44,6 +44,8 @@ class Stream
 
     protected StreamState $state;
 
+    protected ?string $currentThoughtSignature = null;
+
     public function __construct(
         protected PendingRequest $client,
         #[\SensitiveParameter] protected string $apiKey,
@@ -57,6 +59,7 @@ class Stream
     public function handle(Request $request): Generator
     {
         $this->state->reset();
+        $this->currentThoughtSignature = null;
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -292,11 +295,17 @@ class Stream
 
         foreach ($parts as $part) {
             if (isset($part['functionCall'])) {
+                // Capture first thoughtSignature for this response
+                if (isset($part['thoughtSignature'])) {
+                    $this->currentThoughtSignature = $part['thoughtSignature'];
+                }
+
                 $toolCalls[$nextIndex] = [
                     'id' => EventID::generate('gm'),
                     'name' => data_get($part, 'functionCall.name'),
                     'arguments' => data_get($part, 'functionCall.args', []),
-                    'reasoningId' => data_get($part, 'thoughtSignature'),
+                    // Use part's signature if present, otherwise fall back to stored one
+                    'reasoningId' => $part['thoughtSignature'] ?? $this->currentThoughtSignature,
                 ];
                 $nextIndex++;
             }
@@ -340,6 +349,7 @@ class Stream
             if ($depth < $request->maxSteps()) {
                 $previousUsage = $this->state->usage();
                 $this->state->reset();
+                $this->currentThoughtSignature = null;
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
 

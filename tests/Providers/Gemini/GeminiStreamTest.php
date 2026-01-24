@@ -434,4 +434,9 @@ it('can generate text stream using multiple parallel tool calls', function (): v
         ->and(count($toolResults))->toBe(2)
         ->and($text)->toContain('50')
         ->and($text)->toContain('75');
+
+    // Both tool calls should have reasoningId from the first tool call's thoughtSignature
+    expect($toolCalls[0]->reasoningId)->not->toBeNull();
+    expect($toolCalls[1]->reasoningId)->not->toBeNull();
+    expect($toolCalls[0]->reasoningId)->toBe($toolCalls[1]->reasoningId);
 });
