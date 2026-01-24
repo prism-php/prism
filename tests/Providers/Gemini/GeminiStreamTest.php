@@ -388,3 +388,50 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
 });
+
+it('can generate text stream using multiple parallel tool calls', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-multiple-tools');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => 'The weather will be '.($city === 'San Francisco' ? 50 : 75)."° and sunny in {$city}"),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withTools($tools)
+        ->withMaxSteps(5)
+        ->withPrompt('Is it warmer in San Francisco or Santa Cruz? What\'s the weather like in both cities?')
+        ->asStream();
+
+    $text = '';
+    $events = [];
+    $toolCalls = [];
+    $toolResults = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof ToolCallEvent) {
+            $toolCalls[] = $event->toolCall;
+        }
+
+        if ($event instanceof ToolResultEvent) {
+            $toolResults[] = $event->toolResult;
+        }
+    }
+
+    expect($events)->not->toBeEmpty()
+        ->and($text)->not->toBeEmpty()
+        ->and($toolCalls)->not->toBeEmpty()
+        ->and(count($toolCalls))->toBe(2)
+        ->and(count($toolResults))->toBe(2)
+        ->and($text)->toContain('50')
+        ->and($text)->toContain('75');
+});
