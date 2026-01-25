@@ -87,8 +87,21 @@ class Anthropic extends Provider
             ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::Anthropic),
             413 => throw PrismRequestTooLargeException::make(ProviderName::Anthropic),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Anthropic',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.type'),
+            errorMessage: data_get($data, 'error.message'),
+            previous: $e
+        );
     }
 
     /**

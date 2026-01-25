@@ -79,7 +79,7 @@ class Groq extends Provider
             ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::Groq),
             413 => throw PrismRequestTooLargeException::make(ProviderName::Groq),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
     }
 
@@ -92,6 +92,19 @@ class Groq extends Provider
         $handler = new Stream($this->client($request->clientOptions(), $request->clientRetry()));
 
         return $handler->handle($request);
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Groq',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.type'),
+            errorMessage: data_get($data, 'error.message'),
+            previous: $e
+        );
     }
 
     /**

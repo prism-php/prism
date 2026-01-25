@@ -146,31 +146,23 @@ class OpenAI extends Provider
             ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::OpenAI),
             413 => throw PrismRequestTooLargeException::make(ProviderName::OpenAI),
-            400 => $this->handleResponseErrors($model, $e),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
     }
 
-    protected function handleResponseErrors(string $model, RequestException $e): never
+    protected function handleResponseErrors(RequestException $e): never
     {
-        $data = $e->response->json();
-        if ($data && data_get($data, 'error')) {
-            $message = data_get($data, 'error.message');
-            $message = is_array($message) ? implode(', ', $message) : $message;
+        $data = $e->response->json() ?? [];
+        $message = data_get($data, 'error.message');
+        $message = is_array($message) ? implode(', ', $message) : $message;
 
-            throw PrismException::providerResponseError(vsprintf(
-                'OpenAI Error: [%s] %s (param: %s, code: %s)',
-                [
-                    data_get($data, 'error.type', 'unknown'),
-                    $message,
-                    data_get($data, 'error.param', 'None'),
-                    data_get($data, 'error.code', 'None'),
-
-                ]
-            ));
-        }
-
-        throw PrismException::providerRequestError($model, $e);
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'OpenAI',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.type'),
+            errorMessage: $message,
+            previous: $e
+        );
     }
 
     /**

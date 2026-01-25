@@ -6,9 +6,12 @@ namespace Prism\Prism\Providers\Ollama;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
 use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;
@@ -70,6 +73,28 @@ class Ollama extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make([]),
+            default => $this->handleResponseErrors($e),
+        };
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Ollama',
+            statusCode: $e->response->getStatusCode(),
+            errorType: null,
+            errorMessage: data_get($data, 'error'),
+            previous: $e
+        );
     }
 
     /**
