@@ -99,7 +99,7 @@ class Gemini extends Provider
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make([]),
             503 => throw PrismProviderOverloadedException::make(class_basename($this)),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
     }
 
@@ -133,6 +133,19 @@ class Gemini extends Provider
         } catch (RequestException $e) {
             $this->handleRequestException($model, $e);
         }
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Gemini',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.status'),
+            errorMessage: data_get($data, 'error.message'),
+            previous: $e
+        );
     }
 
     /**
