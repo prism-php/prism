@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies;
 
 use Illuminate\Http\Client\Response as HttpResponse;
+use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
 use Prism\Prism\Structured\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -53,8 +55,9 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
             'tools' => [...$customTools, $structuredOutputTool],
         ];
 
-        if ($this->request->providerOptions('thinking.enabled') !== true && $this->request->tools() === []) {
-            $payload['tool_choice'] = ['type' => 'tool', 'name' => self::STRUCTURED_OUTPUT_TOOL_NAME];
+        $toolChoice = $this->resolveToolChoice();
+        if ($toolChoice !== null) {
+            $payload['tool_choice'] = $toolChoice;
         }
 
         return $payload;
@@ -85,11 +88,44 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
         );
     }
 
+    /**
+     * @return array<string, mixed>|string|null
+     */
+    protected function resolveToolChoice(): string|array|null
+    {
+        // Thinking mode doesn't support tool_choice (Anthropic restriction)
+        if ($this->request->providerOptions('thinking.enabled') === true) {
+            return null;
+        }
+
+        $userToolChoice = $this->request->toolChoice();
+        $hasCustomTools = $this->request->tools() !== [];
+
+        // No custom tools: force the structured output tool
+        if (! $hasCustomTools) {
+            return ['type' => 'tool', 'name' => self::STRUCTURED_OUTPUT_TOOL_NAME];
+        }
+
+        // Custom tools present with explicit user choice: map the user's choice
+        if ($userToolChoice !== null) {
+            return ToolChoiceMap::map($userToolChoice);
+        }
+
+        // Custom tools present with no explicit choice: use auto
+        return ['type' => 'auto'];
+    }
+
     protected function checkStrategySupport(): void
     {
         if ($this->request->providerOptions('citations') === true) {
             throw new PrismException(
                 'Citations are not supported with tool calling mode. Please set use_tool_calling to false in provider options to use citations.'
+            );
+        }
+
+        if ($this->request->toolChoice() === ToolChoice::None) {
+            throw new PrismException(
+                'ToolChoice::None is incompatible with tool-based structured output. Use JSON mode (set use_tool_calling to false) or choose a different tool choice option.'
             );
         }
     }
