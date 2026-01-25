@@ -7,6 +7,7 @@ namespace Prism\Prism\Tools;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
+use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Support\ValidationMessages;
 use Prism\Prism\Schema\RawSchema;
 use Prism\Prism\Tool;
@@ -45,13 +46,19 @@ class LaravelMcpTool extends Tool
 
         try {
             /**
-             * @var Response|\Generator<Response> $response
+             * @var Response|ResponseFactory|\Generator<Response> $response
              *
              * @phpstan-ignore method.notFound
              */
             $response = $this->tool->handle($request);
         } catch (ValidationException $validationException) {
             $response = Response::error(ValidationMessages::from($validationException));
+        }
+
+        if ($response instanceof ResponseFactory) {
+            return $response->responses()
+                ->map(fn (Response $response): string => $response->content()->__toString())
+                ->implode("\n");
         }
 
         if (is_iterable($response)) {
