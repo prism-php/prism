@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use Prism\Prism\Prism;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -12,6 +13,7 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
+use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
     config()->set('prism.providers.anthropic.api_key', env('ANTHROPIC_API_KEY', 'sk-1234'));
@@ -61,7 +63,7 @@ it('applies tool_result_cache_type only to the last tool result message across a
     );
 
     // Verify that only the last tool result message has cache_control
-    $toolResultMessages = array_filter($mappedMessages, fn ($message): bool => $message['role'] === 'user' &&
+    $toolResultMessages = array_filter($mappedMessages, fn (array $message): bool => $message['role'] === 'user' &&
            isset($message['content'][0]['type']) &&
            $message['content'][0]['type'] === 'tool_result');
 
@@ -244,4 +246,35 @@ it('sends only one cache block when request has multiple tool results in full li
             expect($payload['messages'][$i]['content'][0])->not->toHaveKey('cache_control');
         }
     }
+});
+
+it('can use tool_result_cache_type with multi-step tool calls via real API', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/tool-result-caching-multi-step');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'the city you want the weather for')
+            ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+    ];
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-sonnet-4-20250514')
+        ->withTools($tools)
+        ->withMaxSteps(3)
+        ->withPrompt('Search for what time the Detroit Tigers baseball game is today, then check the weather in Detroit to tell me if I should wear a coat.')
+        ->withProviderOptions(['tool_result_cache_type' => 'ephemeral'])
+        ->asText();
+
+    expect($response->steps->count())->toBeGreaterThanOrEqual(1);
+
+    $totalToolCalls = $response->steps->sum(fn ($step): int => count($step->toolCalls ?? []));
+    expect($totalToolCalls)->toBeGreaterThanOrEqual(1);
+
+    expect($response->text)->toContain('3');
+    expect($response->text)->toContain('75');
 });
