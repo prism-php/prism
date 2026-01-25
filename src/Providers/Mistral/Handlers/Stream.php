@@ -28,6 +28,9 @@ use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
@@ -143,9 +146,45 @@ class Stream
                 return;
             }
 
-            $content = data_get($data, 'choices.0.delta.content', '') ?? '';
+            $streamContent = $this->extractStreamContent($data);
+            $thinkingContent = $streamContent['thinking'];
+            $textContent = $streamContent['text'];
 
-            if ($content !== '') {
+            // Handle thinking content (reasoning models)
+            if ($thinkingContent !== '') {
+                if ($this->state->shouldEmitThinkingStart()) {
+                    $this->state
+                        ->withReasoningId(EventID::generate())
+                        ->markThinkingStarted();
+
+                    yield new ThinkingStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
+
+                yield new ThinkingEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $thinkingContent,
+                    reasoningId: $this->state->reasoningId()
+                );
+            }
+
+            // Emit ThinkingCompleteEvent when we transition from thinking to text
+            if ($this->state->hasThinkingStarted() && $thinkingContent === '' && $textContent !== '') {
+                yield new ThinkingCompleteEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    reasoningId: $this->state->reasoningId()
+                );
+                $this->state->resetTextState();
+                $this->state->withMessageId(EventID::generate());
+            }
+
+            // Handle text content
+            if ($textContent !== '') {
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -156,12 +195,12 @@ class Stream
                     );
                 }
 
-                $text .= $content;
+                $text .= $textContent;
 
                 yield new TextDeltaEvent(
                     id: EventID::generate(),
                     timestamp: time(),
-                    delta: $content,
+                    delta: $textContent,
                     messageId: $this->state->messageId()
                 );
             }
@@ -169,6 +208,15 @@ class Stream
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
+
+                // Complete thinking if it was started but not completed
+                if ($this->state->hasThinkingStarted()) {
+                    yield new ThinkingCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
 
                 if ($this->state->hasTextStarted() && $text !== '') {
                     yield new TextCompleteEvent(
@@ -379,6 +427,46 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * Extract content from streaming delta that handles both string and array formats.
+     *
+     * For standard models, content is a string.
+     * For reasoning models (e.g., magistral-small-latest), content is an array of typed blocks.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{text: string, thinking: string}
+     */
+    protected function extractStreamContent(array $data): array
+    {
+        $content = data_get($data, 'choices.0.delta.content');
+
+        // Standard string content (non-reasoning models)
+        if (is_string($content)) {
+            return ['text' => $content, 'thinking' => ''];
+        }
+
+        // Array content (reasoning models)
+        if (is_array($content)) {
+            $text = '';
+            $thinking = '';
+
+            foreach ($content as $block) {
+                if (data_get($block, 'type') === 'thinking') {
+                    foreach (data_get($block, 'thinking', []) as $thinkingBlock) {
+                        $thinking .= data_get($thinkingBlock, 'text', '');
+                    }
+                }
+                if (data_get($block, 'type') === 'text') {
+                    $text .= data_get($block, 'text', '');
+                }
+            }
+
+            return ['text' => $text, 'thinking' => $thinking];
+        }
+
+        return ['text' => '', 'thinking' => ''];
     }
 
     /**
