@@ -7,15 +7,21 @@ namespace Prism\Prism\Embeddings;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
+use Prism\Prism\Concerns\EmitsTelemetry;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasTelemetryContext;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted;
+use Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted;
 use Prism\Prism\ValueObjects\Media\Image;
 
 class PendingRequest
 {
     use ConfiguresClient;
     use ConfiguresProviders;
+    use EmitsTelemetry;
     use HasProviderOptions;
+    use HasTelemetryContext;
 
     /** @var array<string> */
     protected array $inputs = [];
@@ -101,7 +107,22 @@ class PendingRequest
         $request = $this->toRequest();
 
         try {
-            return $this->provider->embeddings($request);
+            return $this->withTelemetry(
+                startEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId): \Prism\Prism\Telemetry\Events\EmbeddingGenerationStarted => new EmbeddingGenerationStarted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                ),
+                endEventFactory: fn (string $spanId, string $traceId, ?string $parentSpanId, Response $response): \Prism\Prism\Telemetry\Events\EmbeddingGenerationCompleted => new EmbeddingGenerationCompleted(
+                    spanId: $spanId,
+                    traceId: $traceId,
+                    parentSpanId: $parentSpanId,
+                    request: $request,
+                    response: $response,
+                ),
+                execute: fn (): \Prism\Prism\Embeddings\Response => $this->provider->embeddings($request),
+            );
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
