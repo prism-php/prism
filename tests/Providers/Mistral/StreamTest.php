@@ -17,6 +17,10 @@ use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -461,4 +465,73 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
 
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+});
+
+it('can stream with reasoning models', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'mistral/stream-reasoning-model-1');
+
+    $response = Prism::text()
+        ->using(Provider::Mistral, 'magistral-small-latest')
+        ->withPrompt('What is 2+2?')
+        ->asStream();
+
+    $text = '';
+    $thinking = '';
+    $events = [];
+    $thinkingStartEvents = [];
+    $thinkingEvents = [];
+    $thinkingCompleteEvents = [];
+    $textStartEvents = [];
+    $textDeltaEvents = [];
+
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof ThinkingStartEvent) {
+            $thinkingStartEvents[] = $event;
+        }
+
+        if ($event instanceof ThinkingEvent) {
+            $thinkingEvents[] = $event;
+            $thinking .= $event->delta;
+        }
+
+        if ($event instanceof ThinkingCompleteEvent) {
+            $thinkingCompleteEvents[] = $event;
+        }
+
+        if ($event instanceof TextStartEvent) {
+            $textStartEvents[] = $event;
+        }
+
+        if ($event instanceof TextDeltaEvent) {
+            $textDeltaEvents[] = $event;
+            $text .= $event->delta;
+        }
+    }
+
+    // Verify thinking events
+    expect($thinkingStartEvents)->toHaveCount(1)
+        ->and($thinkingEvents)->not->toBeEmpty()
+        ->and($thinkingCompleteEvents)->toHaveCount(1)
+        ->and($thinking)->not->toBeEmpty();
+
+    // Verify text events
+    expect($textStartEvents)->toHaveCount(1)
+        ->and($textDeltaEvents)->not->toBeEmpty()
+        ->and($text)->not->toBeEmpty();
+
+    // Verify event ordering: ThinkingStart -> ThinkingEvents -> ThinkingComplete -> TextStart -> TextDelta
+    $eventTypes = array_map(get_class(...), $events);
+    $thinkingStartIndex = array_search(ThinkingStartEvent::class, $eventTypes);
+    $thinkingCompleteIndex = array_search(ThinkingCompleteEvent::class, $eventTypes);
+    $textStartIndex = array_search(TextStartEvent::class, $eventTypes);
+
+    expect($thinkingStartIndex)->toBeLessThan($thinkingCompleteIndex)
+        ->and($thinkingCompleteIndex)->toBeLessThan($textStartIndex);
+
+    // Verify stream ends properly
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
 });
