@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Concerns;
 
 use Generator;
+use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
 use Prism\Prism\Exceptions\PrismException;
@@ -47,67 +48,157 @@ trait CallsTools
      */
     protected function callToolsAndYieldEvents(array $tools, array $toolCalls, string $messageId, array &$toolResults): Generator
     {
-        foreach ($toolCalls as $toolCall) {
+        $groupedToolCalls = $this->groupToolCallsByConcurrency($tools, $toolCalls);
+
+        $executionResults = $this->executeToolsWithConcurrency($tools, $groupedToolCalls, $messageId);
+
+        foreach (array_keys($toolCalls) as $index) {
+            $result = $executionResults[$index];
+
+            $toolResults[] = $result['toolResult'];
+
+            foreach ($result['events'] as $event) {
+                yield $event;
+            }
+        }
+    }
+
+    /**
+     * Group tool calls by whether they should run concurrently or sequentially.
+     *
+     * @param  Tool[]  $tools
+     * @param  ToolCall[]  $toolCalls
+     * @return array{concurrent: array<int, ToolCall>, sequential: array<int, ToolCall>}
+     */
+    protected function groupToolCallsByConcurrency(array $tools, array $toolCalls): array
+    {
+        $concurrent = [];
+        $sequential = [];
+
+        foreach ($toolCalls as $index => $toolCall) {
             try {
                 $tool = $this->resolveTool($toolCall->name, $tools);
-                $output = call_user_func_array(
-                    $tool->handle(...),
-                    $toolCall->arguments()
-                );
 
-                if (is_string($output)) {
-                    $output = new ToolOutput(result: $output);
+                if ($tool->isConcurrent()) {
+                    $concurrent[$index] = $toolCall;
+                } else {
+                    $sequential[$index] = $toolCall;
                 }
+            } catch (PrismException) {
+                // If tool not found, treat as sequential for error handling
+                $sequential[$index] = $toolCall;
+            }
+        }
 
-                $toolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: $output->result,
-                    toolCallResultId: $toolCall->resultId,
-                    artifacts: $output->artifacts,
-                );
+        return [
+            'concurrent' => $concurrent,
+            'sequential' => $sequential,
+        ];
+    }
 
-                $toolResults[] = $toolResult;
+    /**
+     * Execute tools with concurrency support and return indexed results.
+     *
+     * @param  Tool[]  $tools
+     * @param  array{concurrent: array<int, ToolCall>, sequential: array<int, ToolCall>}  $groupedToolCalls
+     * @return array<int, array{toolResult: ToolResult, events: array<int, ToolResultEvent|ArtifactEvent>}>
+     */
+    protected function executeToolsWithConcurrency(array $tools, array $groupedToolCalls, string $messageId): array
+    {
+        $results = [];
 
-                yield new ToolResultEvent(
+        $concurrentClosures = [];
+
+        foreach ($groupedToolCalls['concurrent'] as $index => $toolCall) {
+            $concurrentClosures[$index] = fn () => $this->executeToolCall($tools, $toolCall, $messageId);
+        }
+
+        foreach (Concurrency::run($concurrentClosures) as $index => $result) {
+            $results[$index] = $result;
+        }
+
+        foreach ($groupedToolCalls['sequential'] as $index => $toolCall) {
+            $results[$index] = $this->executeToolCall($tools, $toolCall, $messageId);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Execute a single tool call and return result with events.
+     *
+     * @param  Tool[]  $tools
+     * @return array{toolResult: ToolResult, events: array<int, ToolResultEvent|ArtifactEvent>}
+     */
+    protected function executeToolCall(array $tools, ToolCall $toolCall, string $messageId): array
+    {
+        $events = [];
+
+        try {
+            $tool = $this->resolveTool($toolCall->name, $tools);
+            $output = call_user_func_array(
+                $tool->handle(...),
+                $toolCall->arguments()
+            );
+
+            if (is_string($output)) {
+                $output = new ToolOutput(result: $output);
+            }
+
+            $toolResult = new ToolResult(
+                toolCallId: $toolCall->id,
+                toolName: $toolCall->name,
+                args: $toolCall->arguments(),
+                result: $output->result,
+                toolCallResultId: $toolCall->resultId,
+                artifacts: $output->artifacts,
+            );
+
+            $events[] = new ToolResultEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolResult: $toolResult,
+                messageId: $messageId,
+                success: true
+            );
+
+            foreach ($toolResult->artifacts as $artifact) {
+                $events[] = new ArtifactEvent(
                     id: EventID::generate(),
                     timestamp: time(),
-                    toolResult: $toolResult,
-                    messageId: $messageId,
-                    success: true
-                );
-
-                foreach ($toolResult->artifacts as $artifact) {
-                    yield new ArtifactEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        artifact: $artifact,
-                        toolCallId: $toolCall->id,
-                        toolName: $toolCall->name,
-                        messageId: $messageId,
-                    );
-                }
-            } catch (PrismException $e) {
-                $toolResult = new ToolResult(
+                    artifact: $artifact,
                     toolCallId: $toolCall->id,
                     toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: $e->getMessage(),
-                    toolCallResultId: $toolCall->resultId,
-                );
-
-                $toolResults[] = $toolResult;
-
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $toolResult,
                     messageId: $messageId,
-                    success: false,
-                    error: $e->getMessage()
                 );
             }
+
+            return [
+                'toolResult' => $toolResult,
+                'events' => $events,
+            ];
+        } catch (PrismException $e) {
+            $toolResult = new ToolResult(
+                toolCallId: $toolCall->id,
+                toolName: $toolCall->name,
+                args: $toolCall->arguments(),
+                result: $e->getMessage(),
+                toolCallResultId: $toolCall->resultId,
+            );
+
+            $events[] = new ToolResultEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolResult: $toolResult,
+                messageId: $messageId,
+                success: false,
+                error: $e->getMessage()
+            );
+
+            return [
+                'toolResult' => $toolResult,
+                'events' => $events,
+            ];
         }
     }
 
