@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Gemini\Maps;
 
+use Prism\Prism\Streaming\EventID;
 use Prism\Prism\ValueObjects\ToolCall;
 
 class ToolCallMap
@@ -21,7 +22,7 @@ class ToolCallMap
         $filteredToolCalls = array_filter($toolCalls, fn (array $item): bool => isset($item['functionCall']));
 
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
-            id: data_get($toolCall, 'functionCall.name'),
+            id: EventID::generate('gm'),
             name: data_get($toolCall, 'functionCall.name'),
             arguments: data_get($toolCall, 'functionCall.args'),
             reasoningId: data_get($toolCall, 'thoughtSignature'),
