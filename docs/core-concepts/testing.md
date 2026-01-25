@@ -406,6 +406,17 @@ it('can generate embeddings', function () {
 
 `PrismFake` provides several helpful assertion methods:
 
+> [!NOTE]
+> When testing streamed responses, you must consume the stream before assertions will work. The `asStream()` method returns a generator, and the request is only recorded once the generator is iterated.
+>
+> ```php
+> // Consume the stream before making assertions
+> $chunks = collect($prism->asStream());
+>
+> // Now assertions will work
+> $fake->assertCallCount(1);
+> ```
+
 ```php
 // Assert specific prompt was sent
 $fake->assertPrompt('Who are you?');
