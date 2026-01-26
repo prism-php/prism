@@ -1,18 +1,18 @@
-<?php 
+<?php
 
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Exception;
-use Prism\Prism\Audio\AudioResponse;
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
-use Prism\Prism\ValueObjects\GeneratedAudio;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\ValueObjects\GeneratedAudio;
 
 class Audio
 {
     use ValidatesResponse;
-    
+
     public function __construct(protected PendingRequest $client) {}
 
     public function handleTextToSpeech(TextToSpeechRequest $request): AudioResponse
@@ -28,7 +28,7 @@ class Audio
         $data = $response->json();
 
         $base64Audio = $data['candidates'][0]['content']['parts'][0]['inlineData']['data']
-            ??  throw new Exception('No audio data returned from TTS API');
+            ?? throw new Exception('No audio data returned from TTS API');
 
         return new AudioResponse(
             audio: new GeneratedAudio(
