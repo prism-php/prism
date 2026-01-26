@@ -7,6 +7,8 @@ namespace Prism\Prism\Providers\Gemini;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
@@ -16,6 +18,7 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Providers\Gemini\Handlers\Audio;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
 use Prism\Prism\Providers\Gemini\Handlers\Images;
@@ -81,6 +84,17 @@ class Gemini extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
+    {
+        $handler = new Audio($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handleTextToSpeech($request);
     }
 
     #[\Override]
