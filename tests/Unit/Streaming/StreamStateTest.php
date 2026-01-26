@@ -101,6 +101,16 @@ it('markTextStarted returns self and sets flag', function (): void {
         ->and($state->hasTextStarted())->toBeTrue();
 });
 
+it('markTextCompleted returns self and resets flag', function (): void {
+    $state = new StreamState;
+    $state->markTextStarted();
+
+    $result = $state->markTextCompleted();
+
+    expect($result)->toBe($state)
+        ->and($state->hasTextStarted())->toBeFalse();
+});
+
 it('markThinkingStarted returns self and sets flag', function (): void {
     $state = new StreamState;
 

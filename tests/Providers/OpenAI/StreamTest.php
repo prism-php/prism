@@ -755,3 +755,32 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
 });
+
+it('emits TextStart and TextComplete events for each output item', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multiple-output-items');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Test multiple output items')
+        ->asStream();
+
+    $events = [];
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    $textStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof \Prism\Prism\Streaming\Events\TextStartEvent);
+    $textCompleteEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof \Prism\Prism\Streaming\Events\TextCompleteEvent);
+    $textDeltaEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $e): bool => $e instanceof TextDeltaEvent);
+
+    expect($textStartEvents)->toHaveCount(2);
+    expect($textCompleteEvents)->toHaveCount(2);
+    expect($textDeltaEvents)->toHaveCount(4);
+
+    $textStartIndices = array_keys($textStartEvents);
+    $textCompleteIndices = array_keys($textCompleteEvents);
+
+    expect($textStartIndices[0])->toBeLessThan($textCompleteIndices[0]);
+    expect($textCompleteIndices[0])->toBeLessThan($textStartIndices[1]);
+    expect($textStartIndices[1])->toBeLessThan($textCompleteIndices[1]);
+});

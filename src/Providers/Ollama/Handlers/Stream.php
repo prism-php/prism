@@ -173,6 +173,8 @@ class Stream
             if ((bool) data_get($data, 'done', false) && $this->state->hasToolCalls()) {
                 // Emit text complete if we had text content
                 if ($this->state->hasTextStarted()) {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -189,6 +191,8 @@ class Stream
             if ((bool) data_get($data, 'done', false)) {
                 // Emit text complete if we had text content
                 if ($this->state->hasTextStarted()) {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),

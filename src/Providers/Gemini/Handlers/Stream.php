@@ -215,6 +215,8 @@ class Stream
                 }
 
                 if ($this->state->hasTextStarted()) {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),

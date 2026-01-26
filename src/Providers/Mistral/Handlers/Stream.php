@@ -117,6 +117,8 @@ class Stream
 
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                     if ($this->state->hasTextStarted() && $text !== '') {
+                        $this->state->markTextCompleted();
+
                         yield new TextCompleteEvent(
                             id: EventID::generate(),
                             timestamp: time(),
@@ -134,6 +136,8 @@ class Stream
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -219,6 +223,8 @@ class Stream
                 }
 
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
