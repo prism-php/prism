@@ -245,6 +245,8 @@ class Stream
             }
 
             if (data_get($data, 'type') === 'response.output_text.done' && $this->state->hasTextStarted()) {
+                $this->state->markTextCompleted();
+
                 yield new TextCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),

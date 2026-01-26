@@ -108,6 +108,8 @@ class Stream
                 $finishReason = data_get($data, 'choices.0.finish_reason');
                 if ($finishReason !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
                     if ($this->state->hasTextStarted() && $text !== '') {
+                        $this->state->markTextCompleted();
+
                         yield new TextCompleteEvent(
                             id: EventID::generate(),
                             timestamp: time(),
@@ -134,6 +136,8 @@ class Stream
             $finishReasonValue = data_get($data, 'choices.0.finish_reason');
             if ($finishReasonValue !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -210,6 +214,8 @@ class Stream
                 $finishReason = $this->mapFinishReason($data);
 
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),

@@ -188,6 +188,8 @@ class Stream
 
         if ($toolCalls !== []) {
             if ($this->state->hasTextStarted() && $text !== '') {
+                $this->state->markTextCompleted();
+
                 yield new TextCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),
@@ -201,6 +203,8 @@ class Stream
         }
 
         if ($this->state->hasTextStarted() && $text !== '') {
+            $this->state->markTextCompleted();
+
             yield new TextCompleteEvent(
                 id: EventID::generate(),
                 timestamp: time(),

@@ -213,11 +213,7 @@ class Stream
     protected function handleContentBlockStop(array $event): ?StreamEvent
     {
         $result = match ($this->state->currentBlockType()) {
-            'text' => new TextCompleteEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                messageId: $this->state->messageId()
-            ),
+            'text' => $this->handleTextComplete(),
             'thinking' => new ThinkingCompleteEvent(
                 id: EventID::generate(),
                 timestamp: time(),
@@ -303,6 +299,17 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             reasoningId: $this->state->reasoningId()
+        );
+    }
+
+    protected function handleTextComplete(): TextCompleteEvent
+    {
+        $this->state->markTextCompleted();
+
+        return new TextCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            messageId: $this->state->messageId()
         );
     }
 

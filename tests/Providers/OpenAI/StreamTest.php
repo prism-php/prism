@@ -16,7 +16,9 @@ use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
@@ -120,8 +122,8 @@ it('can generate text using tools with streaming', function (): void {
     expect($providerToolEvents)->toBeEmpty();
 
     // Verify only one StreamStartEvent and one StreamEndEvent
-    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
 
@@ -400,7 +402,7 @@ it('can process streaming with image_generation provider tool', function (): voi
 
     expect($providerToolEvents)->not->toBeEmpty();
 
-    $statuses = array_map(fn (\Prism\Prism\Streaming\Events\ProviderToolEvent $e): string => $e->status, $providerToolEvents);
+    $statuses = array_map(fn (ProviderToolEvent $e): string => $e->status, $providerToolEvents);
     expect($statuses)->toContain('in_progress');
     expect($statuses)->toContain('generating');
     expect($statuses)->toContain('completed');
@@ -754,4 +756,33 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
 
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+});
+
+it('emits TextStart and TextComplete events for each output item', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-multiple-output-items');
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Test multiple output items')
+        ->asStream();
+
+    $events = [];
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    $textStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof TextStartEvent);
+    $textCompleteEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof TextCompleteEvent);
+    $textDeltaEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof TextDeltaEvent);
+
+    expect($textStartEvents)->toHaveCount(2);
+    expect($textCompleteEvents)->toHaveCount(2);
+    expect($textDeltaEvents)->toHaveCount(4);
+
+    $textStartIndices = array_keys($textStartEvents);
+    $textCompleteIndices = array_keys($textCompleteEvents);
+
+    expect($textStartIndices[0])->toBeLessThan($textCompleteIndices[0]);
+    expect($textCompleteIndices[0])->toBeLessThan($textStartIndices[1]);
+    expect($textStartIndices[1])->toBeLessThan($textCompleteIndices[1]);
 });
