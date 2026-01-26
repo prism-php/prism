@@ -100,7 +100,7 @@ readonly class ResponseBuilder
         return $this->steps
             ->flatMap(fn (Step $step): array => $step->toolResults)
             ->values()
-            ->toArray();
+            ->all();
     }
 
     protected function calculateTotalUsage(): Usage
