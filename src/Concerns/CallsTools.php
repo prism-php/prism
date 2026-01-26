@@ -64,8 +64,6 @@ trait CallsTools
     }
 
     /**
-     * Group tool calls by whether they should run concurrently or sequentially.
-     *
      * @param  Tool[]  $tools
      * @param  ToolCall[]  $toolCalls
      * @return array{concurrent: array<int, ToolCall>, sequential: array<int, ToolCall>}
@@ -85,7 +83,6 @@ trait CallsTools
                     $sequential[$index] = $toolCall;
                 }
             } catch (PrismException) {
-                // If tool not found, treat as sequential for error handling
                 $sequential[$index] = $toolCall;
             }
         }
@@ -97,8 +94,6 @@ trait CallsTools
     }
 
     /**
-     * Execute tools with concurrency support and return indexed results.
-     *
      * @param  Tool[]  $tools
      * @param  array{concurrent: array<int, ToolCall>, sequential: array<int, ToolCall>}  $groupedToolCalls
      * @return array<int, array{toolResult: ToolResult, events: array<int, ToolResultEvent|ArtifactEvent>}>
@@ -113,8 +108,10 @@ trait CallsTools
             $concurrentClosures[$index] = fn () => $this->executeToolCall($tools, $toolCall, $messageId);
         }
 
-        foreach (Concurrency::run($concurrentClosures) as $index => $result) {
-            $results[$index] = $result;
+        if ($concurrentClosures !== []) {
+            foreach (Concurrency::run($concurrentClosures) as $index => $result) {
+                $results[$index] = $result;
+            }
         }
 
         foreach ($groupedToolCalls['sequential'] as $index => $toolCall) {
@@ -125,8 +122,6 @@ trait CallsTools
     }
 
     /**
-     * Execute a single tool call and return result with events.
-     *
      * @param  Tool[]  $tools
      * @return array{toolResult: ToolResult, events: array<int, ToolResultEvent|ArtifactEvent>}
      */
