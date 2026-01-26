@@ -250,6 +250,8 @@ class Stream
                     timestamp: time(),
                     messageId: $this->state->messageId()
                 );
+
+                $this->state->markTextCompleted();
             }
 
             if (data_get($data, 'type') === 'response.completed') {

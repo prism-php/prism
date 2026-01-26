@@ -118,6 +118,13 @@ class StreamState
         return $this;
     }
 
+    public function markTextCompleted(): self
+    {
+        $this->textStarted = false;
+
+        return $this;
+    }
+
     public function markThinkingStarted(): self
     {
         $this->thinkingStarted = true;
