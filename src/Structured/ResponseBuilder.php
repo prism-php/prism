@@ -89,7 +89,7 @@ readonly class ResponseBuilder
         return $this->steps
             ->flatMap(fn (Step $step): array => $step->toolCalls)
             ->values()
-            ->toArray();
+            ->all();
     }
 
     /**
