@@ -44,6 +44,8 @@ class Tool
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
     protected null|false|Closure $failedHandler = null;
 
+    protected bool $concurrent = false;
+
     public function __construct()
     {
         //
@@ -109,6 +111,18 @@ class Tool
         $this->failedHandler = $handler;
 
         return $this;
+    }
+
+    public function concurrent(bool $concurrent = true): self
+    {
+        $this->concurrent = $concurrent;
+
+        return $this;
+    }
+
+    public function isConcurrent(): bool
+    {
+        return $this->concurrent;
     }
 
     public function withParameter(Schema $parameter, bool $required = true): self

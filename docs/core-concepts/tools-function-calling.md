@@ -295,6 +295,89 @@ use Prism\Prism\Facades\Tool;
 $tool = Tool::make(SearchTool::class);
 ```
 
+## Concurrent Tool Execution
+
+When the AI calls multiple tools in a single step, Prism normally executes them sequentially. For I/O-bound operations like API calls or database queries, you can enable concurrent execution to run tools in parallel, reducing total wait time.
+
+### Marking Tools as Concurrent
+
+Use the `concurrent()` method to mark a tool as safe for parallel execution:
+
+```php
+use Prism\Prism\Facades\Tool;
+
+$weatherTool = Tool::as('weather')
+    ->for('Get current weather conditions')
+    ->withStringParameter('city', 'The city to get weather for')
+    ->using(function (string $city): string {
+        // API call that takes ~500ms
+        return Http::get("https://api.weather.com/{$city}")->json('conditions');
+    })
+    ->concurrent();
+
+$stockTool = Tool::as('stock_price')
+    ->for('Get current stock price')
+    ->withStringParameter('symbol', 'The stock ticker symbol')
+    ->using(function (string $symbol): string {
+        // Another API call that takes ~500ms
+        return Http::get("https://api.stocks.com/{$symbol}")->json('price');
+    })
+    ->concurrent();
+```
+
+When the AI calls both tools in a single step, they'll execute in parallel instead of sequentially - taking ~500ms total instead of ~1000ms.
+
+### How It Works
+
+Prism uses [Laravel's Concurrency facade](https://laravel.com/docs/12.x/concurrency) to execute concurrent tools. Under the hood, tools marked as concurrent are grouped and run in parallel, while sequential tools run one at a time.
+
+The execution flow:
+1. Prism groups tool calls by their concurrency setting
+2. Concurrent tools execute in parallel via `Concurrency::run()`
+3. Sequential tools execute one at a time
+4. Results are returned in the original order, regardless of execution order
+
+### When to Use Concurrent Tools
+
+**Good candidates for concurrent execution:**
+- External API calls (weather, stocks, search)
+- Database queries that don't depend on each other
+- File reads from different sources
+- Any I/O-bound operation
+
+**Keep sequential (don't mark as concurrent):**
+- Tools that modify shared state
+- Tools where execution order matters
+- Tools with side effects that could conflict
+- CPU-bound operations (concurrency won't help)
+
+### Mixed Execution
+
+You can mix concurrent and sequential tools in the same request:
+
+```php
+$searchTool = Tool::as('search')
+    ->for('Search the web')
+    ->withStringParameter('query', 'Search query')
+    ->using(fn (string $query): string => $this->search($query))
+    ->concurrent(); // Safe to run in parallel
+
+$saveResultTool = Tool::as('save_result')
+    ->for('Save a result to the database')
+    ->withStringParameter('data', 'Data to save')
+    ->using(fn (string $data): string => $this->save($data));
+    // Sequential - modifies database state
+```
+
+Prism handles the grouping automatically. Concurrent tools run in parallel, then sequential tools run in order.
+
+### Error Handling
+
+Errors in concurrent tools are handled the same way as sequential tools. If one concurrent tool fails, other concurrent tools still complete, and all results (including errors) are returned in the original order.
+
+> [!NOTE]
+> Concurrent execution requires Laravel's Concurrency feature, available in Laravel 11+. Make sure you have the appropriate concurrency driver configured. See [Laravel's Concurrency documentation](https://laravel.com/docs/12.x/concurrency) for setup details.
+
 ## Using Laravel MCP Tools
 You can use existing [Laravel MCP](https://github.com/laravel/mcp) Tools in Prism directly, without using the Laravel MCP Server:
 
