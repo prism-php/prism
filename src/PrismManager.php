@@ -17,10 +17,10 @@ use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
+use Prism\Prism\Providers\Perplexity\Perplexity;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
-use Prism\Prism\Providers\Perplexity\Perplexity;
 use RuntimeException;
 
 class PrismManager
