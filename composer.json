@@ -67,7 +67,7 @@
       "@prepare"
     ],
     "format": [
-      "@php vendor/bin/pint --ansi",
+      "@php vendor/bin/pint --ansi --parallel",
       "@php vendor/bin/rector process --no-diffs"
     ],
     "test": [
