@@ -1,0 +1,26 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "\nI'm an AI assistant created to help with a wide range of tasks and questions. I can assist with things like:\n\n- Answering questions and providing information\n- Helping with research and analysis\n- Writing and editing content\n- Brainstorming ideas\n- Explaining complex topics\n- And much more\n\nI'm designed to be helpful, harmless, and honest in our interactions. I don't have personal experiences or emotions, but I'm here to assist you with whatever you need help with. \n\nIs there something specific I can help you with today?",
+        "reasoning_content": "\nThe user is asking me who I am. This is a simple introductory question about my identity. I should provide a clear and helpful response about what I am - an AI assistant. There's no need to use the weather function for this question.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1765885934,
+  "id": "202512161952121dd7efde49d14dc9",
+  "model": "z-model",
+  "object": "chat.completion",
+  "request_id": "202512161952121dd7efde49d14dc9",
+  "usage": {
+    "completion_tokens": 166,
+    "prompt_tokens": 190,
+    "prompt_tokens_details": {
+      "cached_tokens": 189
+    },
+    "total_tokens": 356
+  }
+}

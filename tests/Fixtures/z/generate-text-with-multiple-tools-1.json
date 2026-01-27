@@ -1,0 +1,46 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "message": {
+        "content": "\nI'll help you find the Tigers game time in Detroit and check the weather to see if you should wear a coat. Let me look up both pieces of information for you.\n",
+        "reasoning_content": "\nThe user is asking for two things:\n1. What time the tigers game is today in Detroit\n2. Whether they should wear a coat (which relates to weather)\n\nI have two tools available:\n- get_weather: to check weather for a city\n- search_games: to search for current game times in a city\n\nFor the first question about the Tigers game time, I should use search_games with \"Detroit\" as the city.\n\nFor the second question about wearing a coat, I should use get_weather with \"Detroit\" as the city to check the weather conditions.\n\nBoth tools require the \"city\" parameter, and the user has specified \"Detroit\" clearly, so I have all the required parameters.",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\":\"Detroit\"}",
+              "name": "search_games"
+            },
+            "id": "call_-8062812703858712887",
+            "index": 0,
+            "type": "function"
+          },
+          {
+            "function": {
+              "arguments": "{\"city\":\"Detroit\"}",
+              "name": "get_weather"
+            },
+            "id": "call_-8062812703858712886",
+            "index": 1,
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1765888363,
+  "id": "2025121620323812c137d944f34776",
+  "model": "z-model",
+  "object": "chat.completion",
+  "request_id": "2025121620323812c137d944f34776",
+  "usage": {
+    "completion_tokens": 210,
+    "prompt_tokens": 272,
+    "prompt_tokens_details": {
+      "cached_tokens": 271
+    },
+    "total_tokens": 482
+  }
+}
