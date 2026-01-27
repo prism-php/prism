@@ -175,12 +175,12 @@ class Stream
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
             if ($rawFinishReason !== null) {
                 $finishReason = $this->extractFinishReason($data);
-                if ($finishReason instanceof \Prism\Prism\Enums\FinishReason) {
+                if ($finishReason instanceof FinishReason) {
                     $this->state->withFinishReason($finishReason);
                 }
 
                 $usage = $this->extractUsage($data);
-                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                if ($usage instanceof Usage) {
                     $this->state->addUsage($usage);
                 }
             }

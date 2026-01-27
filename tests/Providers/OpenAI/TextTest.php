@@ -13,6 +13,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -490,7 +491,7 @@ it('can analyze images with detail parameter', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/diamond.png')
+    $image = Image::fromLocalPath('tests/Fixtures/diamond.png')
         ->withProviderOptions(['detail' => 'high']);
 
     Prism::text()
@@ -517,7 +518,7 @@ it('omits detail parameter when not specified', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/diamond.png');
+    $image = Image::fromLocalPath('tests/Fixtures/diamond.png');
 
     Prism::text()
         ->using(Provider::OpenAI, 'gpt-4o')

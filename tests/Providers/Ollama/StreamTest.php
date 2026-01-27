@@ -120,8 +120,8 @@ it('can generate text using tools with streaming', function (): void {
     expect($finishReasonFound)->toBeTrue();
 
     // Verify only one StreamStartEvent and one StreamEndEvent
-    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
 });
@@ -255,7 +255,7 @@ it('does not include keep_alive parameter when not provided for streaming', func
 });
 
 it('emits thinking chunks when provider sends thinking field', function (): void {
-    \Tests\Fixtures\FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking');
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-thinking');
 
     $response = Prism::text()
         ->using('ollama', 'gpt-oss:20b')

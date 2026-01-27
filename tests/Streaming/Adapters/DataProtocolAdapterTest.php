@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -15,13 +18,15 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $events
+ * @param  array<StreamEvent>  $events
  */
 function createDataEventGenerator(array $events): Generator
 {
@@ -33,7 +38,7 @@ function createDataEventGenerator(array $events): Generator
 /**
  * Creates a generator that throws an exception after yielding some events.
  *
- * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $eventsBeforeError
+ * @param  array<StreamEvent>  $eventsBeforeError
  */
 function createThrowingGenerator(array $eventsBeforeError, Throwable $exception): Generator
 {
@@ -196,7 +201,7 @@ it('integrates with Laravel response system', function (): void {
 
     // Test integration with Laravel's response system
     expect($response)->toBeInstanceOf(StreamedResponse::class);
-    expect($response->headers)->toBeInstanceOf(\Symfony\Component\HttpFoundation\ResponseHeaderBag::class);
+    expect($response->headers)->toBeInstanceOf(ResponseHeaderBag::class);
     expect($response->getStatusCode())->toBe(200);
 
     // Verify critical data protocol headers are set
@@ -435,7 +440,7 @@ it('handles Prism exceptions during streaming gracefully', function (): void {
         new TextDeltaEvent('evt-1', 1640995200, 'Partial response', 'msg-456'),
     ];
 
-    $exception = new \Prism\Prism\Exceptions\PrismException('Rate limit exceeded');
+    $exception = new PrismException('Rate limit exceeded');
 
     $adapter = new DataProtocolAdapter;
     $response = ($adapter)(createThrowingGenerator($eventsBeforeError, $exception));
@@ -477,7 +482,7 @@ it('includes ErrorEvent in collected events passed to callback when exception oc
 
     $exception = new RuntimeException('API connection failed', 500);
 
-    $pendingRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
+    $pendingRequest = Mockery::mock(PendingRequest::class);
 
     $collectedEventsFromCallback = null;
     $userCallback = function ($request, $events) use (&$collectedEventsFromCallback): void {
@@ -506,14 +511,14 @@ it('includes ErrorEvent in collected events passed to callback when exception oc
 
         // Verify callback was called with collected events
         expect($collectedEventsFromCallback)->not->toBeNull();
-        expect($collectedEventsFromCallback)->toBeInstanceOf(\Illuminate\Support\Collection::class);
+        expect($collectedEventsFromCallback)->toBeInstanceOf(Collection::class);
 
         // Should have 3 events: StreamStart, TextDelta, and ErrorEvent
         expect($collectedEventsFromCallback)->toHaveCount(3);
 
         // Get the last event which should be the ErrorEvent
         $errorEvent = $collectedEventsFromCallback->last();
-        expect($errorEvent)->toBeInstanceOf(\Prism\Prism\Streaming\Events\ErrorEvent::class);
+        expect($errorEvent)->toBeInstanceOf(ErrorEvent::class);
         expect($errorEvent->errorType)->toBe(RuntimeException::class);
         expect($errorEvent->message)->toBe('API connection failed');
         expect($errorEvent->recoverable)->toBeFalse();

@@ -17,7 +17,7 @@ readonly class PrismServer
         protected Collection $prisms = new Collection,
     ) {}
 
-    /** @param \Closure():PendingRequest|callable():PendingRequest $prism */
+    /** @param Closure():PendingRequest|callable():PendingRequest $prism */
     public function register(string $name, Closure|callable $prism): self
     {
         $this->prisms->push(['name' => $name, 'prism' => $prism]);

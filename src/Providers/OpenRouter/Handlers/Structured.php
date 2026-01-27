@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStructuredDecodingException;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
@@ -49,7 +50,7 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
             array_merge([

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
@@ -17,10 +18,10 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 
 /**
- * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $events
- * @return \Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+ * @param  array<StreamEvent>  $events
+ * @return Generator<StreamEvent>
  */
-function createCollectorEventGenerator(array $events): \Generator
+function createCollectorEventGenerator(array $events): Generator
 {
     foreach ($events as $event) {
         yield $event;

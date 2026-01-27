@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
@@ -101,7 +102,7 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
             array_merge([

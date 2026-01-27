@@ -108,7 +108,7 @@ class Stream
             }
 
             $usage = $this->extractUsage($data);
-            if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+            if ($usage instanceof Usage) {
                 $this->state->addUsage($usage);
             }
 

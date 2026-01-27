@@ -227,7 +227,7 @@ class StreamState
 
     public function addUsage(Usage $usage): self
     {
-        if (! $this->usage instanceof \Prism\Prism\ValueObjects\Usage) {
+        if (! $this->usage instanceof Usage) {
             $this->usage = $usage;
 
             return $this;

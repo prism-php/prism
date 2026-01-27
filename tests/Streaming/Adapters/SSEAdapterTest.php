@@ -6,6 +6,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Adapters\SSEAdapter;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
@@ -18,7 +19,7 @@ use Prism\Prism\ValueObjects\ToolResult;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $events
+ * @param  array<StreamEvent>  $events
  */
 function createEventGenerator(array $events): Generator
 {

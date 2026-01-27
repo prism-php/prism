@@ -183,8 +183,8 @@ describe('from anthropic payload', function (): void {
             ],
         ];
 
-        expect(fn (): \Prism\Prism\ValueObjects\MessagePartWithCitations => CitationsMapper::mapFromAnthropic($contentBlock))
-            ->toThrow(\InvalidArgumentException::class, 'Unknown citation type: unknown_citation_type');
+        expect(fn (): MessagePartWithCitations => CitationsMapper::mapFromAnthropic($contentBlock))
+            ->toThrow(InvalidArgumentException::class, 'Unknown citation type: unknown_citation_type');
     });
 
     it('falls back to title when document_title is not present', function (): void {

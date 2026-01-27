@@ -255,7 +255,7 @@ class Stream
      */
     protected function handleMessageStop(array $event): ?StreamEndEvent
     {
-        if (! $this->state->finishReason() instanceof \Prism\Prism\Enums\FinishReason) {
+        if (! $this->state->finishReason() instanceof FinishReason) {
             $this->state->withFinishReason(FinishReason::Stop);
         }
 
