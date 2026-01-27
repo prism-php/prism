@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
@@ -22,7 +23,7 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(

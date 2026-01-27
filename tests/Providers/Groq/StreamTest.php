@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
@@ -117,8 +118,8 @@ it('can generate text using tools with streaming', function (): void {
     expect($toolResultEvents)->not->toBeEmpty();
 
     // Verify only one StreamStartEvent and one StreamEndEvent
-    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
 });
@@ -318,11 +319,11 @@ it('handles rate limiting correctly', function (): void {
         foreach ($response as $chunk) {
             // The test should throw before completing
         }
-    } catch (\Prism\Prism\Exceptions\PrismRateLimitedException $e) {
+    } catch (PrismRateLimitedException $e) {
         $exception = $e;
     }
 
-    expect($exception)->toBeInstanceOf(\Prism\Prism\Exceptions\PrismRateLimitedException::class);
+    expect($exception)->toBeInstanceOf(PrismRateLimitedException::class);
 });
 
 it('handles empty stream response correctly', function (): void {

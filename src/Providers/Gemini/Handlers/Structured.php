@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Concerns\HandlesStructuredJson;
@@ -118,7 +119,7 @@ class Structured
             ]);
         }
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([

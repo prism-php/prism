@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -100,7 +101,7 @@ class Text
      */
     protected function sendRequest(Request $request): array
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
             array_merge([

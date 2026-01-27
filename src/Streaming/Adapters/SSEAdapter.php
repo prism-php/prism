@@ -39,7 +39,7 @@ class SSEAdapter
                 flush();
             }
 
-            if ($callback !== null && $pendingRequest instanceof \Prism\Prism\Text\PendingRequest) {
+            if ($callback !== null && $pendingRequest instanceof PendingRequest) {
                 $callback($pendingRequest, $collectedEvents);
             }
         }, 200, [

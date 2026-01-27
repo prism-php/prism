@@ -120,8 +120,8 @@ it('can generate text using tools with streaming', function (): void {
     expect($toolResultEvents)->not->toBeEmpty();
 
     // Verify only one StreamStartEvent and one StreamEndEvent
-    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
 

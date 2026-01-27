@@ -212,7 +212,7 @@ it('throws error when citations and tool calling are used together', function ()
         new StringSchema('answer', 'The answer'),
     ], ['answer']);
 
-    expect(fn (): \Prism\Prism\Structured\Response => Prism::structured()
+    expect(fn (): Response => Prism::structured()
         ->withSchema($schema)
         ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
         ->withPrompt('What is the answer?')

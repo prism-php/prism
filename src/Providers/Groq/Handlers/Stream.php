@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
@@ -176,7 +177,7 @@ class Stream
                 $this->state->withFinishReason($finishReason);
 
                 $usage = $this->extractUsage($data);
-                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                if ($usage instanceof Usage) {
                     $this->state->addUsage($usage);
                 }
             }
@@ -398,7 +399,7 @@ class Stream
                 );
 
             return $response;
-        } catch (\Illuminate\Http\Client\RequestException $e) {
+        } catch (RequestException $e) {
             if ($e->response->getStatusCode() === 429) {
                 throw new PrismRateLimitedException(
                     $this->processRateLimits($e->response),

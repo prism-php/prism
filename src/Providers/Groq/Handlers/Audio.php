@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
@@ -28,7 +29,7 @@ class Audio
     {
         $mapper = new TextToSpeechRequestMapper($request);
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post('audio/speech', $mapper->toPayload());
 
         if (! $response->successful()) {
@@ -49,7 +50,7 @@ class Audio
     {
         $filename = $this->generateFilename($request->input()->mimeType());
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(

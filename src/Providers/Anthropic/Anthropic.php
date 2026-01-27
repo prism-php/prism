@@ -18,6 +18,7 @@ use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 use Prism\Prism\Providers\Provider;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -63,7 +64,7 @@ class Anthropic extends Provider
     }
 
     /**
-     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     * @return Generator<StreamEvent>
      */
     #[\Override]
     public function stream(TextRequest $request): Generator

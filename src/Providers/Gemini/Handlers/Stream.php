@@ -356,7 +356,7 @@ class Stream
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
 
-                if ($previousUsage instanceof \Prism\Prism\ValueObjects\Usage && $this->state->usage() instanceof \Prism\Prism\ValueObjects\Usage) {
+                if ($previousUsage instanceof Usage && $this->state->usage() instanceof Usage) {
                     $this->state->withUsage(new Usage(
                         promptTokens: $previousUsage->promptTokens + $this->state->usage()->promptTokens,
                         completionTokens: $previousUsage->completionTokens + $this->state->usage()->completionTokens,

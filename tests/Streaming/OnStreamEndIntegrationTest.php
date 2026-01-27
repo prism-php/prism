@@ -7,6 +7,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Testing\TextStepFake;
 use Prism\Prism\Text\PendingRequest;
@@ -202,7 +203,7 @@ it('asEventStreamResponse works without callback', function (): void {
         ->withPrompt('Test')
         ->asEventStreamResponse();
 
-    expect($response)->toBeInstanceOf(\Symfony\Component\HttpFoundation\StreamedResponse::class);
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
 });
 
 it('asEventStreamResponse callback receives all text delta events', function (): void {
@@ -322,7 +323,7 @@ it('asEventStreamResponse callback receives tool result events', function (): vo
         ->withPrompt('Calculate')
         ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use (&$hasToolResultEvent): void {
             $hasToolResultEvent = $events->contains(
-                fn (StreamEvent $event): bool => $event instanceof \Prism\Prism\Streaming\Events\ToolResultEvent
+                fn (StreamEvent $event): bool => $event instanceof ToolResultEvent
             );
         });
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\EnumSchema;
@@ -264,7 +265,7 @@ it('supports anyOf composition for OpenAI schemas', function (): void {
         allowAdditionalProperties: false
     );
 
-    $itemSchema = new \Prism\Prism\Schema\AnyOfSchema([
+    $itemSchema = new AnyOfSchema([
         $userSchema,
         $addressSchema,
     ]);

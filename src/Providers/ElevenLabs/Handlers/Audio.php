@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\ElevenLabs\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
@@ -42,7 +43,7 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(
