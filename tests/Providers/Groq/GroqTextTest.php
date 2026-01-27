@@ -9,7 +9,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
@@ -132,15 +131,14 @@ describe('Text generation for Groq', function (): void {
     });
 
     it('throws an exception for ToolChoice::Any', function (): void {
-        $this->expectException(PrismException::class);
-        $this->expectExceptionMessage('Invalid tool choice');
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/generate-text-with-required-tool-call');
 
         Prism::text()
             ->using('groq', 'gpt-4')
             ->withPrompt('Who are you?')
             ->withToolChoice(ToolChoice::Any)
             ->asText();
-    });
+    })->throwsNoExceptions();
 });
 
 describe('Image support with grok', function (): void {
