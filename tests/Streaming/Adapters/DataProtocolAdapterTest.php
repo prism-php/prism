@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
@@ -19,6 +20,7 @@ use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Artifact;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -523,6 +525,65 @@ it('includes ErrorEvent in collected events passed to callback when exception oc
         expect($errorEvent->message)->toBe('API connection failed');
         expect($errorEvent->recoverable)->toBeFalse();
         expect($errorEvent->metadata['code'])->toBe(500);
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('formats artifact events using data- prefix convention', function (): void {
+    $artifact = new Artifact(
+        data: 'iVBORw0KGgo=',
+        mimeType: 'image/png',
+        metadata: ['width' => 512],
+        id: 'artifact-123',
+    );
+
+    $events = [
+        new ArtifactEvent('evt-1', 1640995200, $artifact, 'tool-call-456', 'generate_image', 'msg-789'),
+    ];
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify data- prefix convention is used (not bare "artifact")
+        expect($capturedOutput)->toContain('data: {"type":"data-artifact"');
+        expect($capturedOutput)->not->toContain('"type":"artifact"');
+
+        // Verify payload is nested under "data" key
+        expect($capturedOutput)->toContain('"data":{');
+        expect($capturedOutput)->toContain('"toolCallId":"tool-call-456"');
+        expect($capturedOutput)->toContain('"toolName":"generate_image"');
+        expect($capturedOutput)->toContain('"mimeType":"image\/png"');
+        expect($capturedOutput)->toContain('"id":"artifact-123"');
+
+        // Parse the JSON to verify structure
+        $lines = explode("\n", trim($capturedOutput));
+        $dataLines = array_filter($lines, fn (string $line): bool => str_starts_with($line, 'data: ') && $line !== 'data: [DONE]');
+        $artifactLine = array_values($dataLines)[0];
+        $json = json_decode(substr($artifactLine, 6), true);
+
+        expect($json['type'])->toBe('data-artifact');
+        expect($json['data']['toolCallId'])->toBe('tool-call-456');
+        expect($json['data']['toolName'])->toBe('generate_image');
+        expect($json['data']['artifact']['id'])->toBe('artifact-123');
+        expect($json['data']['artifact']['mimeType'])->toBe('image/png');
+        expect($json['data']['artifact']['data'])->toBe('iVBORw0KGgo=');
+        expect($json['data']['artifact']['metadata'])->toBe(['width' => 512]);
     } finally {
         fclose($outputBuffer);
     }
