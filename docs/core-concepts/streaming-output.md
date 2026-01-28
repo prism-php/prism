@@ -417,7 +417,7 @@ eventSource.addEventListener('text_delta', (event) => {
 
 ### Artifact Events with Vercel AI SDK
 
-When using `asDataStreamResponse()`, artifacts are sent as data protocol messages with type `artifact`:
+When using `asDataStreamResponse()`, artifacts are sent as custom data parts with type `data-artifact`:
 
 ```javascript
 import { useChat } from '@ai-sdk/react';
@@ -433,8 +433,8 @@ export default function Chat() {
         },
         onData: (data) => {
             // Handle artifact data messages
-            if (data.type === 'artifact') {
-                setArtifacts(prev => [...prev, data.artifact]);
+            if (data.type === 'data-artifact') {
+                setArtifacts(prev => [...prev, data.data.artifact]);
             }
         },
     });
