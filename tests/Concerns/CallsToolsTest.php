@@ -15,14 +15,14 @@ class CallsToolsTestHandler
 {
     use CallsTools;
 
-    public function execute(array $tools, array $toolCalls): array
+    public function execute(array $tools, array $toolCalls, bool &$hasPendingToolCalls = false): array
     {
-        return $this->callTools($tools, $toolCalls);
+        return $this->callTools($tools, $toolCalls, $hasPendingToolCalls);
     }
 
-    public function stream(array $tools, array $toolCalls, string $messageId, array &$toolResults): Generator
+    public function stream(array $tools, array $toolCalls, string $messageId, array &$toolResults, bool &$hasPendingToolCalls = false): Generator
     {
-        return $this->callToolsAndYieldEvents($tools, $toolCalls, $messageId, $toolResults);
+        return $this->callToolsAndYieldEvents($tools, $toolCalls, $messageId, $toolResults, $hasPendingToolCalls);
     }
 }
 
@@ -240,4 +240,79 @@ it('returns empty results when no tool calls provided', function (): void {
 
     expect($events)->toBeEmpty()
         ->and($toolResults)->toBeEmpty();
+});
+
+it('executes server tools and skips client-executed tools in mixed scenario', function (): void {
+    // Server-executed tool (has handler)
+    $serverTool = (new Tool)
+        ->as('server_tool')
+        ->for('A server-executed tool')
+        ->withStringParameter('input', 'Input parameter')
+        ->using(fn (string $input): string => "Server processed: {$input}");
+
+    // Client-executed tool (no handler)
+    $clientTool = (new Tool)
+        ->as('client_tool')
+        ->for('A client-executed tool')
+        ->withStringParameter('action', 'Action to perform');
+
+    $toolCalls = [
+        new ToolCall(id: 'call-server', name: 'server_tool', arguments: ['input' => 'test data']),
+        new ToolCall(id: 'call-client', name: 'client_tool', arguments: ['action' => 'click button']),
+    ];
+
+    $handler = new CallsToolsTestHandler;
+    $hasPendingToolCalls = false;
+    $results = $handler->execute([$serverTool, $clientTool], $toolCalls, $hasPendingToolCalls);
+
+    // Server tool should have executed
+    expect($results)->toHaveCount(1)
+        ->and($results[0]->toolName)->toBe('server_tool')
+        ->and($results[0]->result)->toBe('Server processed: test data');
+
+    // Flag should indicate client-executed tools are pending
+    expect($hasPendingToolCalls)->toBeTrue();
+});
+
+it('executes server tools and skips client-executed tools in mixed streaming scenario', function (): void {
+    // Server-executed tool (has handler)
+    $serverTool = (new Tool)
+        ->as('server_tool')
+        ->for('A server-executed tool')
+        ->withStringParameter('input', 'Input parameter')
+        ->using(fn (string $input): string => "Server processed: {$input}");
+
+    // Client-executed tool (no handler)
+    $clientTool = (new Tool)
+        ->as('client_tool')
+        ->for('A client-executed tool')
+        ->withStringParameter('action', 'Action to perform');
+
+    $toolCalls = [
+        new ToolCall(id: 'call-client-1', name: 'client_tool', arguments: ['action' => 'scroll']),
+        new ToolCall(id: 'call-server', name: 'server_tool', arguments: ['input' => 'test data']),
+        new ToolCall(id: 'call-client-2', name: 'client_tool', arguments: ['action' => 'click']),
+    ];
+
+    $handler = new CallsToolsTestHandler;
+    $toolResults = [];
+    $hasPendingToolCalls = false;
+    $events = [];
+
+    foreach ($handler->stream([$serverTool, $clientTool], $toolCalls, 'msg-123', $toolResults, $hasPendingToolCalls) as $event) {
+        $events[] = $event;
+    }
+
+    // Only server tool should have result event
+    expect($events)->toHaveCount(1)
+        ->and($events[0])->toBeInstanceOf(ToolResultEvent::class)
+        ->and($events[0]->toolResult->toolName)->toBe('server_tool')
+        ->and($events[0]->toolResult->result)->toBe('Server processed: test data');
+
+    // Only server tool results should be collected
+    expect($toolResults)->toHaveCount(1)
+        ->and($toolResults[0]->toolName)->toBe('server_tool');
+
+    // Flag should indicate client-executed tools are pending
+    expect($hasPendingToolCalls)->toBeTrue();
 });

@@ -101,7 +101,8 @@ class Text
 
     protected function handleToolCalls(): Response
     {
-        $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls);
+        $hasPendingToolCalls = false;
+        $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls, $hasPendingToolCalls);
         $message = new ToolResultMessage($toolResults);
 
         // Apply tool result caching if configured
@@ -114,7 +115,7 @@ class Text
 
         $this->addStep($toolResults);
 
-        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
+        if (! $hasPendingToolCalls && $this->responseBuilder->steps->count() < $this->request->maxSteps()) {
             return $this->handle();
         }
 

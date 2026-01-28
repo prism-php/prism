@@ -147,9 +147,11 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request): TextResponse
     {
+        $hasPendingToolCalls = false;
         $toolResults = $this->callTools(
             $request->tools(),
-            ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []))
+            ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])),
+            $hasPendingToolCalls,
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -157,7 +159,7 @@ class Text
 
         $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

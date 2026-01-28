@@ -91,9 +91,11 @@ class Structured
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): StructuredResponse
     {
+        $hasPendingToolCalls = false;
         $toolResults = $this->callTools(
             $request->tools(),
             ToolCallMap::map($this->extractFunctionCalls($data)),
+            $hasPendingToolCalls,
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
@@ -101,7 +103,7 @@ class Structured
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

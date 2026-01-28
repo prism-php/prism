@@ -396,7 +396,15 @@ class Stream
     {
         $mappedToolCalls = $this->mapToolCalls($this->state->toolCalls());
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
