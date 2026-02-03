@@ -7,13 +7,13 @@ namespace Prism\Prism\Providers\Perplexity\Concerns;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Providers\Perplexity\Maps\MessagesMapper;
 use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Text\Request as TextRequest;
 
 trait HandlesHttpRequests
 {
-    protected function sendRequest(PendingRequest $client, PrismRequest $request, bool $stream = false): Response
+    protected function sendRequest(PendingRequest $client, TextRequest|StructuredRequest $request, bool $stream = false): Response
     {
         return $client->post(
             '/chat/completions',
@@ -26,11 +26,11 @@ trait HandlesHttpRequests
      *
      * @throws \Exception
      */
-    protected function buildHttpRequestPayload(PrismRequest $request, bool $stream = false): array
+    protected function buildHttpRequestPayload(TextRequest|StructuredRequest $request, bool $stream = false): array
     {
         $responseFormat = null;
 
-        if ($request->is(StructuredRequest::class)) {
+        if ($request instanceof StructuredRequest) {
             $responseFormat = Arr::whereNotNull([
                 'type' => 'json_schema',
                 'json_schema' => [

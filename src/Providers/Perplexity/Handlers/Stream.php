@@ -116,7 +116,7 @@ class Stream
             }
 
             // Check for finish reason
-            if (data_has($data, 'choices.0.finish_reason')) {
+            if ($this->hasFinishReason($data)) {
                 $finishReason = $this->extractsFinishReason($data);
 
                 // Complete text if we have any
@@ -199,6 +199,8 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      * @return Generator<StreamEvent>
+     *
+     * @throws PrismRateLimitedException
      */
     protected function handleErrors(array $data, Request $request): Generator
     {

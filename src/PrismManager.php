@@ -151,6 +151,9 @@ class PrismManager
         );
     }
 
+    /**
+     * @param  array<string, string|null>  $config
+     */
     protected function createPerplexityProvider(array $config): Perplexity
     {
         return new Perplexity(apiKey: $config['api_key'] ?? '', url: $config['url'] ?? '');

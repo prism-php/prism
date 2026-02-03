@@ -7,13 +7,13 @@ use Illuminate\Support\Stringable;
 
 trait ExtractsStructuredOutput
 {
-    /***
+    /**
      * It extracts structured JSON output from a given string content which might include the reasoning tags or code block formatting.
      * e.g <think>...</think> or ```json ... ```
      *
-     * @param string $content
      *
-     * @return array
+     * @return array<string, mixed>
+     *
      * @throws \JsonException
      */
     protected function parseStructuredOutput(string $content): array

@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 trait ExtractsAdditionalContent
 {
     /**
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      *
      * @throws \JsonException
@@ -25,13 +26,14 @@ trait ExtractsAdditionalContent
      * It extracts the reasoning part from a given string content which might include the reasoning tags.
      * e.g <think>reasoning</think> or ```json ... ```
      *
-     * @param string $content
-     *
-     * @return string|null
      * @throws \JsonException
      */
-    protected function extractsReasoning(string $content): ?string
+    protected function extractsReasoning(?string $content): ?string
     {
+        if ($content === null) {
+            return null;
+        }
+
         $str = Str::of($content);
         if (! $str->contains('<think>')) {
             return null;

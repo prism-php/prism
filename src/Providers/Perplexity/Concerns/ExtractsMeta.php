@@ -6,6 +6,9 @@ use Prism\Prism\ValueObjects\Meta;
 
 trait ExtractsMeta
 {
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function extractsMeta(array $data): Meta
     {
         return new Meta(

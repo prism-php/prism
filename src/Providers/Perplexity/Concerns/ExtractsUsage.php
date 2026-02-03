@@ -6,6 +6,9 @@ use Prism\Prism\ValueObjects\Usage;
 
 trait ExtractsUsage
 {
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function extractUsage(array $data): Usage
     {
         return new Usage(
