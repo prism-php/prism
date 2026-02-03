@@ -351,7 +351,7 @@ class Stream
             $depth++;
             if ($depth < $request->maxSteps()) {
                 $previousUsage = $this->state->usage();
-                $this->state->reset();
+                $this->state->reset()->withMessageId(EventID::generate());
                 $this->currentThoughtSignature = null;
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
