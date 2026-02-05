@@ -61,5 +61,11 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+        'vertex' => [
+            'project_id' => env('VERTEX_PROJECT_ID', ''),
+            'region' => env('VERTEX_REGION', 'us-central1'),
+            'access_token' => env('VERTEX_ACCESS_TOKEN', null),
+            'credentials_path' => env('VERTEX_CREDENTIALS_PATH', null),
+        ],
     ],
 ];
