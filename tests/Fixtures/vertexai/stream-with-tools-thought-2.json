@@ -1,0 +1,8 @@
+data: {"candidates": [{"content": {"parts": [{"text": "The"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 185,"candidatesTokenCount": 1,"totalTokenCount": 186,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 185}]},"modelVersion": "gemini-3-pro-preview","responseId": "cN4hafuKO6zTjMcP4P-L6Ak"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " current weather in San Francisco is 75°F and sunny. You likely won't"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 185,"candidatesTokenCount": 20,"totalTokenCount": 205,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 185}]},"modelVersion": "gemini-3-pro-preview","responseId": "cN4hafuKO6zTjMcP4P-L6Ak"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " need a coat, but you might want to bring a light jacket just in case it gets breezy or cools down later."}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 185,"candidatesTokenCount": 44,"totalTokenCount": 229,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 185}]},"modelVersion": "gemini-3-pro-preview","responseId": "cN4hafuKO6zTjMcP4P-L6Ak"}
+
+data: {"candidates": [{"content": {"parts": [{"text": ""}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 278,"candidatesTokenCount": 44,"totalTokenCount": 322,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 278}]},"modelVersion": "gemini-3-pro-preview","responseId": "cN4hafuKO6zTjMcP4P-L6Ak"}
+

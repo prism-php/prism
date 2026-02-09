@@ -1,0 +1,47 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "functionCall": {
+              "name": "search_games",
+              "args": {
+                "city": "Detroit"
+              }
+            }
+          },
+          {
+            "functionCall": {
+              "name": "get_weather",
+              "args": {
+                "city": "Detroit"
+              }
+            }
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.00003298009687569
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 124,
+    "candidatesTokenCount": 10,
+    "totalTokenCount": 134,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 71
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 10
+      }
+    ]
+  },
+  "modelVersion": "gemini-2.5-flash"
+}

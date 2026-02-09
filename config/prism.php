@@ -41,6 +41,12 @@ return [
             'api_key' => env('GEMINI_API_KEY', ''),
             'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/models'),
         ],
+        'vertexai' => [
+            'project_id' => env('VERTEX_AI_PROJECT_ID', ''),
+            'location' => env('VERTEX_AI_LOCATION', 'us-central1'),
+            'api_key' => env('VERTEX_AI_API_KEY'),
+            'credentials' => env('VERTEX_AI_CREDENTIALS'),
+        ],
         'deepseek' => [
             'api_key' => env('DEEPSEEK_API_KEY', ''),
             'url' => env('DEEPSEEK_URL', 'https://api.deepseek.com/v1'),

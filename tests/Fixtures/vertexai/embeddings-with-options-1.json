@@ -1,0 +1,13 @@
+{
+  "predictions": [
+    {
+      "embeddings": {
+        "values": [0.0123, -0.0456, 0.0789, 0.0234, -0.0567],
+        "statistics": {
+          "truncated": false,
+          "token_count": 5
+        }
+      }
+    }
+  ]
+}

@@ -18,6 +18,7 @@ use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider;
+use Prism\Prism\Providers\VertexAI\VertexAI;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
 use RuntimeException;
@@ -196,6 +197,19 @@ class PrismManager
         return new Gemini(
             apiKey: $config['api_key'],
             url: $config['url'],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    protected function createVertexaiProvider(array $config): VertexAI
+    {
+        return new VertexAI(
+            projectId: $config['project_id'],
+            location: $config['location'] ?? 'us-central1',
+            apiKey: $config['api_key'] ?? null,
+            credentials: $config['credentials'] ?? null,
         );
     }
 

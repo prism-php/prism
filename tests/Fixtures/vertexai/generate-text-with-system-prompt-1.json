@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "I am Prism, a helpful AI assistant created by echo labs."
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.050380042621067593
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 17,
+    "candidatesTokenCount": 14,
+    "totalTokenCount": 31
+  },
+  "modelVersion": "gemini-2.5-flash"
+}
