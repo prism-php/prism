@@ -155,7 +155,7 @@ class MessageMap
                     'call_id' => $toolCall->resultId,
                     'type' => 'function_call',
                     'name' => $toolCall->name,
-                    'arguments' => json_encode($toolCall->arguments()),
+                    'arguments' => json_encode($toolCall->arguments() ?: (object) []),
                 ], $message->toolCalls)
             );
         }
