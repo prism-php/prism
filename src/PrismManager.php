@@ -14,6 +14,7 @@ use Prism\Prism\Providers\ElevenLabs\ElevenLabs;
 use Prism\Prism\Providers\Gemini\Gemini;
 use Prism\Prism\Providers\Groq\Groq;
 use Prism\Prism\Providers\Mistral\Mistral;
+use Prism\Prism\Providers\ModelsLab\ModelsLab;
 use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
@@ -223,6 +224,17 @@ class PrismManager
         return new ElevenLabs(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createModelslabProvider(array $config): ModelsLab
+    {
+        return new ModelsLab(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? 'https://modelslab.com/api/v6/',
         );
     }
 }
