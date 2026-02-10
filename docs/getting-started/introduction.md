@@ -92,6 +92,7 @@ We currently offer first-party support for these leading AI providers:
 - [Mistral](/providers/mistral.md)
 - [Ollama](/providers/ollama.md)
 - [OpenAI](/providers/openai.md)
+- [Qwen](/providers/qwen.md)
 - [xAI](/providers/xai.md)
 
 Each provider brings its own strengths to the table, and Prism makes it easy to use them all through a consistent, elegant interface.

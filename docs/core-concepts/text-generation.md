@@ -107,6 +107,19 @@ $response = Prism::text()
         ]
     )
     ->asText();
+
+// Multi-image analysis with Qwen VL models
+$response = Prism::text()
+    ->using(Provider::Qwen, 'qwen-vl-max')
+    ->withPrompt(
+        'What are these?',
+        [
+            Image::fromUrl('https://example.com/dog.jpeg'),
+            Image::fromUrl('https://example.com/tiger.png'),
+            Image::fromUrl('https://example.com/rabbit.png'),
+        ]
+    )
+    ->asText();
 ```
 
 ## Message Chains and Conversations

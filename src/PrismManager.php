@@ -18,6 +18,7 @@ use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider;
+use Prism\Prism\Providers\Qwen\Qwen;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
 use RuntimeException;
@@ -223,6 +224,17 @@ class PrismManager
         return new ElevenLabs(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createQwenProvider(array $config): Qwen
+    {
+        return new Qwen(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? 'https://dashscope-intl.aliyuncs.com/api/v1',
         );
     }
 }

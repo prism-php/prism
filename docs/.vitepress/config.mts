@@ -208,6 +208,10 @@ export default defineConfig({
                 link: "/providers/openai",
               },
               {
+                text: "Qwen",
+                link: "/providers/qwen",
+              },
+              {
                 text: "Voyage AI",
                 link: "/providers/voyageai",
               },
