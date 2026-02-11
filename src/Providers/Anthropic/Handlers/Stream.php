@@ -268,7 +268,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage(),
+            usage: $this->state->usage() ?? new Usage(0, 0),
             citations: $this->state->citations() !== [] ? $this->state->citations() : null,
             additionalContent: [
                 'thinking' => $this->state->thinkingSummaries() === [] ? null : implode('', $this->state->thinkingSummaries()),
