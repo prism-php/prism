@@ -253,7 +253,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage(),
+            usage: $this->state->usage() ?? new Usage(0, 0),
             additionalContent: Arr::whereNotNull([
                 'grounding_metadata' => $this->state->metadata()['grounding_metadata'] ?? null,
                 'thoughtSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
