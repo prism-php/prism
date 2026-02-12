@@ -10,10 +10,14 @@ class ChatCompletionsToolMap
 {
     /**
      * @param  Tool[]  $tools
-     * @return array<string, mixed>
+     * @return array<string, mixed>|null
      */
-    public static function map(array $tools): array
+    public static function map(array $tools): ?array
     {
+        if ($tools === []) {
+            return null;
+        }
+
         return array_map(fn (Tool $tool): array => [
             'type' => 'function',
             'function' => [
