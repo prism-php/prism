@@ -15,6 +15,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
+use Prism\Prism\Providers\OpenAI\Maps\ChatCompletionsCitationsMapper;
 use Prism\Prism\Providers\OpenAI\Maps\ChatCompletionsFinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\ChatCompletionsMessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ChatCompletionsToolChoiceMap;
@@ -32,6 +33,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
+use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -158,6 +160,18 @@ class Stream
                 );
             }
 
+            // Extract citations once from providers with search capabilities
+            if ($this->state->citations() === [] && isset($data['citations'])) {
+                $citationsPart = ChatCompletionsCitationsMapper::map(
+                    $data['citations'],
+                    $data['search_results'] ?? []
+                );
+
+                if ($citationsPart instanceof MessagePartWithCitations) {
+                    $this->state->addCitation($citationsPart);
+                }
+            }
+
             // Only emit completion events when we actually have a finish reason (not null)
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
             if ($rawFinishReason !== null) {
@@ -194,11 +208,14 @@ class Stream
 
     protected function emitStreamEndEvent(): StreamEndEvent
     {
+        $citations = $this->state->citations();
+
         return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
             usage: $this->state->usage() ?? new Usage(0, 0),
+            citations: $citations !== [] ? $citations : null,
         );
     }
 
