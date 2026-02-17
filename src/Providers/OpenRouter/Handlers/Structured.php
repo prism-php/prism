@@ -79,7 +79,7 @@ class Structured
             ]))
         );
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
     /**

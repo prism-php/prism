@@ -107,7 +107,7 @@ class Text
             ], $this->buildRequestOptions($request))
         );
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
     /**
