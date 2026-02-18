@@ -20,6 +20,7 @@ use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
+
 class PrismManager
 {
     /** @var array<string, Closure> */
