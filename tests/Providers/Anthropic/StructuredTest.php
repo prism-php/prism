@@ -386,3 +386,25 @@ describe('native structured outputs', function (): void {
         )->toThrow(PrismException::class, 'Citations are not supported with native output_format');
     });
 });
+
+it('allows automatic caching enabled via providerOptions', function (): void {
+    Prism::fake();
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    $request = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']]);
+
+    $payload = Structured::buildHttpRequestPayload($request->toRequest());
+
+    expect($payload['cache_control'])->toBe(['type' => 'ephemeral']);
+});
