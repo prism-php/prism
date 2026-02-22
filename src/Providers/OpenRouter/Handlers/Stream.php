@@ -502,7 +502,8 @@ class Stream
             promptTokens: (int) data_get($usage, 'prompt_tokens', 0),
             completionTokens: (int) data_get($usage, 'completion_tokens', 0),
             cacheReadInputTokens: (int) data_get($usage, 'prompt_tokens_details.cached_tokens', 0),
-            thoughtTokens: (int) data_get($usage, 'completion_tokens_details.reasoning_tokens', 0)
+            thoughtTokens: (int) data_get($usage, 'completion_tokens_details.reasoning_tokens', 0),
+            cost: ($cost = data_get($usage, 'cost')) !== null ? (float) $cost : null,
         );
     }
 }

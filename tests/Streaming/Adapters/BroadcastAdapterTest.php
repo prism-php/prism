@@ -440,6 +440,7 @@ it('validates broadcast event structure for multiple event types', function (): 
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
+            'cost' => null,
         ]);
 
         return true;
