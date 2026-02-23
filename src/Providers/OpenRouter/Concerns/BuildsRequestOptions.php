@@ -27,15 +27,10 @@ trait BuildsRequestOptions
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'max_tokens' => $request->maxTokens(),
+            'tools' => ToolMap::map($request->tools()),
+            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]));
-
-        if ($request instanceof TextRequest) {
-            $options = array_merge($options, Arr::whereNotNull([
-                'tools' => ToolMap::map($request->tools()),
-                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-            ]));
-        }
-
+        
         return Arr::whereNotNull(array_merge($options, $additional));
     }
 }
