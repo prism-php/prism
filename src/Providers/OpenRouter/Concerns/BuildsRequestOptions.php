@@ -30,7 +30,7 @@ trait BuildsRequestOptions
             'tools' => ToolMap::map($request->tools()),
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ]));
-        
+
         return Arr::whereNotNull(array_merge($options, $additional));
     }
 }
