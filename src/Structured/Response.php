@@ -22,6 +22,7 @@ readonly class Response implements Arrayable
      * @param  Collection<int, Step>  $steps
      * @param  array<mixed>  $structured
      * @param  array<int, ToolCall>  $toolCalls
+     * @param  array<int, ProviderToolCall>  $providerToolCalls
      * @param  array<int, ToolResult>  $toolResults
      * @param  array<string,mixed>  $additionalContent
      * @param  array<string,mixed>|null  $raw
