@@ -153,9 +153,6 @@ class Structured
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
-            toolResults: $toolResults,
-            providerToolCalls: [],
             usage: new Usage(
                 (int) data_get($data, 'usage.prompt_tokens', 0),
                 (int) data_get($data, 'usage.completion_tokens', 0),
@@ -167,6 +164,9 @@ class Structured
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            providerToolCalls: [],
+            toolResults: $toolResults,
             raw: $data,
         ));
     }
