@@ -28,6 +28,8 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -203,16 +205,23 @@ class Structured
     protected function handleToolCalls(array $data, Request $request): StructuredResponse
     {
         $hasPendingToolCalls = false;
+        $approvalRequests = [];
         $toolResults = $this->callTools(
             $request->tools(),
             ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])),
             $hasPendingToolCalls,
+            $approvalRequests,
+        );
+
+        $toolApprovalRequests = array_map(
+            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
+            $approvalRequests,
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
+        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults, $toolApprovalRequests);
 
         if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
@@ -224,8 +233,9 @@ class Structured
     /**
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
+    protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $isStructuredStep = $finishReason !== FinishReason::ToolCalls;
         $thoughtSummaries = $this->extractThoughtSummaries($data);
@@ -257,6 +267,7 @@ class Structured
                 structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'candidates.0.content.parts.0.text') ?? '') : [],
                 toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
                 toolResults: $toolResults,
+                toolApprovalRequests: $toolApprovalRequests,
                 raw: $data,
             )
         );

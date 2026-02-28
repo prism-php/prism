@@ -25,6 +25,7 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -47,6 +48,8 @@ class Text
 
     public function handle(Request $request): Response
     {
+        $this->resolveToolApprovals($request);
+
         $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
@@ -68,17 +71,26 @@ class Text
         $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []));
 
         $hasPendingToolCalls = false;
+        $approvalRequests = [];
         $toolResults = $this->callTools(
             $request->tools(),
             $toolCalls,
             $hasPendingToolCalls,
+            $approvalRequests,
         );
 
-        $this->addStep($data, $request, $clientResponse, $toolResults);
+        $toolApprovalRequests = array_map(
+            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
+            $approvalRequests,
+        );
+
+        $this->addStep($data, $request, $clientResponse, $toolResults, $toolApprovalRequests);
 
         $request->addMessage(new AssistantMessage(
             $this->extractText(data_get($data, 'choices.0.message', [])),
             $toolCalls,
+            [],
+            $toolApprovalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
@@ -112,8 +124,9 @@ class Text
     /**
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
+    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $this->responseBuilder->addStep(new Step(
             text: $this->extractText(data_get($data, 'choices.0.message', [])),
@@ -132,6 +145,7 @@ class Text
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
+            toolApprovalRequests: $toolApprovalRequests,
             additionalContent: $this->extractThinking(data_get($data, 'choices.0.message', [])),
             raw: $data,
         ));

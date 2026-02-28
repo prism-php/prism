@@ -23,6 +23,7 @@ use Prism\Prism\Events\Broadcasting\TextStartBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingCompleteBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingStartBroadcast;
+use Prism\Prism\Events\Broadcasting\ToolApprovalRequestBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallDeltaBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolResultBroadcast;
@@ -41,6 +42,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -85,6 +87,7 @@ class BroadcastAdapter
             ThinkingEvent::class => new ThinkingBroadcast($event, $this->channels),
             ThinkingCompleteEvent::class => new ThinkingCompleteBroadcast($event, $this->channels),
             ToolCallEvent::class => new ToolCallBroadcast($event, $this->channels),
+            ToolApprovalRequestEvent::class => new ToolApprovalRequestBroadcast($event, $this->channels),
             ToolCallDeltaEvent::class => new ToolCallDeltaBroadcast($event, $this->channels),
             ToolResultEvent::class => new ToolResultBroadcast($event, $this->channels),
             ArtifactEvent::class => new ArtifactBroadcast($event, $this->channels),

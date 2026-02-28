@@ -14,6 +14,7 @@ use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\PendingRequest;
@@ -23,6 +24,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderToolCall;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -46,6 +48,8 @@ class StreamCollector
         $accumulatedText = '';
         /** @var ToolCall[] $toolCalls */
         $toolCalls = [];
+        /** @var ToolApprovalRequest[] $toolApprovalRequests */
+        $toolApprovalRequests = [];
         /** @var ToolResult[] $toolResults */
         $toolResults = [];
         /** @var ProviderToolCall[] $providerToolCalls */
@@ -60,17 +64,22 @@ class StreamCollector
             yield $event;
 
             if ($event instanceof TextStartEvent) {
-                $this->handleTextStart($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
+                $this->handleTextStart($accumulatedText, $toolCalls, $toolApprovalRequests, $toolResults, $providerToolCalls, $messages);
             } elseif ($event instanceof TextDeltaEvent) {
                 $accumulatedText .= $event->delta;
             } elseif ($event instanceof ToolCallEvent) {
                 $toolCalls[] = $event->toolCall;
+            } elseif ($event instanceof ToolApprovalRequestEvent) {
+                $toolApprovalRequests[] = new ToolApprovalRequest(
+                    approvalId: $event->toolCall->id,
+                    toolCallId: $event->toolCall->id,
+                );
             } elseif ($event instanceof ToolResultEvent) {
                 $toolResults[] = $event->toolResult;
             } elseif ($event instanceof ProviderToolEvent) {
                 // Finalize any accumulated text before tool events to preserve order
                 if ($accumulatedText !== '' && empty($providerToolCalls)) {
-                    $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
+                    $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolApprovalRequests, $toolResults, $providerToolCalls, $messages);
                 }
 
                 $providerToolCalls[] = new ProviderToolCall(
@@ -83,8 +92,10 @@ class StreamCollector
                 $finishReason = $event->finishReason;
                 $usage = $event->usage;
                 $additionalContent = $event->additionalContent;
-                $this->handleStreamEnd($accumulatedText,
+                $this->handleStreamEnd(
+                    $accumulatedText,
                     $toolCalls,
+                    $toolApprovalRequests,
                     $toolResults,
                     $providerToolCalls,
                     $messages,
@@ -98,6 +109,7 @@ class StreamCollector
 
     /**
      * @param  ToolCall[]  $toolCalls
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      * @param  ToolResult[]  $toolResults
      * @param  ProviderToolCall[]  $providerToolCalls
      * @param  Message[]  $messages
@@ -105,15 +117,17 @@ class StreamCollector
     protected function handleTextStart(
         string &$accumulatedText,
         array &$toolCalls,
+        array &$toolApprovalRequests,
         array &$toolResults,
         array &$providerToolCalls,
         array &$messages
     ): void {
-        $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
+        $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolApprovalRequests, $toolResults, $providerToolCalls, $messages);
     }
 
     /**
      * @param  ToolCall[]  $toolCalls
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      * @param  ToolResult[]  $toolResults
      * @param  ProviderToolCall[]  $providerToolCalls
      * @param  Message[]  $messages
@@ -122,6 +136,7 @@ class StreamCollector
     protected function handleStreamEnd(
         string &$accumulatedText,
         array &$toolCalls,
+        array &$toolApprovalRequests,
         array &$toolResults,
         array &$providerToolCalls,
         array &$messages,
@@ -129,7 +144,7 @@ class StreamCollector
         ?Usage $usage,
         array $additionalContent
     ): void {
-        $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
+        $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolApprovalRequests, $toolResults, $providerToolCalls, $messages);
 
         if ($this->onCompleteCallback instanceof Closure) {
             $messagesCollection = new Collection($messages);
@@ -178,6 +193,10 @@ class StreamCollector
                 usage: $usage ?? new Usage(0, 0),
                 meta: new Meta(id: '', model: '', rateLimits: []),
                 messages: $messagesCollection,
+                toolApprovalRequests: $messagesCollection
+                    ->filter(fn (Message $msg): bool => $msg instanceof AssistantMessage)
+                    ->flatMap(fn (Message $msg): array => $msg instanceof AssistantMessage ? $msg->toolApprovalRequests : [])
+                    ->all(),
                 additionalContent: $additionalContent
             );
 
@@ -187,6 +206,7 @@ class StreamCollector
 
     /**
      * @param  ToolCall[]  $toolCalls
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      * @param  ToolResult[]  $toolResults
      * @param  ProviderToolCall[]  $providerToolCalls
      * @param  Message[]  $messages
@@ -194,14 +214,16 @@ class StreamCollector
     protected function finalizeCurrentMessage(
         string &$accumulatedText,
         array &$toolCalls,
+        array &$toolApprovalRequests,
         array &$toolResults,
         array &$providerToolCalls,
         array &$messages
     ): void {
         if ($accumulatedText !== '' || $toolCalls !== []) {
-            $messages[] = new AssistantMessage($accumulatedText, $toolCalls);
+            $messages[] = new AssistantMessage($accumulatedText, $toolCalls, [], $toolApprovalRequests);
             $accumulatedText = '';
             $toolCalls = [];
+            $toolApprovalRequests = [];
         }
 
         if ($toolResults !== []) {

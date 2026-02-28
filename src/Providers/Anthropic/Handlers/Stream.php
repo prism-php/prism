@@ -56,6 +56,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate(), $this->state);
+
         $this->state->reset();
         $response = $this->sendRequest($request);
 

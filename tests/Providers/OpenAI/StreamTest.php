@@ -21,10 +21,16 @@ use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -495,6 +501,127 @@ describe('client-executed tools', function (): void {
         $lastEvent = end($events);
         expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
         expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops streaming when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete the file at /tmp/test.txt')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        $eventTypes = array_map(fn (StreamEvent $e): string => $e::class, $events);
+
+        expect($eventTypes[0])->toBe(StreamStartEvent::class);
+        expect($eventTypes[1])->toBe(StepStartEvent::class);
+
+        $approvalIndex = array_search(ToolApprovalRequestEvent::class, $eventTypes);
+        expect($approvalIndex)->not->toBeFalse();
+
+        $approvalEvent = $events[$approvalIndex];
+        expect($approvalEvent->toolCall->name)->toBe('delete_file');
+
+        $toolCallIndex = array_search(ToolCallEvent::class, $eventTypes);
+        expect($toolCallIndex)->not->toBeFalse();
+        expect($toolCallIndex)->toBeLessThan($approvalIndex);
+
+        $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+        expect($stepFinishIndex)->toBeGreaterThan($approvalIndex);
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+
+    it('continues streaming after approval when tool is approved (Phase 2)', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-approval-phase2');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $messages = [
+            new UserMessage('Delete the file at /tmp/test.txt'),
+            new AssistantMessage(
+                content: 'I will delete the file.',
+                toolCalls: [
+                    new ToolCall(id: 'fc_approval_tool_stream', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
+                ],
+            ),
+            new ToolResultMessage([], [
+                new ToolApprovalResponse(approvalId: 'fc_approval_tool_stream', approved: true),
+            ]),
+        ];
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withMessages($messages)
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        $eventTypes = array_map(fn (StreamEvent $e): string => $e::class, $events);
+
+        // StreamStartEvent comes first from resolveToolApprovals
+        expect($eventTypes[0])->toBe(StreamStartEvent::class);
+
+        // ToolResultEvent comes right after (resolved approval)
+        expect($eventTypes[1])->toBe(ToolResultEvent::class);
+        expect($events[1]->toolResult->result)->toBe('Deleted: /tmp/test.txt');
+        expect($events[1]->success)->toBeTrue();
+
+        // No second StreamStartEvent (already started)
+        $streamStartCount = count(array_filter($eventTypes, fn ($t): bool => $t === StreamStartEvent::class));
+        expect($streamStartCount)->toBe(1);
+
+        // Then the LLM continuation events follow
+        expect($eventTypes)->toContain(StepStartEvent::class);
+        expect($eventTypes)->toContain(TextStartEvent::class);
+        expect($eventTypes)->toContain(TextDeltaEvent::class);
+        expect($eventTypes)->toContain(TextCompleteEvent::class);
+        expect($eventTypes)->toContain(StepFinishEvent::class);
+
+        // StepStartEvent comes after ToolResultEvent
+        $stepStartIndex = array_search(StepStartEvent::class, $eventTypes);
+        expect($stepStartIndex)->toBeGreaterThan(1);
+
+        // Verify text content
+        $text = '';
+        foreach ($events as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+            }
+        }
+        expect($text)->toBe('File deleted successfully.');
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
     });
 });
 

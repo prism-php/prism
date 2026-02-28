@@ -1,0 +1,33 @@
+{
+  "id": "approval-tool-test",
+  "object": "chat.completion",
+  "created": 1731129810,
+  "model": "grok-beta",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "0",
+            "function": {
+              "name": "delete_file",
+              "arguments": "{\"path\":\"/tmp/test.txt\"}"
+            },
+            "type": "function"
+          }
+        ],
+        "refusal": null
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 50,
+    "total_tokens": 150
+  },
+  "system_fingerprint": "fp_test"
+}

@@ -18,6 +18,7 @@ use Prism\Prism\Events\Broadcasting\TextStartBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingCompleteBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingStartBroadcast;
+use Prism\Prism\Events\Broadcasting\ToolApprovalRequestBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallDeltaBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolResultBroadcast;
@@ -34,6 +35,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -235,6 +237,7 @@ it('handles all supported event types without errors', function (): void {
         new ThinkingCompleteEvent('evt-7', 1640995206, 'reasoning-123'),
         new ToolCallEvent('evt-8', 1640995207, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
         new ToolResultEvent('evt-9', 1640995208, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
+        new ToolApprovalRequestEvent('evt-8a', 1640995207, new ToolCall('approval-tool-1', 'approve_me', ['action' => 'delete']), 'msg-456'),
         new ProviderToolEvent('evt-10', 1640995209, 'image_generation_call', 'completed', 'ig-789', ['result' => 'data']),
         new ErrorEvent('evt-11', 1640995210, 'test_error', 'Test error', true),
         new StreamEndEvent('evt-12', 1640995211, FinishReason::Stop),
@@ -246,8 +249,8 @@ it('handles all supported event types without errors', function (): void {
     // Should not throw any exceptions
     ($adapter)(createBroadcastEventGenerator($events));
 
-    // Verify all events were processed and dispatched
-    expect(true)->toBeTrue(); // Test passes if no exceptions thrown
+    // Verify ToolApprovalRequestEvent is broadcast correctly
+    Event::assertDispatched(ToolApprovalRequestBroadcast::class);
 });
 
 it('maintains event order when broadcasting', function (): void {

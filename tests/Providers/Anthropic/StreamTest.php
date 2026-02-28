@@ -26,6 +26,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -738,6 +739,49 @@ describe('client-executed tools', function (): void {
         }
 
         expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops streaming when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete the file at /tmp/test.txt')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        $eventTypes = array_map(fn (StreamEvent $e): string => $e::class, $events);
+
+        expect($eventTypes[0])->toBe(StreamStartEvent::class);
+        expect($eventTypes[1])->toBe(StepStartEvent::class);
+
+        $approvalIndex = array_search(ToolApprovalRequestEvent::class, $eventTypes);
+        expect($approvalIndex)->not->toBeFalse();
+
+        $approvalEvent = $events[$approvalIndex];
+        expect($approvalEvent->toolCall->name)->toBe('delete_file');
+
+        $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+        expect($stepFinishIndex)->toBeGreaterThan($approvalIndex);
 
         $lastEvent = end($events);
         expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);

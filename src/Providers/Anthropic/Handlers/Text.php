@@ -29,6 +29,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -48,6 +49,8 @@ class Text
 
     public function handle(): Response
     {
+        $this->resolveToolApprovals($this->request);
+
         $this->sendRequest();
 
         $this->prepareTempResponse();
@@ -95,14 +98,21 @@ class Text
     protected function handleToolCalls(): Response
     {
         $hasPendingToolCalls = false;
-        $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls, $hasPendingToolCalls);
+        $approvalRequests = [];
+        $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $this->addStep($toolResults);
+        $toolApprovalRequests = array_map(
+            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
+            $approvalRequests,
+        );
+
+        $this->addStep($toolResults, $toolApprovalRequests);
 
         $this->request->addMessage(new AssistantMessage(
             $this->tempResponse->text,
             $this->tempResponse->toolCalls,
             $this->tempResponse->additionalContent,
+            $toolApprovalRequests,
         ));
 
         $toolResultMessage = new ToolResultMessage($toolResults);
@@ -126,8 +136,9 @@ class Text
 
     /**
      * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $toolResults = []): void
+    protected function addStep(array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $data = $this->httpResponse->json();
 
@@ -141,6 +152,7 @@ class Text
             meta: $this->tempResponse->meta,
             messages: $this->request->messages(),
             systemPrompts: $this->request->systemPrompts(),
+            toolApprovalRequests: $toolApprovalRequests,
             additionalContent: $this->tempResponse->additionalContent,
             raw: $data,
         ));

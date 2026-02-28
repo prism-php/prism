@@ -31,6 +31,8 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -101,16 +103,23 @@ class Structured
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): StructuredResponse
     {
         $hasPendingToolCalls = false;
+        $approvalRequests = [];
         $toolResults = $this->callTools(
             $request->tools(),
             ToolCallMap::map($this->extractFunctionCalls($data)),
             $hasPendingToolCalls,
+            $approvalRequests,
+        );
+
+        $toolApprovalRequests = array_map(
+            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
+            $approvalRequests,
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        $this->addStep($data, $request, $clientResponse, $toolResults);
+        $this->addStep($data, $request, $clientResponse, $toolResults, $toolApprovalRequests);
 
         if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
@@ -132,8 +141,9 @@ class Structured
     /**
      * @param  array<string, mixed>  $data
      * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = []): void
+    protected function addStep(array $data, Request $request, ClientResponse $clientResponse, array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $finishReason = $this->mapFinishReason($data);
         $isStructuredStep = $finishReason !== FinishReason::ToolCalls;
@@ -168,6 +178,7 @@ class Structured
             structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'output.{last}.content.0.text') ?? '') : [],
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            toolApprovalRequests: $toolApprovalRequests,
             raw: $data,
         ));
     }
