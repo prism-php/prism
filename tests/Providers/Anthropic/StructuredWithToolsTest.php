@@ -230,6 +230,38 @@ describe('Structured output with tools for Anthropic', function (): void {
         expect($response->steps)->toHaveCount(1);
     });
 
+    it('stops execution when approval-required tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'anthropic/structured-with-approval-tool');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withProviderOptions(['use_tool_calling' => true])
+            ->withPrompt('Delete /tmp/test.txt')
+            ->asStructured();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('includes strict field in tool definition when specified', function (): void {
         Prism::fake();
 

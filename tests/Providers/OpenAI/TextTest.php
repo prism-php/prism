@@ -21,6 +21,8 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ProviderToolCall;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
+use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -350,6 +352,61 @@ describe('client-executed tools', function (): void {
         expect($response->toolCalls)->toHaveCount(1);
         expect($response->toolCalls[0]->name)->toBe('client_tool');
         expect($response->steps)->toHaveCount(1);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops execution when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete /tmp/test.txt')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
+
+    it('executes approved tool and continues to LLM response (Phase 2)', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-with-approval-phase2');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withMessages([
+                new UserMessage('Delete /tmp/test.txt'),
+                new AssistantMessage(
+                    content: '',
+                    toolCalls: [
+                        new ToolCall(id: 'fc_delete_file_123', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
+                    ],
+                ),
+                new ToolResultMessage([], [
+                    new ToolApprovalResponse(approvalId: 'fc_delete_file_123', approved: true),
+                ]),
+            ])
+            ->asText();
+
+        expect($response->text)->toBe('The file has been deleted successfully.');
+        expect($response->finishReason)->toBe(FinishReason::Stop);
     });
 });
 

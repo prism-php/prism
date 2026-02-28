@@ -47,6 +47,9 @@ class Tool
 
     protected bool $concurrent = false;
 
+    /** @var bool|Closure(array<string,mixed>):bool */
+    protected bool|Closure $requiresApproval = false;
+
     public function __construct()
     {
         //
@@ -137,6 +140,42 @@ class Tool
     public function isConcurrent(): bool
     {
         return $this->concurrent;
+    }
+
+    /**
+     * Mark this tool as requiring user approval before execution.
+     *
+     * When a closure is provided, it receives the tool call arguments
+     * and should return true if approval is required.
+     *
+     * @param  bool|Closure(array<string,mixed>):bool  $condition
+     */
+    public function requiresApproval(bool|Closure $condition = true): self
+    {
+        $this->requiresApproval = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Whether this tool has approval configured (static true or dynamic closure).
+     * Use this for early-exit checks without invoking the closure.
+     */
+    public function hasApprovalConfigured(): bool
+    {
+        return $this->requiresApproval === true || $this->requiresApproval instanceof Closure;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     */
+    public function needsApproval(array $arguments = []): bool
+    {
+        if ($this->requiresApproval instanceof Closure) {
+            return (bool) ($this->requiresApproval)($arguments);
+        }
+
+        return $this->requiresApproval;
     }
 
     public function withParameter(Schema $parameter, bool $required = true): self

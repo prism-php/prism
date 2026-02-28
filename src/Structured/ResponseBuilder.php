@@ -44,6 +44,7 @@ readonly class ResponseBuilder
             toolCalls: $this->aggregateToolCalls(),
             providerToolCalls: $this->aggregateProviderToolCalls(),
             toolResults: $this->aggregateToolResults(),
+            toolApprovalRequests: $finalStep->toolApprovalRequests,
             additionalContent: $finalStep->additionalContent,
             raw: $finalStep->raw,
         );

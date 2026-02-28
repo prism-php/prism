@@ -174,6 +174,30 @@ describe('Text generation for Groq', function (): void {
     })->throwsNoExceptions();
 });
 
+describe('approval-required tools', function (): void {
+    it('stops execution when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'groq/text-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using(Provider::Groq, 'llama-3.3-70b-versatile')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete /tmp/test.txt')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
 describe('Image support with grok', function (): void {
     it('can send images from path', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/image-detection');

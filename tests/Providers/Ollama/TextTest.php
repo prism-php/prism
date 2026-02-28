@@ -137,6 +137,30 @@ describe('client-executed tools', function (): void {
     });
 });
 
+describe('approval-required tools', function (): void {
+    it('stops execution when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('ollama', 'qwen2.5:14b')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete /tmp/test.txt')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
 describe('Thinking parameter', function (): void {
     it('includes think parameter when thinking is enabled', function (): void {
         FixtureResponse::fakeResponseSequence('api/chat', 'ollama/text-with-thinking-enabled');

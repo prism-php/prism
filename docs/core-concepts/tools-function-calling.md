@@ -457,6 +457,192 @@ $response = Prism::text()
 > [!NOTE]
 > Client-executed tools are useful for scenarios like browser automation, UI interactions, or any operation that must run on the user's device rather than the server.
 
+## Tool Approval (Human-in-the-Loop)
+
+Some tools perform sensitive or irreversible actions — sending emails, making payments, deleting records. Tool approval lets you require human confirmation before Prism executes these tools, giving you a human-in-the-loop safety layer.
+
+### How It Works
+
+The approval flow is **stateless** and operates in two phases:
+
+1. **Phase 1 — Approval Request**: The AI calls a tool that requires approval. Prism stops execution and returns the tool call details to your application, giving the user a chance to approve or deny.
+2. **Phase 2 — Approval Resolution**: Your application sends back the approval decision. Prism executes approved tools (or records denial reasons), then continues the conversation with the AI.
+
+### Marking Tools as Requiring Approval
+
+Use the `requiresApproval()` method to mark a tool:
+
+```php
+use Prism\Prism\Facades\Tool;
+
+$deleteTool = Tool::as('delete_record')
+    ->for('Delete a record from the database')
+    ->withStringParameter('id', 'The record ID to delete')
+    ->using(function (string $id): string {
+        // Deletion logic
+        return "Record {$id} deleted.";
+    })
+    ->requiresApproval();
+```
+
+### Conditional Approval
+
+You can pass a closure to `requiresApproval()` to dynamically decide whether approval is needed based on the tool call arguments:
+
+```php
+use Prism\Prism\Facades\Tool;
+
+$transferTool = Tool::as('transfer_funds')
+    ->for('Transfer funds between accounts')
+    ->withNumberParameter('amount', 'The amount to transfer')
+    ->withStringParameter('to', 'The destination account')
+    ->using(function (float $amount, string $to): string {
+        return "Transferred \${$amount} to {$to}.";
+    })
+    ->requiresApproval(function (array $args): bool {
+        // Only require approval for large transfers
+        return ($args['amount'] ?? 0) > 1000;
+    });
+```
+
+### Phase 1 — Handling the Approval Request
+
+When the AI calls a tool that requires approval, Prism stops and returns control to your application with a `FinishReason::ToolCalls` finish reason, just like client-executed tools:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\FinishReason;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withTools([$deleteTool])
+    ->withMaxSteps(3)
+    ->withPrompt('Delete record abc-123')
+    ->asText();
+
+if ($response->finishReason === FinishReason::ToolCalls) {
+    // Check which tool calls need approval
+    foreach ($response->toolApprovalRequests as $approvalRequest) {
+        echo "Approval needed for tool call: {$approvalRequest->toolCallId}\n";
+    }
+
+    // Inspect the full tool calls for details
+    foreach ($response->toolCalls as $toolCall) {
+        echo "The AI wants to call: {$toolCall->name}\n";
+        echo "With arguments: " . json_encode($toolCall->arguments()) . "\n";
+    }
+}
+```
+
+### Phase 2 — Sending the Approval Response
+
+Once the user approves or denies, send the decision back by including a `ToolResultMessage` with `ToolApprovalResponse` objects in the message history:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
+
+// Reconstruct the conversation with the approval response
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withTools([$deleteTool])
+    ->withMaxSteps(3)
+    ->withMessages([
+        new UserMessage('Delete record abc-123'),
+        // The assistant's response from Phase 1 (contains toolCalls and toolApprovalRequests)
+        new AssistantMessage(
+            content: '',
+            toolCalls: $previousResponse->toolCalls,
+            toolApprovalRequests: $previousResponse->toolApprovalRequests,
+        ),
+        // Your approval decision
+        new ToolResultMessage(
+            toolResults: [],
+            toolApprovalResponses: [
+                new ToolApprovalResponse(
+                    approvalId: $previousResponse->toolCalls[0]->id,
+                    approved: true, // or false to deny
+                ),
+            ],
+        ),
+    ])
+    ->asText();
+
+// The tool is now executed and the AI continues with the result
+echo $response->text;
+```
+
+To deny a tool call, set `approved: false` and optionally provide a reason:
+
+```php
+new ToolApprovalResponse(
+    approvalId: $toolCall->id,
+    approved: false,
+    reason: 'User decided not to delete the record',
+),
+```
+
+When denied, the denial reason is passed to the AI as the tool result, allowing it to respond appropriately.
+
+### Streaming with Tool Approval
+
+In streaming mode, Phase 1 emits a `ToolApprovalRequestEvent` for each tool that needs approval:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
+
+$stream = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withTools([$deleteTool])
+    ->withMaxSteps(3)
+    ->withPrompt('Delete record abc-123')
+    ->asStream();
+
+foreach ($stream as $event) {
+    if ($event instanceof ToolApprovalRequestEvent) {
+        // Present approval UI to the user
+        echo "Approval needed for: {$event->toolCall->name}\n";
+        echo "Arguments: " . json_encode($event->toolCall->arguments()) . "\n";
+    }
+}
+```
+
+Phase 2 works the same way as non-streaming — include the `ToolApprovalResponse` in the messages and call `asStream()` again. Prism will emit `ToolResultEvent`s for the resolved tools before continuing the AI response.
+
+### Mixing Approval Tools with Regular Tools
+
+Approval-required tools can coexist with regular server-executed tools and client-executed tools. In a single step, Prism will:
+
+1. Execute regular server-side tools immediately
+2. Collect approval-required tools and emit approval requests
+3. Skip client-executed tools (returning them for client handling)
+
+```php
+$regularTool = Tool::as('lookup')
+    ->for('Look up a record')
+    ->withStringParameter('id', 'The record ID')
+    ->using(fn (string $id): string => "Record: {$id}");
+
+$approvalTool = Tool::as('delete')
+    ->for('Delete a record')
+    ->withStringParameter('id', 'The record ID')
+    ->using(fn (string $id): string => "Deleted: {$id}")
+    ->requiresApproval();
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->withTools([$regularTool, $approvalTool])
+    ->withMaxSteps(5)
+    ->withPrompt('Look up record abc-123 and then delete it')
+    ->asText();
+```
+
+In this example, if the AI calls both tools in one step, `lookup` executes immediately while `delete` pauses for approval. The results from `lookup` are included alongside the approval request.
+
 ## Tool Choice Options
 
 You can control how the AI uses tools with the `withToolChoice` method:

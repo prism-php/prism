@@ -149,6 +149,37 @@ describe('Structured output with tools for Gemini', function (): void {
         expect($response->steps)->toHaveCount(1);
     });
 
+    it('stops execution when approval-required tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/structured-with-approval-tool');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::structured()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete /tmp/test.txt')
+            ->asStructured();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('returns structured output immediately when no tool calls needed', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/structured-without-tool-calls');
 
