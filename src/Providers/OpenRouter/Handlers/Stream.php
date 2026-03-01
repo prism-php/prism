@@ -182,9 +182,9 @@ class Stream
                         delta: $reasoningDelta,
                         reasoningId: $this->state->reasoningId()
                     );
-                }
 
-                continue;
+                    continue;
+                }
             }
 
             $content = $this->extractContentDelta($data);
