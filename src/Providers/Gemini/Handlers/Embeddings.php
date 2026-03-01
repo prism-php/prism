@@ -10,12 +10,15 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {
+    use ValidatesResponse;
+
     public function __construct(protected PendingRequest $client) {}
 
     public function handle(Request $request): EmbeddingsResponse
@@ -30,6 +33,8 @@ class Embeddings
     protected function handleSingleRequest(Request $request): EmbeddingsResponse
     {
         $response = $this->sendRequest($request);
+
+        $this->validateResponse($response);
 
         $data = $response->json();
 
@@ -53,6 +58,8 @@ class Embeddings
     protected function handleBatchRequest(Request $request): EmbeddingsResponse
     {
         $response = $this->sendBatchRequest($request);
+
+        $this->validateResponse($response);
 
         $data = $response->json();
 
