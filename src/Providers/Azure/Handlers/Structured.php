@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Azure\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Azure\Azure;
 use Prism\Prism\Providers\Azure\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Azure\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\Azure\Maps\FinishReasonMap;
@@ -27,8 +29,10 @@ class Structured
 
     protected ResponseBuilder $responseBuilder;
 
-    public function __construct(protected PendingRequest $client)
-    {
+    public function __construct(
+        protected PendingRequest $client,
+        protected Azure $provider,
+    ) {
         $this->responseBuilder = new ResponseBuilder;
     }
 
@@ -48,20 +52,35 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        /** @var \Illuminate\Http\Client\Response $response */
-        $response = $this->client->post(
-            'chat/completions',
-            array_merge([
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_tokens' => $request->maxTokens(),
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'response_format' => ['type' => 'json_object'],
-            ]))
-        );
+        $tokenParameter = $this->tokenParameter($request->model());
 
-        return $response->json();
+        try {
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = $this->client
+                ->throw()
+                ->post(
+                    'chat/completions',
+                    array_merge([
+                        'model' => $this->provider->usesV1ForModel($request->model())
+                            ? $this->provider->resolveModelIdentifier($request->model())
+                            : null,
+                        'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                        $tokenParameter => $request->maxTokens(),
+                    ], Arr::whereNotNull([
+                        'temperature' => $request->temperature(),
+                        'top_p' => $request->topP(),
+                        'response_format' => ['type' => 'json_object'],
+                        'reasoning_effort' => $request->providerOptions('reasoning_effort')
+                            ?? $request->providerOptions('reasoning.effort'),
+                        'verbosity' => $request->providerOptions('verbosity')
+                            ?? $request->providerOptions('text_verbosity'),
+                    ]))
+                );
+
+            return $response->json();
+        } catch (RequestException $e) {
+            $this->provider->handleRequestException($request->model(), $e);
+        }
     }
 
     /**
@@ -111,5 +130,11 @@ class Structured
             "You MUST respond EXCLUSIVELY with a JSON object that strictly adheres to the following schema. \n Do NOT explain or add other content. Validate your response against this schema \n %s",
             json_encode($request->schema()->toArray(), JSON_PRETTY_PRINT)
         )));
+    }
+    private function tokenParameter(string $model): string
+    {
+        return str_contains(mb_strtolower($model), 'gpt-5')
+            ? 'max_completion_tokens'
+            : 'max_tokens';
     }
 }

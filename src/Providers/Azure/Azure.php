@@ -38,11 +38,16 @@ class Azure extends Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $handler = new Text($this->client(
-            $request->clientOptions(),
-            $request->clientRetry(),
-            $this->buildUrl($request->model())
-        ));
+        $builtUrl = $this->buildUrl($request->model());
+
+        $handler = new Text(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry(),
+                $builtUrl
+            ),
+            $this
+        );
 
         return $handler->handle($request);
     }
@@ -50,11 +55,16 @@ class Azure extends Provider
     #[\Override]
     public function structured(StructuredRequest $request): StructuredResponse
     {
-        $handler = new Structured($this->client(
-            $request->clientOptions(),
-            $request->clientRetry(),
-            $this->buildUrl($request->model())
-        ));
+        $builtUrl = $this->buildUrl($request->model());
+
+        $handler = new Structured(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry(),
+                $builtUrl
+            ),
+            $this
+        );
 
         return $handler->handle($request);
     }
@@ -62,11 +72,16 @@ class Azure extends Provider
     #[\Override]
     public function embeddings(EmbeddingsRequest $request): EmbeddingsResponse
     {
-        $handler = new Embeddings($this->client(
-            $request->clientOptions(),
-            $request->clientRetry(),
-            $this->buildUrl($request->model())
-        ));
+        $builtUrl = $this->buildUrl($request->model());
+
+        $handler = new Embeddings(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry(),
+                $builtUrl
+            ),
+            $this
+        );
 
         return $handler->handle($request);
     }
@@ -74,11 +89,16 @@ class Azure extends Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        $handler = new Stream($this->client(
-            $request->clientOptions(),
-            $request->clientRetry(),
-            $this->buildUrl($request->model())
-        ));
+        $builtUrl = $this->buildUrl($request->model());
+
+        $handler = new Stream(
+            $this->client(
+                $request->clientOptions(),
+                $request->clientRetry(),
+                $builtUrl
+            ),
+            $this
+        );
 
         return $handler->handle($request);
     }
@@ -102,6 +122,23 @@ class Azure extends Provider
         };
     }
 
+    public function usesV1ForModel(string $model): bool
+    {
+        if (str_contains($this->url, '/openai/v1')) {
+            return true;
+        }
+
+        if (mb_strtolower(trim($this->apiVersion)) === 'v1') {
+            return true;
+        }
+
+        return str_contains(mb_strtolower($model), 'gpt-5');
+    }
+
+    public function resolveModelIdentifier(string $model): string
+    {
+        return $this->deploymentName ?: $model;
+    }
     /**
      * Build the URL for the Azure deployment.
      * Supports both Azure OpenAI and Azure AI Model Inference endpoints.
@@ -111,6 +148,14 @@ class Azure extends Provider
         // If URL already contains the full path, use it directly
         if (str_contains($this->url, '/chat/completions') || str_contains($this->url, '/embeddings')) {
             return $this->url;
+        }
+
+        if ($this->usesV1ForModel($model)) {
+            if (str_contains($this->url, '/openai/v1')) {
+                return rtrim($this->url, '/');
+            }
+
+            return rtrim($this->url, '/').'/openai/v1';
         }
 
         // Use deployment name from config, or model name as fallback
@@ -131,15 +176,23 @@ class Azure extends Provider
      */
     protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
-        return $this->baseClient()
+        $resolvedBaseUrl = $baseUrl ?? $this->url;
+        $usesV1 = str_contains($resolvedBaseUrl, '/openai/v1');
+
+        $client = $this->baseClient()
             ->withHeaders([
                 'api-key' => $this->apiKey,
             ])
-            ->withQueryParameters([
-                'api-version' => $this->apiVersion,
-            ])
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
-            ->baseUrl($baseUrl ?? $this->url);
+            ->baseUrl($resolvedBaseUrl);
+
+        if (! $usesV1) {
+            return $client->withQueryParameters([
+                'api-version' => $this->apiVersion,
+            ]);
+        }
+
+        return $client;
     }
 }

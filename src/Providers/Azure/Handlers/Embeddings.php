@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Azure\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Azure\Azure;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {
-    public function __construct(protected PendingRequest $client) {}
+    public function __construct(
+        protected PendingRequest $client,
+        protected Azure $provider,
+    ) {}
 
     public function handle(Request $request): EmbeddingsResponse
     {
@@ -37,16 +43,25 @@ class Embeddings
 
     protected function sendRequest(Request $request): Response
     {
-        /** @var Response $response */
-        $response = $this->client->post(
-            'embeddings',
-            [
-                'input' => $request->inputs(),
-                ...($request->providerOptions() ?? []),
-            ]
-        );
+        try {
+            /** @var Response $response */
+            $response = $this->client
+                ->throw()
+                ->post(
+                    'embeddings',
+                    Arr::whereNotNull([
+                        'model' => $this->provider->usesV1ForModel($request->model())
+                            ? $this->provider->resolveModelIdentifier($request->model())
+                            : null,
+                        'input' => $request->inputs(),
+                        ...($request->providerOptions() ?? []),
+                    ])
+                );
 
-        return $response;
+            return $response;
+        } catch (RequestException $e) {
+            $this->provider->handleRequestException($request->model(), $e);
+        }
     }
 
     protected function validateResponse(Response $response): void
