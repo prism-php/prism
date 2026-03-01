@@ -40,7 +40,9 @@ trait ProcessesRateLimits
                 remaining: data_get($fields, 'remaining') !== null
                     ? (int) data_get($fields, 'remaining')
                     : null,
-                resetsAt: data_get($fields, 'reset') !== null ? new Carbon($resets_at) : null
+                resetsAt: $resets_at !== null
+                    ? (is_numeric($resets_at) ? Carbon::createFromTimestamp((int) $resets_at) : new Carbon($resets_at))
+                    : null
             );
         }));
     }
