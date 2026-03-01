@@ -664,3 +664,15 @@ describe('exceptions', function (): void {
 
     })->throws(PrismRequestTooLargeException::class);
 });
+
+it('allows automatic caching enabled via providerOptions', function (): void {
+    Prism::fake();
+
+    $request = Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']]);
+
+    $payload = Text::buildHttpRequestPayload($request->toRequest());
+
+    expect($payload['cache_control'])->toBe(['type' => 'ephemeral']);
+});
