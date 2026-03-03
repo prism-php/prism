@@ -49,6 +49,10 @@ return [
             'api_key' => env('ELEVENLABS_API_KEY', ''),
             'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1/'),
         ],
+        'modelslab' => [
+            'api_key' => env('MODELSLAB_API_KEY', ''),
+            'url' => env('MODELSLAB_URL', 'https://modelslab.com/api/v6'),
+        ],
         'voyageai' => [
             'api_key' => env('VOYAGEAI_API_KEY', ''),
             'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
