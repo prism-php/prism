@@ -14,7 +14,35 @@
 
 Anthropic's prompt caching feature allows you to drastically reduce latency and your API bill when repeatedly re-using blocks of content within five minutes or one hour of each other, depending on the Anthropic compatible TTL option you provide.
 
-We support Anthropic prompt caching on:
+There are two ways to enable prompt caching:
+- Automatic caching
+- Explicit cache breakpoints
+
+To enable automatic caching, simply add a single cache_control field at the top level of your request:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+
+Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withSystemPrompt(
+        (new SystemMessage('I am a long re-usable system message.'))
+    )
+    ->withMessages([
+        (new UserMessage('I am a long re-usable user message.'))
+    ])
+    ->withTools([
+        Tool::as('cache me')
+    ])
+    ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']])
+    ->asText();
+```
+
+We support Anthropic explicit cache breakpoints on:
 
 - System Messages (text only)
 - User Messages (Text, Image and PDF (pdf only))

@@ -208,6 +208,10 @@ export default defineConfig({
                 link: "/providers/openai",
               },
               {
+                text: "OpenRouter",
+                link: "/providers/openrouter",
+              },
+              {
                 text: "Qwen",
                 link: "/providers/qwen",
               },

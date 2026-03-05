@@ -64,9 +64,9 @@ it('can handle a tool that returns a ResponseFactory from Response::structured()
 
     $result = $tool->handle();
 
-    expect($result)->toContain('"status": "success"')
-        ->and($result)->toContain('"id": 123')
-        ->and($result)->toContain('"name": "Test"');
+    expect($result)->toContain('"status":"success"')
+        ->and($result)->toContain('"id":123')
+        ->and($result)->toContain('"name":"Test"');
 });
 
 it('can handle a tool that returns a ResponseFactory from Response::make()', function (): void {

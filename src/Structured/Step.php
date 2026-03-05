@@ -12,6 +12,7 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderToolCall;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -27,6 +28,7 @@ readonly class Step implements Arrayable
      * @param  array<string,mixed>  $additionalContent
      * @param  array<string,mixed>  $structured
      * @param  array<int, ToolCall>  $toolCalls
+     * @param  array<int, ProviderToolCall>  $providerToolCalls
      * @param  array<int, ToolResult>  $toolResults
      * @param  array<string,mixed>|null  $raw
      */
@@ -40,6 +42,7 @@ readonly class Step implements Arrayable
         public array $additionalContent = [],
         public array $structured = [],
         public array $toolCalls = [],
+        public array $providerToolCalls = [],
         public array $toolResults = [],
         public ?array $raw = null
     ) {}
@@ -61,6 +64,7 @@ readonly class Step implements Arrayable
             'structured' => $this->structured,
             'tool_calls' => array_map(fn (ToolCall $toolCall): array => $toolCall->toArray(), $this->toolCalls),
             'tool_results' => array_map(fn (ToolResult $toolResult): array => $toolResult->toArray(), $this->toolResults),
+            'provider_tool_calls' => array_map(fn (ProviderToolCall $providerToolCall): array => $providerToolCall->toArray(), $this->providerToolCalls),
             'raw' => $this->raw,
         ];
     }

@@ -189,6 +189,32 @@ it('maps assistant message with tool calls', function (): void {
     ]);
 });
 
+it('maps assistant message with tool calls with empty arguments as json object', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('', [
+                new ToolCall(
+                    'tool_1234',
+                    'get_schema',
+                    [],
+                    'call_1234'
+                ),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        [
+            'id' => 'tool_1234',
+            'call_id' => 'call_1234',
+            'type' => 'function_call',
+            'name' => 'get_schema',
+            'arguments' => '{}',
+        ],
+    ]);
+});
+
 it('maps tool result messages', function (): void {
     $messageMap = new MessageMap(
         messages: [
