@@ -98,6 +98,41 @@ it('returns embeddings with inputType and truncation', function (): void {
     expect($response->usage->tokens)->toBe(7);
 });
 
+it('returns embeddings with outputDimension set', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'voyageai/embeddings-with-output-dimension');
+
+    $response = Prism::embeddings()
+        ->using(Provider::VoyageAI, 'voyage-3-lite')
+        ->fromInput('The food was delicious and the waiter...')
+        ->withProviderOptions(['outputDimension' => 4])
+        ->asEmbeddings();
+
+    expect($response->embeddings)->toBeArray();
+    expect($response->embeddings[0]->embedding)->toHaveCount(4);
+    expect($response->usage->tokens)->toBe(8);
+
+    Http::assertSent(function ($request): bool {
+        $body = json_decode((string) $request->body(), true);
+
+        return $body['output_dimension'] === 4;
+    });
+});
+
+it('does not include output_dimension when not set', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'voyageai/embeddings-from-input');
+
+    Prism::embeddings()
+        ->using(Provider::VoyageAI, 'voyage-3-lite')
+        ->fromInput('The food was delicious and the waiter...')
+        ->asEmbeddings();
+
+    Http::assertSent(function ($request): bool {
+        $body = json_decode((string) $request->body(), true);
+
+        return ! array_key_exists('output_dimension', $body);
+    });
+});
+
 it('throws a PrismRateLimitedException for a 429 response code', function (): void {
     Http::fake([
         '*' => Http::response(

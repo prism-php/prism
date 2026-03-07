@@ -372,6 +372,36 @@ describe('native structured outputs', function (): void {
         expect($response->structured['demo_requested'])->toBe(true);
     });
 
+    it('sends output_config.format instead of deprecated output_format in the request payload', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [
+                new StringSchema('weather', 'The weather forecast'),
+                new BooleanSchema('coat_required', 'whether a coat is required'),
+            ],
+            ['weather', 'coat_required']
+        );
+
+        $request = Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+            ->withPrompt('What is the weather?');
+
+        $payload = Structured::buildHttpRequestPayload($request->toRequest());
+
+        expect($payload)->not->toHaveKey('output_format');
+        expect($payload)->toHaveKey('output_config');
+        expect($payload['output_config'])->toBe([
+            'format' => [
+                'type' => 'json_schema',
+                'schema' => $schema->toArray(),
+            ],
+        ]);
+    });
+
     it('throws error when citations and native output format are used together', function (): void {
         $schema = new ObjectSchema('output', 'the output object', [
             new StringSchema('answer', 'The answer'),
@@ -385,4 +415,26 @@ describe('native structured outputs', function (): void {
             ->asStructured()
         )->toThrow(PrismException::class, 'Citations are not supported with native output_format');
     });
+});
+
+it('allows automatic caching enabled via providerOptions', function (): void {
+    Prism::fake();
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    $request = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']]);
+
+    $payload = Structured::buildHttpRequestPayload($request->toRequest());
+
+    expect($payload['cache_control'])->toBe(['type' => 'ephemeral']);
 });

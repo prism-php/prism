@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Gemini;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Embedding;
 use Tests\Fixtures\FixtureResponse;
@@ -47,15 +47,65 @@ it('returns embeddings from file', function (): void {
     expect($response->usage->tokens)->toBe(0); // Gemini doesn't provide token usage
 });
 
-it('throws an exception with multiple inputs', function (): void {
-    Http::preventStrayRequests();
+it('returns batch embeddings from multiple inputs', function (): void {
+    FixtureResponse::fakeResponseSequence('models/text-embedding-004:batchEmbedContents', 'gemini/embeddings-batch');
 
     $response = Prism::embeddings()
         ->using(Provider::Gemini, 'text-embedding-004')
-        ->fromInput('1')
-        ->fromInput('2')
+        ->fromInput('First sentence.')
+        ->fromInput('Second sentence.')
         ->asEmbeddings();
-})->throws(PrismException::class, 'Gemini Error: Prism currently only supports one input at a time with Gemini.');
+
+    $fixture = json_decode(file_get_contents('tests/Fixtures/gemini/embeddings-batch-1.json'), true);
+
+    expect($response->embeddings)->toBeArray();
+    expect($response->embeddings)->toHaveCount(2);
+    expect($response->embeddings[0]->embedding)->toBe($fixture['embeddings'][0]['values']);
+    expect($response->embeddings[1]->embedding)->toBe($fixture['embeddings'][1]['values']);
+    expect($response->usage->tokens)->toBe(0);
+});
+
+it('returns batch embeddings with provider options', function (): void {
+    FixtureResponse::fakeResponseSequence('models/text-embedding-004:batchEmbedContents', 'gemini/embeddings-batch-with-options');
+
+    $response = Prism::embeddings()
+        ->using(Provider::Gemini, 'text-embedding-004')
+        ->withProviderOptions([
+            'title' => 'Test Embedding',
+            'taskType' => 'RETRIEVAL_QUERY',
+            'outputDimensionality' => 128,
+        ])
+        ->fromInput('First sentence.')
+        ->fromInput('Second sentence.')
+        ->asEmbeddings();
+
+    expect($response->embeddings)->toBeArray();
+    expect($response->embeddings)->toHaveCount(2);
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        if (! isset($data['requests']) || count($data['requests']) !== 2) {
+            return false;
+        }
+
+        foreach ($data['requests'] as $embeddingRequest) {
+            if (($embeddingRequest['title'] ?? null) !== 'Test Embedding') {
+                return false;
+            }
+
+            if (($embeddingRequest['taskType'] ?? null) !== 'RETRIEVAL_QUERY') {
+                return false;
+            }
+
+            if (($embeddingRequest['outputDimensionality'] ?? null) !== 128) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+});
 
 it('returns embeddings with provider meta options', function (): void {
     FixtureResponse::fakeResponseSequence('models/text-embedding-004:embedContent', 'gemini/embeddings-with-meta');

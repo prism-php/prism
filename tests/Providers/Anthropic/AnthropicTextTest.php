@@ -259,6 +259,31 @@ it('adds rate limit data to the responseMeta', function (): void {
     expect($response->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
 });
 
+it('handles unix timestamp rate limit reset headers', function (): void {
+    // Unix timestamps have second precision, so we truncate microseconds for comparison.
+    $requests_reset = Carbon::now()->addSeconds(30)->startOfSecond();
+
+    FixtureResponse::fakeResponseSequence(
+        'v1/messages',
+        'anthropic/generate-text-with-a-prompt',
+        [
+            'anthropic-ratelimit-requests-limit' => 1000,
+            'anthropic-ratelimit-requests-remaining' => 500,
+            'anthropic-ratelimit-requests-reset' => (string) $requests_reset->timestamp,
+        ]
+    );
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-3-5-sonnet-20240620')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    expect($response->meta->rateLimits)->toHaveCount(1);
+    expect($response->meta->rateLimits[0])->toBeInstanceOf(ProviderRateLimit::class);
+    expect($response->meta->rateLimits[0]->name)->toEqual('requests');
+    expect($response->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
+});
+
 describe('Anthropic citations', function (): void {
     it('applies the citations request level providerOptions to all documents', function (): void {
         Prism::fake();
@@ -638,4 +663,16 @@ describe('exceptions', function (): void {
             ->asText();
 
     })->throws(PrismRequestTooLargeException::class);
+});
+
+it('allows automatic caching enabled via providerOptions', function (): void {
+    Prism::fake();
+
+    $request = Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']]);
+
+    $payload = Text::buildHttpRequestPayload($request->toRequest());
+
+    expect($payload['cache_control'])->toBe(['type' => 'ephemeral']);
 });

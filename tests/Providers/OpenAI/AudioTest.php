@@ -313,6 +313,47 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->toBe('Simple transcription without usage data.');
         expect($response->usage)->toBeNull();
     });
+
+    it('can transcribe with chunking_strategy option for diarization', function (): void {
+        Http::fake([
+            'api.openai.com/v1/audio/transcriptions' => Http::response([
+                'text' => 'Speaker A: Hello. Speaker B: Hi there.',
+                'segments' => [
+                    ['text' => 'Hello.', 'speaker' => 'A', 'start' => 0.0, 'end' => 1.0],
+                    ['text' => 'Hi there.', 'speaker' => 'B', 'start' => 1.0, 'end' => 2.0],
+                ],
+            ], 200),
+        ]);
+
+        $audioFile = Audio::fromBase64(base64_encode('diarized-audio-content'), 'audio/mp3');
+
+        $response = Prism::audio()
+            ->using('openai', 'gpt-4o-transcribe-diarize')
+            ->withInput($audioFile)
+            ->withProviderOptions([
+                'response_format' => 'diarized_json',
+                'chunking_strategy' => 'auto',
+            ])
+            ->asText();
+
+        expect($response->text)->toBe('Speaker A: Hello. Speaker B: Hi there.');
+
+        Http::assertSent(function (Request $request): bool {
+            $data = $request->data();
+
+            $hasChunkingStrategy = collect($data)->contains(
+                fn ($item): bool => ($item['name'] ?? null) === 'chunking_strategy' && ($item['contents'] ?? null) === 'auto'
+            );
+
+            $hasResponseFormat = collect($data)->contains(
+                fn ($item): bool => ($item['name'] ?? null) === 'response_format' && ($item['contents'] ?? null) === 'diarized_json'
+            );
+
+            return $request->url() === 'https://api.openai.com/v1/audio/transcriptions'
+                && $hasChunkingStrategy
+                && $hasResponseFormat;
+        });
+    });
 });
 
 describe('Audio Value Object', function (): void {
