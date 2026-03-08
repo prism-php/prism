@@ -615,3 +615,49 @@ it('passes store parameter when specified', function (): void {
         return true;
     });
 });
+
+it('includes status details when max tokens exceeded', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-max-tokens-exceeded');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    try {
+        Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::OpenAI, 'gpt-5')
+            ->withPrompt('What is the weather?')
+            ->asStructured();
+        $this->fail('Expected PrismException was not thrown');
+    } catch (PrismException $e) {
+        expect($e->getMessage())
+            ->toContain('incomplete')
+            ->toContain('reasoning model');
+    }
+});
+
+it('includes status details for unknown finish reasons', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-unknown-finish-reason');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    expect(fn () => Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What is the weather?')
+        ->asStructured()
+    )->toThrow(PrismException::class, 'some_future_type');
+});
