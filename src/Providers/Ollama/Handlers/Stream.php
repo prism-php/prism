@@ -129,13 +129,12 @@ class Stream
 
             // If we were emitting thinking and it's now stopped, mark it complete
             if ($this->state->hasThinkingStarted()) {
+                $this->state->markThinkingCompleted();
                 yield new ThinkingCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),
                     reasoningId: $this->state->reasoningId()
                 );
-                // Note: Can't easily reset just thinking flag with current StreamState API
-                // This may need adjustment if tests fail
                 // Don't continue here - we want to process the rest of this data chunk
             }
 

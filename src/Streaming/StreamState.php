@@ -132,6 +132,13 @@ class StreamState
         return $this;
     }
 
+    public function markThinkingCompleted(): self
+    {
+        $this->thinkingStarted = false;
+
+        return $this;
+    }
+
     public function appendText(string $text): self
     {
         $this->currentText .= $text;
