@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
@@ -851,4 +852,46 @@ it('does not loop infinitely when using specific tool choice', function (): void
     expect($response->steps)->toHaveCount(2);
     expect($response->text)->not->toBeEmpty();
     expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('includes status details when max tokens exceeded', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-max-tokens-exceeded');
+
+    try {
+        Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withPrompt('Write a long essay')
+            ->asText();
+        $this->fail('Expected PrismException was not thrown');
+    } catch (PrismException $e) {
+        expect($e->getMessage())
+            ->toContain('incomplete')
+            ->toContain('reasoning model');
+    }
+});
+
+it('throws Length when top-level status is incomplete even if last output is completed reasoning', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-incomplete-with-reasoning');
+
+    try {
+        Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withPrompt('Write something')
+            ->asText();
+        $this->fail('Expected PrismException was not thrown');
+    } catch (PrismException $e) {
+        expect($e->getMessage())
+            ->toContain('max tokens exceeded')
+            ->toContain('reasoning model');
+    }
+});
+
+it('includes status details for unknown finish reasons', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-unknown-finish-reason');
+
+    expect(fn () => Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Hello')
+        ->asText()
+    )->toThrow(PrismException::class, 'some_future_type');
 });
