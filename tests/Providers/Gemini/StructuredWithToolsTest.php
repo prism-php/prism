@@ -139,7 +139,8 @@ describe('Structured output with tools for Gemini', function (): void {
         $tool = (new Tool)
             ->as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter');
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
 
         $response = Prism::structured()
             ->using(Provider::Gemini, 'gemini-2.0-flash')

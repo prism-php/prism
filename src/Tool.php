@@ -45,6 +45,8 @@ class Tool
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
     protected null|false|Closure $failedHandler = null;
 
+    protected bool $clientExecuted = false;
+
     protected bool $concurrent = false;
 
     /** @var bool|Closure(array<string,mixed>):bool */
@@ -72,6 +74,7 @@ class Tool
     public function using(Closure|callable $fn): self
     {
         $this->fn = $fn;
+        $this->clientExecuted = false;
 
         return $this;
     }
@@ -84,6 +87,7 @@ class Tool
      */
     public function clientExecuted(): self
     {
+        $this->clientExecuted = true;
         $this->fn = null;
 
         return $this;
@@ -300,7 +304,7 @@ class Tool
 
     public function isClientExecuted(): bool
     {
-        return $this->fn === null;
+        return $this->clientExecuted;
     }
 
     /**

@@ -159,7 +159,8 @@ describe('Structured output with tools for OpenRouter', function (): void {
         $tool = (new Tool)
             ->as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter');
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
 
         $response = Prism::structured()
             ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')

@@ -390,11 +390,7 @@ $tool = Tool::make(CurrentWeatherTool::class);
 
 ## Client-Executed Tools
 
-Sometimes you need tools that are executed by the client (e.g., frontend application) rather than on the server. Client-executed tools are defined without a handler function.
-
-### Explicit Declaration (Recommended)
-
-Use the `clientExecuted()` method to explicitly mark a tool as client-executed:
+Sometimes you need tools that are executed by the client (e.g., frontend application) rather than on the server. Use the `clientExecuted()` method to explicitly mark a tool as client-executed:
 
 ```php
 use Prism\Prism\Facades\Tool;
@@ -403,21 +399,6 @@ $clientTool = Tool::as('browser_action')
     ->for('Perform an action in the user\'s browser')
     ->withStringParameter('action', 'The action to perform')
     ->clientExecuted();
-```
-
-This makes your intent clear and self-documenting.
-
-### Implicit Declaration
-
-You can also create a client-executed tool by simply omitting the `using()` call:
-
-```php
-use Prism\Prism\Facades\Tool;
-
-$clientTool = Tool::as('browser_action')
-    ->for('Perform an action in the user\'s browser')
-    ->withStringParameter('action', 'The action to perform');
-    // No using() call - tool is implicitly client-executed
 ```
 
 When the AI calls a client-executed tool, Prism will:

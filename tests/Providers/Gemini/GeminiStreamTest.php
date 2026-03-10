@@ -239,7 +239,8 @@ describe('client-executed tools', function (): void {
 
         $tool = Tool::as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter');
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
 
         $response = Prism::text()
             ->using(Provider::Gemini, 'gemini-1.5-flash')
