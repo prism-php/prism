@@ -10,6 +10,11 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
+use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
 
 describe('Structured output with tools for OpenAI', function (): void {
@@ -206,6 +211,48 @@ describe('Structured output with tools for OpenAI', function (): void {
         expect($response->toolCalls)->toHaveCount(1);
         expect($response->toolCalls[0]->name)->toBe('delete_file');
         expect($response->steps)->toHaveCount(1);
+    });
+
+    it('executes approved tool and returns structured output (Phase 2)', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-with-approval-phase2');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::structured()
+            ->using(Provider::OpenAI, 'gpt-4o')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withMessages([
+                new UserMessage('Delete /tmp/test.txt'),
+                new AssistantMessage(
+                    content: '',
+                    toolCalls: [
+                        new ToolCall(id: 'fc_delete_file_structured', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
+                    ],
+                ),
+                new ToolResultMessage([], [
+                    new ToolApprovalResponse(approvalId: 'fc_delete_file_structured', approved: true),
+                ]),
+            ])
+            ->asStructured();
+
+        expect($response->structured)->toBeArray()
+            ->and($response->structured)->toHaveKey('result')
+            ->and($response->structured['result'])->toContain('deleted');
+        expect($response->finishReason)->toBe(FinishReason::Stop);
     });
 
     it('handles tool orchestration correctly with multiple tool types', function (): void {

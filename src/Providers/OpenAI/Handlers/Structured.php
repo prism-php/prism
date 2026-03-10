@@ -55,6 +55,8 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
+        $this->resolveToolApprovals($request);
+
         $response = match ($request->mode()) {
             StructuredMode::Auto => $this->handleAutoMode($request),
             StructuredMode::Structured => $this->handleStructuredMode($request),
