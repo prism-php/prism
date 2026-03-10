@@ -1084,6 +1084,149 @@ describe('Phase 2: resolveToolApprovals', function (): void {
             ->and($events[0])->toBeInstanceOf(ToolResultEvent::class)
             ->and($events[0]->toolResult->toolCallId)->toBe('call-1');
     });
+
+    it('returns empty when message history has no AssistantMessage', function (): void {
+        $tool = (new Tool)
+            ->as('test_tool')
+            ->for('Test')
+            ->using(fn (): string => 'result')
+            ->requiresApproval();
+
+        $request = createTextRequest(
+            messages: [
+                new UserMessage('hello'),
+                new ToolResultMessage([], [
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
+                ]),
+            ],
+            tools: [$tool],
+        );
+
+        $handler = new ToolApprovalTestHandler;
+        $handler->resolve($request);
+
+        expect(getResolvedToolResults($request))->toBeEmpty();
+    });
+
+    it('returns empty when ToolResultMessage appears before AssistantMessage', function (): void {
+        $tool = (new Tool)
+            ->as('test_tool')
+            ->for('Test')
+            ->using(fn (): string => 'result')
+            ->requiresApproval();
+
+        $request = createTextRequest(
+            messages: [
+                new UserMessage('hello'),
+                new ToolResultMessage([], [
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
+                ]),
+                new AssistantMessage(
+                    content: 'I will do it.',
+                    toolCalls: [
+                        new ToolCall(id: 'call-1', name: 'test_tool', arguments: []),
+                    ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
+                ),
+            ],
+            tools: [$tool],
+        );
+
+        $handler = new ToolApprovalTestHandler;
+        $handler->resolve($request);
+
+        $results = getResolvedToolResults($request);
+        expect($results)->toHaveCount(1)
+            ->and($results[0]->result)->toBe('No approval response provided');
+    });
+});
+
+describe('Phase 1: concurrent tools with approval', function (): void {
+    it('executes concurrent tools and skips approval-required tools', function (): void {
+        $concurrentTool = (new Tool)
+            ->as('fast_lookup')
+            ->for('Fast lookup')
+            ->withStringParameter('query', 'Query')
+            ->using(fn (string $query): string => "Found: {$query}")
+            ->concurrent();
+
+        $approvalTool = (new Tool)
+            ->as('delete_file')
+            ->for('Delete a file')
+            ->withStringParameter('path', 'File path')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $anotherConcurrentTool = (new Tool)
+            ->as('quick_check')
+            ->for('Quick check')
+            ->withStringParameter('item', 'Item')
+            ->using(fn (string $item): string => "Checked: {$item}")
+            ->concurrent();
+
+        $toolCalls = [
+            new ToolCall(id: 'call-1', name: 'fast_lookup', arguments: ['query' => 'test']),
+            new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/file.txt']),
+            new ToolCall(id: 'call-3', name: 'quick_check', arguments: ['item' => 'status']),
+        ];
+
+        $handler = new ToolApprovalTestHandler;
+        $hasPendingToolCalls = false;
+        $results = $handler->execute(
+            [$concurrentTool, $approvalTool, $anotherConcurrentTool],
+            $toolCalls,
+            $hasPendingToolCalls,
+        );
+
+        expect($results)->toHaveCount(2)
+            ->and($results[0]->toolName)->toBe('fast_lookup')
+            ->and($results[0]->result)->toBe('Found: test')
+            ->and($results[1]->toolName)->toBe('quick_check')
+            ->and($results[1]->result)->toBe('Checked: status')
+            ->and($hasPendingToolCalls)->toBeTrue();
+    });
+
+    it('executes concurrent tools and skips approval-required tools in streaming', function (): void {
+        $concurrentTool = (new Tool)
+            ->as('fast_lookup')
+            ->for('Fast lookup')
+            ->withStringParameter('query', 'Query')
+            ->using(fn (string $query): string => "Found: {$query}")
+            ->concurrent();
+
+        $approvalTool = (new Tool)
+            ->as('delete_file')
+            ->for('Delete a file')
+            ->withStringParameter('path', 'File path')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $toolCalls = [
+            new ToolCall(id: 'call-1', name: 'fast_lookup', arguments: ['query' => 'test']),
+            new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/file.txt']),
+        ];
+
+        $handler = new ToolApprovalTestHandler;
+        $toolResults = [];
+        $hasPendingToolCalls = false;
+        $events = [];
+
+        foreach ($handler->stream([$concurrentTool, $approvalTool], $toolCalls, 'msg-123', $toolResults, $hasPendingToolCalls) as $event) {
+            $events[] = $event;
+        }
+
+        $toolResultEvents = array_filter($events, fn ($e): bool => $e instanceof ToolResultEvent);
+        $approvalEvents = array_filter($events, fn ($e): bool => $e instanceof ToolApprovalRequestEvent);
+
+        expect($toolResults)->toHaveCount(1)
+            ->and($toolResults[0]->toolName)->toBe('fast_lookup')
+            ->and(array_values($toolResultEvents))->toHaveCount(1)
+            ->and(array_values($approvalEvents))->toHaveCount(1)
+            ->and($hasPendingToolCalls)->toBeTrue();
+    });
 });
 
 describe('ToolApprovalRequest value object', function (): void {
