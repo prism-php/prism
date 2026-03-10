@@ -13,6 +13,7 @@ use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
@@ -242,9 +243,13 @@ describe('Structured output with tools for OpenAI', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'fc_delete_file_structured', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'apr_fc_delete_file_structured', toolCallId: 'fc_delete_file_structured'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'fc_delete_file_structured', approved: true),
+                    new ToolApprovalResponse(approvalId: 'apr_fc_delete_file_structured', approved: true),
                 ]),
             ])
             ->asStructured();

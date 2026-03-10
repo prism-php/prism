@@ -237,7 +237,7 @@ it('handles all supported event types without errors', function (): void {
         new ThinkingCompleteEvent('evt-7', 1640995206, 'reasoning-123'),
         new ToolCallEvent('evt-8', 1640995207, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
         new ToolResultEvent('evt-9', 1640995208, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
-        new ToolApprovalRequestEvent('evt-8a', 1640995207, new ToolCall('approval-tool-1', 'approve_me', ['action' => 'delete']), 'msg-456'),
+        new ToolApprovalRequestEvent('evt-8a', 1640995207, new ToolCall('approval-tool-1', 'approve_me', ['action' => 'delete']), 'msg-456', 'approval-req-1'),
         new ProviderToolEvent('evt-10', 1640995209, 'image_generation_call', 'completed', 'ig-789', ['result' => 'data']),
         new ErrorEvent('evt-11', 1640995210, 'test_error', 'Test error', true),
         new StreamEndEvent('evt-12', 1640995211, FinishReason::Stop),

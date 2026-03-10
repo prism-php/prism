@@ -8,7 +8,6 @@ use Generator;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\MultipleItemsFoundException;
-use JsonException;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\EventID;
@@ -24,6 +23,7 @@ use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolError;
@@ -37,10 +37,8 @@ trait CallsTools
      *
      * @param  Tool[]  $tools
      * @param  ToolCall[]  $toolCalls
-     * @param  ToolCall[]  $approvalRequests  Tool calls requiring approval (collected by reference)
+     * @param  ToolApprovalRequest[]  $approvalRequests  Tool calls requiring approval (collected by reference)
      * @return ToolResult[]
-     *
-     * @throws PrismException|JsonException
      */
     protected function callTools(array $tools, array $toolCalls, bool &$hasPendingToolCalls, array &$approvalRequests = []): array
     {
@@ -48,7 +46,10 @@ trait CallsTools
 
         foreach ($this->callToolsAndYieldEvents($tools, $toolCalls, EventID::generate(), $toolResults, $hasPendingToolCalls) as $event) {
             if ($event instanceof ToolApprovalRequestEvent) {
-                $approvalRequests[] = $event->toolCall;
+                $approvalRequests[] = new ToolApprovalRequest(
+                    approvalId: $event->approvalId,
+                    toolCallId: $event->toolCall->id,
+                );
             }
         }
 
@@ -88,6 +89,7 @@ trait CallsTools
                 timestamp: time(),
                 toolCall: $toolCall,
                 messageId: $messageId,
+                approvalId: EventID::generate('apr'),
             );
         }
     }
@@ -375,10 +377,16 @@ trait CallsTools
             $toolMessageIndex = null;
         }
 
+        $toolCallIdToApprovalId = [];
+        foreach ($assistantMessage->toolApprovalRequests as $approvalRequest) {
+            $toolCallIdToApprovalId[$approvalRequest->toolCallId] = $approvalRequest->approvalId;
+        }
+
         $approvalResolvedToolResults = [];
 
         foreach ($assistantMessage->toolCalls as $toolCall) {
-            $approval = $toolMessage->findByApprovalId($toolCall->id);
+            $approvalId = $toolCallIdToApprovalId[$toolCall->id] ?? null;
+            $approval = $approvalId !== null ? $toolMessage->findByApprovalId($approvalId) : null;
 
             if (! $approval instanceof ToolApprovalResponse) {
                 if (collect($toolMessage->toolResults)->contains(fn (ToolResult $tr): bool => $tr->toolCallId === $toolCall->id)) { // tool already executed
@@ -388,7 +396,7 @@ trait CallsTools
                     continue;
                 }
 
-                $approval = new ToolApprovalResponse($toolCall->id, false, 'No approval response provided');
+                $approval = new ToolApprovalResponse($approvalId ?? EventID::generate('apr'), false, 'No approval response provided');
             }
 
             if ($state instanceof StreamState && $state->shouldEmitStreamStart()) {

@@ -158,12 +158,7 @@ class Structured
         $approvalRequests = [];
         $toolResults = $this->callTools($this->request->tools(), $customToolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $toolApprovalRequests = array_map(
-            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
-            $approvalRequests,
-        );
-
-        $this->addStep($toolCalls, $tempResponse, $toolResults, $toolApprovalRequests);
+        $this->addStep($toolCalls, $tempResponse, $toolResults, $approvalRequests);
 
         return $this->responseBuilder->toResponse();
     }
@@ -178,11 +173,6 @@ class Structured
         $approvalRequests = [];
         $toolResults = $this->callTools($this->request->tools(), $customToolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $toolApprovalRequests = array_map(
-            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
-            $approvalRequests,
-        );
-
         $message = new ToolResultMessage($toolResults);
         if ($toolResultCacheType = $this->request->providerOptions('tool_result_cache_type')) {
             $message->withProviderOptions(['cacheType' => $toolResultCacheType]);
@@ -190,7 +180,7 @@ class Structured
 
         $this->request->addMessage($message);
         $this->request->resetToolChoice();
-        $this->addStep($toolCalls, $tempResponse, $toolResults, $toolApprovalRequests);
+        $this->addStep($toolCalls, $tempResponse, $toolResults, $approvalRequests);
 
         if (! $hasPendingToolCalls && $this->canContinue()) {
             return $this->handle();

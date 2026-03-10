@@ -29,6 +29,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
@@ -566,9 +567,13 @@ describe('approval-required tools', function (): void {
                 toolCalls: [
                     new ToolCall(id: 'fc_approval_tool_stream', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                 ],
+                additionalContent: [],
+                toolApprovalRequests: [
+                    new ToolApprovalRequest(approvalId: 'apr_fc_approval_tool_stream', toolCallId: 'fc_approval_tool_stream'),
+                ],
             ),
             new ToolResultMessage([], [
-                new ToolApprovalResponse(approvalId: 'fc_approval_tool_stream', approved: true),
+                new ToolApprovalResponse(approvalId: 'apr_fc_approval_tool_stream', approved: true),
             ]),
         ];
 

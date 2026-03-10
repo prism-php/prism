@@ -7,8 +7,6 @@ namespace Prism\Prism\ValueObjects;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
- * Vercel AI SDK compatible format: { approvalId, type: 'tool-approval-response', approved }
- *
  * @implements Arrayable<string, mixed>
  */
 readonly class ToolApprovalResponse implements Arrayable

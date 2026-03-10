@@ -109,18 +109,13 @@ class Text
             $approvalRequests,
         );
 
-        $toolApprovalRequests = array_map(
-            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
-            $approvalRequests,
-        );
-
-        $this->addStep($data, $request, $toolResults, $toolApprovalRequests);
+        $this->addStep($data, $request, $toolResults, $approvalRequests);
 
         $request->addMessage(new AssistantMessage(
             data_get($data, 'message.content') ?? '',
             $toolCalls,
             [],
-            $toolApprovalRequests,
+            $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();

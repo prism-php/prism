@@ -26,7 +26,6 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolApprovalRequest;
-use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -155,18 +154,13 @@ class Text
             $approvalRequests,
         );
 
-        $toolApprovalRequests = array_map(
-            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
-            $approvalRequests,
-        );
-
-        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults, $toolApprovalRequests);
+        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults, $approvalRequests);
 
         $request->addMessage(new AssistantMessage(
             $this->extractTextContent($data),
             $toolCalls,
             [],
-            $toolApprovalRequests,
+            $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();

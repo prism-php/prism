@@ -29,6 +29,7 @@ use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
@@ -229,9 +230,13 @@ describe('approval-required tools', function (): void {
                 toolCalls: [
                     new ToolCall(id: 'delete_file_stream', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                 ],
+                additionalContent: [],
+                toolApprovalRequests: [
+                    new ToolApprovalRequest(approvalId: 'apr_delete_file_stream', toolCallId: 'delete_file_stream'),
+                ],
             ),
             new ToolResultMessage([], [
-                new ToolApprovalResponse(approvalId: 'delete_file_stream', approved: true),
+                new ToolApprovalResponse(approvalId: 'apr_delete_file_stream', approved: true),
             ]),
         ];
 

@@ -101,18 +101,13 @@ class Text
         $approvalRequests = [];
         $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $toolApprovalRequests = array_map(
-            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
-            $approvalRequests,
-        );
-
-        $this->addStep($toolResults, $toolApprovalRequests);
+        $this->addStep($toolResults, $approvalRequests);
 
         $this->request->addMessage(new AssistantMessage(
             $this->tempResponse->text,
             $this->tempResponse->toolCalls,
             $this->tempResponse->additionalContent,
-            $toolApprovalRequests,
+            $approvalRequests,
         ));
 
         $toolResultMessage = new ToolResultMessage($toolResults);
