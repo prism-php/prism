@@ -6,6 +6,7 @@ use Illuminate\Contracts\View\View;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Structured\PendingRequest;
 use Prism\Prism\Structured\Request;
@@ -25,6 +26,18 @@ test('it requires a schema', function (): void {
     expect($this->pendingRequest->toRequest(...))
         ->toThrow(PrismException::class, 'A schema is required for structured output');
 });
+
+test('it throws exception when tool has no handler and is not client-executed', function (): void {
+    $tool = Tool::as('broken_tool')
+        ->for('A tool that forgot using()');
+
+    $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withTools([$tool])
+        ->withPrompt('test')
+        ->toRequest();
+})->throws(PrismException::class, 'Tool (broken_tool) has no handler defined. Use using() to set a handler or clientExecuted() to mark it as client-executed.');
 
 test('it cannot have both prompt and messages', function (): void {
     $this->pendingRequest

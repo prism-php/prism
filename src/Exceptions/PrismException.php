@@ -101,4 +101,11 @@ class PrismException extends Exception
             sprintf('Tool (%s) has no handler defined', $toolName)
         );
     }
+
+    public static function toolMissingHandler(string $toolName): self
+    {
+        return new self(
+            sprintf('Tool (%s) has no handler defined. Use using() to set a handler or clientExecuted() to mark it as client-executed.', $toolName)
+        );
+    }
 }
