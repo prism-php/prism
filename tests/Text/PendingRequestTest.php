@@ -374,6 +374,17 @@ test('it can set system prompts', function (): void {
         );
 });
 
+test('it throws exception when tool has no handler and is not client-executed', function (): void {
+    $tool = Tool::as('broken_tool')
+        ->for('A tool that forgot using()');
+
+    $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withTools([$tool])
+        ->withPrompt('test')
+        ->toRequest();
+})->throws(PrismException::class, 'Tool (broken_tool) has no handler defined. Use using() to set a handler or clientExecuted() to mark it as client-executed.');
+
 test('it throws exception when using both prompt and messages', function (): void {
     $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')

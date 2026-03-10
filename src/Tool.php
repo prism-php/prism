@@ -307,6 +307,18 @@ class Tool
         return $this->clientExecuted;
     }
 
+    public function hasHandler(): bool
+    {
+        return $this->fn !== null;
+    }
+
+    public function ensureRunnable(): void
+    {
+        if (! $this->hasHandler() && ! $this->clientExecuted) {
+            throw PrismException::toolMissingHandler($this->name);
+        }
+    }
+
     /**
      * @return null|false|Closure(Throwable,array<int|string,mixed>):string
      */

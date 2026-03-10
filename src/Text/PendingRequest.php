@@ -123,6 +123,8 @@ class PendingRequest
 
         $tools = $this->tools;
 
+        collect($tools)->each->ensureRunnable();
+
         if (! $this->toolErrorHandlingEnabled && filled($tools)) {
             $tools = array_map(
                 callback: fn (Tool $tool): Tool => is_null($tool->failedHandler()) ? $tool : $tool->withoutErrorHandling(),
