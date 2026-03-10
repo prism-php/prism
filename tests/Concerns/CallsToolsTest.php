@@ -332,7 +332,8 @@ it('executes server tools and skips client-executed tools in mixed scenario', fu
     $clientTool = (new Tool)
         ->as('client_tool')
         ->for('A client-executed tool')
-        ->withStringParameter('action', 'Action to perform');
+        ->withStringParameter('action', 'Action to perform')
+        ->clientExecuted();
 
     $toolCalls = [
         new ToolCall(id: 'call-server', name: 'server_tool', arguments: ['input' => 'test data']),
@@ -364,7 +365,8 @@ it('executes server tools and skips client-executed tools in mixed streaming sce
     $clientTool = (new Tool)
         ->as('client_tool')
         ->for('A client-executed tool')
-        ->withStringParameter('action', 'Action to perform');
+        ->withStringParameter('action', 'Action to perform')
+        ->clientExecuted();
 
     $toolCalls = [
         new ToolCall(id: 'call-client-1', name: 'client_tool', arguments: ['action' => 'scroll']),

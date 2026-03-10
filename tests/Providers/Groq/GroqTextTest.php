@@ -124,7 +124,8 @@ describe('Text generation for Groq', function (): void {
 
         $tool = Tool::as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter');
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
 
         $response = Prism::text()
             ->using('groq', 'llama-3.3-70b-versatile')

@@ -239,7 +239,8 @@ describe('Phase 1: filterServerExecutedToolCalls with approval tools', function 
 
         $clientTool = (new Tool)
             ->as('client')
-            ->for('Client tool');
+            ->for('Client tool')
+            ->clientExecuted();
 
         $approvalTool = (new Tool)
             ->as('approval')

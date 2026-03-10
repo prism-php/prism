@@ -587,7 +587,8 @@ describe('client-executed tools', function (): void {
 
         $tool = Tool::as('client_tool')
             ->for('A tool that executes on the client')
-            ->withStringParameter('input', 'Input parameter');
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
 
         $response = Prism::text()
             ->using('anthropic', 'claude-3-5-sonnet-20240620')
@@ -614,7 +615,8 @@ describe('client-executed tools', function (): void {
         // Client-executed tool (no handler)
         $clientTool = Tool::as('client_tool')
             ->for('A client-side tool')
-            ->withStringParameter('action', 'Action to perform');
+            ->withStringParameter('action', 'Action to perform')
+            ->clientExecuted();
 
         $response = Prism::text()
             ->using('anthropic', 'claude-3-5-sonnet-20240620')
