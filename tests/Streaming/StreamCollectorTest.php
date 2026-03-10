@@ -299,7 +299,7 @@ it('collects tool approval requests into assistant message', function (): void {
     $events = [
         new TextStartEvent('evt-1', 1640995200, 'msg-1'),
         new ToolCallEvent('evt-2', 1640995201, $toolCall, 'msg-1'),
-        new ToolApprovalRequestEvent('evt-3', 1640995202, $toolCall, 'msg-1'),
+        new ToolApprovalRequestEvent('evt-3', 1640995202, $toolCall, 'msg-1', 'approval-delete-1'),
         new StreamEndEvent('evt-4', 1640995203, FinishReason::ToolCalls),
     ];
 
@@ -317,7 +317,7 @@ it('collects tool approval requests into assistant message', function (): void {
     expect($messages->first())->toBeInstanceOf(AssistantMessage::class);
     expect($messages->first()->toolCalls)->toHaveCount(1);
     expect($messages->first()->toolApprovalRequests)->toHaveCount(1);
-    expect($messages->first()->toolApprovalRequests[0]->approvalId)->toBe('call-delete-1');
+    expect($messages->first()->toolApprovalRequests[0]->approvalId)->toBe('approval-delete-1');
     expect($messages->first()->toolApprovalRequests[0]->toolCallId)->toBe('call-delete-1');
 });
 
@@ -376,7 +376,7 @@ it('collects tool approval requests after server-executed tool results', functio
         new ToolCallEvent('evt-2', 1640995201, $searchCall, 'msg-1'),
         new ToolCallEvent('evt-3', 1640995202, $deleteCall, 'msg-1'),
         new ToolResultEvent('evt-4', 1640995203, $searchResult, 'msg-1', true),
-        new ToolApprovalRequestEvent('evt-5', 1640995204, $deleteCall, 'msg-1'),
+        new ToolApprovalRequestEvent('evt-5', 1640995204, $deleteCall, 'msg-1', 'approval-delete-1'),
         new StreamEndEvent('evt-6', 1640995205, FinishReason::ToolCalls),
     ];
 

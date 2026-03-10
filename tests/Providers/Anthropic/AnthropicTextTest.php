@@ -24,6 +24,7 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
@@ -688,9 +689,13 @@ describe('approval-required tools', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'toolu_delete_file_123', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'apr_toolu_delete_file_123', toolCallId: 'toolu_delete_file_123'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'toolu_delete_file_123', approved: true),
+                    new ToolApprovalResponse(approvalId: 'apr_toolu_delete_file_123', approved: true),
                 ]),
             ])
             ->asText();

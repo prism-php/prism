@@ -29,7 +29,6 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolApprovalRequest;
-use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -215,15 +214,10 @@ class Structured
             $approvalRequests,
         );
 
-        $toolApprovalRequests = array_map(
-            fn (ToolCall $tc): ToolApprovalRequest => new ToolApprovalRequest(approvalId: $tc->id, toolCallId: $tc->id),
-            $approvalRequests,
-        );
-
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults, $toolApprovalRequests);
+        $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults, $approvalRequests);
 
         if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);

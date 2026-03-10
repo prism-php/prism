@@ -323,9 +323,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
                 ]),
             ],
             tools: [$tool],
@@ -361,9 +365,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: false, reason: 'Too dangerous'),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: false, reason: 'Too dangerous'),
                 ]),
             ],
             tools: [$tool],
@@ -395,6 +403,10 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], []),
             ],
@@ -425,9 +437,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'test_tool', arguments: []),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
                 ]),
             ],
             tools: [$tool],
@@ -443,7 +459,7 @@ describe('Phase 2: resolveToolApprovals', function (): void {
         expect($toolResultMessage->toolResults)->toHaveCount(1)
             ->and($toolResultMessage->toolResults[0]->result)->toBe('result')
             ->and($toolResultMessage->toolApprovalResponses)->toHaveCount(1)
-            ->and($toolResultMessage->toolApprovalResponses[0]->approvalId)->toBe('call-1')
+            ->and($toolResultMessage->toolApprovalResponses[0]->approvalId)->toBe('approval-1')
             ->and($toolResultMessage->toolApprovalResponses[0]->approved)->toBeTrue();
     });
 
@@ -464,10 +480,15 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/a.txt']),
                         new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/b.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
-                    new ToolApprovalResponse(approvalId: 'call-2', approved: false, reason: 'Keep this file'),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-2', approved: false, reason: 'Keep this file'),
                 ]),
             ],
             tools: [$tool],
@@ -509,11 +530,17 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/b.txt']),
                         new ToolCall(id: 'call-3', name: 'delete_file', arguments: ['path' => '/tmp/c.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                        new ToolApprovalRequest(approvalId: 'approval-3', toolCallId: 'call-3'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
-                    new ToolApprovalResponse(approvalId: 'call-2', approved: true),
-                    new ToolApprovalResponse(approvalId: 'call-3', approved: false, reason: 'Skip this'),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-2', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-3', approved: false, reason: 'Skip this'),
                 ]),
             ],
             tools: [$tool],
@@ -560,10 +587,15 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-1', name: 'transfer', arguments: ['amount' => 100]),
                         new ToolCall(id: 'call-2', name: 'transfer', arguments: ['amount' => 500]),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
-                    new ToolApprovalResponse(approvalId: 'call-2', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-2', approved: true),
                 ]),
             ],
             tools: [$approvalTool],
@@ -599,13 +631,17 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-1', name: 'search', arguments: []),
                         new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                    ],
                 ),
                 new ToolResultMessage(
                     toolResults: [
                         new ToolResult(toolCallId: 'call-1', toolName: 'search', args: [], result: 'client search result'),
                     ],
                     toolApprovalResponses: [
-                        new ToolApprovalResponse(approvalId: 'call-2', approved: true),
+                        new ToolApprovalResponse(approvalId: 'approval-2', approved: true),
                     ],
                 ),
             ],
@@ -643,13 +679,18 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/a.txt']),
                         new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/b.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                    ],
                 ),
                 new ToolResultMessage(
                     toolResults: [
                         new ToolResult(toolCallId: 'call-1', toolName: 'delete_file', args: ['path' => '/tmp/a.txt'], result: 'Already executed'),
                     ],
                     toolApprovalResponses: [
-                        new ToolApprovalResponse(approvalId: 'call-2', approved: false, reason: 'User denied'),
+                        new ToolApprovalResponse(approvalId: 'approval-2', approved: false, reason: 'User denied'),
                     ],
                 ),
             ],
@@ -689,9 +730,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-1', name: 'search', arguments: []),
                         new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-2', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-2', approved: true),
                 ]),
             ],
             tools: [$normalTool, $approvalTool],
@@ -720,9 +765,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                 toolCalls: [
                     new ToolCall(id: 'call-old', name: 'test_tool', arguments: []),
                 ],
+                additionalContent: [],
+                toolApprovalRequests: [
+                    new ToolApprovalRequest(approvalId: 'approval-old', toolCallId: 'call-old'),
+                ],
             ),
             new ToolResultMessage([], [
-                new ToolApprovalResponse(approvalId: 'call-old', approved: true),
+                new ToolApprovalResponse(approvalId: 'approval-old', approved: true),
             ]),
             new ToolResultMessage([
                 new ToolResult(toolCallId: 'call-old', toolName: 'test_tool', args: [], result: 'done'),
@@ -732,6 +781,10 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                 content: '',
                 toolCalls: [
                     new ToolCall(id: 'call-new', name: 'test_tool', arguments: []),
+                ],
+                additionalContent: [],
+                toolApprovalRequests: [
+                    new ToolApprovalRequest(approvalId: 'approval-new', toolCallId: 'call-new'),
                 ],
             ),
         ];
@@ -765,9 +818,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-old', name: 'test_tool', arguments: []),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-old', toolCallId: 'call-old'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-old', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-old', approved: true),
                 ]),
                 new ToolResultMessage([
                     new ToolResult(toolCallId: 'call-old', toolName: 'test_tool', args: [], result: 'done'),
@@ -778,9 +835,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-new', name: 'test_tool', arguments: []),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-new', toolCallId: 'call-new'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-new', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-new', approved: true),
                 ]),
             ],
             tools: [$tool],
@@ -810,9 +871,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'test_tool', arguments: []),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: false),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: false),
                 ]),
             ],
             tools: [$tool],
@@ -842,9 +907,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/a.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
                 ]),
             ],
             tools: [$tool],
@@ -880,9 +949,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/a.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
                 ]),
             ],
             tools: [$tool],
@@ -947,10 +1020,15 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/a.txt']),
                         new ToolCall(id: 'call-2', name: 'delete_file', arguments: ['path' => '/tmp/b.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                        new ToolApprovalRequest(approvalId: 'approval-2', toolCallId: 'call-2'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
-                    new ToolApprovalResponse(approvalId: 'call-2', approved: false, reason: 'Keep this'),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-2', approved: false, reason: 'Keep this'),
                 ]),
             ],
             tools: [$tool],
@@ -986,9 +1064,13 @@ describe('Phase 2: resolveToolApprovals', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'call-1', name: 'delete_file', arguments: ['path' => '/tmp/a.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'call-1', approved: true),
+                    new ToolApprovalResponse(approvalId: 'approval-1', approved: true),
                 ]),
             ],
             tools: [$tool],
@@ -1090,14 +1172,14 @@ describe('AssistantMessage with toolApprovalRequests', function (): void {
             ],
             additionalContent: [],
             toolApprovalRequests: [
-                new ToolApprovalRequest(approvalId: 'call-1', toolCallId: 'call-1'),
+                new ToolApprovalRequest(approvalId: 'approval-1', toolCallId: 'call-1'),
             ],
         );
 
         $array = $message->toArray();
         expect($array['tool_approval_requests'])->toHaveCount(1)
             ->and($array['tool_approval_requests'][0])->toBe([
-                'approval_id' => 'call-1',
+                'approval_id' => 'approval-1',
                 'tool_call_id' => 'call-1',
             ]);
     });
@@ -1110,12 +1192,14 @@ describe('ToolApprovalRequestEvent', function (): void {
             timestamp: 1234567890,
             toolCall: new ToolCall(id: 'call-1', name: 'test_tool', arguments: ['key' => 'value']),
             messageId: 'msg-1',
+            approvalId: 'approval-1',
         );
 
         expect($event->type())->toBe(StreamEventType::ToolApprovalRequest);
 
         $array = $event->toArray();
-        expect($array['tool_name'])->toBe('test_tool')
+        expect($array['approval_id'])->toBe('approval-1')
+            ->and($array['tool_name'])->toBe('test_tool')
             ->and($array['tool_id'])->toBe('call-1')
             ->and($array['arguments'])->toBe(['key' => 'value'])
             ->and($array['message_id'])->toBe('msg-1');

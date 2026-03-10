@@ -97,7 +97,7 @@ it('handles different event types without errors', function (): void {
         new ThinkingEvent('evt-4', 1640995203, 'Thinking...', 'reasoning-123'),
         new ToolCallEvent('evt-5', 1640995204, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
         new ToolResultEvent('evt-6', 1640995205, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
-        new ToolApprovalRequestEvent('evt-5a', 1640995204, new ToolCall('approval-1', 'approve_action', ['action' => 'confirm']), 'msg-456'),
+        new ToolApprovalRequestEvent('evt-5a', 1640995204, new ToolCall('approval-1', 'approve_action', ['action' => 'confirm']), 'msg-456', 'approval-req-1'),
         new ErrorEvent('evt-7', 1640995206, 'test_error', 'Test error', true),
         new StreamEndEvent('evt-8', 1640995207, FinishReason::Stop),
     ];
@@ -539,6 +539,7 @@ it('formats tool-approval-request events for Data Protocol', function (): void {
             1640995200,
             new ToolCall('tool-approval-123', 'delete_file', ['path' => '/tmp/test.txt']),
             'msg-456',
+            'approval-ulid-456',
         ),
     ];
 
@@ -561,7 +562,7 @@ it('formats tool-approval-request events for Data Protocol', function (): void {
         $capturedOutput = stream_get_contents($outputBuffer);
 
         expect($capturedOutput)->toContain('data: {"type":"tool-approval-request"');
-        expect($capturedOutput)->toContain('"approvalId":"tool-approval-123"');
+        expect($capturedOutput)->toContain('"approvalId":"approval-ulid-456"');
         expect($capturedOutput)->toContain('"toolCallId":"tool-approval-123"');
 
         $lines = explode("\n", trim($capturedOutput));
@@ -570,7 +571,7 @@ it('formats tool-approval-request events for Data Protocol', function (): void {
         $json = json_decode(substr($approvalLine, 6), true);
 
         expect($json['type'])->toBe('tool-approval-request');
-        expect($json['approvalId'])->toBe('tool-approval-123');
+        expect($json['approvalId'])->toBe('approval-ulid-456');
         expect($json['toolCallId'])->toBe('tool-approval-123');
     } finally {
         fclose($outputBuffer);

@@ -17,6 +17,7 @@ use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
@@ -297,9 +298,13 @@ describe('Structured output with tools for Anthropic', function (): void {
                     toolCalls: [
                         new ToolCall(id: 'toolu_delete_structured', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
                     ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'apr_toolu_delete_structured', toolCallId: 'toolu_delete_structured'),
+                    ],
                 ),
                 new ToolResultMessage([], [
-                    new ToolApprovalResponse(approvalId: 'toolu_delete_structured', approved: true),
+                    new ToolApprovalResponse(approvalId: 'apr_toolu_delete_structured', approved: true),
                 ]),
             ])
             ->asStructured();

@@ -71,7 +71,7 @@ class StreamCollector
                 $toolCalls[] = $event->toolCall;
             } elseif ($event instanceof ToolApprovalRequestEvent) {
                 $toolApprovalRequests[] = new ToolApprovalRequest(
-                    approvalId: $event->toolCall->id,
+                    approvalId: $event->approvalId,
                     toolCallId: $event->toolCall->id,
                 );
             } elseif ($event instanceof ToolResultEvent) {

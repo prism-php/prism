@@ -7,7 +7,7 @@ namespace Prism\Prism\ValueObjects;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
- * Represents a tool approval request (Vercel AI SDK format: approvalId, toolCallId).
+ * Represents a tool approval request.
  * Tracked on AssistantMessage for correlation with tool calls.
  *
  * @implements Arrayable<string, mixed>

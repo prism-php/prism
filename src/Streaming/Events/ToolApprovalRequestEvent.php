@@ -14,6 +14,7 @@ readonly class ToolApprovalRequestEvent extends StreamEvent
         int $timestamp,
         public ToolCall $toolCall,
         public string $messageId,
+        public string $approvalId,
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -31,6 +32,7 @@ readonly class ToolApprovalRequestEvent extends StreamEvent
         return [
             'id' => $this->id,
             'timestamp' => $this->timestamp,
+            'approval_id' => $this->approvalId,
             'tool_id' => $this->toolCall->id,
             'tool_name' => $this->toolCall->name,
             'arguments' => $this->toolCall->arguments(),

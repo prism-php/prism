@@ -262,7 +262,7 @@ class DataProtocolAdapter
 
         return [
             'type' => 'tool-approval-request',
-            'approvalId' => $event->toolCall->id,
+            'approvalId' => $event->approvalId,
             'toolCallId' => $event->toolCall->id,
         ];
     }
