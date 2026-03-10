@@ -10,6 +10,11 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
+use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -178,6 +183,48 @@ describe('Structured output with tools for Gemini', function (): void {
         expect($response->toolCalls)->toHaveCount(1);
         expect($response->toolCalls[0]->name)->toBe('delete_file');
         expect($response->steps)->toHaveCount(1);
+    });
+
+    it('executes approved tool and returns structured output (Phase 2)', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/structured-with-approval-phase2');
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $tool = (new Tool)
+            ->as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::structured()
+            ->using(Provider::Gemini, 'gemini-2.0-flash')
+            ->withSchema($schema)
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withMessages([
+                new UserMessage('Delete /tmp/test.txt'),
+                new AssistantMessage(
+                    content: '',
+                    toolCalls: [
+                        new ToolCall(id: 'delete_file', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
+                    ],
+                ),
+                new ToolResultMessage([], [
+                    new ToolApprovalResponse(approvalId: 'delete_file', approved: true),
+                ]),
+            ])
+            ->asStructured();
+
+        expect($response->structured)->toBeArray()
+            ->and($response->structured)->toHaveKey('result')
+            ->and($response->structured['result'])->toContain('deleted');
+        expect($response->finishReason)->toBe(FinishReason::Stop);
     });
 
     it('returns structured output immediately when no tool calls needed', function (): void {
