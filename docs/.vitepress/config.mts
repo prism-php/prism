@@ -223,6 +223,10 @@ export default defineConfig({
                 text: "Perplexity",
                 link: "/providers/perplexity",
               },
+              {
+                text: "Z AI",
+                link: "/providers/z",
+              },
             ],
           },
           {
