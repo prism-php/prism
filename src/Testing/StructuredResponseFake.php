@@ -5,6 +5,7 @@ namespace Prism\Prism\Testing;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\HasFluentAttributes;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Structured\Response;
 use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
@@ -18,7 +19,7 @@ use Prism\Prism\ValueObjects\Usage;
  * @method self withMeta(Meta $meta)
  * @method self withAdditionalContent(array<string,mixed> $additionalContent)
  */
-readonly class StructuredResponseFake extends \Prism\Prism\Structured\Response
+readonly class StructuredResponseFake extends Response
 {
     use HasFluentAttributes;
 

@@ -43,12 +43,33 @@ it('handles insufficient balance errors (402)', function (): void {
         ->toThrow(PrismException::class, 'DeepSeek Insufficient Balance: Insufficient balance');
 });
 
-it('handles unknown errors with default behavior', function (): void {
+it('handles errors with detailed error information', function (): void {
+    $mockResponse = createDeepSeekMockResponse(400, [
+        'error' => [
+            'type' => 'invalid_request_error',
+            'message' => 'Invalid request parameters',
+        ],
+    ]);
+    $exception = new RequestException($mockResponse);
+
+    expect(fn () => $this->provider->handleRequestException('deepseek-chat', $exception))
+        ->toThrow(PrismException::class, 'DeepSeek Error [400]: invalid_request_error - Invalid request parameters');
+});
+
+it('handles errors without error type', function (): void {
     $mockResponse = createDeepSeekMockResponse(500, [
         'error' => ['message' => 'Internal server error'],
     ]);
     $exception = new RequestException($mockResponse);
 
     expect(fn () => $this->provider->handleRequestException('deepseek-chat', $exception))
-        ->toThrow(PrismException::class, 'Sending to model (deepseek-chat) failed');
+        ->toThrow(PrismException::class, 'DeepSeek Error [500]: Internal server error');
+});
+
+it('handles errors without any error details', function (): void {
+    $mockResponse = createDeepSeekMockResponse(500, []);
+    $exception = new RequestException($mockResponse);
+
+    expect(fn () => $this->provider->handleRequestException('deepseek-chat', $exception))
+        ->toThrow(PrismException::class, 'DeepSeek Error [500]: Unknown error');
 });

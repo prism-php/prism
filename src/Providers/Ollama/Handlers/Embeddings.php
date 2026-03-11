@@ -37,6 +37,7 @@ class Embeddings
                 id: '',
                 model: data_get($data, 'model', ''),
             ),
+            raw: $data,
         );
     }
 
@@ -48,6 +49,7 @@ class Embeddings
             Arr::whereNotNull([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
+                'dimensions' => $request->providerOptions('dimensions'),
                 'keep_alive' => $request->providerOptions('keep_alive'),
                 'options' => $request->providerOptions() ?: null,
             ])

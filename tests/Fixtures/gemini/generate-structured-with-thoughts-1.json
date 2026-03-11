@@ -1,0 +1,27 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Let me think about how to extract this information and structure it properly according to the schema requirements.",
+            "thought": true
+          },
+          {
+            "text": "{\"result\": \"Successfully extracted information\"}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.05
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 50,
+    "candidatesTokenCount": 30,
+    "totalTokenCount": 100,
+    "thoughtsTokenCount": 20
+  },
+  "modelVersion": "gemini-2.0-flash-exp"
+}

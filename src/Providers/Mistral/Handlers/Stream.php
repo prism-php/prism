@@ -20,14 +20,18 @@ use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -94,11 +98,27 @@ class Stream
                 );
             }
 
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
+            }
+
+            $usage = $this->extractUsage($data);
+            if ($usage instanceof Usage) {
+                $this->state->addUsage($usage);
+            }
+
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                     if ($this->state->hasTextStarted() && $text !== '') {
+                        $this->state->markTextCompleted();
+
                         yield new TextCompleteEvent(
                             id: EventID::generate(),
                             timestamp: time(),
@@ -116,6 +136,8 @@ class Stream
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -128,9 +150,45 @@ class Stream
                 return;
             }
 
-            $content = data_get($data, 'choices.0.delta.content', '') ?? '';
+            $streamContent = $this->extractStreamContent($data);
+            $thinkingContent = $streamContent['thinking'];
+            $textContent = $streamContent['text'];
 
-            if ($content !== '') {
+            // Handle thinking content (reasoning models)
+            if ($thinkingContent !== '') {
+                if ($this->state->shouldEmitThinkingStart()) {
+                    $this->state
+                        ->withReasoningId(EventID::generate())
+                        ->markThinkingStarted();
+
+                    yield new ThinkingStartEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
+
+                yield new ThinkingEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    delta: $thinkingContent,
+                    reasoningId: $this->state->reasoningId()
+                );
+            }
+
+            // Emit ThinkingCompleteEvent when we transition from thinking to text
+            if ($this->state->hasThinkingStarted() && $thinkingContent === '' && $textContent !== '') {
+                yield new ThinkingCompleteEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    reasoningId: $this->state->reasoningId()
+                );
+                $this->state->resetTextState();
+                $this->state->withMessageId(EventID::generate());
+            }
+
+            // Handle text content
+            if ($textContent !== '') {
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -141,12 +199,12 @@ class Stream
                     );
                 }
 
-                $text .= $content;
+                $text .= $textContent;
 
                 yield new TextDeltaEvent(
                     id: EventID::generate(),
                     timestamp: time(),
-                    delta: $content,
+                    delta: $textContent,
                     messageId: $this->state->messageId()
                 );
             }
@@ -155,7 +213,18 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
+                // Complete thinking if it was started but not completed
+                if ($this->state->hasThinkingStarted()) {
+                    yield new ThinkingCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
+
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -163,16 +232,27 @@ class Stream
                     );
                 }
 
-                $usage = $this->extractUsage($data);
-
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $finishReason,
-                    usage: $usage
-                );
+                $this->state->withFinishReason($finishReason);
             }
         }
+
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
+        yield $this->emitStreamEndEvent();
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage() ?? new Usage(0, 0),
+        );
     }
 
     /**
@@ -240,25 +320,29 @@ class Stream
             );
         }
 
-        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
+        $toolResults = [];
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        foreach ($toolResults as $result) {
-            yield new ToolResultEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                toolResult: $result,
-                messageId: $this->state->messageId()
-            );
-        }
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         $this->state->resetTextState();
         $this->state->withMessageId(EventID::generate());
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $depth++;
+        if ($depth < $request->maxSteps()) {
+            $nextResponse = $this->sendRequest($request);
+            yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
+        }
     }
 
     /**
@@ -288,7 +372,7 @@ class Stream
                     $arguments,
                 );
             })
-            ->toArray();
+            ->all();
     }
 
     /**
@@ -349,6 +433,46 @@ class Stream
         }
 
         return $buffer;
+    }
+
+    /**
+     * Extract content from streaming delta that handles both string and array formats.
+     *
+     * For standard models, content is a string.
+     * For reasoning models (e.g., magistral-small-latest), content is an array of typed blocks.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{text: string, thinking: string}
+     */
+    protected function extractStreamContent(array $data): array
+    {
+        $content = data_get($data, 'choices.0.delta.content');
+
+        // Standard string content (non-reasoning models)
+        if (is_string($content)) {
+            return ['text' => $content, 'thinking' => ''];
+        }
+
+        // Array content (reasoning models)
+        if (is_array($content)) {
+            $text = '';
+            $thinking = '';
+
+            foreach ($content as $block) {
+                if (data_get($block, 'type') === 'thinking') {
+                    foreach (data_get($block, 'thinking', []) as $thinkingBlock) {
+                        $thinking .= data_get($thinkingBlock, 'text', '');
+                    }
+                }
+                if (data_get($block, 'type') === 'text') {
+                    $text .= data_get($block, 'text', '');
+                }
+            }
+
+            return ['text' => $text, 'thinking' => $thinking];
+        }
+
+        return ['text' => '', 'thinking' => ''];
     }
 
     /**

@@ -208,12 +208,20 @@ export default defineConfig({
                 link: "/providers/openai",
               },
               {
+                text: "OpenRouter",
+                link: "/providers/openrouter",
+              },
+              {
                 text: "Voyage AI",
                 link: "/providers/voyageai",
               },
               {
                 text: "XAI",
                 link: "/providers/xai",
+              },
+              {
+                text: "Perplexity",
+                link: "/providers/perplexity",
               },
               {
                 text: "Z AI",
@@ -268,7 +276,7 @@ export default defineConfig({
     ],
     footer: {
       message: "Released under the MIT License.",
-      copyright: "Copyright © 2024-present TJ Miller",
+      copyright: "Copyright © 2026-present TJ Miller",
     },
   },
   vite: {

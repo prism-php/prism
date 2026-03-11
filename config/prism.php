@@ -6,6 +6,7 @@ return [
         'middleware' => [],
         'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
+    'request_timeout' => env('PRISM_REQUEST_TIMEOUT', 30), // The timeout for requests in seconds.
     'providers' => [
         'openai' => [
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
@@ -59,6 +60,10 @@ return [
                 'http_referer' => env('OPENROUTER_SITE_HTTP_REFERER', null),
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
+        ],
+        'perplexity' => [
+            'api_key' => env('PERPLEXITY_API_KEY', ''),
+            'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
         ],
         'z' => [
             'url' => env('Z_URL', 'https://api.z.ai/api/coding/paas/v4'),

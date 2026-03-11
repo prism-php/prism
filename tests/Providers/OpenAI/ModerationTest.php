@@ -7,6 +7,7 @@ namespace Tests\Providers\OpenAI;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 use Tests\Fixtures\FixtureResponse;
@@ -222,14 +223,14 @@ it('throws exception when withInput receives invalid types', function (): void {
                 Image::fromUrl('https://prismphp.com/storage/diamond.png'),
                 'valid-string-input',
             ]);
-    })->not->toThrow(\Prism\Prism\Exceptions\PrismException::class, 'Array items must be strings or Image instances');
+    })->not->toThrow(PrismException::class, 'Array items must be strings or Image instances');
 
     expect(function (): void {
         $invalidInput = [new \stdClass];
         Prism::moderation()
             ->using(Provider::OpenAI, 'omni-moderation-latest')
             ->withInput($invalidInput);
-    })->toThrow(\Prism\Prism\Exceptions\PrismException::class, 'Array items must be strings or Image instances');
+    })->toThrow(PrismException::class, 'Array items must be strings or Image instances');
 });
 
 it('can use withInput with mixed types in variadic arguments', function (): void {

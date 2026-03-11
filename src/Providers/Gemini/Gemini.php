@@ -7,6 +7,8 @@ namespace Prism\Prism\Providers\Gemini;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
+use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
@@ -16,6 +18,7 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Providers\Gemini\Handlers\Audio;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
 use Prism\Prism\Providers\Gemini\Handlers\Embeddings;
 use Prism\Prism\Providers\Gemini\Handlers\Images;
@@ -84,6 +87,17 @@ class Gemini extends Provider
     }
 
     #[\Override]
+    public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse
+    {
+        $handler = new Audio($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handleTextToSpeech($request);
+    }
+
+    #[\Override]
     public function stream(TextRequest $request): Generator
     {
         $handler = new Stream(
@@ -99,7 +113,7 @@ class Gemini extends Provider
         match ($e->response->getStatusCode()) {
             429 => throw PrismRateLimitedException::make([]),
             503 => throw PrismProviderOverloadedException::make(class_basename($this)),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
     }
 
@@ -133,6 +147,19 @@ class Gemini extends Provider
         } catch (RequestException $e) {
             $this->handleRequestException($model, $e);
         }
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Gemini',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.status'),
+            errorMessage: data_get($data, 'error.message'),
+            previous: $e
+        );
     }
 
     /**

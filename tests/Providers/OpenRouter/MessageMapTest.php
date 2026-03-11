@@ -127,9 +127,8 @@ it('maps user messages with video input', function (): void {
 
     expect(data_get($mappedMessage, '0.content'))->toHaveCount(2);
 
-    expect(data_get($mappedMessage, '0.content.1.type'))->toBe('input_video');
-    expect(data_get($mappedMessage, '0.content.1.input_video.format'))->toBe('mp4');
-    expect(data_get($mappedMessage, '0.content.1.input_video.data'))->toBe(base64_encode('video-content'));
+    expect(data_get($mappedMessage, '0.content.1.type'))->toBe('video_url');
+    expect(data_get($mappedMessage, '0.content.1.video_url.url'))->toBe('data:video/mp4;base64,'.base64_encode('video-content'));
 });
 
 it('maps assistant message', function (): void {
@@ -173,6 +172,33 @@ it('maps assistant message with tool calls', function (): void {
                 'arguments' => json_encode([
                     'query' => 'Laravel collection methods',
                 ]),
+            ],
+        ]],
+    ]]);
+});
+
+it('maps assistant message with tool calls with empty arguments as json object', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('', [
+                new ToolCall(
+                    'tool_1234',
+                    'get_schema',
+                    []
+                ),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([[
+        'role' => 'assistant',
+        'tool_calls' => [[
+            'id' => 'tool_1234',
+            'type' => 'function',
+            'function' => [
+                'name' => 'get_schema',
+                'arguments' => '{}',
             ],
         ]],
     ]]);

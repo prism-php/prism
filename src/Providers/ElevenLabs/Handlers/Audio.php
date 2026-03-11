@@ -6,15 +6,19 @@ namespace Prism\Prism\Providers\ElevenLabs\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\GeneratesAudioFilename;
 use Prism\Prism\Providers\ElevenLabs\Maps\TextToSpeechRequestMapper;
 use Prism\Prism\ValueObjects\GeneratedAudio;
 
 class Audio
 {
+    use GeneratesAudioFilename;
+
     public function __construct(protected readonly PendingRequest $client) {}
 
     public function handleTextToSpeech(TextToSpeechRequest $request): AudioResponse
@@ -39,13 +43,13 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(
                 'file',
                 $request->input()->resource(),
-                'audio',
+                $this->generateFilename($request->input()->mimeType()),
                 ['Content-Type' => $request->input()->mimeType()]
             )
             ->post('speech-to-text', array_filter([

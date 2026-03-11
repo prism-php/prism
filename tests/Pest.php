@@ -1,5 +1,7 @@
 <?php
 
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,7 +13,7 @@
 |
 */
 
-uses(Tests\TestCase::class)->in(__DIR__);
+uses(TestCase::class)->in(__DIR__);
 uses()->group('providers')->in('Providers');
 uses()->group('anthropic')->in('Providers/Anthropic');
 uses()->group('deepseek')->in('Providers/DeepSeek');

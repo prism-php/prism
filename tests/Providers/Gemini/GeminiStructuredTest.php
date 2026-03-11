@@ -369,3 +369,38 @@ it('supports nullable AnyOfSchema in structured output', function (): void {
         return true;
     });
 });
+
+it('filters out thought parts when includeThoughts is true', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-with-thoughts');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('result', 'The result'),
+        ],
+        ['result']
+    );
+
+    $response = Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.0-flash-exp')
+        ->withSchema($schema)
+        ->withPrompt('Extract some information')
+        ->withProviderOptions([
+            'thinkingConfig' => [
+                'thinkingLevel' => 'low',
+                'includeThoughts' => true,
+            ],
+        ])
+        ->asStructured();
+
+    // Should extract the JSON from the non-thought part, not the thinking content
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKey('result');
+    expect($response->structured['result'])->toBe('Successfully extracted information');
+
+    // Thought summaries should be available in additionalContent
+    expect($response->steps[0]->additionalContent)->toHaveKey('thoughtSummaries');
+    expect($response->steps[0]->additionalContent['thoughtSummaries'])->toBeArray();
+    expect($response->steps[0]->additionalContent['thoughtSummaries'][0])->toContain('Let me think about');
+});

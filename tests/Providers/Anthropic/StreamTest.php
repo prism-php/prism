@@ -17,12 +17,16 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Citation;
@@ -163,6 +167,12 @@ describe('tools', function (): void {
         expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
         expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
 
+        // Verify only one StreamStartEvent and one StreamEndEvent
+        $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+        $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
+        expect($streamStartEvents)->toHaveCount(1);
+        expect($streamEndEvents)->toHaveCount(1);
+
         // Verify the HTTP request
         Http::assertSent(function (Request $request): bool {
             $body = json_decode($request->body(), true);
@@ -267,6 +277,89 @@ describe('tools', function (): void {
         $firstToolResultEvent = $toolResultEvents[0];
         expect($firstToolResultEvent->toolResult->result)->not->toBeEmpty();
         expect($firstToolResultEvent->success)->toBeTrue();
+    });
+
+    it('emits ToolCallDelta events during streaming', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withTools($tools)
+            ->withMaxSteps(3)
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asStream();
+
+        $toolCallDeltaEvents = [];
+
+        foreach ($response as $event) {
+            if ($event instanceof ToolCallDeltaEvent) {
+                $toolCallDeltaEvents[] = $event;
+            }
+        }
+
+        expect($toolCallDeltaEvents)->not->toBeEmpty('Expected to find at least one ToolCallDeltaEvent event');
+
+        // Verify ToolCallDelta events have the expected structure
+        $firstToolCallDeltaEvent = $toolCallDeltaEvents[0];
+        expect($firstToolCallDeltaEvent->id)->not->toBeEmpty();
+        expect($firstToolCallDeltaEvent->timestamp)->not->toBeEmpty()->toBeInt();
+        expect($firstToolCallDeltaEvent->toolId)->not->toBeEmpty();
+        expect($firstToolCallDeltaEvent->toolName)->not->toBeEmpty();
+        expect($firstToolCallDeltaEvent->delta)->toBeString();
+
+        // Verify concatenated deltas from ToolCallDelta events of the first tool call is a valid json
+        $paramsJsonString = collect($toolCallDeltaEvents)
+            ->filter(fn (ToolCallDeltaEvent $event): bool => $event->toolName === $firstToolCallDeltaEvent->toolName)
+            ->map(fn (ToolCallDeltaEvent $event): string => $event->delta)
+            ->join('');
+
+        expect($paramsJsonString)->toBeJson();
+    });
+
+    it('sends StreamEndEvent using tools with streaming and max steps = 1', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withTools($tools)
+            ->withMaxSteps(1)
+            ->withPrompt('What time is the tigers game today and should I wear a coat?')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        expect($events)->not->toBeEmpty();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
     });
 });
 
@@ -493,6 +586,26 @@ describe('thinking', function (): void {
                 && $body['thinking']['budget_tokens'] === $customBudget;
         });
     });
+
+    it('includes thinking_signature in StreamEndEvent additionalContent', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withPrompt('What is the meaning of life?')
+            ->withProviderOptions(['thinking' => ['enabled' => true]])
+            ->asStream();
+
+        $events = collect($response);
+
+        $streamEndEvent = $events->last();
+
+        expect($streamEndEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($streamEndEvent->additionalContent)->toHaveKey('thinking');
+        expect($streamEndEvent->additionalContent['thinking'])->not->toBeEmpty();
+        expect($streamEndEvent->additionalContent)->toHaveKey('thinking_signature');
+        expect($streamEndEvent->additionalContent['thinking_signature'])->not->toBeEmpty();
+    });
 });
 
 describe('exception handling', function (): void {
@@ -628,5 +741,80 @@ describe('basic stream events', function (): void {
             return $request->url() === 'https://api.anthropic.com/v1/messages'
                 && $body['stream'] === true;
         });
+    });
+});
+
+describe('step events', function (): void {
+    it('emits step start and step finish events', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-basic-text');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-7-sonnet-20250219')
+            ->withPrompt('Who are you?')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        // Check for StepStartEvent after StreamStartEvent
+        $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+        expect($stepStartEvents)->toHaveCount(1);
+
+        // Check for StepFinishEvent before StreamEndEvent
+        $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+        expect($stepFinishEvents)->toHaveCount(1);
+
+        // Verify order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
+        $eventTypes = array_map(get_class(...), $events);
+        $streamStartIndex = array_search(StreamStartEvent::class, $eventTypes);
+        $stepStartIndex = array_search(StepStartEvent::class, $eventTypes);
+        $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+        $streamEndIndex = array_search(StreamEndEvent::class, $eventTypes);
+
+        expect($streamStartIndex)->toBeLessThan($stepStartIndex);
+        expect($stepStartIndex)->toBeLessThan($stepFinishIndex);
+        expect($stepFinishIndex)->toBeLessThan($streamEndIndex);
+    });
+
+    it('emits multiple step events with tool calls', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+            ->withTools($tools)
+            ->withMaxSteps(3)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        // With tool calls, we should have multiple step start/finish pairs
+        $stepStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepStartEvent);
+        $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+
+        // At least 2 steps: one for tool call, one for final response
+        expect(count($stepStartEvents))->toBeGreaterThanOrEqual(2);
+        expect(count($stepFinishEvents))->toBeGreaterThanOrEqual(2);
+
+        // Verify step start/finish pairs are balanced
+        expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
     });
 });

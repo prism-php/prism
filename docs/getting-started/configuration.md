@@ -17,10 +17,29 @@ return [
     'prism_server' => [
         'enabled' => env('PRISM_SERVER_ENABLED', false),
     ],
+    'request_timeout' => env('PRISM_REQUEST_TIMEOUT', 30),
     'providers' => [
         // Provider configurations here
     ],
 ];
+```
+
+## Request Timeout
+
+Prism includes a global request timeout that applies to all provider HTTP requests. By default, requests will timeout after 30 seconds. You can adjust this value to accommodate longer-running operations like complex generations or large context windows:
+
+```php
+'request_timeout' => env('PRISM_REQUEST_TIMEOUT', 30),
+```
+
+This timeout applies to both the connection and the overall request duration. If you're working with providers that need more time for complex operations, increase this value accordingly.
+
+Request timeouts can also be set by using the `withClientOptions()` method.
+
+```php
+Prism::text()
+  ->withClientOptions(['timeout' => 120]) // [!code focus]
+  ->asText()
 ```
 
 ## Provider Configuration

@@ -98,10 +98,11 @@ class Structured
                         : config('prism.anthropic.default_thinking_budget', 1024),
                 ]
                 : null,
-            'max_tokens' => $request->maxTokens(),
+            'max_tokens' => $request->maxTokens() ?? 64000,
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
+            'cache_control' => $request->providerOptions('cache_control'),
         ]);
 
         return $structuredStrategy->mutatePayload($basePayload);
@@ -170,6 +171,7 @@ class Structured
         }
 
         $this->request->addMessage($message);
+        $this->request->resetToolChoice();
         $this->addStep($toolCalls, $tempResponse, $toolResults);
 
         if ($this->canContinue()) {
@@ -247,6 +249,7 @@ class Structured
      */
     protected function addStep(array $toolCalls, Response $tempResponse, array $toolResults = []): void
     {
+        $data = $this->httpResponse->json();
         $isStructuredStep = $this->determineIfStructuredStep($toolCalls, $toolResults);
 
         $this->responseBuilder->addStep(new Step(
@@ -260,6 +263,7 @@ class Structured
             structured: $isStructuredStep ? ($tempResponse->structured ?? []) : [],
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            raw: $data,
         ));
     }
 

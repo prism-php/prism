@@ -10,10 +10,14 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ProviderToolCall;
@@ -186,6 +190,16 @@ describe('tools', function (): void {
         expect($firstStep->toolCalls[1]->arguments())->toBe([
             'city' => 'Detroit',
         ]);
+
+        // Verify the assistant message from step 1 is present in step 2's input messages
+        $secondStep = $response->steps[1];
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(2);
+        expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('search');
+        expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('weather');
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
 
         expect($response->usage->promptTokens)->toBeNumeric();
         expect($response->usage->completionTokens)->toBeNumeric();
@@ -490,7 +504,7 @@ it('can analyze images with detail parameter', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/diamond.png')
+    $image = Image::fromLocalPath('tests/Fixtures/diamond.png')
         ->withProviderOptions(['detail' => 'high']);
 
     Prism::text()
@@ -517,7 +531,7 @@ it('omits detail parameter when not specified', function (): void {
         'openai/generate-text-with-a-prompt'
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath('tests/Fixtures/diamond.png');
+    $image = Image::fromLocalPath('tests/Fixtures/diamond.png');
 
     Prism::text()
         ->using(Provider::OpenAI, 'gpt-4o')
@@ -608,6 +622,43 @@ describe('provider tool results', function (): void {
 
         expect($response->steps[0]->additionalContent)->toHaveKey('searchQueries');
         expect($response->steps[0]->additionalContent['searchQueries'])->toBe(['London weather forecast today']);
+
+        // open_page and find_in_page arrays should be empty for this fixture (only has search actions)
+        expect($response->steps[0]->additionalContent)->not->toHaveKey('openPageUrls');
+        expect($response->steps[0]->additionalContent)->not->toHaveKey('findInPagePatterns');
+    });
+
+    it('extracts openPageUrls and findInPagePatterns from web search actions', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-mixed-actions');
+
+        $response = Prism::text()
+            ->using(Provider::OpenAI, 'gpt-5.2')
+            ->withPrompt('Go to https://prismphp.com and find information about providers. Search the page for "OpenAI" to find which providers are supported.')
+            ->withProviderTools([new ProviderTool(type: 'web_search', name: 'web_search')])
+            ->asText();
+
+        $step = $response->steps[0];
+
+        // This fixture has open_page and find_in_page actions, but no search actions
+        expect($step->additionalContent)->not->toHaveKey('searchQueries');
+
+        // Verify openPageUrls contains URLs from open_page actions
+        expect($step->additionalContent)->toHaveKey('openPageUrls');
+        expect($step->additionalContent['openPageUrls'])->toBe([
+            'https://prismphp.com/',
+            'https://prismphp.com/getting-started/introduction.html',
+        ]);
+
+        // Verify findInPagePatterns contains patterns from find_in_page actions
+        expect($step->additionalContent)->toHaveKey('findInPagePatterns');
+        expect($step->additionalContent['findInPagePatterns'])->toBe(['OpenAI']);
+
+        // Verify providerToolCalls contains all the raw action data
+        expect($step->providerToolCalls)->toHaveCount(3);
+        expect($step->providerToolCalls[0]->type)->toBe('web_search_call');
+        expect($step->providerToolCalls[0]->data['action']['type'])->toBe('open_page');
+        expect($step->providerToolCalls[1]->data['action']['type'])->toBe('open_page');
+        expect($step->providerToolCalls[2]->data['action']['type'])->toBe('find_in_page');
     });
 
     it('captures code interpreter provider tool in providerToolCalls', function (): void {
@@ -697,6 +748,13 @@ describe('provider tool results', function (): void {
         expect($secondStep->toolCalls)->toHaveCount(0);
         expect($secondStep->providerToolCalls)->toHaveCount(1);
         expect($secondStep->providerToolCalls[0]->type)->toBe('code_interpreter_call');
+
+        // Verify the assistant message from step 1 is present in step 2's input messages
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(1);
+        expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('weather');
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
     });
 });
 
@@ -772,4 +830,68 @@ it('passes store parameter when specified', function (): void {
 
         return true;
     });
+});
+
+it('does not loop infinitely when using specific tool choice', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-with-specific-tool-choice');
+
+    $weatherTool = Tool::as('weather')
+        ->for('Get weather for a city')
+        ->withStringParameter('city', 'City name')
+        ->using(fn (string $city): string => "72°F in {$city}");
+
+    $response = Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('What is the weather in New York?')
+        ->withTools([$weatherTool])
+        ->withToolChoice('weather')
+        ->withMaxSteps(5)
+        ->asText();
+
+    // Should complete in 2 steps (tool call + final response), not 5 (maxSteps)
+    expect($response->steps)->toHaveCount(2);
+    expect($response->text)->not->toBeEmpty();
+    expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('includes status details when max tokens exceeded', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-max-tokens-exceeded');
+
+    try {
+        Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withPrompt('Write a long essay')
+            ->asText();
+        $this->fail('Expected PrismException was not thrown');
+    } catch (PrismException $e) {
+        expect($e->getMessage())
+            ->toContain('incomplete')
+            ->toContain('reasoning model');
+    }
+});
+
+it('throws Length when top-level status is incomplete even if last output is completed reasoning', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-incomplete-with-reasoning');
+
+    try {
+        Prism::text()
+            ->using('openai', 'gpt-4o')
+            ->withPrompt('Write something')
+            ->asText();
+        $this->fail('Expected PrismException was not thrown');
+    } catch (PrismException $e) {
+        expect($e->getMessage())
+            ->toContain('max tokens exceeded')
+            ->toContain('reasoning model');
+    }
+});
+
+it('includes status details for unknown finish reasons', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-unknown-finish-reason');
+
+    expect(fn () => Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withPrompt('Hello')
+        ->asText()
+    )->toThrow(PrismException::class, 'some_future_type');
 });

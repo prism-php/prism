@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Concerns\HandlesStructuredJson;
@@ -12,6 +13,7 @@ use Prism\Prism\Concerns\ManagesStructuredSteps;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\SchemaMap;
@@ -49,10 +51,10 @@ class Structured
 
         $this->validateResponse($data);
 
-        $isToolCall = ! empty(data_get($data, 'candidates.0.content.parts.0.functionCall'));
+        $isToolCall = $this->hasToolCalls($data);
 
         $responseMessage = new AssistantMessage(
-            data_get($data, 'candidates.0.content.parts.0.text') ?? '',
+            $this->extractTextContent($data),
             $isToolCall ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
         );
 
@@ -118,7 +120,7 @@ class Structured
             ]);
         }
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
@@ -157,7 +159,7 @@ class Structured
         }
 
         $finishReason = data_get($data, 'candidates.0.finishReason');
-        $content = data_get($data, 'candidates.0.content.parts.0.text', '');
+        $content = $this->extractTextContent($data);
         $thoughtTokens = data_get($data, 'usageMetadata.thoughtsTokenCount', 0);
 
         if ($finishReason === 'MAX_TOKENS') {
@@ -166,9 +168,9 @@ class Structured
             $totalTokens = data_get($data, 'usageMetadata.totalTokenCount', 0);
             $outputTokens = $candidatesTokens - $thoughtTokens;
 
-            $isEmpty = in_array(trim((string) $content), ['', '0'], true);
-            $isInvalidJson = ! empty($content) && json_decode((string) $content) === null;
-            $contentLength = strlen((string) $content);
+            $isEmpty = in_array(trim($content), ['', '0'], true);
+            $isInvalidJson = $content !== '' && $content !== '0' && json_decode($content) === null;
+            $contentLength = strlen($content);
 
             if (($isEmpty || $isInvalidJson) && $thoughtTokens > 0) {
                 $errorDetail = $isEmpty
@@ -206,6 +208,7 @@ class Structured
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
 
@@ -223,10 +226,12 @@ class Structured
     protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
     {
         $isStructuredStep = $finishReason !== FinishReason::ToolCalls;
+        $thoughtSummaries = $this->extractThoughtSummaries($data);
+        $textContent = $this->extractTextContent($data);
 
         $this->responseBuilder->addStep(
             new Step(
-                text: data_get($data, 'candidates.0.content.parts.0.text') ?? '',
+                text: $textContent,
                 finishReason: $finishReason,
                 usage: new Usage(
                     promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
@@ -240,10 +245,71 @@ class Structured
                 ),
                 messages: $request->messages(),
                 systemPrompts: $request->systemPrompts(),
+                additionalContent: Arr::whereNotNull([
+                    'thoughtSummaries' => $thoughtSummaries !== [] ? $thoughtSummaries : null,
+                    'citations' => CitationMapper::mapFromGemini(data_get($data, 'candidates.0', [])) ?: null,
+                    'searchEntryPoint' => data_get($data, 'candidates.0.groundingMetadata.searchEntryPoint'),
+                    'searchQueries' => data_get($data, 'candidates.0.groundingMetadata.webSearchQueries'),
+                    'urlMetadata' => data_get($data, 'candidates.0.urlContextMetadata.urlMetadata'),
+                ]),
                 structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'candidates.0.content.parts.0.text') ?? '') : [],
                 toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
                 toolResults: $toolResults,
+                raw: $data,
             )
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function extractTextContent(array $data): string
+    {
+        $parts = data_get($data, 'candidates.0.content.parts', []);
+        $textParts = [];
+
+        foreach ($parts as $part) {
+            // Only include text from parts that are NOT thoughts
+            if (isset($part['text']) && (! isset($part['thought']) || $part['thought'] === false)) {
+                $textParts[] = $part['text'];
+            }
+        }
+
+        return implode('', $textParts);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<int, string>
+     */
+    protected function extractThoughtSummaries(array $data): array
+    {
+        $parts = data_get($data, 'candidates.0.content.parts', []);
+        $thoughtSummaries = [];
+
+        foreach ($parts as $part) {
+            // Collect text from parts marked as thoughts
+            if (isset($part['thought']) && $part['thought'] === true && isset($part['text'])) {
+                $thoughtSummaries[] = $part['text'];
+            }
+        }
+
+        return $thoughtSummaries;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasToolCalls(array $data): bool
+    {
+        $parts = data_get($data, 'candidates.0.content.parts', []);
+
+        foreach ($parts as $part) {
+            if (isset($part['functionCall'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

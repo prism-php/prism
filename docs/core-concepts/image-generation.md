@@ -85,6 +85,9 @@ if ($response->hasImages()) {
 // Check usage information
 echo "Prompt tokens: {$response->usage->promptTokens}";
 echo "Model used: {$response->meta->model}";
+
+// Access the raw API response data
+$rawResponse = $response->raw;
 ```
 
 ## Provider-Specific Options

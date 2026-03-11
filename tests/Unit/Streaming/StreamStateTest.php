@@ -101,6 +101,16 @@ it('markTextStarted returns self and sets flag', function (): void {
         ->and($state->hasTextStarted())->toBeTrue();
 });
 
+it('markTextCompleted returns self and resets flag', function (): void {
+    $state = new StreamState;
+    $state->markTextStarted();
+
+    $result = $state->markTextCompleted();
+
+    expect($result)->toBe($state)
+        ->and($state->hasTextStarted())->toBeFalse();
+});
+
 it('markThinkingStarted returns self and sets flag', function (): void {
     $state = new StreamState;
 
@@ -468,7 +478,7 @@ it('reset clears all state', function (): void {
         ->and($state->model())->toBe('')
         ->and($state->provider())->toBe('')
         ->and($state->metadata())->toBeNull()
-        ->and($state->hasStreamStarted())->toBeFalse()
+        ->and($state->hasStreamStarted())->toBeTrue()
         ->and($state->hasTextStarted())->toBeFalse()
         ->and($state->hasThinkingStarted())->toBeFalse()
         ->and($state->currentText())->toBe('')
@@ -477,8 +487,8 @@ it('reset clears all state', function (): void {
         ->and($state->currentBlockType())->toBeNull()
         ->and($state->toolCalls())->toBe([])
         ->and($state->citations())->toBe([])
-        ->and($state->usage())->toBeNull()
-        ->and($state->finishReason())->toBeNull();
+        ->and($state->usage())->not->toBeNull()
+        ->and($state->finishReason())->not->toBeNull();
 });
 
 it('reset returns self', function (): void {

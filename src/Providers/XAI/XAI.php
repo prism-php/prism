@@ -6,7 +6,10 @@ namespace Prism\Prism\Providers\XAI;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\XAI\Handlers\Stream;
 use Prism\Prism\Providers\XAI\Handlers\Structured;
@@ -53,6 +56,28 @@ class XAI extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make([]),
+            default => $this->handleResponseErrors($e),
+        };
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'XAI',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.type'),
+            errorMessage: data_get($data, 'error.message'),
+            previous: $e
+        );
     }
 
     /**

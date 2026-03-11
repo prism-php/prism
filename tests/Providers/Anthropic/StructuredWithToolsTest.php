@@ -6,6 +6,8 @@ namespace Tests\Providers\Anthropic;
 
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Schema\ObjectSchema;
@@ -236,5 +238,143 @@ describe('Structured output with tools for Anthropic', function (): void {
         $tool = reset($customTools);
         expect($tool)->toHaveKey('strict');
         expect($tool['strict'])->toBe(true);
+    });
+
+    it('respects withToolChoice when custom tools are present', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $searchTool = (new Tool)
+            ->as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => "Results for: {$query}");
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withTools([$searchTool])
+            ->withToolChoice('search')
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        expect($payload['tool_choice'])->toBe(['type' => 'tool', 'name' => 'search']);
+    });
+
+    it('uses ToolChoice::Any correctly with custom tools', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $searchTool = (new Tool)
+            ->as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => "Results for: {$query}");
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withTools([$searchTool])
+            ->withToolChoice(ToolChoice::Any)
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        expect($payload['tool_choice'])->toBe(['type' => 'any']);
+    });
+
+    it('defaults to auto tool_choice when custom tools present and no explicit choice', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $searchTool = (new Tool)
+            ->as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => "Results for: {$query}");
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withTools([$searchTool])
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        expect($payload['tool_choice'])->toBe(['type' => 'auto']);
+    });
+
+    it('throws exception when ToolChoice::None is used with tool-based structured output', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $searchTool = (new Tool)
+            ->as('search')
+            ->for('Search for information')
+            ->withStringParameter('query', 'The search query')
+            ->using(fn (string $query): string => "Results for: {$query}");
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withTools([$searchTool])
+            ->withToolChoice(ToolChoice::None)
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        expect(fn (): array => Structured::buildHttpRequestPayload($request->toRequest()))
+            ->toThrow(PrismException::class, 'ToolChoice::None is incompatible with tool-based structured output');
+    });
+
+    it('forces structured output tool when no custom tools and no explicit choice', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->withSchema($schema)
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        expect($payload['tool_choice'])->toBe(['type' => 'tool', 'name' => 'output_structured_data']);
     });
 });

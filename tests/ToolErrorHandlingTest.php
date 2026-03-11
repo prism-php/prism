@@ -11,6 +11,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\ToolError;
 use RuntimeException;
 use Throwable;
 use TypeError;
@@ -25,7 +26,8 @@ it('returns error message by default when invalid parameters are provided', func
 
     $result = $tool->handle('five', 10);
 
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Parameter validation error: Type mismatch')
         ->toContain('Expected: [a (NumberSchema, required), b (NumberSchema, required)]')
         ->toContain('Received: {"a":"five","b":10}');
@@ -40,7 +42,7 @@ it('throws exception when error handler is explicitly disabled', function (): vo
         ->using(fn (int $a, int $b): string => (string) ($a + $b))
         ->withoutErrorHandling();
 
-    expect(fn (): string => $tool->handle('five', 10))
+    expect(fn (): string|ToolError => $tool->handle('five', 10))
         ->toThrow(PrismException::class, 'Invalid parameters for tool : calculate');
 });
 
@@ -55,7 +57,8 @@ it('uses custom failed handler when provided', function (): void {
 
     $result = $tool->handle('five', 10);
 
-    expect($result)->toBe('Custom error: Parameters must be numbers');
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)->toBe('Custom error: Parameters must be numbers');
 });
 
 it('uses default error handler with handleToolErrors()', function (): void {
@@ -68,7 +71,8 @@ it('uses default error handler with handleToolErrors()', function (): void {
 
     $result = $tool->handle('five', 10);
 
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Parameter validation error: Type mismatch')
         ->toContain('Expected: [a (NumberSchema, required), b (NumberSchema, required)]')
         ->toContain('Received: {"a":"five","b":10}');
@@ -85,7 +89,8 @@ it('handles missing required parameters gracefully', function (): void {
     // Missing second parameter
     $result = $tool->handle('test query');
 
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Parameter validation error: Missing required parameters')
         ->toContain('Expected: [query (StringSchema, required), path (StringSchema, required)]');
 });
@@ -100,7 +105,8 @@ it('handles unknown parameters gracefully', function (): void {
     // Unknown parameter 'unknown'
     $result = $tool->handle(name: 'John', unknown: 'parameter');
 
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Parameter validation error: Unknown parameters')
         ->toContain('Expected: [name (StringSchema, required)]');
 });
@@ -116,7 +122,8 @@ it('handles optional parameters correctly', function (): void {
     // Valid call with optional parameter as wrong type
     $result = $tool->handle('/path/to/file', 'ten');
 
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Parameter validation error: Type mismatch')
         ->toContain('lines (NumberSchema)'); // Note: not marked as required
 });
@@ -154,11 +161,13 @@ it('allows custom error messages based on exception type', function (): void {
 
     // Test with wrong type
     $result1 = $tool->handle('/api/users', 'not-an-array');
-    expect($result1)->toBe("The 'data' parameter must be an array, not a string. Example: ['item1', 'item2']");
+    expect($result1)->toBeInstanceOf(ToolError::class)
+        ->and($result1->message)->toBe("The 'data' parameter must be an array, not a string. Example: ['item1', 'item2']");
 
     // Test with missing parameter
     $result2 = $tool->handle('/api/users');
-    expect($result2)->toBe("Missing parameters. Both 'endpoint' and 'data' are required.");
+    expect($result2)->toBeInstanceOf(ToolError::class)
+        ->and($result2->message)->toBe("Missing parameters. Both 'endpoint' and 'data' are required.");
 });
 
 it('differentiates between validation errors and runtime errors', function (): void {
@@ -176,13 +185,15 @@ it('differentiates between validation errors and runtime errors', function (): v
 
     // Test validation error (wrong type)
     $result1 = $tool->handle(['not', 'a', 'string']);
-    expect($result1)
+    expect($result1)->toBeInstanceOf(ToolError::class)
+        ->and($result1->message)
         ->toContain('Parameter validation error: Type mismatch')
         ->toContain('Expected: [path (StringSchema, required)]');
 
     // Test runtime error (file doesn't exist)
     $result2 = $tool->handle('/nonexistent/file.txt');
-    expect($result2)
+    expect($result2)->toBeInstanceOf(ToolError::class)
+        ->and($result2->message)
         ->toContain('Tool execution error: File not found: /nonexistent/file.txt')
         ->toContain('This error occurred during tool execution, not due to invalid parameters');
 });
@@ -225,7 +236,8 @@ it('handles array parameters that cause runtime errors', function (): void {
 
     // Test with division by zero - a real runtime error
     $result = $tool->handle([10, 0]);
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Tool execution error')
         ->toContain('Cannot divide by zero');
 });
@@ -255,7 +267,8 @@ it('handles boolean parameters with PHP type coercion', function (): void {
 
     // Test with actual type error
     $result2 = $tool->handle(['array']);
-    expect($result2)
+    expect($result2)->toBeInstanceOf(ToolError::class)
+        ->and($result2->message)
         ->toContain('Parameter validation error: Type mismatch')
         ->toContain('enabled (BooleanSchema, required)');
 });
@@ -272,7 +285,8 @@ it('handles multiple optional parameters with partial invalid data', function ()
 
     // Test with some valid and some invalid optional parameters
     $result = $tool->handle('test', null, 'not-a-number', 'not-a-boolean');
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Parameter validation error: Type mismatch')
         ->toContain('limit (NumberSchema)')
         ->toContain('recursive (BooleanSchema)');

@@ -86,6 +86,7 @@ class Structured
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            raw: $data,
         );
 
         $this->responseBuilder->addStep($step);

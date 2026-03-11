@@ -9,11 +9,12 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 use Tests\Fixtures\FixtureResponse;
@@ -93,6 +94,16 @@ describe('Text generation for Groq', function (): void {
             'query' => 'Tigers game time today in Detroit',
         ]);
 
+        // Verify the assistant message from step 1 is present in step 2's input messages
+        $secondStep = $response->steps[1];
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(2);
+        expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('weather');
+        expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('search');
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
+
         // Assert usage
         expect($response->usage->promptTokens)->toBe(1096);
         expect($response->usage->completionTokens)->toBe(97);
@@ -132,15 +143,14 @@ describe('Text generation for Groq', function (): void {
     });
 
     it('throws an exception for ToolChoice::Any', function (): void {
-        $this->expectException(PrismException::class);
-        $this->expectExceptionMessage('Invalid tool choice');
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/generate-text-with-required-tool-call');
 
         Prism::text()
             ->using('groq', 'gpt-4')
             ->withPrompt('Who are you?')
             ->withToolChoice(ToolChoice::Any)
             ->asText();
-    });
+    })->throwsNoExceptions();
 });
 
 describe('Image support with grok', function (): void {

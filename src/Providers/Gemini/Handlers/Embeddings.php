@@ -10,21 +10,31 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
 {
+    use ValidatesResponse;
+
     public function __construct(protected PendingRequest $client) {}
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        if (count($request->inputs()) > 1) {
-            throw new PrismException('Gemini Error: Prism currently only supports one input at a time with Gemini.');
+        if (count($request->inputs()) === 1) {
+            return $this->handleSingleRequest($request);
         }
 
+        return $this->handleBatchRequest($request);
+    }
+
+    protected function handleSingleRequest(Request $request): EmbeddingsResponse
+    {
         $response = $this->sendRequest($request);
+
+        $this->validateResponse($response);
 
         $data = $response->json();
 
@@ -41,6 +51,37 @@ class Embeddings
                 id: '',
                 model: '',
             ),
+            raw: $data,
+        );
+    }
+
+    protected function handleBatchRequest(Request $request): EmbeddingsResponse
+    {
+        $response = $this->sendBatchRequest($request);
+
+        $this->validateResponse($response);
+
+        $data = $response->json();
+
+        if (! isset($data['embeddings'])) {
+            throw PrismException::providerResponseError(
+                'Gemini Error: Invalid batch response format or missing embeddings data'
+            );
+        }
+
+        $embeddings = array_map(
+            fn (array $embedding): Embedding => Embedding::fromArray($embedding['values'] ?? []),
+            $data['embeddings'],
+        );
+
+        return new EmbeddingsResponse(
+            embeddings: $embeddings,
+            usage: new EmbeddingsUsage(0),
+            meta: new Meta(
+                id: '',
+                model: '',
+            ),
+            raw: $data,
         );
     }
 
@@ -62,6 +103,35 @@ class Embeddings
                 'taskType' => $providerOptions['taskType'] ?? null,
                 'outputDimensionality' => $providerOptions['outputDimensionality'] ?? null,
             ])
+        );
+
+        return $response;
+    }
+
+    protected function sendBatchRequest(Request $request): Response
+    {
+        $providerOptions = $request->providerOptions();
+        $model = $request->model();
+
+        $requests = array_map(
+            fn (string $text): array => Arr::whereNotNull([
+                'model' => "models/{$model}",
+                'content' => [
+                    'parts' => [
+                        ['text' => $text],
+                    ],
+                ],
+                'title' => $providerOptions['title'] ?? null,
+                'taskType' => $providerOptions['taskType'] ?? null,
+                'outputDimensionality' => $providerOptions['outputDimensionality'] ?? null,
+            ]),
+            $request->inputs(),
+        );
+
+        /** @var Response $response */
+        $response = $this->client->post(
+            "{$model}:batchEmbedContents",
+            ['requests' => $requests],
         );
 
         return $response;

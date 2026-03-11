@@ -78,11 +78,20 @@ class Structured
 
         $request->addMessage($responseMessage);
 
-        return match ($this->mapFinishReason($data)) {
+        return match ($finishReason = $this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleFinalStop($data, $request, $response),
-            FinishReason::Length => throw new PrismException('OpenAI: max tokens exceeded'),
-            default => throw new PrismException('OpenAI: unknown finish reason'),
+            FinishReason::Length => throw new PrismException(sprintf(
+                'OpenAI: max tokens exceeded (status: %s, type: %s). If using a reasoning model, increase max_tokens to account for internal reasoning token usage.',
+                data_get($data, 'output.{last}.status', 'n/a'),
+                data_get($data, 'output.{last}.type', 'n/a'),
+            )),
+            default => throw new PrismException(sprintf(
+                'OpenAI: unhandled finish reason "%s" (status: %s, type: %s)',
+                $finishReason->value,
+                data_get($data, 'output.{last}.status', 'n/a'),
+                data_get($data, 'output.{last}.type', 'n/a'),
+            )),
         };
     }
 
@@ -97,6 +106,7 @@ class Structured
         );
 
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
 
@@ -156,6 +166,7 @@ class Structured
             structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'output.{last}.content.0.text') ?? '') : [],
             toolCalls: $toolCalls,
             toolResults: $toolResults,
+            raw: $data,
         ));
     }
 

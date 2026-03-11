@@ -5,23 +5,30 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenRouter\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismStructuredDecodingException;
+use Prism\Prism\Providers\DeepSeek\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
-use Prism\Prism\Providers\OpenRouter\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Structured\ResponseBuilder;
 use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
     use BuildsRequestOptions;
+    use CallsTools;
     use MapsFinishReason;
     use ValidatesResponses;
 
@@ -38,7 +45,11 @@ class Structured
 
         $this->validateResponse($data);
 
-        return $this->createResponse($request, $data);
+        return match ($this->mapFinishReason($data)) {
+            FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
+            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request),
+            default => throw new PrismException('OpenRouter: unknown finish reason'),
+        };
     }
 
     /**
@@ -48,7 +59,7 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
             array_merge([
@@ -68,7 +79,7 @@ class Structured
             ]))
         );
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
     /**
@@ -84,31 +95,79 @@ class Structured
     /**
      * @param  array<string, mixed>  $data
      */
-    protected function createResponse(Request $request, array $data): StructuredResponse
+    protected function handleToolCalls(array $data, Request $request): StructuredResponse
     {
-        $text = data_get($data, 'choices.0.message.content') ?? '';
+        $toolCalls = ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $responseMessage = new AssistantMessage($text);
-        $request->addMessage($responseMessage);
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
-        $step = new Step(
-            text: $text,
-            finishReason: FinishReasonMap::map(data_get($data, 'choices.0.finish_reason', '')),
+        $this->addStep($data, $request, $toolResults);
+
+        $request = $request->addMessage(new AssistantMessage(
+            data_get($data, 'choices.0.message.content') ?? '',
+            $toolCalls,
+            []
+        ));
+        $request = $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
+
+        if ($this->shouldContinue($request)) {
+            return $this->handle($request);
+        }
+
+        return $this->responseBuilder->toResponse();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleStop(array $data, Request $request): StructuredResponse
+    {
+        $this->addStep($data, $request);
+
+        try {
+            return $this->responseBuilder->toResponse();
+        } catch (PrismStructuredDecodingException $e) {
+            $context = sprintf(
+                "\nModel: %s\nFinish reason: %s\nRaw choices: %s",
+                data_get($data, 'model', 'unknown'),
+                data_get($data, 'choices.0.finish_reason', 'unknown'),
+                json_encode(data_get($data, 'choices'), JSON_PRETTY_PRINT)
+            );
+
+            throw new PrismStructuredDecodingException($e->getMessage().$context);
+        }
+    }
+
+    protected function shouldContinue(Request $request): bool
+    {
+        return $this->responseBuilder->steps->count() < $request->maxSteps();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<int, ToolResult>  $toolResults
+     */
+    protected function addStep(array $data, Request $request, array $toolResults = []): void
+    {
+        $this->responseBuilder->addStep(new Step(
+            text: data_get($data, 'choices.0.message.content') ?? '',
+            finishReason: $this->mapFinishReason($data),
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                (int) data_get($data, 'usage.prompt_tokens', 0),
+                (int) data_get($data, 'usage.completion_tokens', 0),
             ),
             meta: new Meta(
-                id: data_get($data, 'id'),
-                model: data_get($data, 'model'),
+                id: data_get($data, 'id', ''),
+                model: data_get($data, 'model', $request->model()),
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
-        );
-
-        $this->responseBuilder->addStep($step);
-
-        return $this->responseBuilder->toResponse();
+            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
+            providerToolCalls: [],
+            toolResults: $toolResults,
+            raw: $data,
+        ));
     }
 }

@@ -1,0 +1,141 @@
+{
+  "id": "resp_0f3c01e001f1f728006975240c26e0819b910b1233a75fc159",
+  "object": "response",
+  "created_at": 1769284620,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1769284627,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "model": "gpt-5.2-2025-12-11",
+  "output": [
+    {
+      "id": "ws_0f3c01e001f1f728006975240d1ce8819b85bc7335b28e1eb9",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "open_page",
+        "url": "https://prismphp.com/"
+      }
+    },
+    {
+      "id": "ws_0f3c01e001f1f728006975240dada8819ba94f76d36935b7f2",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "open_page",
+        "url": "https://prismphp.com/getting-started/introduction.html"
+      }
+    },
+    {
+      "id": "ws_0f3c01e001f1f728006975240f3aac819bb3fa83aab0513254",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "find_in_page",
+        "pattern": "OpenAI",
+        "url": "https://prismphp.com/getting-started/introduction.html"
+      }
+    },
+    {
+      "id": "msg_0f3c01e001f1f728006975240fc420819bbe6795b8e3260277",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "end_index": 264,
+              "start_index": 192,
+              "title": "Introduction | Prism",
+              "url": "https://prismphp.com/getting-started/introduction.html"
+            },
+            {
+              "type": "url_citation",
+              "end_index": 520,
+              "start_index": 448,
+              "title": "Introduction | Prism",
+              "url": "https://prismphp.com/getting-started/introduction.html"
+            },
+            {
+              "type": "url_citation",
+              "end_index": 685,
+              "start_index": 646,
+              "title": "Prism",
+              "url": "https://prismphp.com/"
+            },
+            {
+              "type": "url_citation",
+              "end_index": 857,
+              "start_index": 785,
+              "title": "Introduction | Prism",
+              "url": "https://prismphp.com/getting-started/introduction.html"
+            }
+          ],
+          "logprobs": [],
+          "text": "On Prism\u2019s docs site, the **Providers** section (in *Getting Started \u2192 Introduction*) lists the supported providers, and searching that page for **\u201cOpenAI\u201d** confirms **OpenAI is supported**. ([prismphp.com](https://prismphp.com/getting-started/introduction.html))\n\n### Providers supported (first\u2011party)\nThe Introduction page says Prism \u201ccurrently offer[s] first-party support\u201d for: **Anthropic, DeepSeek, Groq, Mistral, Ollama, OpenAI, and xAI**. ([prismphp.com](https://prismphp.com/getting-started/introduction.html))\n\n### \u201cOpenAI\u201d matches (what I found)\n- \u201cSeamlessly switch between AI providers like **OpenAI**\u2026\u201d (provider overview context) ([prismphp.com](https://prismphp.com/))  \n- OpenAI appears in the provider list and examples (e.g., `->using(Provider::OpenAI, 'gpt-4')`). ([prismphp.com](https://prismphp.com/getting-started/introduction.html))"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "none",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "web_search",
+      "filters": null,
+      "search_context_size": "medium",
+      "user_location": {
+        "type": "approximate",
+        "city": null,
+        "country": "US",
+        "region": null,
+        "timezone": null
+      }
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 0.98,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 9204,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 336,
+    "output_tokens_details": {
+      "reasoning_tokens": 92
+    },
+    "total_tokens": 9540
+  },
+  "user": null,
+  "metadata": {}
+}

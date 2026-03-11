@@ -6,11 +6,13 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\GeneratesAudioFilename;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits as ConcernsProcessesRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\OpenAI\Maps\TextToSpeechRequestMapper;
@@ -20,6 +22,7 @@ use Prism\Prism\ValueObjects\Usage;
 class Audio
 {
     use ConcernsProcessesRateLimits;
+    use GeneratesAudioFilename;
     use ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
@@ -28,7 +31,7 @@ class Audio
     {
         $mapper = new TextToSpeechRequestMapper($request);
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post('audio/speech', $mapper->toPayload());
 
         if (! $response->successful()) {
@@ -47,13 +50,13 @@ class Audio
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(
                 'file',
                 $request->input()->resource(),
-                'audio',
+                $this->generateFilename($request->input()->mimeType()),
                 ['Content-Type' => $request->input()->mimeType()]
             )
             ->post('audio/transcriptions', Arr::whereNotNull([
@@ -63,6 +66,7 @@ class Audio
                 'response_format' => $request->providerOptions('response_format') ?? null,
                 'service_tier' => $request->providerOptions('service_tier') ?? null,
                 'temperature' => $request->providerOptions('temperature') ?? null,
+                'chunking_strategy' => $request->providerOptions('chunking_strategy') ?? null,
             ]));
 
         if (json_validate($response->body())) {

@@ -1,11 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\VoyageAI;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Providers\Provider;
 
 class VoyageAI extends Provider
@@ -26,6 +31,28 @@ class VoyageAI extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->getStatusCode()) {
+            429 => throw PrismRateLimitedException::make([]),
+            default => $this->handleResponseErrors($e),
+        };
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'VoyageAI',
+            statusCode: $e->response->getStatusCode(),
+            errorType: null,
+            errorMessage: data_get($data, 'detail'),
+            previous: $e
+        );
     }
 
     /**
