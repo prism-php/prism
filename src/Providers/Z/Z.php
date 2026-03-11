@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Z;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -22,7 +23,7 @@ class Z extends Provider
     ) {}
 
     /**
-     * @throws \Prism\Prism\Exceptions\PrismException
+     * @throws PrismException
      */
     #[\Override]
     public function text(TextRequest $request): Response

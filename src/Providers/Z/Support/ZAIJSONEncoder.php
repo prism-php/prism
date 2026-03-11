@@ -58,8 +58,7 @@ class ZAIJSONEncoder
         }
 
         foreach ($schema->properties as $property) {
-            // Use name() method which is defined in Schema interface
-            $propertyName = method_exists($property, 'name') ? $property->name() : $property->name ?? 'unknown';
+            $propertyName = $property->name();
             $jsonSchema['properties'][$propertyName] = self::encodePropertySchema($property);
         }
 

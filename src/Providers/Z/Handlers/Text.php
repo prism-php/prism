@@ -38,7 +38,7 @@ class Text
     }
 
     /**
-     * @throws \Prism\Prism\Exceptions\PrismException
+     * @throws PrismException
      */
     public function handle(Request $request): TextResponse
     {
@@ -65,7 +65,7 @@ class Text
     /**
      * @param  array<string, mixed>  $data
      *
-     * @throws \Prism\Prism\Exceptions\PrismException
+     * @throws PrismException
      */
     protected function handleToolCalls(array $data, Request $request): TextResponse
     {
