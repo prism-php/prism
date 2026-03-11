@@ -10,6 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Prism\Prism\Events\Broadcasting\ArtifactBroadcast;
+use Prism\Prism\Events\Broadcasting\CitationBroadcast;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
 use Prism\Prism\Events\Broadcasting\ProviderToolEventBroadcast;
 use Prism\Prism\Events\Broadcasting\StepFinishBroadcast;
@@ -26,6 +27,7 @@ use Prism\Prism\Events\Broadcasting\ToolCallBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallDeltaBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolResultBroadcast;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
+use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
@@ -66,7 +68,7 @@ class BroadcastAdapter
             event($this->broadcastEvent($event));
         }
 
-        if ($callback !== null && $pendingRequest instanceof \Prism\Prism\Text\PendingRequest) {
+        if ($callback !== null && $pendingRequest instanceof PendingRequest) {
             $callback($pendingRequest, $collectedEvents);
         }
     }
@@ -86,6 +88,7 @@ class BroadcastAdapter
             ToolCallDeltaEvent::class => new ToolCallDeltaBroadcast($event, $this->channels),
             ToolResultEvent::class => new ToolResultBroadcast($event, $this->channels),
             ArtifactEvent::class => new ArtifactBroadcast($event, $this->channels),
+            CitationEvent::class => new CitationBroadcast($event, $this->channels),
             ProviderToolEvent::class => new ProviderToolEventBroadcast($event, $this->channels),
             ErrorEvent::class => new ErrorBroadcast($event, $this->channels),
             StepFinishEvent::class => new StepFinishBroadcast($event, $this->channels),

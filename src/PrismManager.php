@@ -21,7 +21,6 @@ use Prism\Prism\Providers\Perplexity\Perplexity;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
-use RuntimeException;
 
 class PrismManager
 {
@@ -56,20 +55,11 @@ class PrismManager
         throw new InvalidArgumentException("Provider [{$name}] is not supported.");
     }
 
-    /**
-     * @throws RuntimeException
-     */
     public function extend(string $provider, Closure $callback): self
     {
-        if (($callback = $callback->bindTo($this, $this)) instanceof Closure) {
-            $this->customCreators[$provider] = $callback;
+        $this->customCreators[$provider] = $callback;
 
-            return $this;
-        }
-
-        throw new RuntimeException(
-            sprintf('Couldn\'t bind %s', $provider)
-        );
+        return $this;
     }
 
     protected function resolveName(ProviderEnum|string $name): string

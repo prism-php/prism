@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Concerns\HandlesStructuredJson;
@@ -12,6 +13,7 @@ use Prism\Prism\Concerns\ManagesStructuredSteps;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\SchemaMap;
@@ -118,7 +120,7 @@ class Structured
             ]);
         }
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
@@ -245,8 +247,12 @@ class Structured
                 systemPrompts: $request->systemPrompts(),
                 additionalContent: Arr::whereNotNull([
                     'thoughtSummaries' => $thoughtSummaries !== [] ? $thoughtSummaries : null,
+                    'citations' => CitationMapper::mapFromGemini(data_get($data, 'candidates.0', [])) ?: null,
+                    'searchEntryPoint' => data_get($data, 'candidates.0.groundingMetadata.searchEntryPoint'),
+                    'searchQueries' => data_get($data, 'candidates.0.groundingMetadata.webSearchQueries'),
+                    'urlMetadata' => data_get($data, 'candidates.0.urlContextMetadata.urlMetadata'),
                 ]),
-                structured: $isStructuredStep ? $this->extractStructuredData($textContent) : [],
+                structured: $isStructuredStep ? $this->extractStructuredData(data_get($data, 'candidates.0.content.parts.0.text') ?? '') : [],
                 toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
                 toolResults: $toolResults,
                 raw: $data,

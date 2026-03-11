@@ -129,13 +129,12 @@ class Stream
 
             // If we were emitting thinking and it's now stopped, mark it complete
             if ($this->state->hasThinkingStarted()) {
+                $this->state->markThinkingCompleted();
                 yield new ThinkingCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),
                     reasoningId: $this->state->reasoningId()
                 );
-                // Note: Can't easily reset just thinking flag with current StreamState API
-                // This may need adjustment if tests fail
                 // Don't continue here - we want to process the rest of this data chunk
             }
 
@@ -294,17 +293,17 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        // Add messages for next turn
-        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
-        $request->resetToolChoice();
-
         // Emit step finish after tool calls
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time()
         );
+
+        // Add messages for next turn
+        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         // Continue streaming if within step limit
         $depth++;

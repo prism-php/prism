@@ -255,7 +255,7 @@ class Stream
      */
     protected function handleMessageStop(array $event): ?StreamEndEvent
     {
-        if (! $this->state->finishReason() instanceof \Prism\Prism\Enums\FinishReason) {
+        if (! $this->state->finishReason() instanceof FinishReason) {
             $this->state->withFinishReason(FinishReason::Stop);
         }
 
@@ -268,7 +268,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage(),
+            usage: $this->state->usage() ?? new Usage(0, 0),
             citations: $this->state->citations() !== [] ? $this->state->citations() : null,
             additionalContent: [
                 'thinking' => $this->state->thinkingSummaries() === [] ? null : implode('', $this->state->thinkingSummaries()),
@@ -503,6 +503,13 @@ class Stream
 
         // Add messages to request for next turn
         if ($toolResults !== []) {
+            // Emit step finish after tool calls
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
             $request->addMessage(new AssistantMessage(
                 content: $this->state->currentText(),
                 toolCalls: $toolCalls,
@@ -514,13 +521,6 @@ class Stream
 
             $request->addMessage(new ToolResultMessage($toolResults));
             $request->resetToolChoice();
-
-            // Emit step finish after tool calls
-            $this->state->markStepFinished();
-            yield new StepFinishEvent(
-                id: EventID::generate(),
-                timestamp: time()
-            );
 
             // Continue streaming if within step limit
             $depth++;

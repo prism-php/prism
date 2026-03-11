@@ -276,14 +276,16 @@ class DataProtocolAdapter
     protected function handleArtifact(ArtifactEvent $event): array
     {
         return [
-            'type' => 'artifact',
-            'toolCallId' => $event->toolCallId,
-            'toolName' => $event->toolName,
-            'artifact' => [
-                'id' => $event->artifact->id,
-                'mimeType' => $event->artifact->mimeType,
-                'data' => $event->artifact->data,
-                'metadata' => $event->artifact->metadata,
+            'type' => 'data-artifact',
+            'data' => [
+                'toolCallId' => $event->toolCallId,
+                'toolName' => $event->toolName,
+                'artifact' => [
+                    'id' => $event->artifact->id,
+                    'mimeType' => $event->artifact->mimeType,
+                    'data' => $event->artifact->data,
+                    'metadata' => $event->artifact->metadata,
+                ],
             ],
         ];
     }

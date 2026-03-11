@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Rectors;
 
 use PhpParser\Node;
+use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use Rector\Rector\AbstractRector;
@@ -36,7 +37,7 @@ class ReorderMethodsRector extends AbstractRector
         }
 
         $node->stmts = array_merge(
-            array_filter($node->stmts, fn (\PhpParser\Node\Stmt $stmt): bool => ! $stmt instanceof ClassMethod),
+            array_filter($node->stmts, fn (Stmt $stmt): bool => ! $stmt instanceof ClassMethod),
             $reorderedMethods
         );
 

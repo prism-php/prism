@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
@@ -176,7 +177,7 @@ class Stream
                 $this->state->withFinishReason($finishReason);
 
                 $usage = $this->extractUsage($data);
-                if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+                if ($usage instanceof Usage) {
                     $this->state->addUsage($usage);
                 }
             }
@@ -198,7 +199,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage()
+            usage: $this->state->usage() ?? new Usage(0, 0),
         );
     }
 
@@ -278,16 +279,16 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
-        $request->resetToolChoice();
-
         // Emit step finish after tool calls
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time()
         );
+
+        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         // Reset text state for next response
         $this->state->resetTextState();
@@ -398,7 +399,7 @@ class Stream
                 );
 
             return $response;
-        } catch (\Illuminate\Http\Client\RequestException $e) {
+        } catch (RequestException $e) {
             if ($e->response->getStatusCode() === 429) {
                 throw new PrismRateLimitedException(
                     $this->processRateLimits($e->response),

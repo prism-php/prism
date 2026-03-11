@@ -10,7 +10,9 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -93,6 +95,14 @@ describe('Text generation', function (): void {
 
         $firstStep = $response->steps[0];
         expect($firstStep->toolCalls)->toHaveCount(2);
+
+        // Verify the assistant message from step 1 is present in step 2's input messages
+        $secondStep = $response->steps[1];
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(2);
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
 
         expect($response->usage->promptTokens)->toBeNumeric()->toBeGreaterThan(0);
         expect($response->usage->completionTokens)->toBeNumeric()->toBeGreaterThan(0);

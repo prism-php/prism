@@ -20,7 +20,7 @@
   "require": {
     "php": "^8.2",
     "ext-fileinfo": "*",
-    "laravel/framework": "^11.0|^12.0"
+    "laravel/framework": "^11.0|^12.0|^13.0"
   },
   "config": {
     "allow-plugins": {
@@ -45,7 +45,7 @@
     "symplify/rule-doc-generator-contracts": "^11.2",
     "phpstan/phpdoc-parser": "^2.0",
     "spatie/laravel-ray": "^1.39",
-    "laravel/mcp": "^0.5.2"
+    "laravel/mcp": "^0.6.0"
   },
   "autoload-dev": {
     "psr-4": {
@@ -67,7 +67,7 @@
       "@prepare"
     ],
     "format": [
-      "@php vendor/bin/pint --ansi",
+      "@php vendor/bin/pint --ansi --parallel",
       "@php vendor/bin/rector process --no-diffs"
     ],
     "test": [

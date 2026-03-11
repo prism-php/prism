@@ -20,6 +20,7 @@ use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tools\LaravelMcpTool;
+use Prism\Prism\ValueObjects\ToolError;
 use Prism\Prism\ValueObjects\ToolOutput;
 use Throwable;
 use TypeError;
@@ -258,7 +259,7 @@ class Tool
      *
      * @throws PrismException|Throwable
      */
-    public function handle(...$args): string|ToolOutput
+    public function handle(...$args): string|ToolOutput|ToolError
     {
         try {
             $value = call_user_func($this->fn, ...$args);
@@ -401,7 +402,7 @@ class Tool
      *
      * @throws PrismException|Throwable
      */
-    protected function handleToolException(Throwable $e, array $args): string
+    protected function handleToolException(Throwable $e, array $args): string|ToolError
     {
         if ($this->hasCustomErrorHandler()) {
             $providedParams = $this->extractProvidedParams($args);
@@ -409,7 +410,7 @@ class Tool
             /** @var Closure(Throwable,array<int|string,mixed>):string $handler */
             $handler = $this->failedHandler;
 
-            return $handler($e, $providedParams);
+            return new ToolError($handler($e, $providedParams));
         }
 
         if (! $this->shouldHandleErrors()) {
@@ -419,7 +420,7 @@ class Tool
         if ($this->shouldUseDefaultErrorHandling()) {
             $providedParams = $this->extractProvidedParams($args);
 
-            return $this->getDefaultFailedMessage($e, $providedParams);
+            return new ToolError($this->getDefaultFailedMessage($e, $providedParams));
         }
 
         throw $e;

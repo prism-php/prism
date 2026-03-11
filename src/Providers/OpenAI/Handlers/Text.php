@@ -59,27 +59,20 @@ class Text
 
         $this->citations = $this->extractCitations($data);
 
-        $providerToolCalls = ProviderToolCallMap::map(data_get($data, 'output', []));
-
-        $responseMessage = new AssistantMessage(
-            content: data_get($data, 'output.{last}.content.0.text') ?? '',
-            toolCalls: ToolCallMap::map(
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
-            ),
-            additionalContent: Arr::whereNotNull([
-                'citations' => $this->citations,
-                'provider_tool_calls' => $providerToolCalls === [] ? null : $providerToolCalls,
-            ]),
-        );
-
-        $request->addMessage($responseMessage);
-
-        return match ($this->mapFinishReason($data)) {
+        return match ($finishReason = $this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
-            FinishReason::Length => throw new PrismException('OpenAI: max tokens exceeded'),
-            default => throw new PrismException('OpenAI: unknown finish reason'),
+            FinishReason::Length => throw new PrismException(sprintf(
+                'OpenAI: max tokens exceeded (status: %s, type: %s). If using a reasoning model, increase max_tokens to account for internal reasoning token usage.',
+                data_get($data, 'output.{last}.status', 'n/a'),
+                data_get($data, 'output.{last}.type', 'n/a'),
+            )),
+            default => throw new PrismException(sprintf(
+                'OpenAI: unhandled finish reason "%s" (status: %s, type: %s)',
+                $finishReason->value,
+                data_get($data, 'output.{last}.status', 'n/a'),
+                data_get($data, 'output.{last}.type', 'n/a'),
+            )),
         };
     }
 
@@ -88,18 +81,27 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): Response
     {
-        $toolResults = $this->callTools(
-            $request->tools(),
-            ToolCallMap::map(array_filter(
-                data_get($data, 'output', []),
-                fn (array $output): bool => $output['type'] === 'function_call')
-            ),
+        $toolCalls = ToolCallMap::map(
+            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
+            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
         );
 
-        $request->addMessage(new ToolResultMessage($toolResults));
-        $request->resetToolChoice();
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
+
+        $providerToolCalls = ProviderToolCallMap::map(data_get($data, 'output', []));
+
+        $request->addMessage(new AssistantMessage(
+            content: data_get($data, 'output.{last}.content.0.text') ?? '',
+            toolCalls: $toolCalls,
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->citations,
+                'provider_tool_calls' => $providerToolCalls === [] ? null : $providerToolCalls,
+            ]),
+        ));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         if ($this->shouldContinue($request)) {
             return $this->handle($request);

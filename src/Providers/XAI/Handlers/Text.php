@@ -50,13 +50,6 @@ class Text
         // Handle potential refusal from XAI
         $this->handleRefusal(data_get($data, 'choices.0.message', []));
 
-        $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
-
-        $request->addMessage($responseMessage);
-
         $finishReason = $this->mapFinishReason($data);
 
         return match ($finishReason) {
@@ -79,10 +72,14 @@ class Text
 
         $toolResults = $this->callTools($request->tools(), $toolCalls);
 
+        $this->addStep($data, $request, $toolResults);
+
+        $request->addMessage(new AssistantMessage(
+            data_get($data, 'choices.0.message.content') ?? '',
+            $toolCalls,
+        ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
-
-        $this->addStep($data, $request, $toolResults);
 
         if ($this->shouldContinue($request)) {
             return $this->handle($request);

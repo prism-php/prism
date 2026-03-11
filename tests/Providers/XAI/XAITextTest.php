@@ -14,6 +14,8 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
@@ -126,6 +128,22 @@ describe('Text generation for XAI', function (): void {
         expect($secondStep->toolCalls[0]->arguments())->toBe([
             'city' => 'Detroit',
         ]);
+
+        // Verify the assistant message from step 1 is present in step 2's input messages
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(1);
+        expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('search_games');
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
+
+        // Verify the assistant message from step 2 is present in step 3's input messages
+        $thirdStep = $response->steps[2];
+        expect($thirdStep->messages)->toHaveCount(5);
+        expect($thirdStep->messages[3])->toBeInstanceOf(AssistantMessage::class);
+        expect($thirdStep->messages[3]->toolCalls)->toHaveCount(1);
+        expect($thirdStep->messages[3]->toolCalls[0]->name)->toBe('get_weather');
+        expect($thirdStep->messages[4])->toBeInstanceOf(ToolResultMessage::class);
 
         // Assert usage
         expect($response->usage->promptTokens)->toBe(840);

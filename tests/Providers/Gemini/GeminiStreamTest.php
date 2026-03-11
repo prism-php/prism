@@ -269,10 +269,10 @@ it('yields ToolCall events before ToolResult events', function (): void {
         ->and($eventOrder[0])->toBe('ToolCall')
         ->and($eventOrder[1])->toBe('ToolResult');
 
-    $toolCallEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolCallEvent);
-    $toolResultEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolResultEvent);
-    $streamStartEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamStartEvent);
-    $streamEndEvents = array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof StreamEndEvent);
+    $toolCallEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof ToolCallEvent);
+    $toolResultEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof ToolResultEvent);
+    $streamStartEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamStartEvent);
+    $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
 
     expect($toolCallEvents)->not->toBeEmpty();
     expect($toolResultEvents)->not->toBeEmpty();

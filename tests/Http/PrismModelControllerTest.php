@@ -9,8 +9,8 @@ use Prism\Prism\Facades\PrismServer;
 use Prism\Prism\Text\Generator;
 
 it('it returns prisms', function (): void {
-    PrismServer::register('nyx', fn (): \Prism\Prism\Text\Generator => new Generator);
-    PrismServer::register('omni', fn (): \Prism\Prism\Text\Generator => new Generator);
+    PrismServer::register('nyx', fn (): Generator => new Generator);
+    PrismServer::register('omni', fn (): Generator => new Generator);
 
     /** @var TestResponse */
     $response = $this->getJson('/prism/openai/v1/models');

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Prism\Prism\Contracts\Message;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -168,7 +169,7 @@ it('maps multiple messages in sequence correctly', function (): void {
 });
 
 it('throws exception for unknown message type', function (): void {
-    $invalidMessage = new class implements \Prism\Prism\Contracts\Message {};
+    $invalidMessage = new class implements Message {};
     $messageMap = new MessageMap([$invalidMessage]);
 
     expect($messageMap->map(...))

@@ -102,6 +102,7 @@ class Structured
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
+            'cache_control' => $request->providerOptions('cache_control'),
         ]);
 
         return $structuredStrategy->mutatePayload($basePayload);

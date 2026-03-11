@@ -1,0 +1,33 @@
+{
+    "id": "resp_test_unknown",
+    "object": "response",
+    "created_at": 1741990201,
+    "status": "completed",
+    "model": "gpt-4o-2024-08-06",
+    "output": [
+        {
+            "id": "msg_test_unknown",
+            "type": "some_future_type",
+            "status": "completed",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "output_text",
+                    "annotations": [],
+                    "text": "Some response",
+                    "refusal": null
+                }
+            ]
+        }
+    ],
+    "usage": {
+        "input_tokens": 11,
+        "input_tokens_details": {
+            "cached_tokens": 0
+        },
+        "output_tokens": 56,
+        "output_tokens_details": {
+            "reasoning_tokens": 0
+        }
+    }
+}

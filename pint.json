@@ -1,0 +1,8 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "fully_qualified_strict_types": {
+            "import_symbols": true
+        }
+    }
+}

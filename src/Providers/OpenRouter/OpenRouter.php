@@ -9,11 +9,14 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use JsonException;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Embeddings\Request as EmbeddingRequest;
+use Prism\Prism\Embeddings\Response as EmbeddingResponse;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Providers\OpenRouter\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenRouter\Handlers\Stream;
 use Prism\Prism\Providers\OpenRouter\Handlers\Structured;
 use Prism\Prism\Providers\OpenRouter\Handlers\Text;
@@ -49,6 +52,17 @@ class OpenRouter extends Provider
     public function structured(StructuredRequest $request): StructuredResponse
     {
         $handler = new Structured($this->client(
+            $request->clientOptions(),
+            $request->clientRetry()
+        ));
+
+        return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function embeddings(EmbeddingRequest $request): EmbeddingResponse
+    {
+        $handler = new Embeddings($this->client(
             $request->clientOptions(),
             $request->clientRetry()
         ));

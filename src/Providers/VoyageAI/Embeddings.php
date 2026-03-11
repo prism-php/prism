@@ -51,6 +51,7 @@ class Embeddings
             'model' => $this->request->model(),
             'input' => $this->request->inputs(),
             'input_type' => $providerOptions['inputType'] ?? null,
+            'output_dimension' => $providerOptions['outputDimension'] ?? null,
             'truncation' => $providerOptions['truncation'] ?? null,
         ]));
 

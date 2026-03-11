@@ -132,6 +132,13 @@ class StreamState
         return $this;
     }
 
+    public function markThinkingCompleted(): self
+    {
+        $this->thinkingStarted = false;
+
+        return $this;
+    }
+
     public function appendText(string $text): self
     {
         $this->currentText .= $text;
@@ -227,7 +234,7 @@ class StreamState
 
     public function addUsage(Usage $usage): self
     {
-        if (! $this->usage instanceof \Prism\Prism\ValueObjects\Usage) {
+        if (! $this->usage instanceof Usage) {
             $this->usage = $usage;
 
             return $this;

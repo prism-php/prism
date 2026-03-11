@@ -108,7 +108,7 @@ class Stream
             }
 
             $usage = $this->extractUsage($data);
-            if ($usage instanceof \Prism\Prism\ValueObjects\Usage) {
+            if ($usage instanceof Usage) {
                 $this->state->addUsage($usage);
             }
 
@@ -251,7 +251,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage()
+            usage: $this->state->usage() ?? new Usage(0, 0),
         );
     }
 
@@ -323,15 +323,15 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
-        $request->addMessage(new ToolResultMessage($toolResults));
-        $request->resetToolChoice();
-
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time()
         );
+
+        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         $this->state->resetTextState();
         $this->state->withMessageId(EventID::generate());

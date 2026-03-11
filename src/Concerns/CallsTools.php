@@ -14,6 +14,7 @@ use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolError;
 use Prism\Prism\ValueObjects\ToolOutput;
 use Prism\Prism\ValueObjects\ToolResult;
 
@@ -135,6 +136,30 @@ trait CallsTools
                 $tool->handle(...),
                 $toolCall->arguments()
             );
+
+            if ($output instanceof ToolError) {
+                $toolResult = new ToolResult(
+                    toolCallId: $toolCall->id,
+                    toolName: $toolCall->name,
+                    args: $toolCall->arguments(),
+                    result: $output->message,
+                    toolCallResultId: $toolCall->resultId,
+                );
+
+                $events[] = new ToolResultEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    toolResult: $toolResult,
+                    messageId: $messageId,
+                    success: false,
+                    error: $output->message,
+                );
+
+                return [
+                    'toolResult' => $toolResult,
+                    'events' => $events,
+                ];
+            }
 
             if (is_string($output)) {
                 $output = new ToolOutput(result: $output);
