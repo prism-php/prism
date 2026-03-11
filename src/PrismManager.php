@@ -233,7 +233,7 @@ class PrismManager
     {
         return new Z(
             apiKey: $config['api_key'],
-            baseUrl: $config['url'],
+            url: $config['url'],
         );
     }
 }

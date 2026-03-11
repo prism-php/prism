@@ -94,10 +94,9 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-
-        $this->mappedMessages[] = array_filter([
+        $this->mappedMessages[] = [
             'role' => 'assistant',
             'content' => $message->content,
-        ]);
+        ];
     }
 }

@@ -117,19 +117,9 @@ class Text
         ]));
 
         /** @var ClientResponse $response */
-        $response = $this->client->post('/chat/completions', $payload);
+        $response = $this->client->post('chat/completions', $payload);
 
         return $response;
-    }
-
-    /**
-     * @param  array<string, mixed>  $message
-     */
-    protected function handleRefusal(array $message): void
-    {
-        if (data_get($message, 'refusal') !== null) {
-            throw new PrismException(sprintf('Z Refusal: %s', $message['refusal']));
-        }
     }
 
     /**

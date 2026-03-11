@@ -1,16 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\Z\Maps;
 
 use Prism\Prism\Contracts\ProviderMediaMapper;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Providers\Z\Enums\DocumentType;
-use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Media;
 
-/**
- * @property Image $media
- */
 class DocumentMapper extends ProviderMediaMapper
 {
     public function __construct(

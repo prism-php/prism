@@ -19,7 +19,7 @@ class Z extends Provider
 
     public function __construct(
         #[\SensitiveParameter] public readonly string $apiKey,
-        public readonly string $baseUrl,
+        public readonly string $url,
     ) {}
 
     /**
@@ -55,6 +55,6 @@ class Z extends Provider
             ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
-            ->baseUrl($baseUrl ?? $this->baseUrl);
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }
