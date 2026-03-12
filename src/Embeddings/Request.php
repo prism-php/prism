@@ -20,6 +20,7 @@ class Request implements PrismRequest
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<Content>  $contents
      */
     public function __construct(
         protected string $model,
@@ -29,8 +30,16 @@ class Request implements PrismRequest
         protected array $clientOptions,
         protected array $clientRetry,
         array $providerOptions = [],
+        protected array $contents = [],
     ) {
         $this->providerOptions = $providerOptions;
+
+        if ($this->contents === []) {
+            $this->contents = [
+                ...array_map(static fn (string $input): Content => Content::make([$input]), $this->inputs),
+                ...array_map(static fn (Image $image): Content => Content::make([$image]), $this->images),
+            ];
+        }
     }
 
     /**
@@ -68,11 +77,24 @@ class Request implements PrismRequest
     }
 
     /**
+     * @return array<Content>
+     */
+    public function contents(): array
+    {
+        return $this->contents;
+    }
+
+    /**
      * Check if the request contains image inputs.
      */
     public function hasImages(): bool
     {
         return $this->images !== [];
+    }
+
+    public function hasContents(): bool
+    {
+        return $this->contents !== [];
     }
 
     /**

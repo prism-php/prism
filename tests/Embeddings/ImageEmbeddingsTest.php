@@ -100,11 +100,11 @@ it('supports both text and images in the same request', function () use ($testIm
     expect($request->images())->toHaveCount(1);
 });
 
-it('throws exception when no text or images are provided', function (): void {
+it('throws exception when no embeddings content is provided', function (): void {
     $pendingRequest = new PendingRequest;
 
     expect(fn (): Response => $pendingRequest->asEmbeddings())
-        ->toThrow(PrismException::class, 'Embeddings input is required (text or images)');
+        ->toThrow(PrismException::class, 'Embeddings input is required (text, images, audio, video, documents, or content parts)');
 });
 
 it('returns model and provider from request', function () use ($testImageBase64): void {
