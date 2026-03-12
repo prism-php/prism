@@ -123,8 +123,9 @@ class Text
             toolResults: $toolResults,
             providerToolCalls: [],
             usage: new Usage(
-                (int) data_get($data, 'usage.prompt_tokens', 0),
-                (int) data_get($data, 'usage.completion_tokens', 0),
+                promptTokens: (int) data_get($data, 'usage.prompt_tokens', 0),
+                completionTokens: (int) data_get($data, 'usage.completion_tokens', 0),
+                cost: ($cost = data_get($data, 'usage.cost')) !== null ? (float) $cost : null,
             ),
             meta: new Meta(
                 id: data_get($data, 'id', ''),

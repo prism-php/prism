@@ -17,6 +17,7 @@ readonly class Usage implements Arrayable
         public ?int $cacheWriteInputTokens = null,
         public ?int $cacheReadInputTokens = null,
         public ?int $thoughtTokens = null,
+        public ?float $cost = null,
     ) {}
 
     /**
@@ -31,6 +32,7 @@ readonly class Usage implements Arrayable
             'cache_write_input_tokens' => $this->cacheWriteInputTokens,
             'cache_read_input_tokens' => $this->cacheReadInputTokens,
             'thought_tokens' => $this->thoughtTokens,
+            'cost' => $this->cost,
         ];
     }
 }
