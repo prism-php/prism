@@ -48,8 +48,14 @@ class Text
             return $this->handleToolCalls($data, $request);
         }
 
-        return match ($this->mapFinishReason($data)) {
-            FinishReason::Stop => $this->handleStop($data, $request),
+        $finishReason = $this->mapFinishReason($data);
+
+        return match ($finishReason) {
+            FinishReason::Stop,
+            FinishReason::Length,
+            FinishReason::Unknown,
+            FinishReason::ContentFilter,
+            FinishReason::Other => $this->handleStop($data, $request),
             default => throw new PrismException('Ollama: unknown finish reason'),
         };
     }
