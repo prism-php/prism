@@ -66,7 +66,7 @@ return [
             'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
         ],
         'z' => [
-            'url' => env('Z_URL', 'https://api.z.ai/api/coding/paas/v4'),
+            'url' => env('Z_URL', 'https://api.z.ai/api/paas/v4'),
             'api_key' => env('Z_API_KEY', ''),
         ],
     ],
