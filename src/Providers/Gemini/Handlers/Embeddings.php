@@ -7,12 +7,23 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
+use Prism\Prism\Embeddings\Content;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
+use Prism\Prism\Providers\Gemini\Maps\AudioVideoMapper;
+use Prism\Prism\Providers\Gemini\Maps\DocumentMapper;
+use Prism\Prism\Providers\Gemini\Maps\ImageMapper;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\Text;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Meta;
 
 class Embeddings
@@ -23,7 +34,7 @@ class Embeddings
 
     public function handle(Request $request): EmbeddingsResponse
     {
-        if (count($request->inputs()) === 1) {
+        if (count($request->contents()) === 1) {
             return $this->handleSingleRequest($request);
         }
 
@@ -93,12 +104,8 @@ class Embeddings
         $response = $this->client->post(
             "{$request->model()}:embedContent",
             Arr::whereNotNull([
-                'model' => $request->model(),
-                'content' => [
-                    'parts' => [
-                        ['text' => $request->inputs()[0]],
-                    ],
-                ],
+                'model' => $this->formatModel($request->model()),
+                'content' => $this->mapContent($request->contents()[0]),
                 'title' => $providerOptions['title'] ?? null,
                 'taskType' => $providerOptions['taskType'] ?? null,
                 'outputDimensionality' => $providerOptions['outputDimensionality'] ?? null,
@@ -114,18 +121,14 @@ class Embeddings
         $model = $request->model();
 
         $requests = array_map(
-            fn (string $text): array => Arr::whereNotNull([
-                'model' => "models/{$model}",
-                'content' => [
-                    'parts' => [
-                        ['text' => $text],
-                    ],
-                ],
+            fn (Content $content): array => Arr::whereNotNull([
+                'model' => $this->formatModel($model),
+                'content' => $this->mapContent($content),
                 'title' => $providerOptions['title'] ?? null,
                 'taskType' => $providerOptions['taskType'] ?? null,
                 'outputDimensionality' => $providerOptions['outputDimensionality'] ?? null,
             ]),
-            $request->inputs(),
+            $request->contents(),
         );
 
         /** @var Response $response */
@@ -135,5 +138,37 @@ class Embeddings
         );
 
         return $response;
+    }
+
+    protected function formatModel(string $model): string
+    {
+        return str_starts_with($model, 'models/') ? $model : "models/{$model}";
+    }
+
+    /**
+     * @return array{parts: array<int, array<string, mixed>>}
+     */
+    protected function mapContent(Content $content): array
+    {
+        return [
+            'parts' => array_map(
+                $this->mapPart(...),
+                $content->parts(),
+            ),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function mapPart(Media|Text $part): array
+    {
+        return match (true) {
+            $part instanceof Text => ['text' => $part->text],
+            $part instanceof Image => (new ImageMapper($part))->toPayload(),
+            $part instanceof Document => (new DocumentMapper($part))->toPayload(),
+            $part instanceof Audio, $part instanceof Video => (new AudioVideoMapper($part))->toPayload(),
+            default => throw new InvalidArgumentException('Unsupported embeddings content part: '.$part::class),
+        };
     }
 }

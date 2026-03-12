@@ -1,6 +1,6 @@
 # Embeddings
 
-Transform your content into powerful vector representations! Embeddings let you add semantic search, recommendation systems, and other advanced features to your applications - whether you're working with text or images.
+Transform your content into powerful vector representations! Embeddings let you add semantic search, recommendation systems, and other advanced features to your applications - whether you're working with text, images, audio, video, or documents.
 
 ## Quick Start
 
@@ -24,7 +24,7 @@ echo $response->usage->tokens;
 
 ## Generating multiple embeddings
 
-You can generate multiple embeddings at once with all providers that support embeddings, other than Gemini:
+You can generate multiple embeddings at once with providers that support batch embeddings:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -86,12 +86,12 @@ $response = Prism::embeddings()
 > [!NOTE]
 > Make sure your file exists and is readable. The generator will throw a helpful `PrismException` if there's any issue accessing the file.
 
-## Image Embeddings
+## Multimodal Embeddings
 
-Some providers support image embeddings, enabling powerful use cases like visual similarity search, cross-modal retrieval, and multimodal applications. Prism makes it easy to generate embeddings from images using the same fluent API.
+Some providers support multimodal embeddings, enabling powerful use cases like visual similarity search, cross-modal retrieval, and mixed media retrieval. Prism makes it easy to generate embeddings from images, audio, video, and documents using the same fluent API.
 
 > [!IMPORTANT]
-> Image embeddings require a provider and model that supports image input (such as CLIP-based models or multimodal embedding models like BGE-VL). Check your provider's documentation to confirm image embedding support.
+> Multimodal embeddings require a provider and model that supports the input modalities you send. Check your provider's documentation to confirm support for images, audio, video, documents, and grouped content.
 
 ### Single Image
 
@@ -131,9 +131,25 @@ foreach ($response->embeddings as $embedding) {
 }
 ```
 
-### Multimodal: Text + Image
+### Audio, Video, and Documents
 
-Combine text and images for cross-modal search scenarios. This is particularly useful for applications like "find products similar to this image that match this description":
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Video;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromAudio(Audio::fromLocalPath('/path/to/sample.mp3'))
+    ->fromVideo(Video::fromLocalPath('/path/to/sample.mp4'))
+    ->fromDocument(Document::fromLocalPath('/path/to/report.pdf'))
+    ->asEmbeddings();
+```
+
+### Grouped Multimodal Content
+
+Use `fromContent()` when you want a single embedding generated from multiple parts within the same content entry:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -141,15 +157,32 @@ use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::embeddings()
     ->using('provider', 'model')
-    ->fromInput('Find similar products in red')
-    ->fromImage(Image::fromBase64($productImage, 'image/png'))
+    ->fromContent([
+        'Find similar products in red',
+        Image::fromBase64($productImage, 'image/png'),
+    ])
     ->asEmbeddings();
 ```
 
-You can chain `fromImage()` and `fromInput()` in any order - Prism handles both gracefully.
+Use `fromContents()` when you want multiple embeddings in a single request:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromContents([
+        ['The dog is cute'],
+        [Image::fromLocalPath('/path/to/dog.png')],
+    ])
+    ->asEmbeddings();
+```
+
+You can still chain `fromInput()` and `fromImage()` in any order. Each chained call creates a separate content entry.
 
 > [!TIP]
-> The `Image` class supports multiple input sources: `fromLocalPath()`, `fromUrl()`, `fromBase64()`, `fromStoragePath()`, and `fromRawContent()`. See the [Images documentation](/input-modalities/images.html) for details.
+> Prism media value objects support multiple input sources. See the [Images documentation](/input-modalities/images.html) and related modality guides for details.
 
 ## Common Settings
 
