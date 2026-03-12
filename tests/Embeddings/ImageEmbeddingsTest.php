@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Embeddings;
 
+use Prism\Prism\Embeddings\Content;
 use Prism\Prism\Embeddings\PendingRequest;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response;
@@ -38,11 +39,10 @@ it('returns images from request', function () use ($testImageBase64): void {
     $request = new Request(
         model: 'test-model',
         providerKey: 'test-provider',
-        inputs: [],
-        images: [$image],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],
+        contents: [Content::make([$image])],
     );
 
     expect($request->images())->toHaveCount(1);
@@ -55,11 +55,10 @@ it('returns true for hasImages when images are present', function () use ($testI
     $request = new Request(
         model: 'test-model',
         providerKey: 'test-provider',
-        inputs: [],
-        images: [$image],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],
+        contents: [Content::make([$image])],
     );
 
     expect($request->hasImages())->toBeTrue();
@@ -70,11 +69,10 @@ it('returns true for hasInputs when text inputs are present', function (): void 
     $request = new Request(
         model: 'test-model',
         providerKey: 'test-provider',
-        inputs: ['Hello world'],
-        images: [],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],
+        contents: [Content::make(['Hello world'])],
     );
 
     expect($request->hasInputs())->toBeTrue();
@@ -87,11 +85,13 @@ it('supports both text and images in the same request', function () use ($testIm
     $request = new Request(
         model: 'multimodal-model',
         providerKey: 'test-provider',
-        inputs: ['Describe this image'],
-        images: [$image],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],
+        contents: [
+            Content::make(['Describe this image']),
+            Content::make([$image]),
+        ],
     );
 
     expect($request->hasImages())->toBeTrue();
@@ -113,11 +113,10 @@ it('returns model and provider from request', function () use ($testImageBase64)
     $request = new Request(
         model: 'bge-visualized',
         providerKey: 'local-bge-vl',
-        inputs: [],
-        images: [$image],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],
+        contents: [Content::make([$image])],
     );
 
     expect($request->model())->toBe('bge-visualized');
@@ -144,4 +143,26 @@ it('chains fromInput and fromImage in either order', function () use ($testImage
         ->fromImage($image);
 
     expect($result)->toBeInstanceOf(PendingRequest::class);
+});
+
+it('does not return multi-part content from inputs() or images() derived accessors', function () use ($testImageBase64): void {
+    $image = Image::fromBase64($testImageBase64);
+
+    $request = new Request(
+        model: 'multimodal-model',
+        providerKey: 'test-provider',
+        clientOptions: [],
+        clientRetry: [],
+        providerOptions: [],
+        contents: [
+            Content::make(['An image of a dog', $image]),
+        ],
+    );
+
+    expect($request->inputs())->toBeEmpty();
+    expect($request->images())->toBeEmpty();
+    expect($request->hasInputs())->toBeFalse();
+    expect($request->hasImages())->toBeFalse();
+    expect($request->contents())->toHaveCount(1);
+    expect($request->contents()[0]->parts())->toHaveCount(2);
 });

@@ -35,8 +35,6 @@ it('stores grouped multimodal content entries on the request', function () use (
     $request = new Request(
         model: 'gemini-embedding-2-preview',
         providerKey: 'gemini',
-        inputs: [],
-        images: [],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],
@@ -57,8 +55,6 @@ it('supports multiple grouped multimodal content entries', function () use ($tes
     $request = new Request(
         model: 'gemini-embedding-2-preview',
         providerKey: 'gemini',
-        inputs: [],
-        images: [],
         clientOptions: [],
         clientRetry: [],
         providerOptions: [],

@@ -10,6 +10,9 @@ use Prism\Prism\ValueObjects\Media\Text;
 
 readonly class Content
 {
+    /** @var array<int, Media|Text> */
+    private array $parts;
+
     /**
      * @param  array<int, Media|Text|string>  $parts
      */
@@ -24,9 +27,6 @@ readonly class Content
             $parts,
         );
     }
-
-    /** @var array<int, Media|Text> */
-    protected array $parts;
 
     /**
      * @param  array<int, Media|Text|string>  $parts

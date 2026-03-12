@@ -22,18 +22,11 @@ class PendingRequest
     use ConfiguresProviders;
     use HasProviderOptions;
 
-    /** @var array<string> */
-    protected array $inputs = [];
-
-    /** @var array<Image> */
-    protected array $images = [];
-
     /** @var array<Content> */
     protected array $contents = [];
 
     public function fromInput(string $input): self
     {
-        $this->inputs[] = $input;
         $this->contents[] = Content::make([$input]);
 
         return $this;
@@ -76,15 +69,12 @@ class PendingRequest
      */
     public function fromImage(Image $image): self
     {
-        $this->images[] = $image;
         $this->contents[] = Content::make([$image]);
 
         return $this;
     }
 
     /**
-     * Add multiple images for embedding generation.
-     *
      * @param  array<Image>  $images
      */
     public function fromImages(array $images): self
@@ -203,8 +193,6 @@ class PendingRequest
         return new Request(
             model: $this->model,
             providerKey: $this->providerKey(),
-            inputs: $this->inputs,
-            images: $this->images,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             providerOptions: $this->providerOptions,

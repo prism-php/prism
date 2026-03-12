@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Gemini\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
 use Prism\Prism\Embeddings\Content;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -162,22 +163,12 @@ class Embeddings
      */
     protected function mapPart(Media|Text $part): array
     {
-        if ($part instanceof Text) {
-            return ['text' => $part->text];
-        }
-
-        if ($part instanceof Image) {
-            return (new ImageMapper($part))->toPayload();
-        }
-
-        if ($part instanceof Document) {
-            return (new DocumentMapper($part))->toPayload();
-        }
-
-        if ($part instanceof Audio || $part instanceof Video) {
-            return (new AudioVideoMapper($part))->toPayload();
-        }
-
-        throw PrismException::providerResponseError('Gemini Error: Unsupported embeddings content part.');
+        return match (true) {
+            $part instanceof Text => ['text' => $part->text],
+            $part instanceof Image => (new ImageMapper($part))->toPayload(),
+            $part instanceof Document => (new DocumentMapper($part))->toPayload(),
+            $part instanceof Audio, $part instanceof Video => (new AudioVideoMapper($part))->toPayload(),
+            default => throw new InvalidArgumentException('Unsupported embeddings content part: '.$part::class),
+        };
     }
 }
