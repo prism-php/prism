@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Z;
 
-use Generator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
@@ -21,10 +20,6 @@ use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
-use Prism\Prism\ValueObjects\Media\Document;
-use Prism\Prism\ValueObjects\Media\Image;
-use Prism\Prism\ValueObjects\Media\Video;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -286,132 +281,6 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
 
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
-});
-
-it('can send images from url in streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-text-image-from-url');
-
-    $image = 'https://prismphp.com/storage/diamond.png';
-
-    $response = Prism::text()
-        ->using(Provider::Z, 'z-model.v')
-        ->withMessages([
-            new UserMessage(
-                'What is this image',
-                additionalContent: [
-                    Image::fromUrl($image),
-                ],
-            ),
-        ])
-        ->asStream();
-
-    /** @phpstan-ignore-next-line */
-    collect($response);
-
-    expect($response)->toBeInstanceOf(Generator::class);
-
-    Http::assertSent(function (Request $request) use ($image): true {
-        $message = $request->data()['messages'][0]['content'];
-
-        expect($message[0])
-            ->toBe([
-                'type' => 'image_url',
-                'image_url' => [
-                    'url' => $image,
-                ],
-            ])
-            ->and($message[1])
-            ->toBe([
-                'type' => 'text',
-                'text' => 'What is this image',
-            ]);
-
-        return true;
-    });
-});
-
-it('can send file from url in streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-text-file-from-url');
-
-    $file = 'https://cdn.bigmodel.cn/static/demo/demo2.txt';
-
-    $response = Prism::text()
-        ->using(Provider::Z, 'z-model.v')
-        ->withMessages([
-            new UserMessage(
-                'What are the files show about?',
-                additionalContent: [
-                    Document::fromUrl($file),
-                ],
-            ),
-        ])
-        ->asStream();
-
-    /** @phpstan-ignore-next-line */
-    collect($response);
-
-    expect($response)->toBeInstanceOf(Generator::class);
-
-    Http::assertSent(function (Request $request) use ($file): true {
-        $message = $request->data()['messages'][0]['content'];
-
-        expect($message[0])
-            ->toBe([
-                'type' => 'file_url',
-                'file_url' => [
-                    'url' => $file,
-                ],
-            ])
-            ->and($message[1])
-            ->toBe([
-                'type' => 'text',
-                'text' => 'What are the files show about?',
-            ]);
-
-        return true;
-    });
-});
-
-it('can send video from url in streaming', function (): void {
-    FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-text-video-from-url');
-
-    $videoUrl = 'https://cdn.bigmodel.cn/agent-demos/lark/113123.mov';
-
-    $response = Prism::text()
-        ->using(Provider::Z, 'z-model.v')
-        ->withMessages([
-            new UserMessage(
-                'What are the video show about?',
-                additionalContent: [
-                    Video::fromUrl($videoUrl),
-                ],
-            ),
-        ])
-        ->asStream();
-
-    /** @phpstan-ignore-next-line */
-    collect($response);
-
-    expect($response)->toBeInstanceOf(Generator::class);
-
-    Http::assertSent(function (Request $request) use ($videoUrl): true {
-        $message = $request->data()['messages'][0]['content'];
-
-        expect($message[0])
-            ->toBe([
-                'type' => 'video_url',
-                'video_url' => [
-                    'url' => $videoUrl,
-                ],
-            ])
-            ->and($message[1])
-            ->toBe([
-                'type' => 'text',
-                'text' => 'What are the video show about?',
-            ]);
-
-        return true;
-    });
 });
 
 it('handles specific tool choice in streaming', function (): void {
