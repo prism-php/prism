@@ -42,6 +42,7 @@ readonly class ResponseBuilder
             meta: $finalStep->meta,
             toolCalls: $this->aggregateToolCalls(),
             toolResults: $this->aggregateToolResults(),
+            toolApprovalRequests: $finalStep->toolApprovalRequests,
             additionalContent: $finalStep->additionalContent,
             raw: $finalStep->raw,
         );

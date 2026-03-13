@@ -112,7 +112,8 @@ it('sends correct tools in payload', function (): void {
 
     $tool = Tool::as('get_weather')
         ->for('Get current weather')
-        ->withStringParameter('location', 'The city name', true);
+        ->withStringParameter('location', 'The city name', true)
+        ->using(fn (string $location): string => "Weather for {$location}");
 
     Prism::text()
         ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
@@ -150,7 +151,8 @@ it('sends correct tool_choice in payload', function (): void {
 
     $tool = Tool::as('get_weather')
         ->for('Get current weather')
-        ->withStringParameter('location', 'The city name', true);
+        ->withStringParameter('location', 'The city name', true)
+        ->using(fn (string $location): string => "Weather for {$location}");
 
     Prism::text()
         ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')

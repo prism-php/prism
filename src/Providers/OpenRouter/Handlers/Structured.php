@@ -22,6 +22,7 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -41,6 +42,8 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
+        $this->resolveToolApprovals($request);
+
         $data = $this->sendRequest($request);
 
         $this->validateResponse($data);
@@ -99,19 +102,22 @@ class Structured
     {
         $toolCalls = ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callTools($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $this->addStep($data, $request, $toolResults);
+        $this->addStep($data, $request, $toolResults, $approvalRequests);
 
         $request = $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
-            []
+            [],
+            $approvalRequests,
         ));
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
@@ -146,9 +152,10 @@ class Structured
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, ToolResult>  $toolResults
+     * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $data, Request $request, array $toolResults = []): void
+    protected function addStep(array $data, Request $request, array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
@@ -167,6 +174,7 @@ class Structured
             toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             providerToolCalls: [],
             toolResults: $toolResults,
+            toolApprovalRequests: $toolApprovalRequests,
             raw: $data,
         ));
     }

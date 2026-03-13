@@ -1,0 +1,7 @@
+data: {"id":"approval-phase2","object":"chat.completion.chunk","created":1759185829,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"approval-phase2","object":"chat.completion.chunk","created":1759185829,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":"File deleted successfully."},"finish_reason":null}]}
+
+data: {"id":"approval-phase2","object":"chat.completion.chunk","created":1759185829,"model":"mistral-large-latest","choices":[{"index":0,"delta":{"content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":150,"total_tokens":160,"completion_tokens":10}}
+
+data: [DONE]

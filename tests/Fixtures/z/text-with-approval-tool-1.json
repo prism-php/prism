@@ -1,0 +1,31 @@
+{
+  "id": "gen-approval-tool",
+  "object": "chat.completion",
+  "created": 1737243487,
+  "model": "z-model",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_delete_file",
+            "type": "function",
+            "function": {
+              "name": "delete_file",
+              "arguments": "{\"path\":\"/tmp/test.txt\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 50,
+    "total_tokens": 150
+  }
+}

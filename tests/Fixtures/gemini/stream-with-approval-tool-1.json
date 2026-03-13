@@ -1,0 +1,1 @@
+data: {"candidates": [{"content": {"parts": [{"functionCall": {"name": "delete_file","args": {"path": "/tmp/test.txt"}}}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 100,"candidatesTokenCount": 50,"totalTokenCount": 150,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 100}]},"modelVersion": "gemini-1.5-flash"}

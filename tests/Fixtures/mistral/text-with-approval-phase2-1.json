@@ -1,0 +1,21 @@
+{
+  "id": "approval_phase2",
+  "object": "chat.completion",
+  "created": 1728462828,
+  "model": "mistral-large-latest",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The file has been deleted successfully."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 150,
+    "total_tokens": 160,
+    "completion_tokens": 10
+  }
+}

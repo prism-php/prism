@@ -21,6 +21,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\PendingRequest;
@@ -32,9 +33,8 @@ use Throwable;
 class DataProtocolAdapter
 {
     /**
-     * Track tool call IDs that have sent tool-input-available.
-     * This prevents "tool-output-error must be preceded by a tool-input-available"
-     * errors when tool outputs arrive without corresponding inputs.
+     * Track tool call IDs for provider tool events.
+     * tool-output-available may be sent without a prior tool-input-available (e.g. Dispatched in subsequent request for tools needing approval).
      *
      * @var array<string, bool>
      */
@@ -136,6 +136,7 @@ class DataProtocolAdapter
             ThinkingEvent::class => $this->handleThinkingDelta($event),
             ThinkingCompleteEvent::class => $this->handleThinkingComplete($event),
             ToolCallEvent::class => $this->handleToolCall($event),
+            ToolApprovalRequestEvent::class => $this->handleToolApprovalRequest($event),
             ToolResultEvent::class => $this->handleToolResult($event),
             ArtifactEvent::class => $this->handleArtifact($event),
             ProviderToolEvent::class => $this->handleProviderTool($event),
@@ -253,15 +254,25 @@ class DataProtocolAdapter
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    protected function handleToolApprovalRequest(ToolApprovalRequestEvent $event): array
+    {
+        $this->startedToolCallIds[$event->toolCall->id] = true;
+
+        return [
+            'type' => 'tool-approval-request',
+            'approvalId' => $event->approvalId,
+            'toolCallId' => $event->toolCall->id,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     protected function handleToolResult(ToolResultEvent $event): ?array
     {
         $toolCallId = $event->toolResult->toolCallId;
-
-        if (! isset($this->startedToolCallIds[$toolCallId])) {
-            return null;
-        }
 
         return [
             'type' => 'tool-output-available',
