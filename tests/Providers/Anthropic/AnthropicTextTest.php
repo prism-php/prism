@@ -208,6 +208,62 @@ describe('tools', function (): void {
 
         expect($response->toolCalls[0]->name)->toBe('weather');
     });
+
+    it('preserves server tool content blocks during multi-step tool loop with web search', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-web-search-and-tool-call');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 21° and partly cloudy'),
+        ];
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-haiku-latest')
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->withMaxSteps(3)
+            ->withPrompt('What is the weather in London?')
+            ->asText();
+
+        // The tool loop should complete without a "Could not find search result for citation index" error
+        expect($response->steps)->toHaveCount(2);
+        expect($response->text)->toContain('18°C');
+
+        // Step 1 should have the tool call and citations in additionalContent
+        $firstStep = $response->steps[0];
+        expect($firstStep->toolCalls)->toHaveCount(1);
+        expect($firstStep->toolCalls[0]->name)->toBe('weather');
+        expect($firstStep->additionalContent)->toHaveKey('citations');
+        expect($firstStep->additionalContent)->toHaveKey('provider_tool_calls');
+        expect($firstStep->additionalContent)->toHaveKey('provider_tool_results');
+
+        // The assistant message replayed in step 2 should contain the server tool blocks
+        $secondStep = $response->steps[1];
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->additionalContent)->toHaveKey('citations');
+        expect($secondStep->messages[1]->additionalContent)->toHaveKey('provider_tool_calls');
+        expect($secondStep->messages[1]->additionalContent)->toHaveKey('provider_tool_results');
+
+        // Verify the second HTTP request includes server tool blocks in the replayed assistant message
+        $requests = Http::recorded();
+        expect($requests)->toHaveCount(2);
+
+        $secondRequestPayload = $requests[1][0]->data();
+        $assistantMessage = Arr::first(
+            $secondRequestPayload['messages'],
+            fn (array $msg): bool => $msg['role'] === 'assistant'
+        );
+
+        // The assistant message should contain server_tool_use and web_search_tool_result blocks
+        $contentTypes = array_column($assistantMessage['content'], 'type');
+        expect($contentTypes)->toContain('server_tool_use');
+        expect($contentTypes)->toContain('web_search_tool_result');
+        expect($contentTypes)->toContain('text');
+        expect($contentTypes)->toContain('tool_use');
+    });
 });
 
 it('can calculate cache usage correctly', function (): void {

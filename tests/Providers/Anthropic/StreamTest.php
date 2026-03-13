@@ -401,6 +401,56 @@ describe('provider tools', function (): void {
         expect($providerToolResults[0]['content'])->toBeArray();
         expect($providerToolResults[0]['tool_use_id'])->toBe($providerToolUses[0]['id']);
     });
+
+    it('preserves server tool content blocks during multi-step tool loop with web search', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-web-search-and-tool-call');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 21° and partly cloudy'),
+        ];
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-haiku-20241022')
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->withMaxSteps(3)
+            ->withPrompt('What is the weather in London?')
+            ->asStream();
+
+        $text = '';
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+            }
+        }
+
+        // The tool loop should complete without a "Could not find search result for citation index" error
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
+        expect($text)->toContain('18°C');
+
+        // Verify the second HTTP request includes server tool blocks in the replayed assistant message
+        $requests = Http::recorded();
+        expect($requests)->toHaveCount(2);
+
+        $secondRequestPayload = $requests[1][0]->data();
+        $assistantMessage = collect($secondRequestPayload['messages'])
+            ->first(fn (array $msg): bool => $msg['role'] === 'assistant');
+
+        $contentTypes = array_column($assistantMessage['content'], 'type');
+        expect($contentTypes)->toContain('server_tool_use');
+        expect($contentTypes)->toContain('web_search_tool_result');
+        expect($contentTypes)->toContain('text');
+        expect($contentTypes)->toContain('tool_use');
+    });
 });
 
 describe('citations', function (): void {
