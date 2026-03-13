@@ -153,6 +153,9 @@ it('handles max_tokens parameter correctly', function (): void {
         ->withPrompt('Who are you?')
         ->asStream();
 
+    /** @phpstan-ignore-next-line */
+    collect($response);
+
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
 
@@ -169,6 +172,9 @@ it('handles system prompts correctly', function (): void {
         ->withSystemPrompt('You are a helpful assistant.')
         ->withPrompt('Who are you?')
         ->asStream();
+
+    /** @phpstan-ignore-next-line */
+    collect($response);
 
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
@@ -299,6 +305,9 @@ it('can send images from url in streaming', function (): void {
         ])
         ->asStream();
 
+    /** @phpstan-ignore-next-line */
+    collect($response);
+
     expect($response)->toBeInstanceOf(Generator::class);
 
     Http::assertSent(function (Request $request) use ($image): true {
@@ -338,6 +347,9 @@ it('can send file from url in streaming', function (): void {
         ])
         ->asStream();
 
+    /** @phpstan-ignore-next-line */
+    collect($response);
+
     expect($response)->toBeInstanceOf(Generator::class);
 
     Http::assertSent(function (Request $request) use ($file): true {
@@ -376,6 +388,9 @@ it('can send video from url in streaming', function (): void {
             ),
         ])
         ->asStream();
+
+    /** @phpstan-ignore-next-line */
+    collect($response);
 
     expect($response)->toBeInstanceOf(Generator::class);
 
@@ -445,5 +460,8 @@ it('throws PrismRateLimitedException for 429 in streaming', function (): void {
         ->using(Provider::Z, 'z-model')
         ->withPrompt('Who are you?')
         ->asStream();
+
+    /** @phpstan-ignore-next-line */
+    collect($response);
 
 })->throws(PrismRateLimitedException::class);
