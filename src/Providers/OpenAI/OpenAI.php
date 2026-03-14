@@ -11,6 +11,10 @@ use Prism\Prism\Audio\AudioResponse as TextToSpeechResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse as SpeechToTextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Batch\BatchJob;
+use Prism\Prism\Batch\BatchListResult;
+use Prism\Prism\Batch\BatchRequest;
+use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
@@ -25,6 +29,11 @@ use Prism\Prism\Moderation\Request as ModerationRequest;
 use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Handlers\Audio;
+use Prism\Prism\Providers\OpenAI\Handlers\Batch\Cancel;
+use Prism\Prism\Providers\OpenAI\Handlers\Batch\Create;
+use Prism\Prism\Providers\OpenAI\Handlers\Batch\ListBatches;
+use Prism\Prism\Providers\OpenAI\Handlers\Batch\Results;
+use Prism\Prism\Providers\OpenAI\Handlers\Batch\Retrieve;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;
 use Prism\Prism\Providers\OpenAI\Handlers\Moderation;
@@ -135,6 +144,45 @@ class OpenAI extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function batch(BatchRequest $request): BatchJob
+    {
+        return (new Create($this->client()))->handle($request);
+    }
+
+    #[\Override]
+    public function retrieveBatch(string $batchId): BatchJob
+    {
+        return (new Retrieve($this->client()))->handle($batchId);
+    }
+
+    #[\Override]
+    public function listBatches(int $limit = 20, ?string $afterId = null): BatchListResult
+    {
+        return (new ListBatches($this->client()))->handle($limit, $afterId);
+    }
+
+    /**
+     * @return Generator<BatchResultItem>
+     */
+    #[\Override]
+    public function getBatchResults(string $batchId): Generator
+    {
+        $batch = $this->retrieveBatch($batchId);
+
+        if ($batch->outputFileId === null) {
+            throw PrismException::providerResponseError('OpenAI batch results are not yet available.');
+        }
+
+        return (new Results($this->client()))->handle($batch->outputFileId);
+    }
+
+    #[\Override]
+    public function cancelBatch(string $batchId): BatchJob
+    {
+        return (new Cancel($this->client()))->handle($batchId);
     }
 
     public function handleRequestException(string $model, RequestException $e): never

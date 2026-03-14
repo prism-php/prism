@@ -1,0 +1,4 @@
+{"custom_id":"req-success","result":{"type":"succeeded","message":{"id":"msg_01FqfsLoHwgeFbguDgpz48m7","type":"message","role":"assistant","model":"claude-3-5-sonnet-20240620","content":[{"type":"text","text":"Hello!"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":5}}}}
+{"custom_id":"req-errored","result":{"type":"errored","error":{"type":"invalid_request","message":"Invalid model specified."}}}
+{"custom_id":"req-canceled","result":{"type":"canceled"}}
+{"custom_id":"req-expired","result":{"type":"expired"}}

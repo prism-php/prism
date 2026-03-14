@@ -14,11 +14,9 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
-use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\BuildsRequestBody;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
-use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
@@ -45,7 +43,7 @@ use Throwable;
 
 class Stream
 {
-    use BuildsTools;
+    use BuildsRequestBody;
     use CallsTools;
     use ProcessRateLimits;
 
@@ -570,26 +568,7 @@ class Stream
             ->withOptions(['stream' => true])
             ->post(
                 'responses',
-                array_merge([
-                    'stream' => true,
-                    'model' => $request->model(),
-                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                ], Arr::whereNotNull([
-                    'max_output_tokens' => $request->maxTokens(),
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => $request->providerOptions('metadata'),
-                    'tools' => $this->buildTools($request),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
-                    'previous_response_id' => $request->providerOptions('previous_response_id'),
-                    'service_tier' => $request->providerOptions('service_tier'),
-                    'text' => $request->providerOptions('text_verbosity') ? [
-                        'verbosity' => $request->providerOptions('text_verbosity'),
-                    ] : null,
-                    'truncation' => $request->providerOptions('truncation'),
-                    'reasoning' => $request->providerOptions('reasoning'),
-                ]))
+                array_merge(['stream' => true], $this->buildRequestBody($request)),
             );
 
         return $response;
