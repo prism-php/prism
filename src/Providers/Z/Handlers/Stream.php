@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Z\Handlers;
 
 use Generator;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 use JsonException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Z\Concerns\MapsFinishReason;
@@ -49,6 +51,7 @@ class Stream
     /**
      * @throws PrismStreamDecodeException
      * @throws PrismException
+     * @throws ConnectionException
      */
     public function handle(Request $request): Generator
     {
@@ -67,9 +70,7 @@ class Stream
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
 
-        if ($depth === 0) {
-            $this->state->reset();
-        }
+        $this->state->reset()->withMessageId(EventID::generate());
 
         $text = '';
         $toolCalls = [];
@@ -82,14 +83,16 @@ class Stream
             }
 
             if ($this->state->shouldEmitStreamStart()) {
-                $this->state->withMessageId(EventID::generate())->markStreamStarted();
-
                 yield new StreamStartEvent(
                     id: EventID::generate(),
                     timestamp: time(),
                     model: $request->model(),
-                    provider: 'z',
+                    provider: Provider::Z->value,
                 );
+
+                $this->state->markStreamStarted();
+
+                continue;
             }
 
             if ($this->state->shouldEmitStepStart()) {
@@ -105,6 +108,7 @@ class Stream
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 $rawFinishReason = data_get($data, 'choices.0.finish_reason');
+
                 if ($rawFinishReason === 'tool_calls') {
                     if ($this->state->hasTextStarted() && $text !== '') {
                         $this->state->markTextCompleted();
@@ -150,6 +154,7 @@ class Stream
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
+
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
@@ -166,6 +171,7 @@ class Stream
                 $this->state->withFinishReason($finishReason);
 
                 $usage = $this->extractUsage($data);
+
                 if ($usage instanceof Usage) {
                     $this->state->addUsage($usage);
                 }
@@ -179,6 +185,7 @@ class Stream
         }
 
         $this->state->markStepFinished();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -219,7 +226,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            throw new PrismStreamDecodeException('Z', $e);
+            throw new PrismStreamDecodeException(Provider::Z->name, $e);
         }
     }
 
@@ -306,6 +313,7 @@ class Stream
      *
      * @throws PrismException
      * @throws PrismStreamDecodeException
+     * @throws ConnectionException
      */
     protected function handleToolCalls(Request $request, string $text, array $toolCalls, int $depth): Generator
     {
@@ -321,9 +329,11 @@ class Stream
         }
 
         $toolResults = [];
+
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         $this->state->markStepFinished();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -337,6 +347,7 @@ class Stream
         $this->state->withMessageId(EventID::generate());
 
         $depth++;
+
         if ($depth < $request->maxSteps()) {
             $nextResponse = $this->sendRequest($request);
             yield from $this->processStream($nextResponse, $request, $depth);
@@ -358,6 +369,9 @@ class Stream
         ), $toolCalls);
     }
 
+    /**
+     * @throws ConnectionException
+     */
     protected function sendRequest(Request $request): Response
     {
         return $this

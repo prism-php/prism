@@ -97,16 +97,11 @@ it('can generate text using tools with streaming', function (): void {
         ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat? please check all the details from tools')
         ->asStream();
 
-    $text = '';
     $events = [];
     $toolCallEvents = [];
 
     foreach ($response as $event) {
         $events[] = $event;
-
-        if ($event instanceof TextDeltaEvent) {
-            $text .= $event->delta;
-        }
 
         if ($event instanceof ToolCallEvent) {
             $toolCallEvents[] = $event;
