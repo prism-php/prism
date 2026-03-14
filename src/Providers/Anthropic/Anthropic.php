@@ -7,6 +7,10 @@ namespace Prism\Prism\Providers\Anthropic;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Batch\BatchJob;
+use Prism\Prism\Batch\BatchListResult;
+use Prism\Prism\Batch\BatchRequest;
+use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
@@ -14,6 +18,11 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Cancel;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Create;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\ListBatches;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Results;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Retrieve;
 use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
@@ -73,6 +82,45 @@ class Anthropic extends Provider
         ));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function batch(BatchRequest $request): BatchJob
+    {
+        return (new Create($this->client()))->handle($request);
+    }
+
+    #[\Override]
+    public function retrieveBatch(string $batchId): BatchJob
+    {
+        return (new Retrieve($this->client()))->handle($batchId);
+    }
+
+    #[\Override]
+    public function listBatches(int $limit = 20, ?string $afterId = null): BatchListResult
+    {
+        return (new ListBatches($this->client()))->handle($limit, $afterId);
+    }
+
+    /**
+     * @return Generator<BatchResultItem>
+     */
+    #[\Override]
+    public function getBatchResults(string $batchId): Generator
+    {
+        $batch = $this->retrieveBatch($batchId);
+
+        if ($batch->resultsUrl === null) {
+            throw PrismException::providerResponseError('Anthropic batch results are not yet available.');
+        }
+
+        return (new Results($this->client()))->handle($batch->resultsUrl);
+    }
+
+    #[\Override]
+    public function cancelBatch(string $batchId): BatchJob
+    {
+        return (new Cancel($this->client()))->handle($batchId);
     }
 
     public function handleRequestException(string $model, RequestException $e): never
