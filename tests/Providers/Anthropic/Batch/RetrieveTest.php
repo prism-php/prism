@@ -6,6 +6,7 @@ namespace Tests\Providers\Anthropic\Batch;
 
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchStatus;
+use Prism\Prism\Batch\RetrieveBatchRequest;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 
@@ -19,7 +20,7 @@ it('can retrieve a batch', function (): void {
     FixtureResponse::fakeResponseSequence("messages/batches/$batchId", 'anthropic/batch-retrieve');
 
     $provider = Prism::provider('anthropic');
-    $result = $provider->retrieveBatch($batchId);
+    $result = $provider->retrieveBatch(new RetrieveBatchRequest($batchId));
 
     expect($result)->toBeInstanceOf(BatchJob::class)
         ->and($result->id)->toBe('msgbatch_013Zva2CMHLNnXjNJJKqJ2EF')

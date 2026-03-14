@@ -6,6 +6,7 @@ namespace Tests\Providers\Anthropic\Batch;
 
 use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Batch\BatchResultStatus;
+use Prism\Prism\Batch\GetBatchResultsRequest;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 
@@ -22,7 +23,7 @@ it('can get batch results', function (): void {
 
     $provider = Prism::provider('anthropic');
     $results = iterator_to_array(
-        $provider->getBatchResults($batchId)
+        $provider->getBatchResults(new GetBatchResultsRequest($batchId))
     );
 
     expect($results)->toHaveCount(2);

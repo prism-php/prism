@@ -11,6 +11,10 @@ use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchListResult;
 use Prism\Prism\Batch\BatchRequest;
 use Prism\Prism\Batch\BatchResultItem;
+use Prism\Prism\Batch\CancelBatchRequest;
+use Prism\Prism\Batch\GetBatchResultsRequest;
+use Prism\Prism\Batch\ListBatchesRequest;
+use Prism\Prism\Batch\RetrieveBatchRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
@@ -89,34 +93,34 @@ class Anthropic extends Provider
     #[\Override]
     public function batch(BatchRequest $request): BatchJob
     {
-        return (new Create($this->client()))->handle($request);
+        return (new Create($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
     }
 
     #[\Override]
-    public function retrieveBatch(string $batchId): BatchJob
+    public function retrieveBatch(RetrieveBatchRequest $request): BatchJob
     {
-        return (new Retrieve($this->client()))->handle($batchId);
+        return (new Retrieve($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
     }
 
     #[\Override]
-    public function listBatches(?array $params = null): BatchListResult
+    public function listBatches(ListBatchesRequest $request): BatchListResult
     {
-        return (new ListBatches($this->client()))->handle($params);
+        return (new ListBatches($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
     }
 
     /**
      * @return Generator<BatchResultItem>
      */
     #[\Override]
-    public function getBatchResults(string $batchId): Generator
+    public function getBatchResults(GetBatchResultsRequest $request): Generator
     {
-        return (new Results($this->client()))->handle($batchId);
+        return (new Results($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
     }
 
     #[\Override]
-    public function cancelBatch(string $batchId): BatchJob
+    public function cancelBatch(CancelBatchRequest $request): BatchJob
     {
-        return (new Cancel($this->client()))->handle($batchId);
+        return (new Cancel($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
     }
 
     public function handleRequestException(string $model, RequestException $e): never

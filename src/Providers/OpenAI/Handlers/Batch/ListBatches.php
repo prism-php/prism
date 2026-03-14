@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenAI\Handlers\Batch;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
 use Prism\Prism\Batch\BatchListResult;
+use Prism\Prism\Batch\ListBatchesRequest;
 use Prism\Prism\Providers\OpenAI\Concerns\HandlesBatchResponse;
 
 class ListBatches
@@ -16,14 +18,14 @@ class ListBatches
         protected PendingRequest $client,
     ) {}
 
-    public function handle(int $limit = 20, ?string $afterId = null): BatchListResult
+    public function handle(ListBatchesRequest $request): BatchListResult
     {
-        $query = ['limit' => $limit];
-        if ($afterId !== null) {
-            $query['after'] = $afterId;
-        }
+        $query = Arr::whereNotNull([
+            'limit' => $request->limit,
+            'after' => $request->afterId,
+        ]);
 
-        $response = $this->client->get('batches', $query);
+        $response = $this->client->get('batches', $query ?: null);
         $data = $response->json();
         $this->handleResponseErrors($data);
 

@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers\Batch;
 
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Batch\BatchListResult;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Batch\ListBatchesRequest;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesBatchResponse;
 
 /**
@@ -22,28 +21,15 @@ class ListBatches
         protected PendingRequest $client,
     ) {}
 
-    /**
-     * Lists batch jobs with pagination support.
-     *
-     * @param  array<string, string>  $params
-     *
-     * @throws ConnectionException
-     * @throws PrismException
-     */
-    public function handle(?array $params = null): BatchListResult
+    public function handle(ListBatchesRequest $request): BatchListResult
     {
         $query = Arr::whereNotNull([
-            'after_id' => data_get($params, 'after_id'),
-            'before_id' => data_get($params, 'before_id'),
-            'limit' => data_get($params, 'limit'),
+            'after_id' => $request->afterId,
+            'before_id' => $request->beforeId,
+            'limit' => $request->limit,
         ]);
 
-        // Set query to null if it's empty to avoid sending an empty query string
-        if (empty($query)) {
-            $query = null;
-        }
-
-        $response = $this->client->get('messages/batches', $query);
+        $response = $this->client->get('messages/batches', $query ?: null);
         $data = $response->json();
         $this->handleResponseErrors($data);
 

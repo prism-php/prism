@@ -6,6 +6,7 @@ namespace Tests\Providers\Anthropic\Batch;
 
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchStatus;
+use Prism\Prism\Batch\CancelBatchRequest;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 
@@ -19,7 +20,7 @@ it('can cancel a batch', function (): void {
     FixtureResponse::fakeResponseSequence("messages/batches/$batchId/cancel", 'anthropic/batch-cancel');
 
     $provider = Prism::provider('anthropic');
-    $result = $provider->cancelBatch($batchId);
+    $result = $provider->cancelBatch(new CancelBatchRequest($batchId));
 
     expect($result)->toBeInstanceOf(BatchJob::class);
     expect($result->id)->not->toBeEmpty();

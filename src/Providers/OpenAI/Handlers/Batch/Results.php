@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\OpenAI\Handlers\Batch;
 
 use Generator;
-use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsBatchResults;
+use Psr\Http\Message\StreamInterface;
 
 class Results
 {
@@ -18,20 +18,11 @@ class Results
      */
     private const STREAM_BUFFER_BYTES = 8192;
 
-    public function __construct(
-        protected PendingRequest $client,
-    ) {}
-
     /**
      * @return Generator<BatchResultItem>
      */
-    public function handle(string $outputFileId): Generator
+    public function handle(StreamInterface $body): Generator
     {
-        $response = $this->client->withOptions(['stream' => true])
-            ->get("files/{$outputFileId}/content");
-
-        $body = $response->getBody();
-
         $buffer = '';
         while (! $body->eof()) {
             $buffer .= $body->read(self::STREAM_BUFFER_BYTES);

@@ -15,7 +15,7 @@ class PrismBatchPayloadSizeExceededException extends PrismException
         parent::__construct(
             sprintf(
                 '%s request payload size exceeded the maximum of %s bytes.',
-                ucfirst($provider),
+                $provider,
                 number_format($maxPayloadBytes)
             )
         );

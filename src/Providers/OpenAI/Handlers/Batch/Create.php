@@ -4,24 +4,19 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenAI\Handlers\Batch;
 
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchRequest;
-use Prism\Prism\Exceptions\PrismBatchPayloadSizeExceededException;
-use Prism\Prism\Exceptions\PrismBatchRequestLimitExceededException;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Providers\OpenAI\Concerns\BuildsRequestBody;
 use Prism\Prism\Providers\OpenAI\Concerns\HandlesBatchResponse;
 
+/**
+ * @see https://developers.openai.com/api/docs/guides/batch
+ * @see https://developers.openai.com/api/reference/resources/batches/methods/create
+ */
 class Create
 {
-    use BuildsRequestBody;
     use HandlesBatchResponse;
-
-    private const MAX_REQUESTS = 50_000;
-
-    private const MAX_FILE_BYTES = 200 * 1024 * 1024;
 
     private const BATCH_ENDPOINT = '/v1/responses';
 
@@ -29,80 +24,26 @@ class Create
         protected PendingRequest $client,
     ) {}
 
-    /**
-     * @throws ConnectionException
-     * @throws PrismBatchPayloadSizeExceededException
-     * @throws PrismBatchRequestLimitExceededException
-     * @throws PrismException
-     * @throws \JsonException
-     */
-    public function handle(BatchRequest $batchRequest): BatchJob
+    public function handle(BatchRequest $request): BatchJob
     {
-        if (count($batchRequest->items) > self::MAX_REQUESTS) {
-            throw PrismBatchRequestLimitExceededException::make('OpenAI', count($batchRequest->items), self::MAX_REQUESTS);
+        if ($request->inputFileId === null) {
+            throw new PrismException('OpenAI batch requires an "inputFileId". Upload your JSONL file using the Files API first.');
         }
 
-        $jsonlContent = $this->buildJsonl($batchRequest);
-
-        $jsonlBytes = strlen($jsonlContent);
-        if ($jsonlBytes > self::MAX_FILE_BYTES) {
-            throw PrismBatchPayloadSizeExceededException::make('OpenAI', self::MAX_FILE_BYTES);
-        }
-
-        $fileId = $this->uploadFile($jsonlContent);
-
+        /**
+         * OpenAI supports batching for: /v1/responses, /v1/chat/completions,
+         * /v1/embeddings, /v1/completions, /v1/moderations, /v1/images/generations,
+         * /v1/images/edits, and /v1/videos. Only /v1/responses is supported for now.
+         */
         $response = $this->client->post('batches', [
-            'input_file_id' => $fileId,
+            'input_file_id' => $request->inputFileId,
             'endpoint' => self::BATCH_ENDPOINT,
-            'completion_window' => '24h',
+            'completion_window' => $request->providerOptions('completion_window') ?? '24h',
         ]);
 
         $data = $response->json();
         $this->handleResponseErrors($data);
 
         return self::mapBatchJob($data);
-    }
-
-    protected function buildJsonl(BatchRequest $batchRequest): string
-    {
-        $lines = [];
-
-        foreach ($batchRequest->items as $item) {
-            $lines[] = json_encode([
-                'custom_id' => $item->customId,
-                'method' => 'POST',
-                'url' => self::BATCH_ENDPOINT,
-                'body' => $this->buildRequestBody($item->request),
-            ], JSON_THROW_ON_ERROR);
-        }
-
-        return implode("\n", $lines);
-    }
-
-    protected function uploadFile(string $jsonlContent): string
-    {
-        $response = $this->client
-            ->asMultipart()
-            ->post('files', [
-                [
-                    'name' => 'purpose',
-                    'contents' => 'batch',
-                ],
-                [
-                    'name' => 'file',
-                    'contents' => $jsonlContent,
-                    'filename' => 'batch_input.jsonl',
-                ],
-            ]);
-
-        $data = $response->json();
-        $this->handleResponseErrors($data);
-
-        $fileId = data_get($data, 'id');
-        if (! $fileId) {
-            throw new PrismException('OpenAI file upload did not return a file ID.');
-        }
-
-        return $fileId;
     }
 }

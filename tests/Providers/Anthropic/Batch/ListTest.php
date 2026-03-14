@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Anthropic\Batch;
 
 use Prism\Prism\Batch\BatchListResult;
+use Prism\Prism\Batch\ListBatchesRequest;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 
@@ -16,7 +17,7 @@ it('can list batches', function (): void {
     FixtureResponse::fakeResponseSequence('messages/batches', 'anthropic/batch-list');
 
     $provider = Prism::provider('anthropic');
-    $result = $provider->listBatches();
+    $result = $provider->listBatches(new ListBatchesRequest);
 
     expect($result)->toBeInstanceOf(BatchListResult::class)
         ->and($result->data)->toBeArray()

@@ -8,17 +8,13 @@ use Closure;
 use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\HasProviderOptions;
 
-class BatchRequest
+class CancelBatchRequest
 {
     use ConfiguresClient;
     use HasProviderOptions;
 
-    /**
-     * @param  BatchRequestItem[]|null  $items
-     */
     public function __construct(
-        public readonly ?array $items = null,
-        public readonly ?string $inputFileId = null,
+        public readonly string $batchId,
     ) {}
 
     /**

@@ -15,7 +15,7 @@ class PrismBatchRequestLimitExceededException extends PrismException
         parent::__construct(
             sprintf(
                 '%s batch limit exceeded: %d requests submitted, maximum is %s.',
-                ucfirst($provider),
+                $provider,
                 $requestCount,
                 number_format($maxRequests)
             )

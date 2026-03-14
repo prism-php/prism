@@ -14,6 +14,10 @@ use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchListResult;
 use Prism\Prism\Batch\BatchRequest;
 use Prism\Prism\Batch\BatchResultItem;
+use Prism\Prism\Batch\CancelBatchRequest;
+use Prism\Prism\Batch\GetBatchResultsRequest;
+use Prism\Prism\Batch\ListBatchesRequest;
+use Prism\Prism\Batch\RetrieveBatchRequest;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
@@ -80,12 +84,12 @@ abstract class Provider
         throw PrismException::unsupportedProviderAction('batch', class_basename($this));
     }
 
-    public function retrieveBatch(string $batchId): BatchJob
+    public function retrieveBatch(RetrieveBatchRequest $request): BatchJob
     {
         throw PrismException::unsupportedProviderAction('retrieveBatch', class_basename($this));
     }
 
-    public function listBatches(?array $params = null): BatchListResult
+    public function listBatches(ListBatchesRequest $request): BatchListResult
     {
         throw PrismException::unsupportedProviderAction('listBatches', class_basename($this));
     }
@@ -93,12 +97,12 @@ abstract class Provider
     /**
      * @return Generator<BatchResultItem>
      */
-    public function getBatchResults(string $batchId): Generator
+    public function getBatchResults(GetBatchResultsRequest $request): Generator
     {
         throw PrismException::unsupportedProviderAction('getBatchResults', class_basename($this));
     }
 
-    public function cancelBatch(string $batchId): BatchJob
+    public function cancelBatch(CancelBatchRequest $request): BatchJob
     {
         throw PrismException::unsupportedProviderAction('cancelBatch', class_basename($this));
     }

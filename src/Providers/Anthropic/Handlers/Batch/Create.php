@@ -10,6 +10,7 @@ use Prism\Prism\Batch\BatchRequest;
 use Prism\Prism\Batch\BatchRequestItem;
 use Prism\Prism\Exceptions\PrismBatchPayloadSizeExceededException;
 use Prism\Prism\Exceptions\PrismBatchRequestLimitExceededException;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesBatchResponse;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 
@@ -40,6 +41,10 @@ class Create
 
     public function handle(BatchRequest $batchRequest): BatchJob
     {
+        if ($batchRequest->items === null) {
+            throw new PrismException('Anthropic batch requires "items" to be provided.');
+        }
+
         if (count($batchRequest->items) > self::MAX_REQUESTS) {
             throw PrismBatchRequestLimitExceededException::make('Anthropic', count($batchRequest->items), self::MAX_REQUESTS);
         }
