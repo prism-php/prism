@@ -29,12 +29,15 @@ it('maps tools to gemini format', function (): void {
             'type' => 'object',
             'properties' => [
                 'query' => [
+                    'description' => 'the detailed search query',
                     'type' => 'string',
                 ],
                 'options' => [
+                    'description' => 'additional options',
                     'type' => 'object',
                     'properties' => [
                         'option1' => [
+                            'description' => 'description for option1',
                             'type' => 'string',
                         ],
                     ],

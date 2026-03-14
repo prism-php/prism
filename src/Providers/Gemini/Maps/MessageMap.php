@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Maps;
 
 use Exception;
+use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\ValueObjects\Media\Audio;
@@ -108,8 +109,8 @@ class MessageMap
             $this->mapDocuments($message->documents()),
             $parts,
             $this->mapImages($message->images()),
-            $this->mapVideo($message->media()),
-            $this->mapAudio($message->media()),
+            $this->mapVideo($message->videos()),
+            $this->mapAudio($message->audios()),
         );
 
         $this->contents['contents'][] = [
@@ -127,14 +128,15 @@ class MessageMap
         }
 
         foreach ($message->toolCalls as $toolCall) {
-            $parts[] = [
+            $parts[] = Arr::whereNotNull([
                 'functionCall' => [
                     'name' => $toolCall->name,
                     ...count($toolCall->arguments()) ? [
                         'args' => $toolCall->arguments(),
                     ] : [],
                 ],
-            ];
+                'thoughtSignature' => $toolCall->reasoningId,
+            ]);
         }
 
         $this->contents['contents'][] = [

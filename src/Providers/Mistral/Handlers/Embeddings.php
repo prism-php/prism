@@ -35,18 +35,22 @@ class Embeddings
                 id: data_get($data, 'id', ''),
                 model: data_get($data, 'model', ''),
                 rateLimits: $this->processRateLimits($response)
-            )
+            ),
+            raw: $data,
         );
     }
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        /** @var Response $response */
+        $response = $this->client->post(
             'embeddings',
             [
                 'model' => $request->model(),
                 'input' => $request->inputs(),
             ]
         );
+
+        return $response;
     }
 }

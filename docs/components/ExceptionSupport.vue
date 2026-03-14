@@ -1,6 +1,6 @@
 <template>
   <div>
-    <table>
+    <table style="width: max-content !important;">
       <thead>
         <tr>
           <th scope="col">Provider</th>
@@ -164,7 +164,13 @@ export default {
           rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
-        },        
+        },
+        {
+          name: "Perplexity",
+          rateLimited: Supported,
+          overloaded: Unsupported,
+          tooLarge: Unsupported,
+        },
       ],
     };
   },

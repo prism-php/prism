@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\EnumSchema;
@@ -264,7 +265,7 @@ it('supports anyOf composition for OpenAI schemas', function (): void {
         allowAdditionalProperties: false
     );
 
-    $itemSchema = new \Prism\Prism\Schema\AnyOfSchema([
+    $itemSchema = new AnyOfSchema([
         $userSchema,
         $addressSchema,
     ]);
@@ -389,4 +390,20 @@ it('supports ArraySchema minItems and maxItems', function (): void {
         'maxItems' => 5,
     ];
     expect($schema->toArray())->toBe($expected);
+});
+
+it('allows an object schema without explicit properties', function (): void {
+    $schema = new ObjectSchema(
+        name: 'user',
+        description: 'a user object',
+        properties: [],
+        nullable: true
+    );
+
+    expect($schema->toArray())->toBe([
+        'description' => 'a user object',
+        'type' => ['object', 'null'],
+        'required' => [],
+        'additionalProperties' => false,
+    ]);
 });

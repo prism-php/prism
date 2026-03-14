@@ -6,26 +6,30 @@ namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
+use Prism\Prism\Concerns\GeneratesAudioFilename;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\ValueObjects\Usage;
 
 class Audio
 {
+    use GeneratesAudioFilename;
     use ProcessRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
 
     public function handleSpeechToText(SpeechToTextRequest $request): TextResponse
     {
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(
                 'file',
                 $request->input()->resource(),
-                'audio',
+                $this->generateFilename($request->input()->mimeType()),
                 ['Content-Type' => $request->input()->mimeType()]
             )
             ->post('audio/transcriptions', Arr::whereNotNull([

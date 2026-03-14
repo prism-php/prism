@@ -3,6 +3,7 @@
 namespace Prism\Prism\Providers\DeepSeek\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
@@ -46,6 +47,7 @@ class Structured
      */
     protected function sendRequest(Request $request): array
     {
+        /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
             array_merge([
@@ -96,6 +98,7 @@ class Structured
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            raw: $data
         );
 
         $this->responseBuilder->addStep($step);

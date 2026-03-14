@@ -14,7 +14,12 @@
     {
       "id": "rs_689b71947cbc8199af51368ed8e14a810f49e192ec3eba8e",
       "type": "reasoning",
-      "summary": []
+      "summary": [
+        {
+          "type": "summary_text",
+          "text": "I should introduce myself to the user."
+        }
+      ]
     },
     {
       "id": "msg_689b71959da481998b4b6284842788c80f49e192ec3eba8e",

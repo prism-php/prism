@@ -67,12 +67,16 @@ class PrismChatController
                 ];
 
                 echo 'data: '.json_encode($data)."\n\n";
-                ob_flush();
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
                 flush();
             }
 
             echo "data: [DONE]\n";
-            ob_flush();
+            if (ob_get_level() > 0) {
+                ob_flush();
+            }
             flush();
         }, 200, [
             'Content-Type' => 'text/event-stream',
@@ -139,7 +143,7 @@ class PrismChatController
                 'system' => new SystemMessage($this->extractTextContent($message['content'])),
                 default => throw new PrismServerException("Couldn't map messages to Prism messages")
             })
-            ->toArray();
+            ->all();
     }
 
     /**

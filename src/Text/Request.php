@@ -142,4 +142,13 @@ class Request implements PrismRequest
 
         return $this;
     }
+
+    public function resetToolChoice(): self
+    {
+        if (is_string($this->toolChoice) || $this->toolChoice === ToolChoice::Any) {
+            $this->toolChoice = ToolChoice::Auto;
+        }
+
+        return $this;
+    }
 }

@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
+use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -15,19 +19,36 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Artifact;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $events
+ * @param  array<StreamEvent>  $events
  */
 function createDataEventGenerator(array $events): Generator
 {
     foreach ($events as $event) {
         yield $event;
     }
+}
+
+/**
+ * Creates a generator that throws an exception after yielding some events.
+ *
+ * @param  array<StreamEvent>  $eventsBeforeError
+ */
+function createThrowingGenerator(array $eventsBeforeError, Throwable $exception): Generator
+{
+    foreach ($eventsBeforeError as $event) {
+        yield $event;
+    }
+
+    throw $exception;
 }
 
 it('creates data protocol response with correct headers and structure', function (): void {
@@ -182,7 +203,7 @@ it('integrates with Laravel response system', function (): void {
 
     // Test integration with Laravel's response system
     expect($response)->toBeInstanceOf(StreamedResponse::class);
-    expect($response->headers)->toBeInstanceOf(\Symfony\Component\HttpFoundation\ResponseHeaderBag::class);
+    expect($response->headers)->toBeInstanceOf(ResponseHeaderBag::class);
     expect($response->getStatusCode())->toBe(200);
 
     // Verify critical data protocol headers are set
@@ -204,16 +225,27 @@ it('handles JSON encoding errors gracefully', function (): void {
     $response = ($adapter)(createDataEventGenerator([$event]));
     $callback = $response->getCallback();
 
-    // Should throw RuntimeException due to JSON encoding failure
-    expect(function () use ($callback): void {
-        // Capture output to prevent pollution
-        ob_start(fn ($buffer): string => '');
-        try {
-            $callback();
-        } finally {
-            ob_end_flush();
-        }
-    })->toThrow(RuntimeException::class, 'Failed to encode event data as JSON');
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Should output error event instead of throwing exception
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('Failed to encode event data as JSON');
+        expect($capturedOutput)->toContain('data: [DONE]');
+    } finally {
+        fclose($outputBuffer);
+    }
 });
 
 it('formats multiple events with correct data protocol structure', function (): void {
@@ -326,6 +358,232 @@ it('converts events to correct data protocol format', function (): void {
         expect($capturedOutput)->toContain('data: {"type":"text-end"');
         expect($capturedOutput)->toContain('data: {"type":"finish"');
         expect($capturedOutput)->toContain('data: [DONE]');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('catches exceptions during streaming and outputs error event', function (): void {
+    $eventsBeforeError = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new TextDeltaEvent('evt-2', 1640995201, 'Hello', 'msg-456'),
+    ];
+
+    $exception = new RuntimeException('API connection failed');
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createThrowingGenerator($eventsBeforeError, $exception));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify events before error were streamed
+        expect($capturedOutput)->toContain('data: {"type":"start"');
+        expect($capturedOutput)->toContain('data: {"type":"text-delta"');
+
+        // Verify error event was output
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('"errorText":"API connection failed"');
+
+        // Verify stream was properly terminated
+        expect($capturedOutput)->toContain('data: [DONE]');
+        expect($capturedOutput)->toEndWith("data: [DONE]\n\n");
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('catches exceptions at the start of streaming and outputs error event', function (): void {
+    $exception = new RuntimeException('Authentication failed');
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createThrowingGenerator([], $exception));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify error event was output
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('"errorText":"Authentication failed"');
+
+        // Verify stream was properly terminated
+        expect($capturedOutput)->toContain('data: [DONE]');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('handles Prism exceptions during streaming gracefully', function (): void {
+    $eventsBeforeError = [
+        new TextDeltaEvent('evt-1', 1640995200, 'Partial response', 'msg-456'),
+    ];
+
+    $exception = new PrismException('Rate limit exceeded');
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createThrowingGenerator($eventsBeforeError, $exception));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify partial content was streamed
+        expect($capturedOutput)->toContain('"delta":"Partial response"');
+
+        // Verify error was captured and output as SSE event
+        expect($capturedOutput)->toContain('data: {"type":"error"');
+        expect($capturedOutput)->toContain('Rate limit exceeded');
+
+        // Verify proper termination
+        expect($capturedOutput)->toEndWith("data: [DONE]\n\n");
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('includes ErrorEvent in collected events passed to callback when exception occurs', function (): void {
+    $eventsBeforeError = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new TextDeltaEvent('evt-2', 1640995201, 'Hello', 'msg-456'),
+    ];
+
+    $exception = new RuntimeException('API connection failed', 500);
+
+    $pendingRequest = Mockery::mock(PendingRequest::class);
+
+    $collectedEventsFromCallback = null;
+    $userCallback = function ($request, $events) use (&$collectedEventsFromCallback): void {
+        $collectedEventsFromCallback = $events;
+    };
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(
+        createThrowingGenerator($eventsBeforeError, $exception),
+        $pendingRequest,
+        $userCallback
+    );
+
+    $streamCallback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $streamCallback();
+        ob_end_flush();
+
+        // Verify callback was called with collected events
+        expect($collectedEventsFromCallback)->not->toBeNull();
+        expect($collectedEventsFromCallback)->toBeInstanceOf(Collection::class);
+
+        // Should have 3 events: StreamStart, TextDelta, and ErrorEvent
+        expect($collectedEventsFromCallback)->toHaveCount(3);
+
+        // Get the last event which should be the ErrorEvent
+        $errorEvent = $collectedEventsFromCallback->last();
+        expect($errorEvent)->toBeInstanceOf(ErrorEvent::class);
+        expect($errorEvent->errorType)->toBe(RuntimeException::class);
+        expect($errorEvent->message)->toBe('API connection failed');
+        expect($errorEvent->recoverable)->toBeFalse();
+        expect($errorEvent->metadata['code'])->toBe(500);
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('formats artifact events using data- prefix convention', function (): void {
+    $artifact = new Artifact(
+        data: 'iVBORw0KGgo=',
+        mimeType: 'image/png',
+        metadata: ['width' => 512],
+        id: 'artifact-123',
+    );
+
+    $events = [
+        new ArtifactEvent('evt-1', 1640995200, $artifact, 'tool-call-456', 'generate_image', 'msg-789'),
+    ];
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        // Verify data- prefix convention is used (not bare "artifact")
+        expect($capturedOutput)->toContain('data: {"type":"data-artifact"');
+        expect($capturedOutput)->not->toContain('"type":"artifact"');
+
+        // Verify payload is nested under "data" key
+        expect($capturedOutput)->toContain('"data":{');
+        expect($capturedOutput)->toContain('"toolCallId":"tool-call-456"');
+        expect($capturedOutput)->toContain('"toolName":"generate_image"');
+        expect($capturedOutput)->toContain('"mimeType":"image\/png"');
+        expect($capturedOutput)->toContain('"id":"artifact-123"');
+
+        // Parse the JSON to verify structure
+        $lines = explode("\n", trim($capturedOutput));
+        $dataLines = array_filter($lines, fn (string $line): bool => str_starts_with($line, 'data: ') && $line !== 'data: [DONE]');
+        $artifactLine = array_values($dataLines)[0];
+        $json = json_decode(substr($artifactLine, 6), true);
+
+        expect($json['type'])->toBe('data-artifact');
+        expect($json['data']['toolCallId'])->toBe('tool-call-456');
+        expect($json['data']['toolName'])->toBe('generate_image');
+        expect($json['data']['artifact']['id'])->toBe('artifact-123');
+        expect($json['data']['artifact']['mimeType'])->toBe('image/png');
+        expect($json['data']['artifact']['data'])->toBe('iVBORw0KGgo=');
+        expect($json['data']['artifact']['metadata'])->toBe(['width' => 512]);
     } finally {
         fclose($outputBuffer);
     }

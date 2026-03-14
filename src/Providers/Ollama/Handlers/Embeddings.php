@@ -37,18 +37,24 @@ class Embeddings
                 id: '',
                 model: data_get($data, 'model', ''),
             ),
+            raw: $data,
         );
     }
 
     protected function sendRequest(Request $request): Response
     {
-        return $this->client->post(
+        /** @var Response $response */
+        $response = $this->client->post(
             'api/embed',
             Arr::whereNotNull([
                 'model' => $request->model(),
                 'input' => $request->inputs(),
+                'dimensions' => $request->providerOptions('dimensions'),
+                'keep_alive' => $request->providerOptions('keep_alive'),
                 'options' => $request->providerOptions() ?: null,
             ])
         );
+
+        return $response;
     }
 }

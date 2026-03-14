@@ -6,11 +6,13 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\SpeechToTextRequest;
 use Prism\Prism\Audio\TextResponse;
 use Prism\Prism\Audio\TextToSpeechRequest;
+use Prism\Prism\Concerns\GeneratesAudioFilename;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Maps\TextToSpeechRequestMapper;
 use Prism\Prism\ValueObjects\GeneratedAudio;
@@ -18,6 +20,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Audio
 {
+    use GeneratesAudioFilename;
     use ProcessRateLimits;
 
     public function __construct(protected PendingRequest $client) {}
@@ -26,6 +29,7 @@ class Audio
     {
         $mapper = new TextToSpeechRequestMapper($request);
 
+        /** @var Response $response */
         $response = $this->client->post('audio/speech', $mapper->toPayload());
 
         if (! $response->successful()) {
@@ -46,6 +50,7 @@ class Audio
     {
         $filename = $this->generateFilename($request->input()->mimeType());
 
+        /** @var Response $response */
         $response = $this
             ->client
             ->attach(
@@ -85,23 +90,5 @@ class Audio
         return new TextResponse(
             text: $response->body(),
         );
-    }
-
-    protected function generateFilename(?string $mimeType): string
-    {
-        $extension = match ($mimeType) {
-            'audio/flac' => 'flac',
-            'audio/mpeg', 'audio/mp3' => 'mp3',
-            'audio/mp4' => 'mp4',
-            'audio/mpga' => 'mpga',
-            'audio/m4a', 'audio/x-m4a' => 'm4a',
-            'audio/ogg' => 'ogg',
-            'audio/opus' => 'opus',
-            'audio/wav', 'audio/wave' => 'wav',
-            'audio/webm' => 'webm',
-            default => 'mp3', // Default to mp3 if unknown
-        };
-
-        return "audio.{$extension}";
     }
 }

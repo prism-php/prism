@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
+use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
@@ -46,6 +47,14 @@ class Images
                 rateLimits: $this->processRateLimits($response),
             ),
             images: $images,
+            additionalContent: Arr::whereNotNull([
+                'input_tokens_details' => data_get($data, 'usage.input_tokens_details'),
+                'quality' => data_get($data, 'quality'),
+                'size' => data_get($data, 'size'),
+                'output_format' => data_get($data, 'output_format'),
+                'background' => data_get($data, 'background'),
+            ]),
+            raw: $data,
         );
 
         return $responseBuilder->toResponse();
@@ -57,7 +66,10 @@ class Images
             return $this->sendImageEditRequest($request);
         }
 
-        return $this->client->post('images/generations', ImageRequestMap::map($request));
+        /** @var ClientResponse $response */
+        $response = $this->client->post('images/generations', ImageRequestMap::map($request));
+
+        return $response;
     }
 
     protected function sendImageEditRequest(Request $request): ClientResponse
@@ -70,6 +82,7 @@ class Images
                     'image[]',
                     $image->resource(),
                     $image->filename() ?: "image-{$index}",
+                    ['Content-Type' => $image->mimeType()],
                 );
         }
 
@@ -86,9 +99,12 @@ class Images
                 );
         }
 
-        return $this
+        /** @var ClientResponse $response */
+        $response = $this
             ->client
             ->post('images/edits', ImageRequestMap::map($request));
+
+        return $response;
     }
 
     /**

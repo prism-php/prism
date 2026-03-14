@@ -83,7 +83,8 @@ it('converts to array with successful result', function (): void {
         toolCallId: 'tool-456',
         toolName: 'list_processor',
         args: ['items' => ['item1', 'item2', 'item3']],
-        result: $result
+        result: $result,
+        toolCallResultId: 'tool-call-result-id-789'
     );
 
     $event = new ToolResultEvent(
@@ -100,6 +101,7 @@ it('converts to array with successful result', function (): void {
         'timestamp' => 1640995200,
         'tool_id' => 'tool-456',
         'result' => $result,
+        'tool_call_result_id' => 'tool-call-result-id-789',
         'message_id' => 'msg-789',
         'success' => true,
         'error' => null,
@@ -112,7 +114,8 @@ it('converts to array with failed result', function (): void {
         toolCallId: 'tool-456',
         toolName: 'data_fetcher',
         args: ['url' => 'https://example.com'],
-        result: $result
+        result: $result,
+        toolCallResultId: 'tool-call-result-id-789'
     );
 
     $event = new ToolResultEvent(
@@ -131,6 +134,7 @@ it('converts to array with failed result', function (): void {
         'timestamp' => 1640995200,
         'tool_id' => 'tool-456',
         'result' => $result,
+        'tool_call_result_id' => 'tool-call-result-id-789',
         'message_id' => 'msg-789',
         'success' => false,
         'error' => 'Network error: unable to fetch complete data',

@@ -16,6 +16,8 @@ class StreamState
 
     protected bool $streamStarted = false;
 
+    protected bool $stepStarted = false;
+
     protected bool $textStarted = false;
 
     protected bool $thinkingStarted = false;
@@ -23,6 +25,11 @@ class StreamState
     protected string $currentText = '';
 
     protected string $currentThinking = '';
+
+    /**
+     * @var array<array-key, string>
+     */
+    protected array $thinkingSummaries = [];
 
     protected ?int $currentBlockIndex = null;
 
@@ -90,6 +97,20 @@ class StreamState
         return $this;
     }
 
+    public function markStepStarted(): self
+    {
+        $this->stepStarted = true;
+
+        return $this;
+    }
+
+    public function markStepFinished(): self
+    {
+        $this->stepStarted = false;
+
+        return $this;
+    }
+
     public function markTextStarted(): self
     {
         $this->textStarted = true;
@@ -97,9 +118,23 @@ class StreamState
         return $this;
     }
 
+    public function markTextCompleted(): self
+    {
+        $this->textStarted = false;
+
+        return $this;
+    }
+
     public function markThinkingStarted(): self
     {
         $this->thinkingStarted = true;
+
+        return $this;
+    }
+
+    public function markThinkingCompleted(): self
+    {
+        $this->thinkingStarted = false;
 
         return $this;
     }
@@ -114,6 +149,7 @@ class StreamState
     public function appendThinking(string $thinking): self
     {
         $this->currentThinking .= $thinking;
+        $this->thinkingSummaries[] = $thinking;
 
         return $this;
     }
@@ -196,6 +232,25 @@ class StreamState
         return $this;
     }
 
+    public function addUsage(Usage $usage): self
+    {
+        if (! $this->usage instanceof Usage) {
+            $this->usage = $usage;
+
+            return $this;
+        }
+
+        $this->usage = new Usage(
+            promptTokens: $this->usage->promptTokens + $usage->promptTokens,
+            completionTokens: $this->usage->completionTokens + $usage->completionTokens,
+            cacheWriteInputTokens: ($this->usage->cacheWriteInputTokens ?? 0) + ($usage->cacheWriteInputTokens ?? 0),
+            cacheReadInputTokens: ($this->usage->cacheReadInputTokens ?? 0) + ($usage->cacheReadInputTokens ?? 0),
+            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0)
+        );
+
+        return $this;
+    }
+
     public function withFinishReason(FinishReason $finishReason): self
     {
         $this->finishReason = $finishReason;
@@ -256,6 +311,14 @@ class StreamState
         return $this->currentThinking;
     }
 
+    /**
+     * @return array<array-key, string>
+     */
+    public function thinkingSummaries(): array
+    {
+        return $this->thinkingSummaries;
+    }
+
     public function currentBlockIndex(): ?int
     {
         return $this->currentBlockIndex;
@@ -302,6 +365,11 @@ class StreamState
         return ! $this->streamStarted;
     }
 
+    public function shouldEmitStepStart(): bool
+    {
+        return ! $this->stepStarted;
+    }
+
     public function shouldEmitTextStart(): bool
     {
         return ! $this->textStarted;
@@ -316,7 +384,9 @@ class StreamState
     {
         $this->messageId = '';
         $this->reasoningId = '';
-        $this->streamStarted = false;
+        // Note: streamStarted is intentionally NOT reset here.
+        // Fresh state is created per-call via constructor; reset() is only called
+        // between tool-call turns where we need to preserve streamStarted = true.
         $this->textStarted = false;
         $this->thinkingStarted = false;
         $this->currentText = '';
@@ -325,8 +395,6 @@ class StreamState
         $this->currentBlockType = null;
         $this->toolCalls = [];
         $this->citations = [];
-        $this->usage = null;
-        $this->finishReason = null;
         $this->model = '';
         $this->provider = '';
         $this->metadata = null;

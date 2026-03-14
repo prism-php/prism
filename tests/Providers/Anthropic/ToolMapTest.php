@@ -37,7 +37,7 @@ it('sets the cache typeif cacheType providerOptions is set on tool', function (m
         ->for('Searching the web')
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]')
-        ->withProviderOptions(['cacheType' => $cacheType]);
+        ->withProviderOptions(['cacheType' => $cacheType, 'cacheTtl' => '1h']);
 
     expect(ToolMap::map([$tool]))->toBe([[
         'name' => 'search',
@@ -52,7 +52,7 @@ it('sets the cache typeif cacheType providerOptions is set on tool', function (m
             ],
             'required' => ['query'],
         ],
-        'cache_control' => ['type' => 'ephemeral'],
+        'cache_control' => ['type' => 'ephemeral', 'ttl' => '1h'],
     ]]);
 })->with([
     'ephemeral',

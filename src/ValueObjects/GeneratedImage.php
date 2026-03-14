@@ -19,4 +19,15 @@ class GeneratedImage extends Media\Media
     {
         return $this->revisedPrompt !== null;
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return array_merge(parent::toArray(), [
+            'revised_prompt' => $this->revisedPrompt,
+        ]);
+    }
 }

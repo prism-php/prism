@@ -9,6 +9,9 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -39,6 +42,35 @@ it('can generate text with a prompt', function (): void {
     );
 
     // Assert finish reason
+    expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('handles missing usage data in response', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/text-missing-usage');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    expect($response)->toBeInstanceOf(TextResponse::class);
+    expect($response->usage->promptTokens)->toBe(0);
+    expect($response->usage->completionTokens)->toBe(0);
+    expect($response->text)->toBe("Hello! I'm an AI assistant. How can I help you today?");
+});
+
+it('handles responses with missing id and model fields', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-missing-meta');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    expect($response)->toBeInstanceOf(TextResponse::class);
+    expect($response->meta->id)->toBe('');
+    expect($response->meta->model)->toBe('openai/gpt-4-turbo');
+    expect($response->text)->toContain("Hello! I'm an AI assistant");
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
@@ -109,6 +141,16 @@ it('can generate text using multiple tools and multiple steps', function (): voi
 
     // There should be 2 steps
     expect($response->steps)->toHaveCount(2);
+
+    // Verify the assistant message from step 1 is present in step 2's input messages
+    $secondStep = $response->steps[1];
+    expect($secondStep->messages)->toHaveCount(3);
+    expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+    expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+    expect($secondStep->messages[1]->toolCalls)->toHaveCount(2);
+    expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('search');
+    expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('weather');
+    expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
 
     // Assert usage
     expect($response->usage->promptTokens)->toBe(507);

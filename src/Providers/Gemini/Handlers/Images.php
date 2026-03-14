@@ -41,6 +41,7 @@ class Images
                 model: data_get($data, 'modelVersion', ''),
             ),
             images: $images,
+            raw: $data,
         );
 
         return $responseBuilder->toResponse();
@@ -51,7 +52,10 @@ class Images
         $endpoint = $request->model();
         $endpoint .= (str_contains($request->model(), 'gemini') ? ':generateContent' : ':predict');
 
-        return $this->client->post($endpoint, ImageRequestMap::map($request));
+        /** @var ClientResponse $response */
+        $response = $this->client->post($endpoint, ImageRequestMap::map($request));
+
+        return $response;
     }
 
     /**

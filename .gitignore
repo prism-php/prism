@@ -1,3 +1,4 @@
+.DS_Store
 .vscode
 /vendor/
 composer.lock
@@ -11,3 +12,5 @@ phpunit.xml
 ray.php
 CLAUDE.md
 .phpunit.result.cache
+.ddev/
+.claude/

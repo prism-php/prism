@@ -68,6 +68,24 @@ class PrismException extends Exception
         ]), previous: $previous);
     }
 
+    public static function providerRequestErrorWithDetails(
+        string $provider,
+        int $statusCode,
+        ?string $errorType,
+        ?string $errorMessage,
+        ?Throwable $previous = null
+    ): self {
+        $message = sprintf(
+            '%s Error [%d]: %s%s',
+            $provider,
+            $statusCode,
+            $errorType !== null ? "{$errorType} - " : '',
+            $errorMessage ?? 'Unknown error'
+        );
+
+        return new self($message, $statusCode, $previous);
+    }
+
     public static function unsupportedProviderAction(string $method, string $provider): self
     {
         return new self(sprintf(

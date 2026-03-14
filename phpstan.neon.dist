@@ -4,5 +4,3 @@ parameters:
         - src
     tmpDir: build/phpstan
     reportUnmatchedIgnoredErrors: true
-    ignoreErrors:
-        - identifier: function.alreadyNarrowedType

@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects;
 
-class Embedding
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+class Embedding implements Arrayable
 {
     /**
      * @param  array<int, int|string|float>  $embedding
@@ -19,5 +24,16 @@ class Embedding
     public static function fromArray(array $embedding): self
     {
         return new self(embedding: $embedding);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'embedding' => $this->embedding,
+        ];
     }
 }

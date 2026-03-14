@@ -17,6 +17,8 @@ use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -27,13 +29,11 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
-use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
@@ -43,6 +43,8 @@ class Stream
     use CallsTools;
 
     protected StreamState $state;
+
+    protected ?string $currentThoughtSignature = null;
 
     public function __construct(
         protected PendingRequest $client,
@@ -57,6 +59,7 @@ class Stream
     public function handle(Request $request): Generator
     {
         $this->state->reset();
+        $this->currentThoughtSignature = null;
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -98,29 +101,46 @@ class Stream
                 $this->state->markStreamStarted();
             }
 
+            // Emit step start event once per step
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
+            }
+
             // Update usage data from each chunk
             $this->state->withUsage($this->extractUsage($data, $request));
 
             // Process tool calls
             if ($this->hasToolCalls($data)) {
+                // Track existing indices before extraction
+                $existingIndices = array_keys($this->state->toolCalls());
+
                 $toolCalls = $this->extractToolCalls($data, $this->state->toolCalls());
                 foreach ($toolCalls as $index => $toolCall) {
                     $this->state->addToolCall($index, $toolCall);
                 }
 
-                // Emit tool call events
-                foreach ($this->state->toolCalls() as $toolCallData) {
-                    yield new ToolCallEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        toolCall: $this->mapToolCall($toolCallData),
-                        messageId: $this->state->messageId()
-                    );
+                // Emit tool call events only for NEWLY added tool calls
+                foreach ($this->state->toolCalls() as $index => $toolCallData) {
+                    if (! in_array($index, $existingIndices, true)) {
+                        yield new ToolCallEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            toolCall: $this->mapToolCall($toolCallData),
+                            messageId: $this->state->messageId()
+                        );
+                    }
                 }
 
                 // Check if this is the final part of the tool calls
                 if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                     yield from $this->handleToolCalls($request, $depth, $data);
+
+                    return;
                 }
 
                 continue;
@@ -183,11 +203,9 @@ class Stream
                 }
             }
 
-            // Handle completion
             $finishReason = $this->mapFinishReason($data);
 
             if ($finishReason !== FinishReason::Unknown) {
-                // Emit thinking complete if we had thinking
                 if ($this->state->reasoningId() !== '') {
                     yield new ThinkingCompleteEvent(
                         id: EventID::generate(),
@@ -196,8 +214,9 @@ class Stream
                     );
                 }
 
-                // Emit text complete if we had text
                 if ($this->state->hasTextStarted()) {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -205,20 +224,41 @@ class Stream
                     );
                 }
 
-                // Emit stream end event
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $finishReason,
-                    usage: $this->state->usage()
-                );
+                $this->state->withFinishReason($finishReason);
+                $this->state->withMetadata([
+                    'grounding_metadata' => $this->extractGroundingMetadata($data),
+                ]);
             }
         }
 
-        // Handle tool calls if present and not already handled
-        if ($this->state->hasToolCalls() && $this->mapFinishReason([]) === FinishReason::Unknown) {
+        if ($this->state->hasToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
+
+            return;
         }
+
+        // Emit step finish before stream end
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
+        yield $this->emitStreamEndEvent();
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage() ?? new Usage(0, 0),
+            additionalContent: Arr::whereNotNull([
+                'grounding_metadata' => $this->state->metadata()['grounding_metadata'] ?? null,
+                'thoughtSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
+            ])
+        );
     }
 
     /**
@@ -253,12 +293,23 @@ class Stream
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
         $parts = data_get($data, 'candidates.0.content.parts', []);
+        $nextIndex = $toolCalls === [] ? 0 : max(array_keys($toolCalls)) + 1;
 
-        foreach ($parts as $index => $part) {
+        foreach ($parts as $part) {
             if (isset($part['functionCall'])) {
-                $toolCalls[$index]['id'] = EventID::generate('gm');
-                $toolCalls[$index]['name'] = data_get($part, 'functionCall.name');
-                $toolCalls[$index]['arguments'] = data_get($part, 'functionCall.args', []);
+                // Capture first thoughtSignature for this response
+                if (isset($part['thoughtSignature'])) {
+                    $this->currentThoughtSignature = $part['thoughtSignature'];
+                }
+
+                $toolCalls[$nextIndex] = [
+                    'id' => EventID::generate('gm'),
+                    'name' => data_get($part, 'functionCall.name'),
+                    'arguments' => data_get($part, 'functionCall.args', []),
+                    // Use part's signature if present, otherwise fall back to stored one
+                    'reasoningId' => $part['thoughtSignature'] ?? $this->currentThoughtSignature,
+                ];
+                $nextIndex++;
             }
         }
 
@@ -283,58 +334,39 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        foreach ($mappedToolCalls as $toolCall) {
-            try {
-                $tool = $this->resolveTool($toolCall->name, $request->tools());
-                $result = call_user_func_array($tool->handle(...), $toolCall->arguments());
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-                $toolResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: is_array($result) ? $result : ['result' => $result]
-                );
-
-                $toolResults[] = $toolResult;
-
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $toolResult,
-                    messageId: $this->state->messageId(),
-                    success: true
-                );
-            } catch (Throwable $e) {
-                $errorResult = new ToolResult(
-                    toolCallId: $toolCall->id,
-                    toolName: $toolCall->name,
-                    args: $toolCall->arguments(),
-                    result: []
-                );
-
-                $toolResults[] = $errorResult;
-
-                yield new ToolResultEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    toolResult: $errorResult,
-                    messageId: $this->state->messageId(),
-                    success: false,
-                    error: $e->getMessage()
-                );
-            }
-        }
-
-        // Add messages for next turn and continue streaming
         if ($toolResults !== []) {
+            // Emit step finish after tool calls
+            $this->state->markStepFinished();
+            yield new StepFinishEvent(
+                id: EventID::generate(),
+                timestamp: time()
+            );
+
             $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
             $request->addMessage(new ToolResultMessage($toolResults));
+            $request->resetToolChoice();
 
             $depth++;
             if ($depth < $request->maxSteps()) {
-                $this->state->reset();
+                $previousUsage = $this->state->usage();
+                $this->state->reset()->withMessageId(EventID::generate());
+                $this->currentThoughtSignature = null;
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
+
+                if ($previousUsage instanceof Usage && $this->state->usage() instanceof Usage) {
+                    $this->state->withUsage(new Usage(
+                        promptTokens: $previousUsage->promptTokens + $this->state->usage()->promptTokens,
+                        completionTokens: $previousUsage->completionTokens + $this->state->usage()->completionTokens,
+                        cacheWriteInputTokens: ($previousUsage->cacheWriteInputTokens ?? 0) + ($this->state->usage()->cacheWriteInputTokens ?? 0),
+                        cacheReadInputTokens: ($previousUsage->cacheReadInputTokens ?? 0) + ($this->state->usage()->cacheReadInputTokens ?? 0),
+                        thoughtTokens: ($previousUsage->thoughtTokens ?? 0) + ($this->state->usage()->thoughtTokens ?? 0)
+                    ));
+                }
+            } else {
+                yield $this->emitStreamEndEvent();
             }
         }
     }
@@ -357,7 +389,8 @@ class Stream
         return new ToolCall(
             id: empty($toolCallData['id']) ? EventID::generate('gm') : $toolCallData['id'],
             name: data_get($toolCallData, 'name', 'unknown'),
-            arguments: $arguments
+            arguments: $arguments,
+            reasoningId: data_get($toolCallData, 'reasoningId')
         );
     }
 
@@ -414,21 +447,51 @@ class Stream
     {
         $providerOptions = $request->providerOptions();
 
+        if ($request->tools() !== [] && $request->providerTools() !== []) {
+            throw new PrismException('Use of provider tools with custom tools is not currently supported by Gemini.');
+        }
+
         if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
             throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
         }
 
-        $tools = match (true) {
-            $providerOptions['searchGrounding'] ?? false => [
+        $tools = [];
+
+        if ($request->providerTools() !== []) {
+            $tools = array_map(
+                fn ($providerTool): array => [
+                    $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                ],
+                $request->providerTools()
+            );
+        } elseif ($providerOptions['searchGrounding'] ?? false) {
+            $tools = [
                 [
                     'google_search' => (object) [],
                 ],
-            ],
-            $request->tools() !== [] => ['function_declarations' => ToolMap::map($request->tools())],
-            default => [],
-        };
+            ];
+        } elseif ($request->tools() !== []) {
+            $tools = ['function_declarations' => ToolMap::map($request->tools())];
+        }
 
-        return $this->client
+        $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
+
+        if (isset($providerOptions['thinkingBudget'])) {
+            $thinkingConfig = [
+                'thinkingBudget' => $providerOptions['thinkingBudget'],
+                'includeThoughts' => true,
+            ];
+        }
+
+        if (isset($providerOptions['thinkingLevel'])) {
+            $thinkingConfig = [
+                'thinkingLevel' => $providerOptions['thinkingLevel'],
+                'includeThoughts' => true,
+            ];
+        }
+
+        /** @var Response $response */
+        $response = $this->client
             ->withOptions(['stream' => true])
             ->post(
                 "{$request->model()}:streamGenerateContent?alt=sse",
@@ -439,16 +502,15 @@ class Stream
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
                         'maxOutputTokens' => $request->maxTokens(),
-                        'thinkingConfig' => Arr::whereNotNull([
-                            'thinkingBudget' => $providerOptions['thinkingBudget'] ?? null,
-                            'includeThoughts' => true,
-                        ]) ?: null,
+                        'thinkingConfig' => $thinkingConfig,
                     ]) ?: null,
                     'tools' => $tools !== [] ? $tools : null,
                     'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])
             );
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string
@@ -481,5 +543,22 @@ class Stream
     {
         // According to Google's documentation, thinking content is marked with thought=true
         return isset($part['thought']) && $part['thought'] === true;
+    }
+
+    /**
+     * Extract grounding metadata from Gemini API response
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
+     */
+    protected function extractGroundingMetadata(array $data): ?array
+    {
+        $groundingMetadata = data_get($data, 'candidates.0.groundingMetadata');
+
+        if (! $groundingMetadata) {
+            return null;
+        }
+
+        return $groundingMetadata;
     }
 }

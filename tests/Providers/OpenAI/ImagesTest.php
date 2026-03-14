@@ -43,6 +43,7 @@ it('can generate an image with dall-e-3', function (): void {
     expect($response->firstImage()->revisedPrompt)->toBe('A cute baby sea otter floating on its back in calm blue water');
     expect($response->usage->promptTokens)->toBe(15);
     expect($response->imageCount())->toBe(1);
+    expect($response->additionalContent)->toBe([]);
 
     Http::assertSent(function (Request $request): bool {
         $data = $request->data();
@@ -229,6 +230,10 @@ it('can generate an image with gpt-image-1 returning base64', function (): void 
     Http::fake([
         'api.openai.com/v1/images/generations' => Http::response([
             'created' => 1713833628,
+            'background' => 'opaque',
+            'quality' => 'high',
+            'size' => '1024x1024',
+            'output_format' => 'png',
             'data' => [
                 [
                     'b64_json' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -258,6 +263,16 @@ it('can generate an image with gpt-image-1 returning base64', function (): void 
     expect($response->firstImage()->url)->toBeNull();
     expect($response->usage->promptTokens)->toBe(50);
     expect($response->imageCount())->toBe(1);
+    expect($response->additionalContent)->toBe([
+        'input_tokens_details' => [
+            'text_tokens' => 10,
+            'image_tokens' => 40,
+        ],
+        'quality' => 'high',
+        'size' => '1024x1024',
+        'output_format' => 'png',
+        'background' => 'opaque',
+    ]);
 
     Http::assertSent(function (Request $request): bool {
         $data = $request->data();
@@ -369,6 +384,14 @@ it('can edit images', function (): void {
         ->generate();
 
     expect($response->firstImage()->base64)->not->toBeEmpty();
+    expect($response->additionalContent)->toHaveKeys([
+        'input_tokens_details',
+        'quality',
+        'size',
+        'output_format',
+        'background',
+    ]);
+    expect($response->additionalContent['input_tokens_details'])->toHaveKeys(['text_tokens', 'image_tokens']);
 });
 
 it('can edit with multiple images', function (): void {
@@ -412,7 +435,7 @@ it('can edit with multiple images', function (): void {
 it('can edit images with mask using Image value object', function (): void {
     FixtureResponse::fakeResponseSequence(
         'api.openai.com/v1/images/edits',
-        'openai/image-edit'
+        'openai/image-edit-with-mask'
     );
 
     $response = Prism::image()
@@ -421,7 +444,7 @@ it('can edit images with mask using Image value object', function (): void {
             Image::fromLocalPath('tests/Fixtures/diamond.png'),
         ])
         ->withProviderOptions([
-            'mask' => Image::fromLocalPath('tests/Fixtures/sunset.png'),
+            'mask' => Image::fromLocalPath('tests/Fixtures/diamond_background_removed.png'),
             'size' => '1024x1024',
             'output_format' => 'png',
             'quality' => 'high',

@@ -44,7 +44,8 @@ class Structured
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -56,6 +57,8 @@ class Structured
                 'response_format' => ['type' => 'json_object'],
             ]))
         );
+
+        return $response;
     }
 
     /**
@@ -83,6 +86,7 @@ class Structured
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            raw: $data,
         );
 
         $this->responseBuilder->addStep($step);

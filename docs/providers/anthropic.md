@@ -12,9 +12,37 @@
 ```
 ## Prompt caching
 
-Anthropic's prompt caching feature allows you to drastically reduce latency and your API bill when repeatedly re-using blocks of content within five minutes of each other.
+Anthropic's prompt caching feature allows you to drastically reduce latency and your API bill when repeatedly re-using blocks of content within five minutes or one hour of each other, depending on the Anthropic compatible TTL option you provide.
 
-We support Anthropic prompt caching on:
+There are two ways to enable prompt caching:
+- Automatic caching
+- Explicit cache breakpoints
+
+To enable automatic caching, simply add a single cache_control field at the top level of your request:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+
+Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withSystemPrompt(
+        (new SystemMessage('I am a long re-usable system message.'))
+    )
+    ->withMessages([
+        (new UserMessage('I am a long re-usable user message.'))
+    ])
+    ->withTools([
+        Tool::as('cache me')
+    ])
+    ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']])
+    ->asText();
+```
+
+We support Anthropic explicit cache breakpoints on:
 
 - System Messages (text only)
 - User Messages (Text, Image and PDF (pdf only))
@@ -34,7 +62,7 @@ Prism::text()
     ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
     ->withSystemPrompt(
         (new SystemMessage('I am a long re-usable system message.'))
-            ->withProviderOptions(['cacheType' => 'ephemeral'])
+            ->withProviderOptions(['cacheType' => 'ephemeral', 'cacheTtl' => '1h'])
     )
     ->withMessages([
         (new UserMessage('I am a long re-usable user message.'))
@@ -63,6 +91,7 @@ use Prism\Prism\ValueObjects\Media\Document;
 - Tools use `withTools()`
 - All message types support caching via `withProviderOptions(['cacheType' => 'ephemeral'])`
 - You cannot use `withPrompt()` for caching as it doesn't allow adding provider options to individual messages
+- Anthropic supports two TTL options: `5m` (default) or `1h`. You can leave the `cacheTtl` unset and Anthropic will use the default TTL of `5m`.
 
 ### Tool result caching
 

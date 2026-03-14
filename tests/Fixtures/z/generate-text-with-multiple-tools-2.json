@@ -1,0 +1,25 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "\nBased on the information I gathered:\n\n**Tigers Game Time:** The Tigers game today in Detroit is at 3:00 PM.\n\n**Weather and Coat Recommendation:** The weather will be 45° and cold. Yes, you should definitely wear a coat to the game! At 45 degrees, it will be quite chilly, especially if you'll be sitting outdoors for several hours. You might want to consider wearing a warm coat, and possibly dressing in layers with a hat and gloves for extra comfort during the game.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1765888366,
+  "id": "20251216203244b8311d53051b4c17",
+  "model": "z-model",
+  "object": "chat.completion",
+  "request_id": "20251216203244b8311d53051b4c17",
+  "usage": {
+    "completion_tokens": 109,
+    "prompt_tokens": 344,
+    "prompt_tokens_details": {
+      "cached_tokens": 273
+    },
+    "total_tokens": 453
+  }
+}

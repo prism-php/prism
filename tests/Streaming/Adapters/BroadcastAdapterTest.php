@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\Event;
+use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Events\Broadcasting\CitationBroadcast;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
 use Prism\Prism\Events\Broadcasting\ProviderToolEventBroadcast;
 use Prism\Prism\Events\Broadcasting\StreamEndBroadcast;
@@ -17,11 +19,14 @@ use Prism\Prism\Events\Broadcasting\ThinkingBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingCompleteBroadcast;
 use Prism\Prism\Events\Broadcasting\ThinkingStartBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolCallBroadcast;
+use Prism\Prism\Events\Broadcasting\ToolCallDeltaBroadcast;
 use Prism\Prism\Events\Broadcasting\ToolResultBroadcast;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
+use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -29,14 +34,16 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\ValueObjects\Citation;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 /**
- * @param  array<\Prism\Prism\Streaming\Events\StreamEvent>  $events
+ * @param  array<StreamEvent>  $events
  */
 function createBroadcastEventGenerator(array $events): Generator
 {
@@ -125,7 +132,8 @@ it('broadcasts thinking events correctly', function (): void {
 it('broadcasts tool events correctly', function (): void {
     $events = [
         new ToolCallEvent('evt-1', 1640995200, new ToolCall('tool-123', 'search', ['q' => 'test']), 'msg-456'),
-        new ToolResultEvent('evt-2', 1640995201, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
+        new ToolCallDeltaEvent('evt-2', 1640995201, 'tool-123', 'search', 'partial result', 'msg-456'),
+        new ToolResultEvent('evt-3', 1640995201, new ToolResult('tool-123', 'search', ['q' => 'test'], ['result' => 'found']), 'msg-456', true),
     ];
 
     $channel = new Channel('test-channel');
@@ -134,6 +142,8 @@ it('broadcasts tool events correctly', function (): void {
 
     Event::assertDispatched(ToolCallBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolCall->name === 'search'
         && $broadcastEvent->event->toolCall->arguments() === ['q' => 'test']);
+
+    Event::assertDispatched(ToolCallDeltaBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->delta === 'partial result');
 
     Event::assertDispatched(ToolResultBroadcast::class, fn ($broadcastEvent): bool => $broadcastEvent->event->toolResult->result === ['result' => 'found']
         && $broadcastEvent->event->success === true);
@@ -334,6 +344,42 @@ it('broadcasts provider tool events correctly', function (): void {
         expect($broadcastEvent->event->status)->toBe('completed');
         expect($broadcastEvent->event->itemId)->toBe('ig-456');
         expect($broadcastEvent->event->data)->toBe(['result' => 'base64-image-data']);
+
+        return true;
+    });
+});
+
+it('broadcasts citation events correctly', function (): void {
+    $citation = new Citation(
+        sourceType: CitationSourceType::Document,
+        source: 0,
+        sourceText: 'The quick brown fox',
+        sourceTitle: 'Test Document',
+    );
+
+    $event = new CitationEvent(
+        id: 'evt-123',
+        timestamp: 1640995200,
+        citation: $citation,
+        messageId: 'msg-456',
+        blockIndex: 0,
+    );
+    $channel = new Channel('test-channel');
+
+    $adapter = new BroadcastAdapter($channel);
+    ($adapter)(createBroadcastEventGenerator([$event]));
+
+    Event::assertDispatched(CitationBroadcast::class, function ($broadcastEvent) use ($channel): bool {
+        expect($broadcastEvent->broadcastAs())->toBe('citation');
+        expect($broadcastEvent->broadcastOn())->toBe([$channel]);
+
+        $data = $broadcastEvent->broadcastWith();
+        expect($data['id'])->toBe('evt-123');
+        expect($data['message_id'])->toBe('msg-456');
+        expect($data['block_index'])->toBe(0);
+        expect($data['citation']['source_type'])->toBe('document');
+        expect($data['citation']['source_text'])->toBe('The quick brown fox');
+        expect($data['citation']['source_title'])->toBe('Test Document');
 
         return true;
     });

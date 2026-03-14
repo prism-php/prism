@@ -57,27 +57,20 @@ class Text
 
         $this->citations = $this->extractCitations($data);
 
-        $providerToolCalls = ProviderToolCallMap::map(data_get($data, 'output', []));
-
-        $responseMessage = new AssistantMessage(
-            content: data_get($data, 'output.{last}.content.0.text') ?? '',
-            toolCalls: ToolCallMap::map(
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
-                array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
-            ),
-            additionalContent: Arr::whereNotNull([
-                'citations' => $this->citations,
-                'provider_tool_calls' => $providerToolCalls === [] ? null : $providerToolCalls,
-            ]),
-        );
-
-        $request->addMessage($responseMessage);
-
-        return match ($this->mapFinishReason($data)) {
+        return match ($finishReason = $this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
-            FinishReason::Length => throw new PrismException('OpenAI: max tokens exceeded'),
-            default => throw new PrismException('OpenAI: unknown finish reason'),
+            FinishReason::Length => throw new PrismException(sprintf(
+                'OpenAI: max tokens exceeded (status: %s, type: %s). If using a reasoning model, increase max_tokens to account for internal reasoning token usage.',
+                data_get($data, 'output.{last}.status', 'n/a'),
+                data_get($data, 'output.{last}.type', 'n/a'),
+            )),
+            default => throw new PrismException(sprintf(
+                'OpenAI: unhandled finish reason "%s" (status: %s, type: %s)',
+                $finishReason->value,
+                data_get($data, 'output.{last}.status', 'n/a'),
+                data_get($data, 'output.{last}.type', 'n/a'),
+            )),
         };
     }
 
@@ -86,17 +79,27 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): Response
     {
-        $toolResults = $this->callTools(
-            $request->tools(),
-            ToolCallMap::map(array_filter(
-                data_get($data, 'output', []),
-                fn (array $output): bool => $output['type'] === 'function_call')
-            ),
+        $toolCalls = ToolCallMap::map(
+            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call'),
+            array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'reasoning'),
         );
 
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
+
+        $providerToolCalls = ProviderToolCallMap::map(data_get($data, 'output', []));
+
+        $request->addMessage(new AssistantMessage(
+            content: data_get($data, 'output.{last}.content.0.text') ?? '',
+            toolCalls: $toolCalls,
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->citations,
+                'provider_tool_calls' => $providerToolCalls === [] ? null : $providerToolCalls,
+            ]),
+        ));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         if ($this->shouldContinue($request)) {
             return $this->handle($request);
@@ -122,10 +125,13 @@ class Text
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'responses',
             $this->buildRequestBody($request),
         );
+
+        return $response;
     }
 
     /**
@@ -138,12 +144,15 @@ class Text
         ClientResponse $clientResponse,
         array $toolResults = []
     ): void {
+        /** @var array<array-key, array<string, mixed>> $output */
+        $output = data_get($data, 'output', []);
+
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'output.{last}.content.0.text') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: ToolCallMap::map(array_filter(data_get($data, 'output', []), fn (array $output): bool => $output['type'] === 'function_call')),
+            toolCalls: ToolCallMap::map(array_filter($output, fn (array $output): bool => $output['type'] === 'function_call')),
             toolResults: $toolResults,
-            providerToolCalls: ProviderToolCallMap::map(data_get($data, 'output', [])),
+            providerToolCalls: ProviderToolCallMap::map($output),
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.input_tokens', 0) - data_get($data, 'usage.input_tokens_details.cached_tokens', 0),
                 completionTokens: data_get($data, 'usage.output_tokens'),
@@ -154,12 +163,43 @@ class Text
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
                 rateLimits: $this->processRateLimits($clientResponse),
+                serviceTier: data_get($data, 'service_tier'),
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->citations,
+                'searchQueries' => collect($output)
+                    ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->filter(fn (array $item): bool => data_get($item, 'action.type') === 'search')
+                    ->map(fn (array $item): ?string => data_get($item, 'action.query'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray() ?: null,
+                'openPageUrls' => collect($output)
+                    ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->filter(fn (array $item): bool => data_get($item, 'action.type') === 'open_page')
+                    ->map(fn (array $item): ?string => data_get($item, 'action.url'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray() ?: null,
+                'findInPagePatterns' => collect($output)
+                    ->filter(fn (array $item): bool => ($item['type'] ?? null) === 'web_search_call')
+                    ->filter(fn (array $item): bool => data_get($item, 'action.type') === 'find_in_page')
+                    ->map(fn (array $item): ?string => data_get($item, 'action.pattern'))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray() ?: null,
+                'reasoningSummaries' => collect($output)
+                    ->filter(fn (array $output): bool => $output['type'] === 'reasoning')
+                    ->flatMap(fn (array $output): array => Arr::pluck($output['summary'] ?? [], 'text'))
+                    ->filter()
+                    ->toArray(),
             ]),
+            raw: $data,
         ));
     }
 }

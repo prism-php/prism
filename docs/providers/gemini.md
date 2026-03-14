@@ -79,6 +79,8 @@ foreach ($response->additionalContent['citations'] as $part) {
 
 ## Structured Output
 
+Gemini supports structured output, allowing you to define schemas that constrain the model's responses to match your exact data structure requirements.
+
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
@@ -106,12 +108,206 @@ $response = Prism::structured()
 dump($response->structured);
 ```
 
+### Flexible Types with anyOf
+
+For fields that can match multiple types or structures, use `AnyOfSchema`. This is useful for polymorphic data or when a field might contain different shapes:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+// Simple example: value can be string or number
+$schema = new ObjectSchema(
+    'response',
+    'API response with flexible value',
+    [
+        new AnyOfSchema(
+            schemas: [
+                new StringSchema('text', 'Text value'),
+                new NumberSchema('number', 'Numeric value'),
+            ],
+            name: 'value',
+            description: 'Can be either text or number'
+        ),
+    ],
+    ['value']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
+    ->withSchema($schema)
+    ->withPrompt('Extract the value from: "The answer is 42"')
+    ->asStructured();
+
+// $response->structured['value'] could be "42" (string) or 42 (number)
+```
+
+For complex polymorphic structures, `anyOf` can distinguish between entirely different object types:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+$articleSchema = new ObjectSchema(
+    'article',
+    'A blog article',
+    [
+        new StringSchema('title', 'Article title'),
+        new StringSchema('content', 'Full article text'),
+        new StringSchema('author', 'Author name'),
+    ],
+    ['title', 'content']
+);
+
+$imageSchema = new ObjectSchema(
+    'image',
+    'An image post',
+    [
+        new StringSchema('url', 'Image URL'),
+        new StringSchema('caption', 'Image caption'),
+        new NumberSchema('width', 'Width in pixels'),
+        new NumberSchema('height', 'Height in pixels'),
+    ],
+    ['url']
+);
+
+$schema = new ObjectSchema(
+    'social_post',
+    'Social media post',
+    [
+        new AnyOfSchema(
+            schemas: [$articleSchema, $imageSchema],
+            name: 'content',
+            description: 'Post content - either article or image'
+        ),
+    ],
+    ['content']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
+    ->withSchema($schema)
+    ->withPrompt('Analyze this post and extract its content')
+    ->asStructured();
+
+// Result will be either {title, content, author} OR {url, caption, width, height}
+```
+
+> [!NOTE]
+> The `anyOf` feature requires Gemini 2.5 or later models.
+
+### Numeric Constraints
+
+Constrain numeric values to specific ranges and precision using JSON Schema numeric constraints:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+$schema = new ObjectSchema(
+    'product_rating',
+    'Product rating information',
+    [
+        new NumberSchema(
+            name: 'rating',
+            description: 'User rating (1-5 stars, half-star increments)',
+            minimum: 1.0,
+            maximum: 5.0,
+            multipleOf: 0.5
+        ),
+        new NumberSchema(
+            name: 'price',
+            description: 'Product price in USD',
+            minimum: 0.01,
+            exclusiveMaximum: 10000.0
+        ),
+        new NumberSchema(
+            name: 'quantity',
+            description: 'Stock quantity',
+            minimum: 0
+        ),
+    ],
+    ['rating', 'price', 'quantity']
+);
+
+$response = Prism::structured()
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
+    ->withSchema($schema)
+    ->withPrompt('Extract rating, price, and quantity from this product review')
+    ->asStructured();
+```
+
+**Available Numeric Constraints:**
+- `minimum` - Minimum value (inclusive)
+- `maximum` - Maximum value (inclusive)
+- `exclusiveMinimum` - Minimum value (exclusive)
+- `exclusiveMaximum` - Maximum value (exclusive)
+- `multipleOf` - Value must be a multiple of this number
+
+### Nullable Fields
+
+Make any field optional by marking it as nullable. The field must be present in the response, but can be `null`:
+
+```php
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$schema = new ObjectSchema(
+    'user',
+    'User profile',
+    [
+        new StringSchema('name', 'User name'),
+        new StringSchema('email', 'Email address', nullable: true),  // Optional
+    ],
+    ['name', 'email']  // Both required, but email can be null
+);
+```
+
+Nullable works with `anyOf` to create truly optional polymorphic fields:
+
+```php
+use Prism\Prism\Schema\AnyOfSchema;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+
+$schema = new ObjectSchema(
+    'user_input',
+    'User input that may be missing',
+    [
+        new AnyOfSchema(
+            schemas: [
+                new StringSchema('text', 'Text input'),
+                new NumberSchema('number', 'Numeric input'),
+            ],
+            name: 'user_value',
+            description: 'User provided value, or null if not provided',
+            nullable: true  // Adds null as a valid type
+        ),
+    ],
+    ['user_value']
+);
+
+// Result can be string, number, or null
+```
+
 ### Combining Tools with Structured Output
 
 Gemini natively supports combining custom tools with structured output. The AI can call tools to gather data, then return a structured response:
 
 ```php
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
@@ -198,6 +394,65 @@ $response = Prism::text()
 ## Embeddings
 
 You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
+
+### Gemini Embedding 2 Preview
+
+Gemini's `gemini-embedding-2-preview` model supports text, images, audio, video, and PDF documents in a unified embedding space. Use Prism's content entry API to control whether you want a single aggregated embedding or multiple embeddings in one request.
+
+### Single Modality Inputs
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->fromImage(Image::fromLocalPath('/path/to/product.png'))
+    ->fromAudio(Audio::fromLocalPath('/path/to/example.mp3'))
+    ->fromVideo(Video::fromLocalPath('/path/to/example.mp4'))
+    ->fromDocument(Document::fromLocalPath('/path/to/report.pdf'))
+    ->asEmbeddings();
+```
+
+### Aggregated Multimodal Embeddings
+
+Use `fromContent()` to combine multiple parts into a single embedding:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->fromContent([
+        'An image of a dog',
+        Image::fromLocalPath('/path/to/dog.png'),
+    ])
+    ->asEmbeddings();
+```
+
+### Batch Embeddings
+
+Use `fromContents()` to generate multiple embeddings in a single request:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->fromContents([
+        ['The dog is cute'],
+        [Image::fromLocalPath('/path/to/dog.png')],
+    ])
+    ->asEmbeddings();
+```
 
 ### Title
 
@@ -296,7 +551,36 @@ For complete streaming documentation, see [Streaming Output](/core-concepts/stre
 
 ## Media Support
 
-Gemini has robust support for processing multimedia content:
+Gemini has robust support for processing multimedia content.
+
+### Media Resolution
+
+Gemini 3 models support the `mediaResolution` provider option to control the quality vs token usage tradeoff for images, videos, documents, and audio. Higher resolutions improve fine detail recognition but increase token consumption.
+
+| Resolution | Image Tokens | Video Tokens (per frame) | PDF Tokens |
+|------------|--------------|--------------------------|------------|
+| `MEDIA_RESOLUTION_LOW` | 280 | 70 | 280 + text |
+| `MEDIA_RESOLUTION_MEDIUM` | 560 | 70 | 560 + text |
+| `MEDIA_RESOLUTION_HIGH` | 1120 | 280 | 1120 + text |
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\Enums\Provider;
+
+$response = Prism::text()
+    ->using(Provider::Gemini, 'gemini-3-flash-preview')
+    ->withMessages([
+        new UserMessage(
+            'Read the fine print in this document.',
+            additionalContent: [
+                Image::fromLocalPath('/path/to/document.png')
+                    ->withProviderOptions(['mediaResolution' => 'MEDIA_RESOLUTION_HIGH']),
+            ],
+        ),
+    ])
+    ->asText();
+```
 
 ### Video Analysis
 

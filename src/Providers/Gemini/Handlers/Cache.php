@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Gemini\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
@@ -42,6 +43,7 @@ class Cache
             'ttl' => $this->ttl.'s',
         ]);
 
+        /** @var Response $response */
         $response = $this->client->post('/cachedContents', $request);
 
         return $response->json();

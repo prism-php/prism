@@ -17,10 +17,11 @@ use Prism\Prism\Providers\Mistral\Mistral;
 use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
+use Prism\Prism\Providers\Perplexity\Perplexity;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
-use RuntimeException;
+use Prism\Prism\Providers\Z\Z;
 
 class PrismManager
 {
@@ -55,20 +56,11 @@ class PrismManager
         throw new InvalidArgumentException("Provider [{$name}] is not supported.");
     }
 
-    /**
-     * @throws RuntimeException
-     */
     public function extend(string $provider, Closure $callback): self
     {
-        if (($callback = $callback->bindTo($this, $this)) instanceof Closure) {
-            $this->customCreators[$provider] = $callback;
+        $this->customCreators[$provider] = $callback;
 
-            return $this;
-        }
-
-        throw new RuntimeException(
-            sprintf('Couldn\'t bind %s', $provider)
-        );
+        return $this;
     }
 
     protected function resolveName(ProviderEnum|string $name): string
@@ -121,9 +113,10 @@ class PrismManager
     protected function createAnthropicProvider(array $config): Anthropic
     {
         return new Anthropic(
-            $config['api_key'],
-            $config['version'],
-            $config['anthropic_beta'] ?? null
+            apiKey: $config['api_key'],
+            apiVersion: $config['version'],
+            url: $config['url'] ?? 'https://api.anthropic.com/v1',
+            betaFeatures: $config['anthropic_beta'] ?? null,
         );
     }
 
@@ -147,6 +140,14 @@ class PrismManager
             apiKey: $config['api_key'] ?? '',
             baseUrl: $config['url'] ?? ''
         );
+    }
+
+    /**
+     * @param  array<string, string|null>  $config
+     */
+    protected function createPerplexityProvider(array $config): Perplexity
+    {
+        return new Perplexity(apiKey: $config['api_key'] ?? '', url: $config['url'] ?? '');
     }
 
     /**
@@ -222,6 +223,17 @@ class PrismManager
         return new ElevenLabs(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createZProvider(array $config): Z
+    {
+        return new Z(
+            apiKey: $config['api_key'],
+            url: $config['url'],
         );
     }
 }

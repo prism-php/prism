@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Text;
 
 use Illuminate\Support\Collection;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Usage;
 
 readonly class ResponseBuilder
@@ -29,6 +30,21 @@ readonly class ResponseBuilder
         /** @var Step $finalStep */
         $finalStep = $this->steps->last();
 
+        // Build messages collection: input messages + final assistant message
+        $messages = collect($finalStep->messages);
+
+        // Include provider_tool_calls in additionalContent if present
+        $additionalContent = $finalStep->additionalContent;
+        if ($finalStep->providerToolCalls !== []) {
+            $additionalContent['provider_tool_calls'] = $finalStep->providerToolCalls;
+        }
+
+        $messages->push(new AssistantMessage(
+            content: $finalStep->text,
+            toolCalls: $finalStep->toolCalls,
+            additionalContent: $additionalContent,
+        ));
+
         return new Response(
             steps: $this->steps,
             text: $finalStep->text,
@@ -37,8 +53,9 @@ readonly class ResponseBuilder
             toolResults: $finalStep->toolResults,
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,
-            messages: collect($finalStep->messages),
+            messages: $messages,
             additionalContent: $finalStep->additionalContent,
+            raw: $finalStep->raw,
         );
     }
 

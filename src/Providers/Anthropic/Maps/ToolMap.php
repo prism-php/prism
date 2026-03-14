@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Maps;
 
+use Prism\Prism\Providers\Anthropic\Concerns\NormalizesCacheControl;
 use Prism\Prism\Tool as PrismTool;
-use UnitEnum;
 
 class ToolMap
 {
+    use NormalizesCacheControl;
+
     /**
      * @param  PrismTool[]  $tools
      * @return array<string, mixed>
@@ -16,7 +18,6 @@ class ToolMap
     public static function map(array $tools): array
     {
         return array_map(function (PrismTool $tool): array {
-            $cacheType = $tool->providerOptions('cacheType');
             $properties = $tool->parametersAsArray();
 
             return array_filter([
@@ -27,7 +28,7 @@ class ToolMap
                     'properties' => $properties === [] ? new \stdClass : $properties,
                     'required' => $tool->requiredParameters(),
                 ],
-                'cache_control' => $cacheType ? ['type' => $cacheType instanceof UnitEnum ? $cacheType->name : $cacheType] : null,
+                'cache_control' => self::normalizeCacheControl($tool),
                 'strict' => (bool) $tool->providerOptions('strict'),
             ]);
         }, $tools);

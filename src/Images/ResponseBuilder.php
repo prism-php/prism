@@ -16,7 +16,9 @@ readonly class ResponseBuilder
         /** @var GeneratedImage[] */
         public array $images = [],
         /** @var array<string,mixed> */
-        public array $additionalContent = []
+        public array $additionalContent = [],
+        /** @var array<string,mixed>|null */
+        public ?array $raw = null
     ) {}
 
     public function toResponse(): Response
@@ -26,6 +28,7 @@ readonly class ResponseBuilder
             usage: $this->usage,
             meta: $this->meta,
             additionalContent: $this->additionalContent,
+            raw: $this->raw,
         );
     }
 }

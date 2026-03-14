@@ -53,13 +53,6 @@ class Text
 
         $data = $response->json();
 
-        $responseMessage = new AssistantMessage(
-            $this->extractText(data_get($data, 'choices.0.message', [])),
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
-
-        $request->addMessage($responseMessage);
-
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop => $this->handleStop($data, $request, $response),
@@ -72,14 +65,18 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request, ClientResponse $clientResponse): Response
     {
-        $toolResults = $this->callTools(
-            $request->tools(),
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
+        $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $toolResults = $this->callTools($request->tools(), $toolCalls);
 
         $this->addStep($data, $request, $clientResponse, $toolResults);
+
+        $request->addMessage(new AssistantMessage(
+            $this->extractText(data_get($data, 'choices.0.message', [])),
+            $toolCalls,
+        ));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         if ($this->shouldContinue($request)) {
             return $this->handle($request);
@@ -131,12 +128,14 @@ class Text
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: $this->extractThinking(data_get($data, 'choices.0.message', [])),
+            raw: $data,
         ));
     }
 
     protected function sendRequest(Request $request): ClientResponse
     {
-        return $this->client->post(
+        /** @var ClientResponse $response */
+        $response = $this->client->post(
             'chat/completions',
             array_merge([
                 'model' => $request->model(),
@@ -149,6 +148,8 @@ class Text
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             ]))
         );
+
+        return $response;
     }
 
     /**

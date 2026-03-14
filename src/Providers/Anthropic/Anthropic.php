@@ -27,6 +27,7 @@ use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 use Prism\Prism\Providers\Provider;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
@@ -39,7 +40,8 @@ class Anthropic extends Provider
     public function __construct(
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $apiVersion,
-        public readonly ?string $betaFeatures = null
+        public readonly string $url,
+        public readonly ?string $betaFeatures = null,
     ) {}
 
     #[\Override]
@@ -71,7 +73,7 @@ class Anthropic extends Provider
     }
 
     /**
-     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     * @return Generator<StreamEvent>
      */
     #[\Override]
     public function stream(TextRequest $request): Generator
@@ -134,8 +136,21 @@ class Anthropic extends Provider
             ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::Anthropic),
             413 => throw PrismRequestTooLargeException::make(ProviderName::Anthropic),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Anthropic',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'error.type'),
+            errorMessage: data_get($data, 'error.message'),
+            previous: $e
+        );
     }
 
     /**
@@ -152,6 +167,6 @@ class Anthropic extends Provider
             ]))
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
-            ->baseUrl($baseUrl ?? 'https://api.anthropic.com/v1');
+            ->baseUrl($baseUrl ?? $this->url);
     }
 }

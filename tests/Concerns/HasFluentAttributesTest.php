@@ -63,7 +63,7 @@ it('throws if the property does not exist', function (): void {
     };
 
     $instance->withBaz('baz');
-})->throws(\BadMethodCallException::class, 'Method withBaz does not exist.');
+})->throws(BadMethodCallException::class, 'Method withBaz does not exist.');
 
 it('can still call other methods', function (): void {
     $instance = new class

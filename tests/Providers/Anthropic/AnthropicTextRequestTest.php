@@ -23,7 +23,7 @@ it('sends correct basic text generation payload', function (): void {
     Http::assertSent(function (Request $request): bool {
         $payload = $request->data();
 
-        expect($payload)->toHaveKeys(['model', 'messages', 'max_tokens']);
+        expect($payload)->toHaveKeys(['model', 'messages']);
         expect($payload['model'])->toBe('claude-3-5-haiku-latest');
         expect($payload['messages'])->toBe([
             [
@@ -36,7 +36,6 @@ it('sends correct basic text generation payload', function (): void {
                 ],
             ],
         ]);
-        expect($payload['max_tokens'])->toBe(2048);
 
         return true;
     });
@@ -237,6 +236,26 @@ it('omits null values from payload', function (): void {
         expect($payload)->not->toHaveKey('temperature');
         expect($payload)->not->toHaveKey('top_p');
         expect($payload)->not->toHaveKey('mcp_servers');
+
+        return true;
+    });
+});
+
+it('always includes max_tokens in payload because it is required by anthropic', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        // Anthropic API requires max_tokens - it should always be present
+        expect($payload)->toHaveKey('max_tokens');
+        expect($payload['max_tokens'])->toBeInt();
+        expect($payload['max_tokens'])->toBeGreaterThan(0);
 
         return true;
     });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Mistral\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -51,6 +52,7 @@ class OCR
      */
     protected function sendRequest(): array
     {
+        /** @var Response $response */
         $response = $this->client->post('/ocr', [
             'model' => $this->model,
             'document' => (new DocumentMapper($this->document))->toPayload(),

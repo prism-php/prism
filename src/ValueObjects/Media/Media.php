@@ -3,14 +3,19 @@
 namespace Prism\Prism\ValueObjects\Media;
 
 use finfo;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\HasProviderOptions;
 
-class Media
+/**
+ * @implements Arrayable<string, mixed>
+ */
+class Media implements Arrayable
 {
     use HasProviderOptions;
 
@@ -256,8 +261,6 @@ class Media
     }
 
     /**
-     * Get a file resource suitable for HTTP multipart uploads
-     *
      * @return resource
      */
     public function resource()
@@ -290,7 +293,9 @@ class Media
             return;
         }
 
-        $content = Http::get($this->url)->body();
+        /** @var Response */
+        $response = Http::get($this->url);
+        $content = $response->body();
 
         if (! $content) {
             throw new InvalidArgumentException("{$this->url} returns no content.");
@@ -303,6 +308,23 @@ class Media
         }
 
         $this->rawContent = $content;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'url' => $this->url,
+            'base64' => $this->base64,
+            'mime_type' => $this->mimeType,
+            'file_id' => $this->fileId,
+            'local_path' => $this->localPath,
+            'storage_path' => $this->storagePath,
+            'filename' => $this->filename,
+        ];
     }
 
     /**

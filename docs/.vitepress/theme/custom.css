@@ -193,6 +193,10 @@ div[class*="language-"] {
   border-top: none !important;
 }
 
+.header-anchor {
+  -webkit-text-fill-color: currentColor;
+}
+
 /* Header anchors with vaporwave color */
 .header-anchor:hover {
   color: var(--vp-c-brand-1);

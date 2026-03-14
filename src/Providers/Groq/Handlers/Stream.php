@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
@@ -21,6 +22,8 @@ use Prism\Prism\Providers\Groq\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Groq\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ErrorEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -28,7 +31,6 @@ use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -95,6 +97,16 @@ class Stream
                 );
             }
 
+            // Emit step start event once per step
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
+            }
+
             if ($this->hasError($data)) {
                 yield from $this->handleErrors($data, $request);
 
@@ -110,6 +122,8 @@ class Stream
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 // Complete any ongoing text
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -150,8 +164,9 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                // Complete text if we have any
                 if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -159,17 +174,33 @@ class Stream
                     );
                 }
 
-                // Extract usage information from the final chunk
-                $usage = $this->extractUsage($data);
+                $this->state->withFinishReason($finishReason);
 
-                yield new StreamEndEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: $finishReason,
-                    usage: $usage
-                );
+                $usage = $this->extractUsage($data);
+                if ($usage instanceof Usage) {
+                    $this->state->addUsage($usage);
+                }
             }
         }
+
+        // Emit step finish before stream end
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
+
+        yield $this->emitStreamEndEvent();
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage() ?? new Usage(0, 0),
+        );
     }
 
     /**
@@ -245,27 +276,31 @@ class Stream
             );
         }
 
-        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
+        $toolResults = [];
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        // Emit tool result events
-        foreach ($toolResults as $result) {
-            yield new ToolResultEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                toolResult: $result,
-                messageId: $this->state->messageId()
-            );
-        }
+        // Emit step finish after tool calls
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         // Reset text state for next response
         $this->state->resetTextState();
         $this->state->withMessageId(EventID::generate());
 
-        $nextResponse = $this->sendRequest($request);
-        yield from $this->processStream($nextResponse, $request, $depth + 1);
+        $depth++;
+        if ($depth < $request->maxSteps()) {
+            $nextResponse = $this->sendRequest($request);
+            yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
+        }
     }
 
     /**
@@ -297,7 +332,7 @@ class Stream
                     $arguments,
                 );
             })
-            ->toArray();
+            ->all();
     }
 
     /**
@@ -344,7 +379,8 @@ class Stream
     protected function sendRequest(Request $request): Response
     {
         try {
-            return $this
+            /** @var Response $response */
+            $response = $this
                 ->client
                 ->withOptions(['stream' => true])
                 ->throw()
@@ -361,7 +397,9 @@ class Stream
                         'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                     ]))
                 );
-        } catch (\Illuminate\Http\Client\RequestException $e) {
+
+            return $response;
+        } catch (RequestException $e) {
             if ($e->response->getStatusCode() === 429) {
                 throw new PrismRateLimitedException(
                     $this->processRateLimits($e->response),

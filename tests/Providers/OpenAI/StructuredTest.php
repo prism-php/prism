@@ -580,3 +580,84 @@ it('supports nullable AnyOfSchema in structured output', function (): void {
     expect($response->structured)->toBeArray();
     expect($response->structured)->toHaveKeys(['name', 'flexible_value']);
 });
+
+it('passes store parameter when specified', function (): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/structured-structured-mode'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('query', 'Search internal documents'),
+        ],
+        ['query']
+    );
+
+    $store = false;
+
+    Prism::structured()
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withSchema($schema)
+        ->withPrompt('What was the revenue in Q3?')
+        ->withProviderOptions([
+            'store' => $store,
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request) use ($store): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'store'))->toBe($store);
+
+        return true;
+    });
+});
+
+it('includes status details when max tokens exceeded', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-max-tokens-exceeded');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    try {
+        Prism::structured()
+            ->withSchema($schema)
+            ->using(Provider::OpenAI, 'gpt-5')
+            ->withPrompt('What is the weather?')
+            ->asStructured();
+        $this->fail('Expected PrismException was not thrown');
+    } catch (PrismException $e) {
+        expect($e->getMessage())
+            ->toContain('incomplete')
+            ->toContain('reasoning model');
+    }
+});
+
+it('includes status details for unknown finish reasons', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-unknown-finish-reason');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    expect(fn () => Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-4o')
+        ->withPrompt('What is the weather?')
+        ->asStructured()
+    )->toThrow(PrismException::class, 'some_future_type');
+});

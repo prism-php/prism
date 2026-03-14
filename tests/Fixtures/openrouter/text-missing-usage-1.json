@@ -1,0 +1,1 @@
+{"id":"gen-no-usage","object":"chat.completion","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! I'm an AI assistant. How can I help you today?"},"logprobs":null,"finish_reason":"stop"}]}

@@ -1,6 +1,6 @@
 # Embeddings
 
-Transform your text into powerful vector representations! Embeddings let you add semantic search, recommendation systems, and other advanced natural language features to your applications.
+Transform your content into powerful vector representations! Embeddings let you add semantic search, recommendation systems, and other advanced features to your applications - whether you're working with text, images, audio, video, or documents.
 
 ## Quick Start
 
@@ -24,7 +24,7 @@ echo $response->usage->tokens;
 
 ## Generating multiple embeddings
 
-You can generate multiple embeddings at once with all providers that support embeddings, other than Gemini:
+You can generate multiple embeddings at once with providers that support batch embeddings:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -86,6 +86,104 @@ $response = Prism::embeddings()
 > [!NOTE]
 > Make sure your file exists and is readable. The generator will throw a helpful `PrismException` if there's any issue accessing the file.
 
+## Multimodal Embeddings
+
+Some providers support multimodal embeddings, enabling powerful use cases like visual similarity search, cross-modal retrieval, and mixed media retrieval. Prism makes it easy to generate embeddings from images, audio, video, and documents using the same fluent API.
+
+> [!IMPORTANT]
+> Multimodal embeddings require a provider and model that supports the input modalities you send. Check your provider's documentation to confirm support for images, audio, video, documents, and grouped content.
+
+### Single Image
+
+Generate an embedding from a single image:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromImage(Image::fromLocalPath('/path/to/product.jpg'))
+    ->asEmbeddings();
+
+$embedding = $response->embeddings[0]->embedding;
+```
+
+### Multiple Images
+
+Process multiple images in a single request:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromImages([
+        Image::fromLocalPath('/path/to/image1.jpg'),
+        Image::fromUrl('https://example.com/image2.png'),
+    ])
+    ->asEmbeddings();
+
+foreach ($response->embeddings as $embedding) {
+    // Process each image embedding
+    $vector = $embedding->embedding;
+}
+```
+
+### Audio, Video, and Documents
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Video;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromAudio(Audio::fromLocalPath('/path/to/sample.mp3'))
+    ->fromVideo(Video::fromLocalPath('/path/to/sample.mp4'))
+    ->fromDocument(Document::fromLocalPath('/path/to/report.pdf'))
+    ->asEmbeddings();
+```
+
+### Grouped Multimodal Content
+
+Use `fromContent()` when you want a single embedding generated from multiple parts within the same content entry:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromContent([
+        'Find similar products in red',
+        Image::fromBase64($productImage, 'image/png'),
+    ])
+    ->asEmbeddings();
+```
+
+Use `fromContents()` when you want multiple embeddings in a single request:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::embeddings()
+    ->using('provider', 'model')
+    ->fromContents([
+        ['The dog is cute'],
+        [Image::fromLocalPath('/path/to/dog.png')],
+    ])
+    ->asEmbeddings();
+```
+
+You can still chain `fromInput()` and `fromImage()` in any order. Each chained call creates a separate content entry.
+
+> [!TIP]
+> Prism media value objects support multiple input sources. See the [Images documentation](/input-modalities/images.html) and related modality guides for details.
+
 ## Common Settings
 
 Just like with text generation, you can fine-tune your embeddings requests:
@@ -146,7 +244,7 @@ try {
 }
 ```
 
-## Pro Tips 🌟
+## Pro Tips
 
 **Vector Storage**: Consider using a vector database like Milvus, Qdrant, or pgvector to store and query your embeddings efficiently.
 

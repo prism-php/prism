@@ -130,8 +130,21 @@ class Mistral extends Provider
             ),
             529 => throw PrismProviderOverloadedException::make(ProviderName::Mistral),
             413 => throw PrismRequestTooLargeException::make(ProviderName::Mistral),
-            default => throw PrismException::providerRequestError($model, $e),
+            default => $this->handleResponseErrors($e),
         };
+    }
+
+    protected function handleResponseErrors(RequestException $e): never
+    {
+        $data = $e->response->json() ?? [];
+
+        throw PrismException::providerRequestErrorWithDetails(
+            provider: 'Mistral',
+            statusCode: $e->response->getStatusCode(),
+            errorType: data_get($data, 'type') ?? data_get($data, 'object'),
+            errorMessage: data_get($data, 'message'),
+            previous: $e
+        );
     }
 
     /**

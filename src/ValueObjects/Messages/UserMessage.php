@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\ValueObjects\Messages;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Media\Audio;
@@ -13,7 +14,10 @@ use Prism\Prism\ValueObjects\Media\Media;
 use Prism\Prism\ValueObjects\Media\Text;
 use Prism\Prism\ValueObjects\Media\Video;
 
-class UserMessage implements Message
+/**
+ * @implements Arrayable<string, mixed>
+ */
+class UserMessage implements Arrayable, Message
 {
     use HasProviderOptions;
 
@@ -47,9 +51,11 @@ class UserMessage implements Message
      */
     public function images(): array
     {
+        /** @phpstan-ignore return.type */
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Image)
-            ->toArray();
+            ->values()
+            ->all();
     }
 
     /**
@@ -57,21 +63,25 @@ class UserMessage implements Message
      */
     public function media(): array
     {
+        /** @phpstan-ignore return.type */
         return collect($this->additionalContent)
             ->filter(fn ($part): bool => $part instanceof Audio || $part instanceof Video || $part instanceof Media)
-            ->toArray();
+            ->values()
+            ->all();
     }
 
     /**
-     * Note: Prism currently only supports Documents with Anthropic.
+     * Note: Prism currently only supports Documents with Anthropic and OpenRouter.
      *
      * @return Document[]
      */
     public function documents(): array
     {
+        /** @phpstan-ignore return.type */
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Document)
-            ->toArray();
+            ->values()
+            ->all();
     }
 
     /**
@@ -79,9 +89,11 @@ class UserMessage implements Message
      */
     public function audios(): array
     {
+        /** @phpstan-ignore return.type */
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Audio)
-            ->toArray();
+            ->values()
+            ->all();
     }
 
     /**
@@ -89,8 +101,27 @@ class UserMessage implements Message
      */
     public function videos(): array
     {
+        /** @phpstan-ignore return.type */
         return collect($this->additionalContent)
             ->where(fn ($part): bool => $part instanceof Video)
-            ->toArray();
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function toArray(): array
+    {
+        return [
+            'type' => 'user',
+            'content' => $this->content,
+            'additional_content' => array_map(
+                fn (Text|Image|Document|Media $content): array => $content->toArray(),
+                $this->additionalContent
+            ),
+            'additional_attributes' => $this->additionalAttributes,
+        ];
     }
 }

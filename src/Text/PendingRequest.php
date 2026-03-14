@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Text;
 
-use Closure;
 use Generator;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\Client\RequestException;
@@ -19,12 +18,11 @@ use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
 use Prism\Prism\Concerns\HasTools;
-use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
 use Prism\Prism\Streaming\Adapters\SSEAdapter;
-use Prism\Prism\Streaming\StreamCollector;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -42,25 +40,28 @@ class PendingRequest
     use HasProviderTools;
     use HasTools;
 
-    protected ?Closure $completeCallback = null;
-
     /**
      * @deprecated Use `asText` instead.
+     *
+     * @param  callable(PendingRequest, Response): void|null  $callback
      */
-    public function generate(): Response
+    public function generate(?callable $callback = null): Response
     {
-        return $this->asText();
+        return $this->asText($callback);
     }
 
-    public function asText(): Response
+    /**
+     * @param  callable(PendingRequest, Response): void|null  $callback
+     */
+    public function asText(?callable $callback = null): Response
     {
         $request = $this->toRequest();
 
         try {
             $response = $this->provider->text($request);
 
-            if ($this->completeCallback instanceof Closure) {
-                ($this->completeCallback)($this, $response->messages);
+            if ($callback !== null) {
+                $callback($this, $response);
             }
 
             return $response;
@@ -70,55 +71,42 @@ class PendingRequest
     }
 
     /**
-     * @param  callable(PendingRequest|null, Collection<int, Message>): void  $callback
-     */
-    public function onComplete(callable $callback): self
-    {
-        $this->completeCallback = $callback instanceof Closure ? $callback : Closure::fromCallable($callback);
-
-        return $this;
-    }
-
-    /**
-     * @return Generator<\Prism\Prism\Streaming\Events\StreamEvent>
+     * @return Generator<StreamEvent>
      */
     public function asStream(): Generator
     {
         $request = $this->toRequest();
 
         try {
-            $chunks = $this->provider->stream($request);
-
-            if ($this->completeCallback instanceof Closure) {
-                $collector = new StreamCollector($chunks, $this, $this->completeCallback);
-
-                yield from $collector->collect();
-            } else {
-                foreach ($chunks as $chunk) {
-                    yield $chunk;
-                }
-            }
+            yield from $this->provider->stream($request);
         } catch (RequestException $e) {
             $this->provider->handleRequestException($request->model(), $e);
         }
     }
 
-    public function asDataStreamResponse(): StreamedResponse
+    /**
+     * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
+     */
+    public function asDataStreamResponse(?callable $callback = null): StreamedResponse
     {
-        return (new DataProtocolAdapter)($this->asStream());
+        return (new DataProtocolAdapter)($this->asStream(), $this, $callback);
     }
 
-    public function asEventStreamResponse(): StreamedResponse
+    /**
+     * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
+     */
+    public function asEventStreamResponse(?callable $callback = null): StreamedResponse
     {
-        return (new SSEAdapter)($this->asStream());
+        return (new SSEAdapter)($this->asStream(), $this, $callback);
     }
 
     /**
      * @param  Channel|Channel[]  $channels
+     * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
      */
-    public function asBroadcast(Channel|array $channels): void
+    public function asBroadcast(Channel|array $channels, ?callable $callback = null): void
     {
-        (new BroadcastAdapter($channels))($this->asStream());
+        (new BroadcastAdapter($channels))($this->asStream(), $this, $callback);
     }
 
     public function toRequest(): Request

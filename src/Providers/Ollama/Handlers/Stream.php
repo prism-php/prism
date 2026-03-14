@@ -17,6 +17,8 @@ use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -27,7 +29,6 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -66,7 +67,10 @@ class Stream
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
 
-        $this->state->reset();
+        if ($depth === 0) {
+            $this->state->reset();
+        }
+
         $text = '';
 
         while (! $response->getBody()->eof()) {
@@ -85,6 +89,16 @@ class Stream
                     provider: 'ollama'
                 );
                 $this->state->markStreamStarted()->withMessageId(EventID::generate());
+            }
+
+            // Emit step start event once per step
+            if ($this->state->shouldEmitStepStart()) {
+                $this->state->markStepStarted();
+
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
             }
 
             // Accumulate token counts
@@ -115,13 +129,12 @@ class Stream
 
             // If we were emitting thinking and it's now stopped, mark it complete
             if ($this->state->hasThinkingStarted()) {
+                $this->state->markThinkingCompleted();
                 yield new ThinkingCompleteEvent(
                     id: EventID::generate(),
                     timestamp: time(),
                     reasoningId: $this->state->reasoningId()
                 );
-                // Note: Can't easily reset just thinking flag with current StreamState API
-                // This may need adjustment if tests fail
                 // Don't continue here - we want to process the rest of this data chunk
             }
 
@@ -159,6 +172,8 @@ class Stream
             if ((bool) data_get($data, 'done', false) && $this->state->hasToolCalls()) {
                 // Emit text complete if we had text content
                 if ($this->state->hasTextStarted()) {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -175,6 +190,8 @@ class Stream
             if ((bool) data_get($data, 'done', false)) {
                 // Emit text complete if we had text content
                 if ($this->state->hasTextStarted()) {
+                    $this->state->markTextCompleted();
+
                     yield new TextCompleteEvent(
                         id: EventID::generate(),
                         timestamp: time(),
@@ -182,20 +199,32 @@ class Stream
                     );
                 }
 
-                // Emit stream end event with usage
-                yield new StreamEndEvent(
+                // Emit step finish before stream end
+                $this->state->markStepFinished();
+                yield new StepFinishEvent(
                     id: EventID::generate(),
-                    timestamp: time(),
-                    finishReason: FinishReason::Stop,
-                    usage: new Usage(
-                        promptTokens: $this->state->promptTokens(),
-                        completionTokens: $this->state->completionTokens()
-                    )
+                    timestamp: time()
                 );
+
+                // Emit stream end event with usage
+                yield $this->emitStreamEndEvent();
 
                 return;
             }
         }
+    }
+
+    protected function emitStreamEndEvent(): StreamEndEvent
+    {
+        return new StreamEndEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: FinishReason::Stop,
+            usage: new Usage(
+                promptTokens: $this->state->promptTokens(),
+                completionTokens: $this->state->completionTokens()
+            )
+        );
     }
 
     /**
@@ -261,27 +290,29 @@ class Stream
         }
 
         // Execute tools and emit results
-        $toolResults = $this->callTools($request->tools(), $mappedToolCalls);
+        $toolResults = [];
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        foreach ($toolResults as $result) {
-            yield new ToolResultEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                toolResult: $result,
-                messageId: $this->state->messageId(),
-                success: true
-            );
-        }
+        // Emit step finish after tool calls
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time()
+        );
 
         // Add messages for next turn
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
         $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
         // Continue streaming if within step limit
         $depth++;
         if ($depth < $request->maxSteps()) {
+            $this->state->reset();
             $nextResponse = $this->sendRequest($request);
             yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
         }
     }
 
@@ -295,7 +326,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
-        return $this
+        /** @var Response $response */
+        $response = $this
             ->client
             ->withOptions(['stream' => true])
             ->post('api/chat', [
@@ -308,6 +340,7 @@ class Stream
                 'stream' => true,
                 ...Arr::whereNotNull([
                     'think' => $request->providerOptions('thinking'),
+                    'keep_alive' => $request->providerOptions('keep_alive'),
                 ]),
                 'options' => Arr::whereNotNull(array_merge([
                     'temperature' => $request->temperature(),
@@ -315,6 +348,8 @@ class Stream
                     'top_p' => $request->topP(),
                 ], $request->providerOptions())),
             ]);
+
+        return $response;
     }
 
     protected function readLine(StreamInterface $stream): string

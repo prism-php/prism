@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Anthropic\Handlers\Batch;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchRequest;
+use Prism\Prism\Batch\BatchRequestItem;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesBatchResponse;
@@ -32,7 +33,7 @@ class Create
             );
         }
 
-        $requests = array_map(fn (\Prism\Prism\Batch\BatchRequestItem $item): array => [
+        $requests = array_map(fn (BatchRequestItem $item): array => [
             'custom_id' => $item->customId,
             'params' => Text::buildHttpRequestPayload($item->request),
         ], $batchRequest->items);

@@ -1,0 +1,30 @@
+{
+  "id": "resp_test_tool_choice_1",
+  "object": "response",
+  "created_at": 1741989983,
+  "status": "completed",
+  "model": "gpt-4o-2024-08-06",
+  "output": [
+    {
+      "id": "fc_test_tool_call_1",
+      "type": "function_call",
+      "status": "completed",
+      "arguments": "{\"city\": \"New York\"}",
+      "call_id": "call_test_1",
+      "name": "weather"
+    }
+  ],
+  "usage": {
+    "input_tokens": 100,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 25,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 125
+  },
+  "service_tier": "default",
+  "system_fingerprint": "fp_test"
+}

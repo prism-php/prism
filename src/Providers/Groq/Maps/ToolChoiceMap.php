@@ -25,6 +25,7 @@ class ToolChoiceMap
 
         return match ($toolChoice) {
             ToolChoice::Auto => 'auto',
+            ToolChoice::Any => 'required',
             null => $toolChoice,
             default => throw new PrismException('Invalid tool choice')
         };

@@ -21,7 +21,9 @@ use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
@@ -101,6 +103,16 @@ describe('Text generation for Gemini', function (): void {
         expect($firstStep->toolCalls[1]->arguments())->toBe([
             'city' => 'Detroit',
         ]);
+
+        // Verify the assistant message from step 1 is present in step 2's input messages
+        $secondStep = $response->steps[1];
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(2);
+        expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('search_games');
+        expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('get_weather');
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
 
         // Assert usage (combined from both responses)
         expect($response->usage->promptTokens)->toBe(350)
@@ -413,6 +425,35 @@ describe('provider tools', function (): void {
             ->asText();
     })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
 
+    it('adds file_search provider tool with options to the request', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-file-search');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('What are the main topics covered in the documents?')
+            ->withProviderTools([
+                new ProviderTool(
+                    type: 'file_search',
+                    name: 'file_search',
+                    options: [
+                        'file_search_store_names' => ['fileSearchStores/prism-test-store-k48zypdei7oj'],
+                    ]
+                ),
+            ])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['tools'][0])->toHaveKey('file_search');
+            expect($data['tools'][0]['file_search'])->toBeArray();
+            expect($data['tools'][0]['file_search'])->toHaveKey('file_search_store_names');
+            expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/prism-test-store-k48zypdei7oj']);
+
+            return true;
+        });
+    });
+
     it('creates citations in additionalContent from search groundings', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
@@ -494,7 +535,7 @@ describe('Thinking Mode for Gemini', function (): void {
         Http::assertSent(function (Request $request): true {
             $data = $request->data();
 
-            expect($data['generationConfig'])->not->toHaveKey('thinkingConfig');
+            expect($data['generationConfig'] ?? [])->not->toHaveKey('thinkingConfig');
 
             return true;
         });
@@ -523,5 +564,59 @@ describe('Thinking Mode for Gemini', function (): void {
             return true;
         });
 
+    });
+
+    it('can use thinking level with 3.0-pro', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-3.0-pro')
+            ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+            ->withProviderOptions(['thinkingLevel' => 'low'])
+            ->asText();
+
+        expect($response->usage->thoughtTokens)->toBe(1209);
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'])
+                ->toHaveKey('thinkingConfig')
+                ->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
+                    'thinkingLevel' => 'low',
+                ]);
+
+            return true;
+        });
+    });
+
+    it('configure pass a thinking config', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt-with-thinking-budget');
+
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-3.0-pro')
+            ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
+            ->withProviderOptions([
+                'thinkingConfig' => [
+                    'thinkingLevel' => 'low',
+                    'includeThoughts' => false,
+                ],
+            ])
+            ->asText();
+
+        expect($response->usage->thoughtTokens)->toBe(1209);
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'])
+                ->toHaveKey('thinkingConfig')
+                ->and($data['generationConfig']['thinkingConfig'])->toMatchArray([
+                    'thinkingLevel' => 'low',
+                    'includeThoughts' => false,
+                ]);
+
+            return true;
+        });
     });
 });
