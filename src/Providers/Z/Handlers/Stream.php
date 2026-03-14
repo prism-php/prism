@@ -63,6 +63,7 @@ class Stream
     /**
      * @throws PrismStreamDecodeException
      * @throws PrismException
+     * @throws ConnectionException
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {

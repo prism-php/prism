@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Z;
 
 use Generator;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Exceptions\PrismException;
@@ -51,6 +52,7 @@ class Z extends Provider
     /**
      * @throws PrismStreamDecodeException
      * @throws PrismException
+     * @throws ConnectionException
      */
     public function stream(TextRequest $request): Generator
     {
