@@ -32,15 +32,23 @@ trait HandlesBatchResponse
      */
     protected static function mapBatchJob(array $data): BatchJob
     {
+        $processingCounts = (int) data_get($data, 'request_counts.processing', 0);
+        $succeededCounts = (int) data_get($data, 'request_counts.succeeded', 0);
+        $failedCounts = (int) data_get($data, 'request_counts.errored', 0);
+        $canceledCounts = (int) data_get($data, 'request_counts.canceled', 0);
+        $expiredCounts = (int) data_get($data, 'request_counts.expired', 0);
+        $totalCounts = $processingCounts + $succeededCounts + $failedCounts + $canceledCounts + $expiredCounts;
+
         return new BatchJob(
             id: data_get($data, 'id'),
             status: self::mapStatus(data_get($data, 'processing_status', '')),
             requestCounts: new BatchJobRequestCounts(
-                processing: (int) data_get($data, 'request_counts.processing', 0),
-                succeeded: (int) data_get($data, 'request_counts.succeeded', 0),
-                failed: (int) data_get($data, 'request_counts.errored', 0),
-                canceled: (int) data_get($data, 'request_counts.canceled', 0),
-                expired: (int) data_get($data, 'request_counts.expired', 0),
+                processing: $processingCounts,
+                succeeded: $succeededCounts,
+                failed: $failedCounts,
+                canceled: $canceledCounts,
+                expired: $expiredCounts,
+                total: $totalCounts,
             ),
             createdAt: data_get($data, 'created_at'),
             expiresAt: data_get($data, 'expires_at'),

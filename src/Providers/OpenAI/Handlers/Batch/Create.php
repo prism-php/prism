@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenAI\Handlers\Batch;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchRequest;
+use Prism\Prism\Exceptions\PrismBatchPayloadSizeExceededException;
+use Prism\Prism\Exceptions\PrismBatchRequestLimitExceededException;
 use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Providers\OpenAI\Concerns\BuildsRequestBody;
 use Prism\Prism\Providers\OpenAI\Concerns\HandlesBatchResponse;
 
@@ -27,19 +29,24 @@ class Create
         protected PendingRequest $client,
     ) {}
 
+    /**
+     * @throws ConnectionException
+     * @throws PrismBatchPayloadSizeExceededException
+     * @throws PrismBatchRequestLimitExceededException
+     * @throws PrismException
+     * @throws \JsonException
+     */
     public function handle(BatchRequest $batchRequest): BatchJob
     {
         if (count($batchRequest->items) > self::MAX_REQUESTS) {
-            throw new PrismException(
-                sprintf('OpenAI batch limit exceeded: %d requests submitted, maximum is %s.', count($batchRequest->items), number_format(self::MAX_REQUESTS))
-            );
+            throw PrismBatchRequestLimitExceededException::make('OpenAI', count($batchRequest->items), self::MAX_REQUESTS);
         }
 
         $jsonlContent = $this->buildJsonl($batchRequest);
 
         $jsonlBytes = strlen($jsonlContent);
         if ($jsonlBytes > self::MAX_FILE_BYTES) {
-            throw PrismRequestTooLargeException::make('OpenAI');
+            throw PrismBatchPayloadSizeExceededException::make('OpenAI', self::MAX_FILE_BYTES);
         }
 
         $fileId = $this->uploadFile($jsonlContent);

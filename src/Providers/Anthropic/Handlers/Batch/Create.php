@@ -8,18 +8,31 @@ use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchRequest;
 use Prism\Prism\Batch\BatchRequestItem;
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Exceptions\PrismBatchPayloadSizeExceededException;
+use Prism\Prism\Exceptions\PrismBatchRequestLimitExceededException;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesBatchResponse;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
 
+/**
+ * @see https://platform.claude.com/docs/en/api/beta/messages/batches/create
+ */
 class Create
 {
     use HandlesBatchResponse;
 
-    private const MAX_REQUESTS = 100_000;
+    /**
+     * Anthropic's batch processing has a maximum of 100,000 requests per batch.
+     *
+     * @link https://platform.claude.com/docs/en/build-with-claude/batch-processing#batch-limitations
+     */
+    public const MAX_REQUESTS = 100_000;
 
-    private const MAX_PAYLOAD_BYTES = 256 * 1024 * 1024;
+    /**
+     * Anthropic's batch processing has a maximum payload size of 256MB. This includes the total size of all requests in the batch.
+     *
+     * @link https://platform.claude.com/docs/en/build-with-claude/batch-processing#batch-limitations
+     */
+    public const MAX_PAYLOAD_BYTES = 256 * 1024 * 1024; // 256MB
 
     public function __construct(
         protected PendingRequest $client,
@@ -28,9 +41,7 @@ class Create
     public function handle(BatchRequest $batchRequest): BatchJob
     {
         if (count($batchRequest->items) > self::MAX_REQUESTS) {
-            throw new PrismException(
-                sprintf('Anthropic batch limit exceeded: %d requests submitted, maximum is %s.', count($batchRequest->items), number_format(self::MAX_REQUESTS))
-            );
+            throw PrismBatchRequestLimitExceededException::make('Anthropic', count($batchRequest->items), self::MAX_REQUESTS);
         }
 
         $requests = array_map(fn (BatchRequestItem $item): array => [
@@ -42,7 +53,7 @@ class Create
 
         $payloadSize = strlen((string) json_encode($payload));
         if ($payloadSize > self::MAX_PAYLOAD_BYTES) {
-            throw PrismRequestTooLargeException::make('Anthropic');
+            throw PrismBatchPayloadSizeExceededException::make('Anthropic', self::MAX_PAYLOAD_BYTES);
         }
 
         $response = $this->client->post('messages/batches', $payload);

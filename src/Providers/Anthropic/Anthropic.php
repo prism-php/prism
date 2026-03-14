@@ -99,9 +99,9 @@ class Anthropic extends Provider
     }
 
     #[\Override]
-    public function listBatches(int $limit = 20, ?string $afterId = null): BatchListResult
+    public function listBatches(?array $params = null): BatchListResult
     {
-        return (new ListBatches($this->client()))->handle($limit, $afterId);
+        return (new ListBatches($this->client()))->handle($params);
     }
 
     /**
@@ -110,13 +110,7 @@ class Anthropic extends Provider
     #[\Override]
     public function getBatchResults(string $batchId): Generator
     {
-        $batch = $this->retrieveBatch($batchId);
-
-        if ($batch->resultsUrl === null) {
-            throw PrismException::providerResponseError('Anthropic batch results are not yet available.');
-        }
-
-        return (new Results($this->client()))->handle($batch->resultsUrl);
+        return (new Results($this->client()))->handle($batchId);
     }
 
     #[\Override]

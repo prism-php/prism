@@ -9,6 +9,9 @@ use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Providers\Anthropic\Concerns\MapsBatchResults;
 
+/**
+ * @see https://platform.claude.com/docs/en/api/beta/messages/batches/results
+ */
 class Results
 {
     use MapsBatchResults;
@@ -25,9 +28,9 @@ class Results
     /**
      * @return Generator<BatchResultItem>
      */
-    public function handle(string $resultsUrl): Generator
+    public function handle(string $batchId): Generator
     {
-        $response = $this->client->withOptions(['stream' => true])->get($resultsUrl);
+        $response = $this->client->withOptions(['stream' => true])->get("messages/batches/{$batchId}/results");
         $body = $response->getBody();
 
         $buffer = '';

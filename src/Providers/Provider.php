@@ -85,7 +85,7 @@ abstract class Provider
         throw PrismException::unsupportedProviderAction('retrieveBatch', class_basename($this));
     }
 
-    public function listBatches(int $limit = 20, ?string $afterId = null): BatchListResult
+    public function listBatches(?array $params = null): BatchListResult
     {
         throw PrismException::unsupportedProviderAction('listBatches', class_basename($this));
     }

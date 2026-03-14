@@ -8,6 +8,9 @@ use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesBatchResponse;
 
+/**
+ * @see https://platform.claude.com/docs/en/api/beta/messages/batches/cancel
+ */
 class Cancel
 {
     use HandlesBatchResponse;
