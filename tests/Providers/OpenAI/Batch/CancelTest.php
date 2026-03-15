@@ -18,7 +18,7 @@ beforeEach(function (): void {
 
 it('can cancel a batch', function (): void {
     Http::fake([
-        'https://api.openai.com/v1/batches/*/cancel' => Http::response(
+        '/v1/batches/*/cancel' => Http::response(
             openaiFixture('batch-cancel-1.json'),
             200
         ),

@@ -34,5 +34,5 @@ it('sends pagination parameters', function (): void {
     $provider = Prism::provider('openai');
     $provider->listFiles(new ListFilesRequest(limit: 10, afterId: 'file-abc123'));
 
-    Http::assertSent(fn(Request $request): bool => $request->toPsrRequest()->getUri()->getQuery() === 'limit=10&after=file-abc123');
+    Http::assertSent(fn (Request $request): bool => $request->toPsrRequest()->getUri()->getQuery() === 'limit=10&after=file-abc123');
 });

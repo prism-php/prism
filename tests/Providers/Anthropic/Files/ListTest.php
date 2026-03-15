@@ -67,5 +67,5 @@ it('sends pagination parameters', function (): void {
         ->and($result->data[0]->sizeBytes)->toBe(17)
         ->and($result->data[0]->createdAt)->toBe('2026-03-14T20:23:33.521000Z');
 
-    Http::assertSent(fn(Request $request) => $request->toPsrRequest()->getUri()->getQuery() === "limit=1&after_id=$afterId");
+    Http::assertSent(fn (Request $request): bool => $request->toPsrRequest()->getUri()->getQuery() === "limit=1&after_id=$afterId");
 });

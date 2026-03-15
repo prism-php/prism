@@ -10,7 +10,7 @@ use Prism\Prism\Files\DeleteFileResult;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesFileResponse;
 
 /**
- * @see https://docs.anthropic.com/en/api/files-delete
+ * @see https://platform.claude.com/docs/en/api/beta/files/delete
  */
 class Delete
 {

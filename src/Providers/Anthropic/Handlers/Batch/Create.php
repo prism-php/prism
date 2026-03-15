@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers\Batch;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchRequest;
@@ -39,6 +40,12 @@ class Create
         protected PendingRequest $client,
     ) {}
 
+    /**
+     * @throws PrismBatchRequestLimitExceededException
+     * @throws ConnectionException
+     * @throws PrismBatchPayloadSizeExceededException
+     * @throws PrismException
+     */
     public function handle(BatchRequest $batchRequest): BatchJob
     {
         if ($batchRequest->items === null) {
@@ -49,7 +56,7 @@ class Create
             throw PrismBatchRequestLimitExceededException::make('Anthropic', count($batchRequest->items), self::MAX_REQUESTS);
         }
 
-        $requests = array_map(fn (BatchRequestItem $item): array => [
+        $requests = array_map(static fn (BatchRequestItem $item): array => [
             'custom_id' => $item->customId,
             'params' => Text::buildHttpRequestPayload($item->request),
         ], $batchRequest->items);

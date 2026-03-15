@@ -34,6 +34,7 @@ it('can retrieve a completed batch', function (): void {
         ->and($result->requestCounts->succeeded)->toBe(2)
         ->and($result->requestCounts->total)->toBe(2)
         ->and($result->requestCounts->failed)->toBe(0)
+        ->and($result->inputFileId)->toBe('file-abc123')
         ->and($result->outputFileId)->toBe('file-output-xyz')
         ->and($result->endedAt)->not->toBeNull();
 });

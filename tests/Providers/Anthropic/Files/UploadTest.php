@@ -37,7 +37,7 @@ it('can upload a file', function (): void {
         ->and($result->createdAt)->toBe('2026-03-14T20:23:33.521000Z')
         ->and($result->raw)->toBeArray();
 
-    Http::assertSent(static fn(Request $request): bool => str_contains($request->url(), 'v1/files'));
+    Http::assertSent(static fn (Request $request): bool => str_contains($request->url(), 'v1/files'));
 });
 
 it('throws on error response', function (): void {

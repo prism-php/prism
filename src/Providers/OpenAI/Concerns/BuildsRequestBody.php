@@ -31,6 +31,7 @@ trait BuildsRequestBody
             'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
             'previous_response_id' => $request->providerOptions('previous_response_id'),
             'service_tier' => $request->providerOptions('service_tier'),
+            'store' => $request->providerOptions('store'),
             'text' => $request->providerOptions('text_verbosity') ? [
                 'verbosity' => $request->providerOptions('text_verbosity'),
             ] : null,

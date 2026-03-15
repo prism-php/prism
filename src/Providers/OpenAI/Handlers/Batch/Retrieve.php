@@ -8,6 +8,9 @@ use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Providers\OpenAI\Concerns\HandlesBatchResponse;
 
+/**
+ * @see https://developers.openai.com/api/reference/resources/batches/methods/retrieve
+ */
 class Retrieve
 {
     use HandlesBatchResponse;

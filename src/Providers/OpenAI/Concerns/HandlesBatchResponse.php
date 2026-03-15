@@ -55,6 +55,7 @@ trait HandlesBatchResponse
             endedAt: data_get($data, 'completed_at') !== null
                 ? date('c', (int) data_get($data, 'completed_at'))
                 : null,
+            inputFileId: data_get($data, 'input_file_id'),
             outputFileId: data_get($data, 'output_file_id'),
             errorFileId: data_get($data, 'error_file_id'),
         );

@@ -29,18 +29,18 @@ class Request implements PrismRequest
      */
     public function __construct(
         protected string $model,
-        protected string $providerKey,
-        protected array $systemPrompts,
-        protected ?string $prompt,
-        protected array $messages,
-        protected int $maxSteps,
-        protected ?int $maxTokens,
-        protected int|float|null $temperature,
-        protected int|float|null $topP,
-        protected array $tools,
-        protected array $clientOptions,
-        protected array $clientRetry,
-        protected string|ToolChoice|null $toolChoice,
+        protected ?string $providerKey = null,
+        protected array $systemPrompts = [],
+        protected ?string $prompt = null,
+        protected array $messages = [],
+        protected int $maxSteps = 1,
+        protected ?int $maxTokens = null,
+        protected int|float|null $temperature = null,
+        protected int|float|null $topP = null,
+        protected array $tools = [],
+        protected array $clientOptions = [],
+        protected array $clientRetry = [],
+        protected string|ToolChoice|null $toolChoice = null,
         array $providerOptions = [],
         protected array $providerTools = [],
     ) {
@@ -131,7 +131,7 @@ class Request implements PrismRequest
         return $this->model;
     }
 
-    public function provider(): string
+    public function provider(): ?string
     {
         return $this->providerKey;
     }

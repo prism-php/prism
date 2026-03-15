@@ -36,5 +36,5 @@ it('can upload a file', function (): void {
         ->and($result->purpose)->toBe('user_data')
         ->and($result->raw)->toBeArray();
 
-    Http::assertSent(fn(Request $request): bool => str_contains($request->url(), 'v1/files'));
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'v1/files'));
 });

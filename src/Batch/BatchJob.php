@@ -14,6 +14,7 @@ readonly class BatchJob
         public ?string $expiresAt = null,
         public ?string $endedAt = null,
         public ?string $resultsUrl = null,
+        public ?string $inputFileId = null,
         public ?string $outputFileId = null,
         public ?string $errorFileId = null,
     ) {}

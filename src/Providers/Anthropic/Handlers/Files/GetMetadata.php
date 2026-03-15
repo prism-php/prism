@@ -10,7 +10,7 @@ use Prism\Prism\Files\GetFileMetadataRequest;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesFileResponse;
 
 /**
- * @see https://docs.anthropic.com/en/api/files-retrieve
+ * @see https://platform.claude.com/docs/en/api/beta/files/retrieve_metadata
  */
 class GetMetadata
 {

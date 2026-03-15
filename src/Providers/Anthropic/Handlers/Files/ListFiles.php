@@ -6,13 +6,12 @@ namespace Prism\Prism\Providers\Anthropic\Handlers\Files;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
-use Prism\Prism\Files\FileData;
 use Prism\Prism\Files\FileListResult;
 use Prism\Prism\Files\ListFilesRequest;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesFileResponse;
 
 /**
- * @see https://docs.anthropic.com/en/api/files-list
+ * @see https://platform.claude.com/docs/en/api/beta/files/list
  */
 class ListFiles
 {

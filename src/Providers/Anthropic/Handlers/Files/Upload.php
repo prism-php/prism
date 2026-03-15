@@ -10,7 +10,7 @@ use Prism\Prism\Files\UploadFileRequest;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesFileResponse;
 
 /**
- * @see https://docs.anthropic.com/en/api/files-create
+ * @see https://platform.claude.com/docs/en/api/beta/files/upload
  */
 class Upload
 {

@@ -8,7 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Files\DownloadFileRequest;
 
 /**
- * @see https://docs.anthropic.com/en/api/files-download
+ * @see https://platform.claude.com/docs/en/api/beta/files/download
  */
 class Download
 {

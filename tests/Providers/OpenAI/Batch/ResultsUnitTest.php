@@ -66,7 +66,7 @@ it('parses succeeded results', function (): void {
     ]);
 
     $results = new Results(
-        retrieveBatch: fn (string $id): \Prism\Prism\Batch\BatchJob => makeBatchJob($id, 'file-output-123'),
+        retrieveBatch: fn (string $id): BatchJob => makeBatchJob($id, 'file-output-123'),
         downloadFile: fn (string $id): string => $jsonl,
     );
 
@@ -121,7 +121,7 @@ it('parses mixed results including errored and expired', function (): void {
     ]);
 
     $results = new Results(
-        retrieveBatch: fn (string $id): \Prism\Prism\Batch\BatchJob => makeBatchJob($id, 'file-output-456'),
+        retrieveBatch: fn (string $id): BatchJob => makeBatchJob($id, 'file-output-456'),
         downloadFile: fn (string $id): string => $jsonl,
     );
 
@@ -157,7 +157,7 @@ it('skips blank lines in JSONL body', function (): void {
     ])."\n\n";
 
     $results = new Results(
-        retrieveBatch: fn (string $id): \Prism\Prism\Batch\BatchJob => makeBatchJob($id, 'file-output-789'),
+        retrieveBatch: fn (string $id): BatchJob => makeBatchJob($id, 'file-output-789'),
         downloadFile: fn (string $id): string => $jsonl,
     );
 
@@ -169,7 +169,7 @@ it('skips blank lines in JSONL body', function (): void {
 
 it('throws when outputFileId is null', function (): void {
     $results = new Results(
-        retrieveBatch: fn (string $id): \Prism\Prism\Batch\BatchJob => makeBatchJob($id, null),
+        retrieveBatch: fn (string $id): BatchJob => makeBatchJob($id, null),
         downloadFile: fn (string $id): string => '',
     );
 
@@ -197,7 +197,7 @@ it('forwards the outputFileId to the download callback', function (): void {
     $capturedFileId = null;
 
     $results = new Results(
-        retrieveBatch: fn (string $id): \Prism\Prism\Batch\BatchJob => makeBatchJob($id, 'file-the-output'),
+        retrieveBatch: fn (string $id): BatchJob => makeBatchJob($id, 'file-the-output'),
         downloadFile: function (string $id) use (&$capturedFileId): string {
             $capturedFileId = $id;
 

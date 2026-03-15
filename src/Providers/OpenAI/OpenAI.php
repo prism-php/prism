@@ -166,7 +166,15 @@ class OpenAI extends Provider
     #[\Override]
     public function batch(BatchRequest $request): BatchJob
     {
-        return (new Create($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+        return (new Create(
+            client: $this->client($request->clientOptions(), $request->clientRetry()),
+            uploadFile: fn (string $content, string $filename): FileData => $this->uploadFile(
+                (new UploadFileRequest(filename: $filename, content: $content))
+                    ->withClientOptions($request->clientOptions())
+                    ->withClientRetry(...$request->clientRetry())
+                    ->withProviderOptions(['purpose' => 'batch'])
+            ),
+        ))->handle($request);
     }
 
     #[\Override]

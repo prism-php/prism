@@ -10,6 +10,9 @@ use Prism\Prism\Batch\BatchListResult;
 use Prism\Prism\Batch\ListBatchesRequest;
 use Prism\Prism\Providers\OpenAI\Concerns\HandlesBatchResponse;
 
+/**
+ * @see https://developers.openai.com/api/reference/resources/batches/methods/list
+ */
 class ListBatches
 {
     use HandlesBatchResponse;
