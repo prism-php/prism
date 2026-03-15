@@ -39,7 +39,7 @@ class Request implements PrismRequest
         protected int|float|null $topP = null,
         protected array $tools = [],
         protected array $clientOptions = [],
-        protected array $clientRetry = [],
+        protected array $clientRetry = [0],
         protected string|ToolChoice|null $toolChoice = null,
         array $providerOptions = [],
         protected array $providerTools = [],

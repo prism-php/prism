@@ -45,7 +45,7 @@ class Create
             throw new PrismException('OpenAI batch requires either "inputFileId" or "items".');
         }
 
-        $inputFileId = $request->inputFileId ?? $this->buildAndUploadFile($request->items);
+        $inputFileId = $request->inputFileId ?? $this->buildAndUploadFile($request->items ?? []);
 
         $response = $this->client->post('batches', [
             'input_file_id' => $inputFileId,
@@ -65,7 +65,7 @@ class Create
     protected function buildAndUploadFile(array $items): string
     {
         $jsonl = implode("\n", array_map(
-            fn (BatchRequestItem $item): string => json_encode([
+            fn (BatchRequestItem $item): string => (string) json_encode([
                 'custom_id' => $item->customId,
                 'method' => 'POST',
                 'url' => '/v1/responses',
