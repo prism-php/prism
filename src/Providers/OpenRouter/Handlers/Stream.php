@@ -15,6 +15,7 @@ use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
+use Prism\Prism\Providers\OpenRouter\ValueObjects\OpenRouterStreamState;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
@@ -28,7 +29,6 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -44,11 +44,11 @@ class Stream
     use MapsFinishReason;
     use ValidatesResponses;
 
-    protected StreamState $state;
+    protected OpenRouterStreamState $state;
 
     public function __construct(protected PendingRequest $client)
     {
-        $this->state = new StreamState;
+        $this->state = new OpenRouterStreamState;
     }
 
     /**
@@ -158,7 +158,7 @@ class Stream
                 return;
             }
 
-            if ($this->hasReasoningDelta($data)) {
+            if ($this->hasReasoningData($data)) {
                 $reasoningDelta = $this->extractReasoningDelta($data);
 
                 if ($reasoningDelta !== '') {
@@ -182,9 +182,11 @@ class Stream
                         delta: $reasoningDelta,
                         reasoningId: $this->state->reasoningId()
                     );
-
-                    continue;
                 }
+
+                $this->captureReasoningDetails($data);
+
+                continue;
             }
 
             $content = $this->extractContentDelta($data);
@@ -258,6 +260,7 @@ class Stream
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
             usage: $this->state->usage() ?? new Usage(0, 0),
+            additionalContent: $this->buildAdditionalContent(),
         );
     }
 
@@ -332,9 +335,10 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      */
-    protected function hasReasoningDelta(array $data): bool
+    protected function hasReasoningData(array $data): bool
     {
-        return isset($data['choices'][0]['delta']['reasoning']);
+        return isset($data['choices'][0]['delta']['reasoning'])
+            || ! empty($data['choices'][0]['delta']['reasoning_details']);
     }
 
     /**
@@ -342,7 +346,38 @@ class Stream
      */
     protected function extractReasoningDelta(array $data): string
     {
-        return data_get($data, 'choices.0.delta.reasoning', '');
+        return data_get($data, 'choices.0.delta.reasoning') ?? '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function captureReasoningDetails(array $data): void
+    {
+        $details = data_get($data, 'choices.0.delta.reasoning_details', []);
+
+        foreach ($details as $detail) {
+            $this->state->addReasoningDetail($detail);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildAdditionalContent(): array
+    {
+        $additionalContent = [];
+
+        $thinking = $this->state->currentThinking();
+        if ($thinking !== '') {
+            $additionalContent['reasoning'] = $thinking;
+        }
+
+        if ($this->state->reasoningDetails() !== []) {
+            $additionalContent['reasoning_details'] = $this->state->reasoningDetails();
+        }
+
+        return $additionalContent;
     }
 
     /**
@@ -397,7 +432,7 @@ class Stream
             timestamp: time()
         );
 
-        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
+        $request->addMessage(new AssistantMessage($text, $mappedToolCalls, $this->buildAdditionalContent()));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
