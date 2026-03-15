@@ -33,7 +33,7 @@ it('can get batch results', function (): void {
     });
 
     $provider = Prism::provider('openai');
-    $results = iterator_to_array($provider->getBatchResults(new GetBatchResultsRequest('batch_abc123')));
+    $results = $provider->getBatchResults(new GetBatchResultsRequest('batch_abc123'));
 
     expect($results)->toHaveCount(2);
 
@@ -74,7 +74,7 @@ it('can get mixed batch results', function (): void {
     });
 
     $provider = Prism::provider('openai');
-    $results = iterator_to_array($provider->getBatchResults(new GetBatchResultsRequest('batch_abc123')));
+    $results = $provider->getBatchResults(new GetBatchResultsRequest('batch_abc123'));
 
     expect($results)->toHaveCount(3);
 
@@ -119,5 +119,5 @@ it('throws when batch results are not ready', function (): void {
     ])->preventStrayRequests();
 
     $provider = Prism::provider('openai');
-    iterator_to_array($provider->getBatchResults(new GetBatchResultsRequest('batch_abc123')));
+    $provider->getBatchResults(new GetBatchResultsRequest('batch_abc123'));
 })->throws(PrismException::class, 'OpenAI batch results are not yet available.');

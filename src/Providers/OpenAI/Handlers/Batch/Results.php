@@ -4,53 +4,59 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenAI\Handlers\Batch;
 
-use Generator;
+use Closure;
+use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchResultItem;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsBatchResults;
-use Psr\Http\Message\StreamInterface;
 
 class Results
 {
     use MapsBatchResults;
 
     /**
-     * @see https://www.php.net/manual/en/function.fread.php
+     * @param  Closure(string): BatchJob  $retrieveBatch  callback that fetches the batch by ID
+     * @param  Closure(string): string  $downloadFile  callback that downloads file content by file ID
      */
-    private const STREAM_BUFFER_BYTES = 8192;
+    public function __construct(
+        protected Closure $retrieveBatch,
+        protected Closure $downloadFile,
+    ) {}
 
     /**
-     * @return Generator<BatchResultItem>
+     * @return BatchResultItem[]
      */
-    public function handle(StreamInterface $body): Generator
+    public function handle(string $batchId): array
     {
-        $buffer = '';
-        while (! $body->eof()) {
-            $buffer .= $body->read(self::STREAM_BUFFER_BYTES);
+        /**
+         * @var BatchJob $batch
+         */
+        $batch = ($this->retrieveBatch)($batchId);
 
-            while (($newlinePos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $newlinePos);
-                $buffer = substr($buffer, $newlinePos + 1);
-
-                $line = trim($line);
-                if ($line === '') {
-                    continue;
-                }
-
-                $decoded = json_decode($line, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
-
-                yield self::mapResultItem($decoded);
-            }
+        if ($batch->outputFileId === null) {
+            throw PrismException::providerResponseError('OpenAI batch results are not yet available.');
         }
 
-        $buffer = trim($buffer);
-        if ($buffer !== '') {
-            $decoded = json_decode($buffer, true);
-            if (is_array($decoded)) {
-                yield self::mapResultItem($decoded);
+        /**
+         * @var string $body
+         */
+        $body = ($this->downloadFile)($batch->outputFileId);
+
+        $items = [];
+        foreach (explode("\n", $body) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
             }
+
+            $decoded = json_decode($line, true);
+            if (! is_array($decoded)) {
+                continue;
+            }
+
+            $items[] = self::mapResultItem($decoded);
         }
+
+        return $items;
     }
 }

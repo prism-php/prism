@@ -10,8 +10,6 @@ use Prism\Prism\Batch\GetBatchResultsRequest;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 
-require_once __DIR__.'/Helpers.php';
-
 beforeEach(function (): void {
     config()->set('prism.providers.anthropic.api_key', env('ANTHROPIC_API_KEY', 'sk-123'));
 });
@@ -22,9 +20,7 @@ it('can get batch results', function (): void {
     FixtureResponse::fakeResponseSequence("messages/batches/$batchId/results", 'anthropic/batch-results');
 
     $provider = Prism::provider('anthropic');
-    $results = iterator_to_array(
-        $provider->getBatchResults(new GetBatchResultsRequest($batchId))
-    );
+    $results = $provider->getBatchResults(new GetBatchResultsRequest($batchId));
 
     expect($results)->toHaveCount(2);
 

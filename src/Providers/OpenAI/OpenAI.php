@@ -27,6 +27,14 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Files\DeleteFileRequest;
+use Prism\Prism\Files\DeleteFileResult;
+use Prism\Prism\Files\DownloadFileRequest;
+use Prism\Prism\Files\FileData;
+use Prism\Prism\Files\FileListResult;
+use Prism\Prism\Files\GetFileMetadataRequest;
+use Prism\Prism\Files\ListFilesRequest;
+use Prism\Prism\Files\UploadFileRequest;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Moderation\Request as ModerationRequest;
@@ -39,7 +47,11 @@ use Prism\Prism\Providers\OpenAI\Handlers\Batch\ListBatches;
 use Prism\Prism\Providers\OpenAI\Handlers\Batch\Results;
 use Prism\Prism\Providers\OpenAI\Handlers\Batch\Retrieve;
 use Prism\Prism\Providers\OpenAI\Handlers\Embeddings;
-use Prism\Prism\Providers\OpenAI\Handlers\Files;
+use Prism\Prism\Providers\OpenAI\Handlers\Files\Delete as FileDelete;
+use Prism\Prism\Providers\OpenAI\Handlers\Files\Download as FileDownload;
+use Prism\Prism\Providers\OpenAI\Handlers\Files\GetMetadata as FileGetMetadata;
+use Prism\Prism\Providers\OpenAI\Handlers\Files\ListFiles as FileListFiles;
+use Prism\Prism\Providers\OpenAI\Handlers\Files\Upload as FileUpload;
 use Prism\Prism\Providers\OpenAI\Handlers\Images;
 use Prism\Prism\Providers\OpenAI\Handlers\Moderation;
 use Prism\Prism\Providers\OpenAI\Handlers\Stream;
@@ -170,26 +182,61 @@ class OpenAI extends Provider
     }
 
     /**
-     * @return Generator<BatchResultItem>
+     * @return BatchResultItem[]
      */
     #[\Override]
-    public function getBatchResults(GetBatchResultsRequest $request): Generator
+    public function getBatchResults(GetBatchResultsRequest $request): array
     {
-        $batch = $this->retrieveBatch(new RetrieveBatchRequest($request->batchId));
-
-        if ($batch->outputFileId === null) {
-            throw PrismException::providerResponseError('OpenAI batch results are not yet available.');
-        }
-
-        $body = (new Files($this->client($request->clientOptions(), $request->clientRetry())))->downloadContent($batch->outputFileId);
-
-        return (new Results)->handle($body);
+        return (new Results(
+            retrieveBatch: fn (string $batchId): BatchJob => $this->retrieveBatch(
+                (new RetrieveBatchRequest($batchId))
+                    ->withClientOptions($request->clientOptions())
+                    ->withClientRetry(...$request->clientRetry())
+                    ->withProviderOptions($request->providerOptions())
+            ),
+            downloadFile: fn (string $fileId): string => $this->downloadFile(
+                (new DownloadFileRequest($fileId))
+                    ->withClientOptions($request->clientOptions())
+                    ->withClientRetry(...$request->clientRetry())
+                    ->withProviderOptions($request->providerOptions())
+            ),
+        ))->handle($request->batchId);
     }
 
     #[\Override]
     public function cancelBatch(CancelBatchRequest $request): BatchJob
     {
         return (new Cancel($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
+    }
+
+    #[\Override]
+    public function uploadFile(UploadFileRequest $request): FileData
+    {
+        return (new FileUpload($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function listFiles(ListFilesRequest $request): FileListResult
+    {
+        return (new FileListFiles($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function getFileMetadata(GetFileMetadataRequest $request): FileData
+    {
+        return (new FileGetMetadata($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function deleteFile(DeleteFileRequest $request): DeleteFileResult
+    {
+        return (new FileDelete($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function downloadFile(DownloadFileRequest $request): string
+    {
+        return (new FileDownload($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
     }
 
     public function handleRequestException(string $model, RequestException $e): never

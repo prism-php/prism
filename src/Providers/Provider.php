@@ -24,6 +24,14 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Files\DeleteFileRequest;
+use Prism\Prism\Files\DeleteFileResult;
+use Prism\Prism\Files\DownloadFileRequest;
+use Prism\Prism\Files\FileData;
+use Prism\Prism\Files\FileListResult;
+use Prism\Prism\Files\GetFileMetadataRequest;
+use Prism\Prism\Files\ListFilesRequest;
+use Prism\Prism\Files\UploadFileRequest;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Moderation\Request as ModerationRequest;
@@ -95,9 +103,9 @@ abstract class Provider
     }
 
     /**
-     * @return Generator<BatchResultItem>
+     * @return BatchResultItem[]
      */
-    public function getBatchResults(GetBatchResultsRequest $request): Generator
+    public function getBatchResults(GetBatchResultsRequest $request): array
     {
         throw PrismException::unsupportedProviderAction('getBatchResults', class_basename($this));
     }
@@ -105,6 +113,31 @@ abstract class Provider
     public function cancelBatch(CancelBatchRequest $request): BatchJob
     {
         throw PrismException::unsupportedProviderAction('cancelBatch', class_basename($this));
+    }
+
+    public function uploadFile(UploadFileRequest $request): FileData
+    {
+        throw PrismException::unsupportedProviderAction('uploadFile', class_basename($this));
+    }
+
+    public function listFiles(ListFilesRequest $request): FileListResult
+    {
+        throw PrismException::unsupportedProviderAction('listFiles', class_basename($this));
+    }
+
+    public function getFileMetadata(GetFileMetadataRequest $request): FileData
+    {
+        throw PrismException::unsupportedProviderAction('getFileMetadata', class_basename($this));
+    }
+
+    public function deleteFile(DeleteFileRequest $request): DeleteFileResult
+    {
+        throw PrismException::unsupportedProviderAction('deleteFile', class_basename($this));
+    }
+
+    public function downloadFile(DownloadFileRequest $request): string
+    {
+        throw PrismException::unsupportedProviderAction('downloadFile', class_basename($this));
     }
 
     public function handleRequestException(string $model, RequestException $e): never

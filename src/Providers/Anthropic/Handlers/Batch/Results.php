@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Handlers\Batch;
 
-use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Providers\Anthropic\Concerns\MapsBatchResults;
@@ -26,14 +25,16 @@ class Results
     ) {}
 
     /**
-     * @return Generator<BatchResultItem>
+     * @return BatchResultItem[]
      */
-    public function handle(string $batchId): Generator
+    public function handle(string $batchId): array
     {
         $response = $this->client->withOptions(['stream' => true])->get("messages/batches/{$batchId}/results");
         $body = $response->getBody();
 
         $buffer = '';
+        $items = [];
+
         while (! $body->eof()) {
             $buffer .= $body->read(self::STREAM_BUFFER_BYTES);
 
@@ -51,7 +52,7 @@ class Results
                     continue;
                 }
 
-                yield self::mapResultItem($decoded);
+                $items[] = self::mapResultItem($decoded);
             }
         }
 
@@ -59,8 +60,10 @@ class Results
         if ($buffer !== '') {
             $decoded = json_decode($buffer, true);
             if (is_array($decoded)) {
-                yield self::mapResultItem($decoded);
+                $items[] = self::mapResultItem($decoded);
             }
         }
+
+        return $items;
     }
 }
