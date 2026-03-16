@@ -9,7 +9,6 @@ use Prism\Prism\Batch\BatchJobRequestCounts;
 use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Batch\BatchResultStatus;
 use Prism\Prism\Batch\BatchStatus;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Handlers\Batch\Results;
 
 function makeBatchJob(string $id, ?string $outputFileId): BatchJob
@@ -167,14 +166,14 @@ it('skips blank lines in JSONL body', function (): void {
         ->and($items[0]->customId)->toBe('req-1');
 });
 
-it('throws when outputFileId is null', function (): void {
+it('returns an empty array when no output or error file is available', function (): void {
     $results = new Results(
         retrieveBatch: fn (string $id): BatchJob => makeBatchJob($id, null),
         downloadFile: fn (string $id): string => '',
     );
 
-    $results->handle('batch_abc');
-})->throws(PrismException::class, 'OpenAI batch results are not yet available.');
+    expect($results->handle('batch_abc'))->toBeArray()->toBeEmpty();
+});
 
 it('forwards the batchId to the retrieve callback', function (): void {
     $capturedId = null;

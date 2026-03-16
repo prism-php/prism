@@ -7,7 +7,6 @@ namespace Prism\Prism\Providers\OpenAI\Handlers\Batch;
 use Closure;
 use Prism\Prism\Batch\BatchJob;
 use Prism\Prism\Batch\BatchResultItem;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsBatchResults;
 
 class Results
@@ -33,28 +32,29 @@ class Results
          */
         $batch = ($this->retrieveBatch)($batchId);
 
-        if ($batch->outputFileId === null) {
-            throw PrismException::providerResponseError('OpenAI batch results are not yet available.');
+        if ($batch->outputFileId === null && $batch->errorFileId === null) {
+            return [];
         }
 
-        /**
-         * @var string $body
-         */
-        $body = ($this->downloadFile)($batch->outputFileId);
-
         $items = [];
-        foreach (explode("\n", $body) as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
 
-            $decoded = json_decode($line, true);
-            if (! is_array($decoded)) {
-                continue;
-            }
+        foreach (array_filter([$batch->outputFileId, $batch->errorFileId]) as $fileId) {
+            /** @var string $body */
+            $body = ($this->downloadFile)($fileId);
 
-            $items[] = self::mapResultItem($decoded);
+            foreach (explode("\n", $body) as $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $decoded = json_decode($line, true);
+                if (! is_array($decoded)) {
+                    continue;
+                }
+
+                $items[] = self::mapResultItem($decoded);
+            }
         }
 
         return $items;

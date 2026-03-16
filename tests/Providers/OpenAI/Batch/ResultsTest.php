@@ -10,7 +10,6 @@ use Illuminate\Support\Str;
 use Prism\Prism\Batch\BatchResultItem;
 use Prism\Prism\Batch\BatchResultStatus;
 use Prism\Prism\Batch\GetBatchResultsRequest;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 
 require_once __DIR__.'/Helpers.php';
@@ -99,7 +98,7 @@ it('can get mixed batch results', function (): void {
         ->and($results[2]->text)->toBeNull();
 });
 
-it('throws when batch results are not ready', function (): void {
+it('returns an empty array when batch results are not yet available', function (): void {
     Http::fake([
         'https://api.openai.com/v1/batches/*' => Http::response(
             json_encode([
@@ -119,5 +118,7 @@ it('throws when batch results are not ready', function (): void {
     ])->preventStrayRequests();
 
     $provider = Prism::provider('openai');
-    $provider->getBatchResults(new GetBatchResultsRequest('batch_abc123'));
-})->throws(PrismException::class, 'OpenAI batch results are not yet available.');
+    $results = $provider->getBatchResults(new GetBatchResultsRequest('batch_abc123'));
+
+    expect($results)->toBeArray()->toBeEmpty();
+});

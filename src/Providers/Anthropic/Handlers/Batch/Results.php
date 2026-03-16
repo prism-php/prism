@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Anthropic\Handlers\Batch;
 
 use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Batch\BatchResultItem;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\MapsBatchResults;
 
 /**
@@ -30,6 +31,14 @@ class Results
     public function handle(string $batchId): array
     {
         $response = $this->client->withOptions(['stream' => true])->get("messages/batches/{$batchId}/results");
+
+        if ($response->failed()) {
+            throw PrismException::providerResponseError(vsprintf(
+                'Anthropic Error: failed to retrieve batch results for batch "%s" (HTTP %s)',
+                [$batchId, $response->status()]
+            ));
+        }
+
         $body = $response->getBody();
 
         $buffer = '';
