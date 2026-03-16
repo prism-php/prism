@@ -578,6 +578,98 @@ it('formats tool-approval-request events for Data Protocol', function (): void {
     }
 });
 
+it('uses responseMessageId in start event when set', function (): void {
+    $events = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new TextDeltaEvent('evt-2', 1640995201, 'Hello', 'msg-456'),
+        new StreamEndEvent('evt-3', 1640995202, FinishReason::Stop),
+    ];
+
+    $adapter = new DataProtocolAdapter('existing-msg-id');
+    $response = ($adapter)(createDataEventGenerator($events));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        expect($capturedOutput)->toContain('"messageId":"existing-msg-id"');
+        expect($capturedOutput)->not->toContain('"messageId":"evt-1"');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('uses provider-generated messageId in start event when responseMessageId is not set', function (): void {
+    $events = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new StreamEndEvent('evt-2', 1640995201, FinishReason::Stop),
+    ];
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        expect($capturedOutput)->toContain('"messageId":"evt-1"');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
+it('uses provider-generated messageId when responseMessageId is null', function (): void {
+    $events = [
+        new StreamStartEvent('evt-1', 1640995200, 'claude-3', 'anthropic'),
+        new StreamEndEvent('evt-2', 1640995201, FinishReason::Stop),
+    ];
+
+    $adapter = new DataProtocolAdapter;
+    $response = ($adapter)(createDataEventGenerator($events));
+    $callback = $response->getCallback();
+
+    $outputBuffer = fopen('php://memory', 'r+');
+    ob_start(function ($buffer) use ($outputBuffer): string {
+        fwrite($outputBuffer, $buffer);
+
+        return '';
+    });
+
+    try {
+        $callback();
+        ob_end_flush();
+
+        rewind($outputBuffer);
+        $capturedOutput = stream_get_contents($outputBuffer);
+
+        expect($capturedOutput)->toContain('"messageId":"evt-1"');
+    } finally {
+        fclose($outputBuffer);
+    }
+});
+
 it('formats artifact events using data- prefix convention', function (): void {
     $artifact = new Artifact(
         data: 'iVBORw0KGgo=',

@@ -41,6 +41,20 @@ class DataProtocolAdapter
     protected array $startedToolCallIds = [];
 
     /**
+     * @param  string|null  $responseMessageId  When set, the start event echoes this ID instead of the
+     *                                          provider-generated one. The Vercel AI SDK client sends a
+     *                                          messageId when it needs the server to continue an existing
+     *                                          assistant message — for example after a client-executed tool
+     *                                          result (addToolResult), a tool output (addToolOutput), or any
+     *                                          automatic resubmission triggered by sendAutomaticallyWhen.
+     *                                          Without this, the UI would create a new message bubble instead
+     *                                          of appending to the current one.
+     */
+    public function __construct(
+        protected ?string $responseMessageId = null,
+    ) {}
+
+    /**
      * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
      */
     public function __invoke(Generator $events, ?PendingRequest $pendingRequest = null, ?callable $callback = null): StreamedResponse
@@ -166,7 +180,7 @@ class DataProtocolAdapter
     {
         return [
             'type' => 'start',
-            'messageId' => $event->id,
+            'messageId' => $this->responseMessageId ?? $event->id,
         ];
     }
 
