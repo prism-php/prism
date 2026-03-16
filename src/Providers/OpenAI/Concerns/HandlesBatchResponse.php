@@ -58,6 +58,15 @@ trait HandlesBatchResponse
             inputFileId: data_get($data, 'input_file_id'),
             outputFileId: data_get($data, 'output_file_id'),
             errorFileId: data_get($data, 'error_file_id'),
+            errors: array_values(array_map(
+                static fn (array $e): array => [
+                    'code' => (string) data_get($e, 'code', ''),
+                    'message' => (string) data_get($e, 'message', ''),
+                    'line' => data_get($e, 'line') !== null ? (int) data_get($e, 'line') : null,
+                    'param' => data_get($e, 'param') !== null ? (string) data_get($e, 'param') : null,
+                ],
+                data_get($data, 'errors.data', []) ?? []
+            )),
         );
     }
 

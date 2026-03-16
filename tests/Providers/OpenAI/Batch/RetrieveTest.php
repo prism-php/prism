@@ -56,3 +56,23 @@ it('throws when provider returns an error in response body', function (): void {
     $provider = Prism::provider('openai');
     $provider->retrieveBatch(new RetrieveBatchRequest('batch_nonexistent'));
 })->throws(PrismException::class, 'OpenAI Error: [not_found_error] Batch not found.');
+
+it('maps errors from a failed batch', function (): void {
+    Http::fake([
+        'https://api.openai.com/v1/batches/*' => Http::response(
+            openaiFixture('batch-retrieve-failed-1.json'),
+            200
+        ),
+    ])->preventStrayRequests();
+
+    $provider = Prism::provider('openai');
+    $result = $provider->retrieveBatch(new RetrieveBatchRequest('batch_abc123'));
+
+    expect($result)->toBeInstanceOf(BatchJob::class)
+        ->and($result->status)->toBe(BatchStatus::Failed)
+        ->and($result->errors)->toHaveCount(2)
+        ->and($result->errors[0]['code'])->toBe('invalid_json_line')
+        ->and($result->errors[0]['message'])->toBe('Invalid JSON on line 3.')
+        ->and($result->errors[1]['code'])->toBe('token_limit_exceeded')
+        ->and($result->errors[1]['message'])->toBe('Request exceeds token limit.');
+});

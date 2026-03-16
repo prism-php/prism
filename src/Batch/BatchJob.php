@@ -6,6 +6,9 @@ namespace Prism\Prism\Batch;
 
 readonly class BatchJob
 {
+    /**
+     * @param  list<array{code: string, message: string, line: int|null, param: string|null}>  $errors
+     */
     public function __construct(
         public string $id,
         public BatchStatus $status,
@@ -17,5 +20,6 @@ readonly class BatchJob
         public ?string $inputFileId = null,
         public ?string $outputFileId = null,
         public ?string $errorFileId = null,
+        public array $errors = [],
     ) {}
 }
