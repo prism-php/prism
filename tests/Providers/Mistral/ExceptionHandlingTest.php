@@ -45,6 +45,14 @@ it('handles rate limit errors (429)', function (): void {
         ->toThrow(PrismRateLimitedException::class);
 });
 
+it('handles provider overloaded errors (503)', function (): void {
+    $mockResponse = createMistralMockResponse(503, []);
+    $exception = new RequestException($mockResponse);
+
+    expect(fn() => $this->provider->handleRequestException('mistral-large', $exception))
+        ->toThrow(PrismProviderOverloadedException::class);
+});
+
 it('handles provider overloaded errors (529)', function (): void {
     $mockResponse = createMistralMockResponse(529, []);
     $exception = new RequestException($mockResponse);
@@ -57,7 +65,7 @@ it('handles request too large errors (413)', function (): void {
     $mockResponse = createMistralMockResponse(413, []);
     $exception = new RequestException($mockResponse);
 
-    expect(fn () => $this->provider->handleRequestException('mistral-large', $exception))
+    expect(fn() => $this->provider->handleRequestException('mistral-large', $exception))
         ->toThrow(PrismRequestTooLargeException::class);
 });
 
@@ -69,7 +77,7 @@ it('handles errors with type and message', function (): void {
     ]);
     $exception = new RequestException($mockResponse);
 
-    expect(fn () => $this->provider->handleRequestException('mistral-large', $exception))
+    expect(fn() => $this->provider->handleRequestException('mistral-large', $exception))
         ->toThrow(PrismException::class, 'Mistral Error [400]: invalid_request_error - Invalid model specified');
 });
 
@@ -80,7 +88,7 @@ it('handles errors with object fallback for type', function (): void {
     ]);
     $exception = new RequestException($mockResponse);
 
-    expect(fn () => $this->provider->handleRequestException('mistral-large', $exception))
+    expect(fn() => $this->provider->handleRequestException('mistral-large', $exception))
         ->toThrow(PrismException::class, 'Mistral Error [400]: error - Invalid model specified');
 });
 
@@ -88,6 +96,6 @@ it('handles errors without any error details', function (): void {
     $mockResponse = createMistralMockResponse(500, []);
     $exception = new RequestException($mockResponse);
 
-    expect(fn () => $this->provider->handleRequestException('mistral-large', $exception))
+    expect(fn() => $this->provider->handleRequestException('mistral-large', $exception))
         ->toThrow(PrismException::class, 'Mistral Error [500]: Unknown error');
 });
