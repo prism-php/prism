@@ -1,0 +1,25 @@
+{
+    "id": "resp_test_incomplete_reasoning",
+    "object": "response",
+    "created_at": 1741990201,
+    "status": "incomplete",
+    "model": "gpt-5-2026-01-01",
+    "output": [
+        {
+            "id": "rs_test_reasoning",
+            "type": "reasoning",
+            "status": "completed",
+            "summary": []
+        }
+    ],
+    "usage": {
+        "input_tokens": 50,
+        "input_tokens_details": {
+            "cached_tokens": 0
+        },
+        "output_tokens": 16384,
+        "output_tokens_details": {
+            "reasoning_tokens": 16384
+        }
+    }
+}

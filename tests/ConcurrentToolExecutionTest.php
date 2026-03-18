@@ -7,6 +7,7 @@ namespace Tests;
 use Prism\Prism\Facades\Tool as ToolFacade;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\ToolError;
 
 it('can set tool as concurrent', function (): void {
     $tool = (new Tool)
@@ -75,7 +76,8 @@ it('handles errors in concurrent tools gracefully', function (): void {
 
     $result = $tool->handle('test');
 
-    expect($result)
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)
         ->toContain('Tool execution error')
         ->toContain('Tool execution failed');
 });

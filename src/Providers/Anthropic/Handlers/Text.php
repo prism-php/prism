@@ -88,6 +88,7 @@ class Text
             'tools' => static::buildTools($request) ?: null,
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
+            'cache_control' => $request->providerOptions('cache_control'),
         ]);
     }
 
@@ -104,11 +105,6 @@ class Text
         ));
 
         $toolResultMessage = new ToolResultMessage($toolResults);
-
-        // Apply tool result caching if configured
-        if ($tool_result_cache_type = $this->request->providerOptions('tool_result_cache_type')) {
-            $toolResultMessage->withProviderOptions(['cacheType' => $tool_result_cache_type]);
-        }
 
         $this->request->addMessage($toolResultMessage);
         $this->request->resetToolChoice();

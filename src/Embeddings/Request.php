@@ -9,26 +9,25 @@ use Prism\Prism\Concerns\ChecksSelf;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Text;
 
 class Request implements PrismRequest
 {
     use ChecksSelf, HasProviderOptions;
 
     /**
-     * @param  array<string>  $inputs
-     * @param  array<Image>  $images
      * @param  array<string, mixed>  $clientOptions
      * @param  array{0: array<int, int>|int, 1?: Closure|int, 2?: ?callable, 3?: bool}  $clientRetry
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<Content>  $contents
      */
     public function __construct(
         protected string $model,
         protected string $providerKey,
-        protected array $inputs,
-        protected array $images,
         protected array $clientOptions,
         protected array $clientRetry,
         array $providerOptions = [],
+        protected array $contents = [],
     ) {
         $this->providerOptions = $providerOptions;
     }
@@ -50,37 +49,62 @@ class Request implements PrismRequest
     }
 
     /**
-     * @return array<string> $inputs
+     * @return array<string>
      */
     public function inputs(): array
     {
-        return $this->inputs;
+        $inputs = [];
+
+        foreach ($this->contents as $content) {
+            $parts = $content->parts();
+
+            if (count($parts) === 1 && $parts[0] instanceof Text) {
+                $inputs[] = $parts[0]->text;
+            }
+        }
+
+        return $inputs;
     }
 
     /**
-     * Get image inputs for embedding generation.
-     *
      * @return array<Image>
      */
     public function images(): array
     {
-        return $this->images;
+        $images = [];
+
+        foreach ($this->contents as $content) {
+            $parts = $content->parts();
+
+            if (count($parts) === 1 && $parts[0] instanceof Image) {
+                $images[] = $parts[0];
+            }
+        }
+
+        return $images;
     }
 
     /**
-     * Check if the request contains image inputs.
+     * @return array<Content>
      */
+    public function contents(): array
+    {
+        return $this->contents;
+    }
+
     public function hasImages(): bool
     {
-        return $this->images !== [];
+        return $this->images() !== [];
     }
 
-    /**
-     * Check if the request contains text inputs.
-     */
+    public function hasContents(): bool
+    {
+        return $this->contents !== [];
+    }
+
     public function hasInputs(): bool
     {
-        return $this->inputs !== [];
+        return $this->inputs() !== [];
     }
 
     #[\Override]

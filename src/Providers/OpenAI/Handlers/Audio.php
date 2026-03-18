@@ -66,6 +66,7 @@ class Audio
                 'response_format' => $request->providerOptions('response_format') ?? null,
                 'service_tier' => $request->providerOptions('service_tier') ?? null,
                 'temperature' => $request->providerOptions('temperature') ?? null,
+                'chunking_strategy' => $request->providerOptions('chunking_strategy') ?? null,
             ]));
 
         if (json_validate($response->body())) {

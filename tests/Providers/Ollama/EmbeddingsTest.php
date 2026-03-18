@@ -71,3 +71,25 @@ it('works with multiple embeddings', function (): void {
     expect($response->embeddings[1]->embedding)->toBe($embeddings[1]->embedding);
     expect($response->usage->tokens)->toBe(522);
 });
+
+it('allows setting provider options like dimensions', function (): void {
+    FixtureResponse::fakeResponseSequence('api/embed', 'ollama/embeddings-with-dimensions');
+
+    $response = Prism::embeddings()
+        ->using(Provider::Ollama, 'mxbai-embed-large')
+        ->withProviderOptions([
+            'dimensions' => 256,
+        ])
+        ->fromInput('The food was delicious and the waiter...')
+        ->asEmbeddings();
+
+    $embeddings = json_decode(
+        file_get_contents('tests/Fixtures/ollama/embeddings-with-dimensions-1.json'),
+        true
+    );
+    $embeddings = array_map(Embedding::fromArray(...), data_get($embeddings, 'embeddings'));
+
+    expect($response->meta->model)->toBe('mxbai-embed-large');
+    expect($response->embeddings)->toBeArray();
+    expect($response->embeddings[0]->embedding)->toBe($embeddings[0]->embedding);
+});
