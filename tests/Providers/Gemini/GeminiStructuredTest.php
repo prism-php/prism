@@ -404,3 +404,32 @@ it('filters out thought parts when includeThoughts is true', function (): void {
     expect($response->steps[0]->additionalContent['thoughtSummaries'])->toBeArray();
     expect($response->steps[0]->additionalContent['thoughtSummaries'][0])->toContain('Let me think about');
 });
+
+it('sends topK in generationConfig for structured output', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured');
+
+    Prism::structured()
+        ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+        ->withSchema(new ObjectSchema(
+            'output',
+            'the output object',
+            [
+                new StringSchema('weather', 'The weather forecast'),
+                new BooleanSchema('coat_required', 'whether a coat is required'),
+            ],
+            ['weather', 'coat_required'],
+        ))
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->usingTopK(40)
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $data = $request->data();
+
+        expect($data['generationConfig'])
+            ->toHaveKey('topK')
+            ->and($data['generationConfig']['topK'])->toBe(40);
+
+        return true;
+    });
+});

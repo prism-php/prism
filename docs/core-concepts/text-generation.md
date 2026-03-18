@@ -165,6 +165,15 @@ The value is passed through to the provider. The range depends on the provider a
 > [!TIP]
 > It is recommended to set either temperature or topP, but not both.
 
+`usingTopK`
+
+Top-K sampling.
+
+The value is passed through to the provider. Top-K sampling considers only the K most likely tokens. For example, a topK of 40 means only the top 40 tokens are considered for sampling. This parameter is supported by providers such as Gemini and Anthropic.
+
+> [!TIP]
+> It is recommended to set either temperature or topK, but not both.
+
 `withClientOptions`
 
 Under the hood we use Laravel's [HTTP client](https://laravel.com/docs/11.x/http-client#main-content). You can use this method to pass any of Guzzles [request options](https://docs.guzzlephp.org/en/stable/request-options.html) e.g. `->withClientOptions(['timeout' => 30])`.

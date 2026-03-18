@@ -131,6 +131,7 @@ class Structured
                     'response_schema' => (new SchemaMap($request->schema()))->toArray(),
                     'temperature' => $request->temperature(),
                     'topP' => $request->topP(),
+                    'topK' => $request->topK(),
                     'maxOutputTokens' => $request->maxTokens(),
                     'thinkingConfig' => $thinkingConfig,
                 ]),
