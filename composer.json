@@ -30,11 +30,11 @@
     }
   },
   "require-dev": {
-    "pestphp/pest": "^3.0",
+    "pestphp/pest": "^3.0|^4.0",
     "brianium/paratest": "^7.8.4",
     "laravel/pint": "^1.14",
     "phpstan/phpstan": "2.1.34",
-    "pestphp/pest-plugin-arch": "^3.0",
+    "pestphp/pest-plugin-arch": "^3.0|^4.0",
     "pestphp/pest-plugin-laravel": "^3.0|^4.0",
     "phpstan/extension-installer": "^1.3",
     "phpstan/phpstan-deprecation-rules": "^2.0",
