@@ -72,8 +72,8 @@ $response = Prism::structured()
     // ... rest of your configuration
 ```
 
-### Anthropic: Tool Calling Mode
-Anthropic doesn't have native structured output, but Prism provides two approaches. For more reliable JSON parsing, especially with complex content or non-English text, use tool calling mode:
+### Anthropic
+Anthropic uses native structured outputs by default (Claude Sonnet 4.5+), providing guaranteed schema compliance through constrained decoding. For older models, you can use tool calling mode as a fallback:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -88,9 +88,9 @@ $response = Prism::structured()
 ```
 
 **When to use tool calling mode with Anthropic:**
-- Working with non-English content that may contain quotes
-- Complex JSON structures that might confuse prompt-based parsing
-- When you need the most reliable structured output possible
+- Using older models that don't support native structured outputs
+- Working with non-English content that may contain quotes on older models
+- When you need to combine structured output with custom tools
 
 > [!NOTE]
 > Tool calling mode cannot be used with Anthropic's citations feature.
