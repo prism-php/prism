@@ -8,7 +8,6 @@ use Illuminate\Http\Client\Response as HttpResponse;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
 use Prism\Prism\Structured\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
@@ -48,16 +47,18 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
             ],
         ];
 
-        $customTools = ToolMap::map($this->request->tools());
+        $existingTools = $payload['tools'] ?? [];
 
         $payload = [
             ...$payload,
-            'tools' => [...$customTools, $structuredOutputTool],
+            'tools' => [...$existingTools, $structuredOutputTool],
         ];
 
         $toolChoice = $this->resolveToolChoice();
         if ($toolChoice !== null) {
             $payload['tool_choice'] = $toolChoice;
+        } else {
+            unset($payload['tool_choice']);
         }
 
         return $payload;
