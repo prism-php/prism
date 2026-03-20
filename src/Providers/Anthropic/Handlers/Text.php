@@ -13,6 +13,7 @@ use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsProviderToolCalls;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
@@ -35,7 +36,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
-    use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
+    use CallsTools, ExtractsCitations, ExtractsProviderToolCalls, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
     protected Response $tempResponse;
 
@@ -135,7 +136,7 @@ class Text
             finishReason: $this->tempResponse->finishReason,
             toolCalls: $this->tempResponse->toolCalls,
             toolResults: $toolResults,
-            providerToolCalls: [],
+            providerToolCalls: $this->extractProviderToolCalls($data),
             usage: $this->tempResponse->usage,
             meta: $this->tempResponse->meta,
             messages: $this->request->messages(),
