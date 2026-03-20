@@ -400,6 +400,10 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->and($response->structured)->toHaveKeys(['summary', 'recommendation'])
             ->and($response->structured['summary'])->toBeString()
             ->and($response->structured['recommendation'])->toBeString();
+
+        expect($response->providerToolCalls)->not->toBeEmpty();
+        expect($response->providerToolCalls[0]->type)->toBe('web_search');
+        expect($response->providerToolCalls[0]->status)->toBe('completed');
     });
 
     it('can generate structured output with provider tools using tool calling mode', function (): void {
@@ -427,6 +431,10 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->and($response->structured)->toHaveKeys(['summary', 'recommendation'])
             ->and($response->structured['summary'])->toBeString()
             ->and($response->structured['recommendation'])->toBeString();
+
+        expect($response->providerToolCalls)->not->toBeEmpty();
+        expect($response->providerToolCalls[0]->type)->toBe('web_search');
+        expect($response->providerToolCalls[0]->status)->toBe('completed');
     });
 
     it('includes provider tools in native output format payload', function (): void {
