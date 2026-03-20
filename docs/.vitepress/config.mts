@@ -134,6 +134,14 @@ export default defineConfig({
                 link: "/core-concepts/audio",
               },
               {
+                text: "Batch Processing",
+                link: "/core-concepts/batch",
+              },
+              {
+                text: "Files",
+                link: "/core-concepts/files",
+              },
+              {
                 text: "Schemas",
                 link: "/core-concepts/schemas",
               },
