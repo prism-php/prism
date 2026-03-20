@@ -13,6 +13,7 @@ use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -120,7 +121,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         expect($finalStep->structured)->toBeArray();
     });
 
-    it('can use JSON mode strategy with custom tools', function (): void {
+    it('can use native output format strategy with custom tools', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'anthropic/structured-with-tools-json-mode');
 
         $schema = new ObjectSchema(
@@ -143,16 +144,13 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->withSchema($schema)
             ->withTools([$searchTool])
             ->withMaxSteps(3)
-            ->withProviderOptions(['use_tool_calling' => false])  // Use JSON mode instead
             ->withPrompt('Search for "Prism PHP" and give me a summary')
             ->asStructured();
 
-        // Verify structured output
         expect($response->structured)->toBeArray()
             ->and($response->structured)->toHaveKey('result')
             ->and($response->structured['result'])->toBeString();
 
-        // JSON mode should still support tools
         expect($response->toolCalls)->toBeArray();
         expect($response->toolResults)->toBeArray();
     });
@@ -376,5 +374,114 @@ describe('Structured output with tools for Anthropic', function (): void {
         );
 
         expect($payload['tool_choice'])->toBe(['type' => 'tool', 'name' => 'output_structured_data']);
+    });
+
+    it('can generate structured output with provider tools using native output format', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'anthropic/structured-with-provider-tool-native');
+
+        $schema = new ObjectSchema(
+            'weather_analysis',
+            'Analysis of weather conditions',
+            [
+                new StringSchema('summary', 'A summary of the weather', true),
+                new StringSchema('recommendation', 'A recommendation based on weather', true),
+            ],
+            ['summary', 'recommendation']
+        );
+
+        $response = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->withSchema($schema)
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+            ->asStructured();
+
+        expect($response->structured)->toBeArray()
+            ->and($response->structured)->toHaveKeys(['summary', 'recommendation'])
+            ->and($response->structured['summary'])->toBeString()
+            ->and($response->structured['recommendation'])->toBeString();
+    });
+
+    it('can generate structured output with provider tools using tool calling mode', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'anthropic/structured-with-provider-tool-toolcalling');
+
+        $schema = new ObjectSchema(
+            'weather_analysis',
+            'Analysis of weather conditions',
+            [
+                new StringSchema('summary', 'A summary of the weather', true),
+                new StringSchema('recommendation', 'A recommendation based on weather', true),
+            ],
+            ['summary', 'recommendation']
+        );
+
+        $response = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->withSchema($schema)
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->withProviderOptions(['use_tool_calling' => true])
+            ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
+            ->asStructured();
+
+        expect($response->structured)->toBeArray()
+            ->and($response->structured)->toHaveKeys(['summary', 'recommendation'])
+            ->and($response->structured['summary'])->toBeString()
+            ->and($response->structured['recommendation'])->toBeString();
+    });
+
+    it('includes provider tools in native output format payload', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->withSchema($schema)
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        expect($payload)->toHaveKey('tools')
+            ->and($payload)->toHaveKey('output_config')
+            ->and($payload['tools'])->toHaveCount(1)
+            ->and($payload['tools'][0]['type'])->toBe('web_search_20250305')
+            ->and($payload['tools'][0]['name'])->toBe('web_search');
+    });
+
+    it('includes provider tools alongside structured tool in tool calling mode', function (): void {
+        Prism::fake();
+
+        $schema = new ObjectSchema(
+            'output',
+            'the output object',
+            [new StringSchema('result', 'The result', true)],
+            ['result']
+        );
+
+        $request = Prism::structured()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->withSchema($schema)
+            ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+            ->withProviderOptions(['use_tool_calling' => true]);
+
+        $payload = Structured::buildHttpRequestPayload(
+            $request->toRequest()
+        );
+
+        expect($payload)->toHaveKey('tools');
+
+        $toolTypes = array_column($payload['tools'], 'type');
+        $toolNames = array_column($payload['tools'], 'name');
+
+        expect($toolNames)->toContain('web_search')
+            ->and($toolNames)->toContain('output_structured_data')
+            ->and($toolTypes)->toContain('web_search_20250305');
     });
 });
