@@ -620,3 +620,71 @@ describe('Thinking Mode for Gemini', function (): void {
         });
     });
 });
+
+describe('Top K for Gemini', function (): void {
+    it('sends topK in generationConfig', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withPrompt('Who are you?')
+            ->usingTopK(40)
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'])
+                ->toHaveKey('topK')
+                ->and($data['generationConfig']['topK'])->toBe(40);
+
+            return true;
+        });
+    });
+
+    it('does not send topK when not set', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'] ?? [])->not->toHaveKey('topK');
+
+            return true;
+        });
+    });
+
+    it('sends topK alongside other generation config params', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withPrompt('Who are you?')
+            ->usingTemperature(0.7)
+            ->usingTopP(0.9)
+            ->usingTopK(40)
+            ->withMaxTokens(100)
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data['generationConfig'])
+                ->toHaveKey('temperature')
+                ->toHaveKey('topP')
+                ->toHaveKey('topK')
+                ->toHaveKey('maxOutputTokens')
+                ->and($data['generationConfig']['temperature'])->toBe(0.7)
+                ->and($data['generationConfig']['topP'])->toBe(0.9)
+                ->and($data['generationConfig']['topK'])->toBe(40)
+                ->and($data['generationConfig']['maxOutputTokens'])->toBe(100);
+
+            return true;
+        });
+    });
+});

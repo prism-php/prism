@@ -86,6 +86,7 @@ class Text
         $generationConfig = Arr::whereNotNull([
             'temperature' => $request->temperature(),
             'topP' => $request->topP(),
+            'topK' => $request->topK(),
             'maxOutputTokens' => $request->maxTokens(),
             'thinkingConfig' => $thinkingConfig,
         ]);

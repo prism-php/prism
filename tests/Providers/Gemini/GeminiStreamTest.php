@@ -440,3 +440,28 @@ it('can generate text stream using multiple parallel tool calls', function (): v
     expect($toolCalls[1]->reasoningId)->not->toBeNull();
     expect($toolCalls[0]->reasoningId)->toBe($toolCalls[1]->reasoningId);
 });
+
+it('sends topK in generationConfig for streaming', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text');
+
+    $events = [];
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.0-flash')
+        ->withPrompt('Explain how AI works')
+        ->usingTopK(40)
+        ->asStream();
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $data = $request->data();
+
+        expect($data['generationConfig'])
+            ->toHaveKey('topK')
+            ->and($data['generationConfig']['topK'])->toBe(40);
+
+        return true;
+    });
+});
