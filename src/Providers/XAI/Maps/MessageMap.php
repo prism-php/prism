@@ -81,10 +81,12 @@ class MessageMap
 
         $this->mappedMessages[] = [
             'role' => 'user',
-            'content' => [
-                ['type' => 'text', 'text' => $message->text()],
-                ...$imageParts,
-            ],
+            'content' => $imageParts === []
+                ? $message->text()
+                : [
+                    ['type' => 'text', 'text' => $message->text()],
+                    ...$imageParts,
+                ],
         ];
     }
 
