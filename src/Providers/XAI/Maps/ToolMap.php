@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\XAI\Maps;
 
 use Prism\Prism\Tool;
+use stdClass;
 
 class ToolMap
 {
@@ -21,7 +22,7 @@ class ToolMap
                 'description' => $tool->description(),
                 'parameters' => [
                     'type' => 'object',
-                    'properties' => $tool->parametersAsArray(),
+                    'properties' => $tool->parametersAsArray() ?: new stdClass(),
                     'required' => $tool->requiredParameters(),
                 ],
             ],
