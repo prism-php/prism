@@ -43,6 +43,7 @@ readonly class ResponseBuilder
             content: $finalStep->text,
             toolCalls: $finalStep->toolCalls,
             additionalContent: $additionalContent,
+            toolApprovalRequests: $finalStep->toolApprovalRequests,
         ));
 
         return new Response(
@@ -54,6 +55,7 @@ readonly class ResponseBuilder
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,
             messages: $messages,
+            toolApprovalRequests: $finalStep->toolApprovalRequests,
             additionalContent: $finalStep->additionalContent,
             raw: $finalStep->raw,
         );

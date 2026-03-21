@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\"result\":\"The file /tmp/test.txt has been deleted successfully.\"}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.05
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 180,
+    "candidatesTokenCount": 20,
+    "totalTokenCount": 200,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 180
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 20
+      }
+    ]
+  },
+  "modelVersion": "gemini-2.0-flash",
+  "responseId": "structured-approval-phase2"
+}

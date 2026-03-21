@@ -13,6 +13,7 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderToolCall;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -30,6 +31,7 @@ readonly class Step implements Arrayable
      * @param  array<int, ToolCall>  $toolCalls
      * @param  array<int, ProviderToolCall>  $providerToolCalls
      * @param  array<int, ToolResult>  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      * @param  array<string,mixed>|null  $raw
      */
     public function __construct(
@@ -44,6 +46,7 @@ readonly class Step implements Arrayable
         public array $toolCalls = [],
         public array $providerToolCalls = [],
         public array $toolResults = [],
+        public array $toolApprovalRequests = [],
         public ?array $raw = null
     ) {}
 
@@ -65,6 +68,7 @@ readonly class Step implements Arrayable
             'tool_calls' => array_map(fn (ToolCall $toolCall): array => $toolCall->toArray(), $this->toolCalls),
             'tool_results' => array_map(fn (ToolResult $toolResult): array => $toolResult->toArray(), $this->toolResults),
             'provider_tool_calls' => array_map(fn (ProviderToolCall $providerToolCall): array => $providerToolCall->toArray(), $this->providerToolCalls),
+            'tool_approval_requests' => array_map(fn (ToolApprovalRequest $req): array => $req->toArray(), $this->toolApprovalRequests),
             'raw' => $this->raw,
         ];
     }

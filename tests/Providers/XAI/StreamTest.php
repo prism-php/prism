@@ -16,6 +16,7 @@ use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Tests\Fixtures\FixtureResponse;
@@ -130,6 +131,88 @@ it('can generate text using tools with streaming', function (): void {
             && isset($body['tools'])
             && $body['stream'] === true
             && $body['model'] === 'grok-4';
+    });
+});
+
+describe('client-executed tools', function (): void {
+    it('stops streaming when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'xai/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
+
+        $response = Prism::text()
+            ->using('xai', 'grok-4')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops streaming when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/chat/completions', 'xai/stream-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('xai', 'grok-4')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete the file at /tmp/test.txt')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        $eventTypes = array_map(fn (StreamEvent $e): string => $e::class, $events);
+
+        expect($eventTypes[0])->toBe(StreamStartEvent::class);
+        expect($eventTypes[1])->toBe(StepStartEvent::class);
+
+        $approvalIndex = array_search(ToolApprovalRequestEvent::class, $eventTypes);
+        expect($approvalIndex)->not->toBeFalse();
+
+        $approvalEvent = $events[$approvalIndex];
+        expect($approvalEvent->toolCall->name)->toBe('delete_file');
+
+        $toolCallIndex = array_search(ToolCallEvent::class, $eventTypes);
+        expect($toolCallIndex)->not->toBeFalse();
+        expect($toolCallIndex)->toBeLessThan($approvalIndex);
+
+        $stepFinishIndex = array_search(StepFinishEvent::class, $eventTypes);
+        expect($stepFinishIndex)->toBeGreaterThan($approvalIndex);
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
     });
 });
 

@@ -160,6 +160,53 @@ describe('Text generation for XAI', function (): void {
     });
 });
 
+describe('client-executed tools', function (): void {
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'xai/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
+
+        $response = Prism::text()
+            ->using(Provider::XAI, 'grok-beta')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops execution when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'xai/text-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('xai', 'grok-beta')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete /tmp/test.txt')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
 describe('Image support with XAI', function (): void {
     it('can send images from path', function (): void {
         FixtureResponse::fakeResponseSequence('chat/completions', 'xai/image-detection');

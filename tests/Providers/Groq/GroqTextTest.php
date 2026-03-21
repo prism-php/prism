@@ -7,6 +7,7 @@ namespace Tests\Providers\Groq;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -118,6 +119,27 @@ describe('Text generation for Groq', function (): void {
         );
     });
 
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'groq/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
+
+        $response = Prism::text()
+            ->using('groq', 'llama-3.3-70b-versatile')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+
     it('handles specific tool choice', function (): void {
         FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/generate-text-with-required-tool-call');
 
@@ -151,6 +173,30 @@ describe('Text generation for Groq', function (): void {
             ->withToolChoice(ToolChoice::Any)
             ->asText();
     })->throwsNoExceptions();
+});
+
+describe('approval-required tools', function (): void {
+    it('stops execution when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'groq/text-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using(Provider::Groq, 'llama-3.3-70b-versatile')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete /tmp/test.txt')
+            ->generate();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+    });
 });
 
 describe('Image support with grok', function (): void {
