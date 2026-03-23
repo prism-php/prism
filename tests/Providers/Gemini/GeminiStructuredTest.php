@@ -189,7 +189,7 @@ it('supports AnyOfSchema in structured output', function (): void {
     expect($response->structured['value'])->toBe('forty-two');
 
     Http::assertSent(function (Request $request): bool {
-        $schema = $request->data()['generationConfig']['response_schema'];
+        $schema = $request->data()['generationConfig']['response_json_schema'];
 
         expect($schema)->toHaveKey('properties');
         expect($schema['properties'])->toHaveKey('value');
@@ -256,7 +256,7 @@ it('supports AnyOfSchema with complex objects', function (): void {
     expect($response->structured['content']['title'])->toBe('Understanding AI');
 
     Http::assertSent(function (Request $request): bool {
-        $schema = $request->data()['generationConfig']['response_schema'];
+        $schema = $request->data()['generationConfig']['response_json_schema'];
         $anyOf = $schema['properties']['content']['anyOf'];
 
         expect($anyOf)->toHaveCount(2);
@@ -311,7 +311,7 @@ it('supports NumberSchema constraints in structured output', function (): void {
     expect($response->structured['score'])->toBeLessThanOrEqual(5.0);
 
     Http::assertSent(function (Request $request): bool {
-        $schema = $request->data()['generationConfig']['response_schema'];
+        $schema = $request->data()['generationConfig']['response_json_schema'];
 
         expect($schema['properties'])->toHaveKey('score');
         expect($schema['properties']['score'])->toHaveKey('minimum');
@@ -355,7 +355,7 @@ it('supports nullable AnyOfSchema in structured output', function (): void {
     expect($response->structured['value'])->toBeNull();
 
     Http::assertSent(function (Request $request): bool {
-        $schema = $request->data()['generationConfig']['response_schema'];
+        $schema = $request->data()['generationConfig']['response_json_schema'];
         $anyOf = $schema['properties']['value']['anyOf'];
 
         expect($anyOf)->toHaveCount(3);
