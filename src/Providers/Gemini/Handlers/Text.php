@@ -15,7 +15,7 @@ use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
-use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
@@ -90,9 +90,7 @@ class Text
             'thinkingConfig' => $thinkingConfig,
         ]);
 
-        if ($request->tools() !== [] && $request->providerTools() != []) {
-            throw new PrismException('Use of provider tools with custom tools is not currently supported by Gemini.');
-        }
+        $hasBothToolTypes = $request->tools() !== [] && $request->providerTools() !== [];
 
         $tools = [];
 
@@ -109,6 +107,8 @@ class Text
             $tools['function_declarations'] = ToolMap::map($request->tools());
         }
 
+        $toolConfig = ToolConfigMap::map($request->toolChoice(), $hasBothToolTypes);
+
         /** @var ClientResponse $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",
@@ -117,7 +117,7 @@ class Text
                 'cachedContent' => $providerOptions['cachedContentName'] ?? null,
                 'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
                 'tools' => $tools !== [] ? $tools : null,
-                'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                'tool_config' => $toolConfig,
                 'safetySettings' => $providerOptions['safetySettings'] ?? null,
             ])
         );
