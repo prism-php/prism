@@ -34,7 +34,10 @@ class ToolCall implements Arrayable
                 return [];
             }
 
-            $arguments = $this->arguments;
+            // Sanitize control characters that some providers (e.g. DeepSeek) may include
+            // in streamed tool call arguments. Raw 0x00-0x1F / 0x7F bytes are never valid
+            // in JSON (RFC 8259) and cause json_decode to throw "Control character error".
+            $arguments = preg_replace('/[\x00-\x1F\x7F]/', '', $this->arguments);
 
             return json_decode(
                 $arguments,
