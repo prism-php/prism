@@ -14,7 +14,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
-use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
@@ -447,13 +447,8 @@ class Stream
     {
         $providerOptions = $request->providerOptions();
 
-        if ($request->tools() !== [] && $request->providerTools() !== []) {
-            throw new PrismException('Use of provider tools with custom tools is not currently supported by Gemini.');
-        }
-
-        if ($request->tools() !== [] && ($providerOptions['searchGrounding'] ?? false)) {
-            throw new PrismException('Use of search grounding with custom tools is not currently supported by Prism.');
-        }
+        $hasSearchGrounding = (bool) ($providerOptions['searchGrounding'] ?? false);
+        $hasBothToolTypes = $request->tools() !== [] && ($request->providerTools() !== [] || $hasSearchGrounding);
 
         $tools = [];
 
@@ -464,14 +459,16 @@ class Stream
                 ],
                 $request->providerTools()
             );
-        } elseif ($providerOptions['searchGrounding'] ?? false) {
+        } elseif ($hasSearchGrounding) {
             $tools = [
                 [
                     'google_search' => (object) [],
                 ],
             ];
-        } elseif ($request->tools() !== []) {
-            $tools = ['function_declarations' => ToolMap::map($request->tools())];
+        }
+
+        if ($request->tools() !== []) {
+            $tools['function_declarations'] = ToolMap::map($request->tools());
         }
 
         $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
@@ -490,6 +487,8 @@ class Stream
             ];
         }
 
+        $toolConfig = ToolConfigMap::map($request->toolChoice(), $hasBothToolTypes);
+
         /** @var Response $response */
         $response = $this->client
             ->withOptions(['stream' => true])
@@ -505,7 +504,7 @@ class Stream
                         'thinkingConfig' => $thinkingConfig,
                     ]) ?: null,
                     'tools' => $tools !== [] ? $tools : null,
-                    'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                    'tool_config' => $toolConfig,
                     'safetySettings' => $providerOptions['safetySettings'] ?? null,
                 ])
             );

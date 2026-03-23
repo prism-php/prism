@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
@@ -405,7 +404,7 @@ describe('provider tools', function (): void {
         });
     });
 
-    it('throws an exception if provider tools are enabled with other tools', function (): void {
+    it('sends includeServerSideToolInvocations when provider tools and custom tools are both present', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
 
         $tools = [
@@ -417,13 +416,19 @@ describe('provider tools', function (): void {
         ];
 
         Prism::text()
-            ->using(Provider::Gemini, 'gemini-2.0-flash')
-            ->withMaxSteps(3)
+            ->using(Provider::Gemini, 'gemini-3.1-pro-preview')
+            ->withMaxSteps(1)
             ->withTools($tools)
             ->withProviderTools([new ProviderTool('google_search')])
             ->withPrompt('What sport fixtures are on today, and will I need a coat based on today\'s weather forecast?')
             ->asText();
-    })->throws(PrismException::class, 'Use of provider tools with custom tools is not currently supported by Gemini.');
+
+        Http::assertSent(function (Request $request): bool {
+            $data = $request->data();
+
+            return ($data['tool_config']['includeServerSideToolInvocations'] ?? false) === true;
+        });
+    });
 
     it('adds file_search provider tool with options to the request', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-file-search');
