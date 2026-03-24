@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -51,3 +53,33 @@ it('returns structured output', function (): void {
     expect($response->usage->promptTokens)->toBe(45);
     expect($response->usage->completionTokens)->toBe(34);
 });
+
+it('forwards reasoning_effort provider option for structured requests', function (): void {
+    FixtureResponse::fakeResponseSequence('chat/completions', 'mistral/structured');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Mistral, 'mistral-large-latest')
+        ->withPrompt('What is the weather?')
+        ->withProviderOptions([
+            'reasoning_effort' => 'high',
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return isset($payload['reasoning_effort'])
+            && $payload['reasoning_effort'] === 'high';
+    });
+});
+

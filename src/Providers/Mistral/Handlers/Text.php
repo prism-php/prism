@@ -144,6 +144,7 @@ class Text
             ], Arr::whereNotNull([
                 'temperature' => $request->temperature(),
                 'top_p' => $request->topP(),
+                'reasoning_effort' => $request->providerOptions('reasoning_effort'),
                 'tools' => ToolMap::map($request->tools()),
                 'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             ]))
