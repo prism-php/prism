@@ -171,8 +171,50 @@ class Text
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
+                ...$this->extractProviderToolContent($data),
             ])
         );
+    }
+
+    /**
+     * Extract server tool use and result content blocks from the response.
+     *
+     * These must be preserved in additionalContent so that MessageMap can
+     * replay them alongside citations during multi-step tool loops.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    protected function extractProviderToolContent(array $data): array
+    {
+        $providerToolCalls = [];
+        $providerToolResults = [];
+
+        foreach (data_get($data, 'content', []) as $content) {
+            $type = data_get($content, 'type');
+
+            if ($type === 'server_tool_use') {
+                $providerToolCalls[] = [
+                    'type' => $type,
+                    'id' => data_get($content, 'id'),
+                    'name' => data_get($content, 'name'),
+                    'input' => json_encode(data_get($content, 'input', [])),
+                ];
+            }
+
+            if (str_ends_with((string) $type, '_tool_result')) {
+                $providerToolResults[] = [
+                    'type' => $type,
+                    'tool_use_id' => data_get($content, 'tool_use_id'),
+                    'content' => data_get($content, 'content'),
+                ];
+            }
+        }
+
+        return Arr::whereNotNull([
+            'provider_tool_calls' => $providerToolCalls !== [] ? $providerToolCalls : null,
+            'provider_tool_results' => $providerToolResults !== [] ? $providerToolResults : null,
+        ]);
     }
 
     /**
