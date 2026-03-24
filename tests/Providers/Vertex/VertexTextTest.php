@@ -215,6 +215,26 @@ describe('Request format for Vertex', function (): void {
         });
     });
 
+    it('uses global hostname when region is global', function (): void {
+        config()->set('prism.providers.vertex.region', 'global');
+        FixtureResponse::fakeResponseSequence('*', 'vertex/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Vertex, 'gemini-1.5-flash')
+            ->withPrompt('Hello')
+            ->asText();
+
+        Http::assertSent(function (Request $request): bool {
+            expect($request->url())->toContain('https://aiplatform.googleapis.com')
+                ->and($request->url())->not->toContain('global-aiplatform.googleapis.com')
+                ->and($request->url())->toContain('projects/test-project')
+                ->and($request->url())->toContain('locations/global')
+                ->and($request->url())->toContain('publishers/google/models');
+
+            return true;
+        });
+    });
+
     it('includes generation config in request', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'vertex/generate-text-with-a-prompt');
 

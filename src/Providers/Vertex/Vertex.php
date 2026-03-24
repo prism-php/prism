@@ -117,6 +117,13 @@ class Vertex extends Provider
 
     protected function buildBaseUrl(): string
     {
+        if ($this->region === 'global') {
+            return sprintf(
+                'https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models',
+                $this->projectId
+            );
+        }
+
         return sprintf(
             'https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models',
             $this->region,
