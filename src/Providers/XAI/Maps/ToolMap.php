@@ -21,7 +21,7 @@ class ToolMap
                 'description' => $tool->description(),
                 'parameters' => [
                     'type' => 'object',
-                    'properties' => $tool->parametersAsArray(),
+                    'properties' => (object) $tool->parametersAsArray(),
                     'required' => $tool->requiredParameters(),
                 ],
             ],
