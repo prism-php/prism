@@ -82,6 +82,7 @@ class PrismManager
             url: $config['url'],
             organization: $config['organization'] ?? null,
             project: $config['project'] ?? null,
+            apiFormat: $config['api_format'] ?? 'responses',
         );
     }
 
