@@ -36,11 +36,13 @@ class ToolCall implements Arrayable
 
             $arguments = $this->arguments;
 
-            return json_decode(
+            $decoded = json_decode(
                 $arguments,
                 true,
                 flags: JSON_THROW_ON_ERROR
             );
+
+            return is_array($decoded) ? $decoded : [];
         }
 
         /** @var array<string, mixed> $arguments */
