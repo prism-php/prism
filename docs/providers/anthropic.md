@@ -235,6 +235,29 @@ foreach ($stream as $event) {
 }
 ```
 
+### Fine-grained tool streaming
+
+Anthropic’s [fine-grained tool streaming](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming) lets tool-use input arrive incrementally (with lower latency for large arguments) instead of waiting for a complete JSON payload. Enable it on each tool that should use this behavior with the `eager_input_streaming` provider option:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Tool;
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->withProviderOptions(['eager_input_streaming' => true])
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$stream = Prism::text()
+    ->using('anthropic', 'claude-sonnet-4-5-20250929')
+    ->withTools([$weatherTool])
+    ->withPrompt('What is the weather in San Francisco?')
+    ->asStream();
+```
+
+Use this together with a streaming entrypoint (`asStream()`, `asEventStreamResponse()`, etc.). While the model is still emitting a tool call, streamed input may be partial JSON; only treat tool arguments as final once the stream indicates the tool input is complete.
+
 For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
 
 ## Documents
