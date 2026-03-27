@@ -1,0 +1,1 @@
+{"object":"list","data":[{"object":"embedding","embedding":[0.011111111,-0.022222222,0.033333333,-0.044444444,0.055555555],"index":0},{"object":"embedding","embedding":[0.066666666,-0.077777777,0.088888888,-0.099999999,0.010101010],"index":1}],"model":"voyage-multimodal-3","usage":{"total_tokens":223}}

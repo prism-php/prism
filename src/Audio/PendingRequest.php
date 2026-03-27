@@ -59,7 +59,7 @@ class PendingRequest
         }
     }
 
-    protected function toTextToSpeechRequest(): TextToSpeechRequest
+    public function toTextToSpeechRequest(): TextToSpeechRequest
     {
         if (! is_string($this->input)) {
             throw new InvalidArgumentException('Text-to-speech requires string input');
@@ -76,7 +76,7 @@ class PendingRequest
         );
     }
 
-    protected function toSpeechToTextRequest(): SpeechToTextRequest
+    public function toSpeechToTextRequest(): SpeechToTextRequest
     {
         if (! ($this->input instanceof Audio)) {
             throw new InvalidArgumentException('Speech-to-text requires Audio input');

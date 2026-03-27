@@ -45,14 +45,12 @@ it('sends correct basic structured generation payload', function (): void {
                     ],
                 ],
             ],
-            [
-                'role' => 'user',
-                'content' => [
-                    [
-                        'type' => 'text',
-                        'text' => "Respond with ONLY JSON (i.e. not in backticks or a code block, with NO CONTENT outside the JSON) that matches the following schema: \n ".json_encode($schema->toArray(), JSON_PRETTY_PRINT).' ',
-                    ],
-                ],
+        ]);
+
+        expect($payload['output_config'])->toBe([
+            'format' => [
+                'type' => 'json_schema',
+                'schema' => $schema->toArray(),
             ],
         ]);
 

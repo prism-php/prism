@@ -182,9 +182,9 @@ class Stream
                         delta: $reasoningDelta,
                         reasoningId: $this->state->reasoningId()
                     );
-                }
 
-                continue;
+                    continue;
+                }
             }
 
             $content = $this->extractContentDelta($data);
@@ -257,7 +257,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage()
+            usage: $this->state->usage() ?? new Usage(0, 0),
         );
     }
 

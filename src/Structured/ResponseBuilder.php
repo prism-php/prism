@@ -7,6 +7,7 @@ namespace Prism\Prism\Structured;
 use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStructuredDecodingException;
+use Prism\Prism\ValueObjects\ProviderToolCall;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -41,6 +42,7 @@ readonly class ResponseBuilder
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,
             toolCalls: $this->aggregateToolCalls(),
+            providerToolCalls: $this->aggregateProviderToolCalls(),
             toolResults: $this->aggregateToolResults(),
             additionalContent: $finalStep->additionalContent,
             raw: $finalStep->raw,
@@ -90,6 +92,17 @@ readonly class ResponseBuilder
     {
         return $this->steps
             ->flatMap(fn (Step $step): array => $step->toolCalls)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, ProviderToolCall>
+     */
+    protected function aggregateProviderToolCalls(): array
+    {
+        return $this->steps
+            ->flatMap(fn (Step $step): array => $step->providerToolCalls)
             ->values()
             ->all();
     }

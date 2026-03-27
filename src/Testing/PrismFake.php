@@ -18,6 +18,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Images\Request as ImageRequest;
 use Prism\Prism\Images\Response as ImageResponse;
 use Prism\Prism\Moderation\Response as ModerationResponse;
+use Prism\Prism\Prism;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
@@ -153,7 +154,7 @@ class PrismFake extends Provider
      *
      * Behavior:
      *  1. Records the incoming {@link TextRequest}
-     *  2. Pulls the next fixture from the list supplied to {@see \Prism\Prism\Prism::fake()}.
+     *  2. Pulls the next fixture from the list supplied to {@see Prism::fake()}.
      *  3. Yields an appropriate stream of events.
      *
      * Supported fixture type:

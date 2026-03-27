@@ -6,7 +6,7 @@
     'api_key' => env('ANTHROPIC_API_KEY', ''),
     'version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
     'default_thinking_budget' => env('ANTHROPIC_DEFAULT_THINKING_BUDGET', 1024),
-    // Include beta strings as a comma separated list.
+    // Include beta strings as a comma separated list (e.g. output-128k-2025-02-19, code-execution-2025-05-22).
     'anthropic_beta' => env('ANTHROPIC_BETA', null),
 ]
 ```
@@ -14,7 +14,35 @@
 
 Anthropic's prompt caching feature allows you to drastically reduce latency and your API bill when repeatedly re-using blocks of content within five minutes or one hour of each other, depending on the Anthropic compatible TTL option you provide.
 
-We support Anthropic prompt caching on:
+There are two ways to enable prompt caching:
+- Automatic caching
+- Explicit cache breakpoints
+
+To enable automatic caching, simply add a single cache_control field at the top level of your request:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+
+Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withSystemPrompt(
+        (new SystemMessage('I am a long re-usable system message.'))
+    )
+    ->withMessages([
+        (new UserMessage('I am a long re-usable user message.'))
+    ])
+    ->withTools([
+        Tool::as('cache me')
+    ])
+    ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']])
+    ->asText();
+```
+
+We support Anthropic explicit cache breakpoints on:
 
 - System Messages (text only)
 - User Messages (Text, Image and PDF (pdf only))
@@ -242,9 +270,9 @@ Prism::text()
 
 ## Citations
 
-Prism supports [Anthropic's citations feature](https://docs.anthropic.com/en/docs/build-with-claude/citations) for both text and structured. 
+Prism supports [Anthropic's citations feature](https://docs.anthropic.com/en/docs/build-with-claude/citations) for both text and structured.
 
-Please note however that due to Anthropic not supporting "native" structured output, and Prism's workaround for this, the output can be unreliable. You should therefore ensure you implement proper error handling for the scenario where Anthropic does not return a valid decodable schema.
+Please note that citations cannot be used with native structured output mode (the default). If you need citations with structured output, use tool calling mode via `withProviderOptions(['use_tool_calling' => true, 'citations' => true])`. Note however that citations with tool calling mode can produce unreliable output, so you should implement proper error handling.
 
 ## Code execution
 
@@ -360,28 +388,11 @@ Note that when using streaming, Anthropic does not stream citations in the same 
 
 ### Structured Output
 
-Prism supports three approaches for structured output with Anthropic models:
+Prism supports two approaches for structured output with Anthropic models:
 
-#### Native Structured Outputs (Recommended for Claude Sonnet 4.5+)
+#### Native Structured Outputs (Default)
 
-Claude Sonnet 4.5 and Opus 4.1 support native structured outputs through Anthropic's `output_format` parameter. This provides guaranteed schema compliance through constrained decoding.
-
-To enable native structured outputs, set the beta header in your configuration:
-
-```php
-// In config/prism.php or .env
-'anthropic' => [
-    ...
-    'anthropic_beta' => env('ANTHROPIC_BETA', 'structured-outputs-2025-11-13'),
-]
-```
-
-Or in your `.env` file:
-```
-ANTHROPIC_BETA=structured-outputs-2025-11-13
-```
-
-Once enabled, Prism will automatically use native structured outputs when available:
+Prism uses Anthropic's native structured outputs by default. This provides guaranteed schema compliance through constrained decoding — no beta header required.
 
 ```php
 use Prism\Prism\Enums\Provider;
@@ -413,14 +424,8 @@ $response = Prism::structured()
 - Cannot be used with citations
 - Some JSON Schema features are not supported (see [Schema Limitations](#schema-limitations))
 
-#### Default JSON Mode (Prompt-based)
-- We automatically append instructions to your prompt that guide the model to output valid JSON matching your schema
-- If the response isn't valid JSON, Prism will raise a PrismException
-- This method can sometimes struggle with complex JSON containing quotes, especially in non-English languages
-- Used as fallback when native mode is not available
-
 #### Tool Calling Mode
-For more reliable structured output on older models, especially when dealing with complex content or non-English text that may contain quotes, you can enable tool calling mode:
+For older models that don't support native structured outputs, or when dealing with complex content or non-English text that may contain quotes, you can use tool calling mode:
 
 ```php
 use Prism\Prism\Enums\Provider;
@@ -506,7 +511,7 @@ For complete documentation on combining tools with structured output, see [Struc
 
 ### Strict Tool Use
 
-When using the `structured-outputs-2025-11-13` beta feature, you can enable strict validation for tool inputs. This guarantees that tool parameters exactly match your schema through constrained decoding.
+You can enable strict validation for tool inputs, which guarantees that tool parameters exactly match your schema through constrained decoding.
 
 To enable strict mode for a tool, use the `strict` provider option:
 

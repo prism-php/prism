@@ -208,12 +208,24 @@ export default defineConfig({
                 link: "/providers/openai",
               },
               {
+                text: "OpenRouter",
+                link: "/providers/openrouter",
+              },
+              {
                 text: "Voyage AI",
                 link: "/providers/voyageai",
               },
               {
                 text: "XAI",
                 link: "/providers/xai",
+              },
+              {
+                text: "Perplexity",
+                link: "/providers/perplexity",
+              },
+              {
+                text: "Z AI",
+                link: "/providers/z",
               },
             ],
           },

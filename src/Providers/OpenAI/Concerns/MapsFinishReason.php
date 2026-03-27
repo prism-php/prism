@@ -14,6 +14,15 @@ trait MapsFinishReason
      */
     protected function mapFinishReason(array $data): FinishReason
     {
+        $topLevelStatus = data_get($data, 'status', '');
+
+        if ($topLevelStatus === 'incomplete') {
+            return match (data_get($data, 'incomplete_details.reason')) {
+                'content_filter' => FinishReason::ContentFilter,
+                default => FinishReason::Length,
+            };
+        }
+
         return FinishReasonMap::map(
             data_get($data, 'output.{last}.status', ''),
             data_get($data, 'output.{last}.type', ''),

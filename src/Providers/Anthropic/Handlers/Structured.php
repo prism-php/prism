@@ -13,16 +13,18 @@ use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsProviderToolCalls;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
 use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\AnthropicStructuredStrategy;
-use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\JsonModeStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\NativeOutputFormatStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\ToolStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
+use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response;
 use Prism\Prism\Structured\ResponseBuilder;
@@ -30,13 +32,14 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
-    use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
+    use CallsTools, ExtractsCitations, ExtractsProviderToolCalls, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -101,7 +104,10 @@ class Structured
             'max_tokens' => $request->maxTokens() ?? 64000,
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
+            'tools' => static::buildTools($request) ?: null,
+            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
+            'cache_control' => $request->providerOptions('cache_control'),
         ]);
 
         return $structuredStrategy->mutatePayload($basePayload);
@@ -109,20 +115,32 @@ class Structured
 
     protected static function createStrategy(StructuredRequest $request): AnthropicStructuredStrategy
     {
-        if (self::hasNativeStructuredOutputSupport($request)) {
-            return new NativeOutputFormatStructuredStrategy(request: $request);
-        }
-
         return $request->providerOptions('use_tool_calling')
             ? new ToolStructuredStrategy(request: $request)
-            : new JsonModeStructuredStrategy(request: $request);
+            : new NativeOutputFormatStructuredStrategy(request: $request);
     }
 
-    protected static function hasNativeStructuredOutputSupport(StructuredRequest $request): bool
+    /**
+     * @return array<int|string, mixed>
+     */
+    protected static function buildTools(StructuredRequest $request): array
     {
-        $betaFeatures = config('prism.providers.anthropic.anthropic_beta');
+        $tools = ToolMap::map($request->tools());
 
-        return $betaFeatures && str_contains($betaFeatures, 'structured-outputs-2025-11-13');
+        if ($request->providerTools() === []) {
+            return $tools;
+        }
+
+        $providerTools = array_map(
+            fn (ProviderTool $tool): array => [
+                'type' => $tool->type,
+                'name' => $tool->name,
+                ...$tool->options,
+            ],
+            $request->providerTools()
+        );
+
+        return array_merge($providerTools, $tools);
     }
 
     /**
@@ -261,6 +279,7 @@ class Structured
             additionalContent: $tempResponse->additionalContent,
             structured: $isStructuredStep ? ($tempResponse->structured ?? []) : [],
             toolCalls: $toolCalls,
+            providerToolCalls: $this->extractProviderToolCalls($data),
             toolResults: $toolResults,
             raw: $data,
         ));

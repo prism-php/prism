@@ -35,6 +35,7 @@ readonly class ToolResultEvent extends StreamEvent
             'timestamp' => $this->timestamp,
             'tool_id' => $this->toolResult->toolCallId,
             'result' => $this->toolResult->result,
+            'tool_call_result_id' => $this->toolResult->toolCallResultId,
             'message_id' => $this->messageId,
             'success' => $this->success,
             'error' => $this->error,

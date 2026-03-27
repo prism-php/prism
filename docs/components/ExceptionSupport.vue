@@ -164,7 +164,13 @@ export default {
           rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
-        },        
+        },
+        {
+          name: "Perplexity",
+          rateLimited: Supported,
+          overloaded: Unsupported,
+          tooLarge: Unsupported,
+        },
       ],
     };
   },
