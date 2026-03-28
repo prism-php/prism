@@ -64,6 +64,8 @@ class MessageMap
     protected function mapSystemMessage(SystemMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
+        // OpenRouter supports extended cache TTL (e.g. '1h') via cacheTtl provider option
+        $cacheTtl = $message->providerOptions('cacheTtl');
 
         // OpenRouter supports cache_control in content array format (same as Anthropic)
         if ($cacheType) {
@@ -73,7 +75,10 @@ class MessageMap
                     [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType],
+                        'cache_control' => array_filter([
+                            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+                            'ttl' => $cacheTtl,
+                        ]),
                     ],
                 ],
             ];
@@ -88,7 +93,11 @@ class MessageMap
     protected function mapToolResultMessage(ToolResultMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
-        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheTtl = $message->providerOptions('cacheTtl');
+        $cacheControl = $cacheType ? array_filter([
+            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+            'ttl' => $cacheTtl,
+        ]) : null;
 
         $toolResults = $message->toolResults;
         $totalResults = count($toolResults);
@@ -126,7 +135,11 @@ class MessageMap
     protected function mapUserMessage(UserMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
-        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheTtl = $message->providerOptions('cacheTtl');
+        $cacheControl = $cacheType ? array_filter([
+            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+            'ttl' => $cacheTtl,
+        ]) : null;
 
         $imageParts = array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $message->images());
         // NOTE: mirrored from Gemini's multimodal mapper so we stay consistent across providers.
@@ -153,6 +166,7 @@ class MessageMap
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
+        $cacheTtl = $message->providerOptions('cacheTtl');
 
         $toolCalls = array_map(fn (ToolCall $toolCall): array => [
             'id' => $toolCall->id,
@@ -171,7 +185,10 @@ class MessageMap
                     [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType],
+                        'cache_control' => array_filter([
+                            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+                            'ttl' => $cacheTtl,
+                        ]),
                     ],
                 ],
                 'tool_calls' => $toolCalls,
