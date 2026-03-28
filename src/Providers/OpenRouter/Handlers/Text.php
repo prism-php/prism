@@ -125,6 +125,11 @@ class Text
             usage: new Usage(
                 (int) data_get($data, 'usage.prompt_tokens', 0),
                 (int) data_get($data, 'usage.completion_tokens', 0),
+                // OpenRouter: usage.prompt_tokens_details.cache_write_tokens / cached_tokens
+                (int) data_get($data, 'usage.prompt_tokens_details.cache_write_tokens', 0) ?: null,
+                (int) data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0) ?: null,
+                // OpenRouter: usage.completion_tokens_details.reasoning_tokens
+                (int) data_get($data, 'usage.completion_tokens_details.reasoning_tokens', 0) ?: null,
             ),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
