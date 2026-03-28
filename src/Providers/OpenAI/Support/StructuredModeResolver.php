@@ -24,7 +24,8 @@ class StructuredModeResolver
 
     protected static function supportsStructuredMode(string $model): bool
     {
-        return in_array($model, [
+        // Exact matches for models where only specific versions support structured output.
+        if (in_array($model, [
             'gpt-4o-mini',
             'gpt-4o-mini-2024-07-18',
             'gpt-4o-2024-08-06',
@@ -32,18 +33,25 @@ class StructuredModeResolver
             'chatgpt-4o-latest',
             'o3-mini',
             'o3-mini-2025-01-31',
+        ])) {
+            return true;
+        }
+
+        // Prefix matching for model families where structured output is a baseline feature.
+        // All versions of these families support structured mode.
+        $prefixes = [
             'gpt-4.1',
-            'gpt-4.1-nano',
-            'gpt-4.1-mini',
-            'gpt-4.5-preview',
-            'gpt-4.5-preview-2025-02-27',
+            'gpt-4.5',
             'gpt-5',
-            'gpt-5-mini',
-            'gpt-5-nano',
-            'gpt-5.1',
-            'gpt-5.2',
-            'gpt-5.4',
-        ]);
+        ];
+
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($model, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected static function supportsJsonMode(string $model): bool
