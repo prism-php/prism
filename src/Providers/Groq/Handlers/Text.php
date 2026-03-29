@@ -51,7 +51,11 @@ class Text
         return match ($finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
             FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request, $response, $finishReason),
-            default => throw new PrismException('Groq: unhandled finish reason'),
+            default => throw new PrismException(sprintf(
+                'Groq: unhandled finish reason "%s" (raw: %s)',
+                $finishReason->value,
+                data_get($data, 'choices.0.finish_reason', 'unknown'),
+            )),
         };
     }
 
