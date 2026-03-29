@@ -7,6 +7,7 @@ namespace Tests\Providers\Gemini;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
@@ -403,4 +404,22 @@ it('filters out thought parts when includeThoughts is true', function (): void {
     expect($response->steps[0]->additionalContent)->toHaveKey('thoughtSummaries');
     expect($response->steps[0]->additionalContent['thoughtSummaries'])->toBeArray();
     expect($response->steps[0]->additionalContent['thoughtSummaries'][0])->toContain('Let me think about');
+});
+
+it('includes finish reason details in exception for content filter on structured output', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured-content-filter');
+
+    expect(fn () => Prism::structured()
+        ->using(Provider::Gemini, 'gemini-1.5-flash')
+        ->withSchema(new ObjectSchema(
+            'output',
+            'the output object',
+            [
+                new StringSchema('answer', 'The answer', true),
+            ],
+            requiredFields: ['answer'],
+        ))
+        ->withPrompt('Test prompt')
+        ->asStructured()
+    )->toThrow(PrismException::class, 'Gemini: unhandled finish reason "content-filter" (raw: SAFETY)');
 });

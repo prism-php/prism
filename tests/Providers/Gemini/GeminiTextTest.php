@@ -482,6 +482,18 @@ describe('provider tools', function (): void {
     });
 });
 
+describe('Error handling for Gemini', function (): void {
+    it('includes finish reason details in exception for content filter', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-content-filter');
+
+        expect(fn () => Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withPrompt('Test prompt')
+            ->asText()
+        )->toThrow(PrismException::class, 'Gemini: unhandled finish reason "content-filter" (raw: SAFETY)');
+    });
+});
+
 describe('Cache support for Gemini', function (): void {
     it('can use a cache object with a text request', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/use-cache-with-text');
