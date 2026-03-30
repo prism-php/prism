@@ -55,6 +55,9 @@ class SchemaMap
             array_filter([
                 ...$schemaArray,
                 'type' => $this->mapType(),
+                'properties' => isset($schemaArray['properties'])
+                    ? $this->normalizeProperties($schemaArray['properties'])
+                    : null,
             ]),
             array_filter([
                 'items' => property_exists($this->schema, 'items') && $this->schema->items
@@ -73,6 +76,41 @@ class SchemaMap
                     : null,
             ])
         );
+    }
+
+    /**
+     * Normalize properties that use JSON Schema array-type notation for nullability
+     * (e.g. ["integer", "null"]) into Gemini's supported format ("nullable": true).
+     *
+     * This handles schemas passed as raw arrays (e.g. from Laravel's JsonSchema
+     * serializer) which bypass Prism's native schema objects and are never run
+     * through the per-property SchemaMap normalization.
+     *
+     * @param  array<string, mixed>  $properties
+     * @return array<string, mixed>
+     */
+    protected function normalizeProperties(array $properties): array
+    {
+        return array_map(function (array $property): array {
+            if (! is_array($property['type'] ?? null)) {
+                return $property;
+            }
+
+            $types = $property['type'];
+            $nullIndex = array_search('null', $types, true);
+
+            if ($nullIndex === false) {
+                return $property;
+            }
+
+            unset($types[$nullIndex]);
+            $remaining = array_values($types);
+
+            $property['type'] = count($remaining) === 1 ? $remaining[0] : $remaining;
+            $property['nullable'] = true;
+
+            return $property;
+        }, $properties);
     }
 
     protected function mapType(): string
