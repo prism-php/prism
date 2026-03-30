@@ -169,7 +169,100 @@ it('sends correct tool_choice in payload', function (): void {
     });
 });
 
-it('sends correct thinking mode in payload', function (): void {
+it('sends correct adaptive thinking mode in payload', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Solve this math problem: 2+2')])
+        ->withProviderOptions([
+            'thinking' => [
+                'type' => 'adaptive',
+            ],
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->toHaveKey('thinking');
+        expect($payload['thinking'])->toBe([
+            'type' => 'adaptive',
+        ]);
+
+        return true;
+    });
+});
+
+it('sends adaptive thinking with effort in payload', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Solve this math problem: 2+2')])
+        ->withProviderOptions([
+            'thinking' => [
+                'type' => 'adaptive',
+            ],
+            'effort' => 'high',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload['thinking'])->toBe([
+            'type' => 'adaptive',
+        ]);
+        expect($payload['output_config'])->toBe([
+            'effort' => 'high',
+        ]);
+
+        return true;
+    });
+});
+
+it('sends effort without thinking in payload', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Quick question')])
+        ->withProviderOptions([
+            'effort' => 'medium',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('thinking');
+        expect($payload['output_config'])->toBe([
+            'effort' => 'medium',
+        ]);
+
+        return true;
+    });
+});
+
+it('does not include output_config when effort is not set', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('output_config');
+
+        return true;
+    });
+});
+
+it('sends correct legacy thinking mode in payload', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
 
     Prism::text()
@@ -196,7 +289,7 @@ it('sends correct thinking mode in payload', function (): void {
     });
 });
 
-it('sends correct thinking mode with default budget tokens', function (): void {
+it('sends correct legacy thinking mode with default budget tokens', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
 
     Prism::text()
@@ -236,6 +329,7 @@ it('omits null values from payload', function (): void {
         expect($payload)->not->toHaveKey('temperature');
         expect($payload)->not->toHaveKey('top_p');
         expect($payload)->not->toHaveKey('mcp_servers');
+        expect($payload)->not->toHaveKey('output_config');
 
         return true;
     });

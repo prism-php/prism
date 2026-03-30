@@ -529,82 +529,178 @@ describe('citations', function (): void {
 });
 
 describe('thinking', function (): void {
-    it('yields thinking events', function (): void {
-        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+    describe('adaptive', function (): void {
+        it('yields thinking events', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
-        $response = Prism::text()
-            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withPrompt('What is the meaning of life?')
-            ->withProviderOptions(['thinking' => ['enabled' => true]])
-            ->asStream();
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
+                ->asStream();
 
-        $events = collect($response);
+            $events = collect($response);
 
-        expect($events->where(fn ($event): bool => $event->type() === StreamEventType::ThinkingStart)->sole())
-            ->toBeInstanceOf(ThinkingStartEvent::class);
+            expect($events->where(fn ($event): bool => $event->type() === StreamEventType::ThinkingStart)->sole())
+                ->toBeInstanceOf(ThinkingStartEvent::class);
 
-        $thinkingDeltas = $events->where(
-            fn (StreamEvent $event): bool => $event->type() === StreamEventType::ThinkingDelta
-        );
+            $thinkingDeltas = $events->where(
+                fn (StreamEvent $event): bool => $event->type() === StreamEventType::ThinkingDelta
+            );
 
-        $thinkingDeltas
-            ->each(function (StreamEvent $event): void {
-                expect($event)->toBeInstanceOf(ThinkingEvent::class);
+            $thinkingDeltas
+                ->each(function (StreamEvent $event): void {
+                    expect($event)->toBeInstanceOf(ThinkingEvent::class);
+                });
+
+            expect($thinkingDeltas->count())->toBeGreaterThan(10);
+
+            expect($thinkingDeltas->first()->delta)->not->toBeEmpty();
+
+            expect($events->where(fn ($event): bool => $event->type() === StreamEventType::ThinkingComplete)->sole())
+                ->toBeInstanceOf(ThinkingCompleteEvent::class);
+        });
+
+        it('sends adaptive thinking payload in stream request', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
+                ->asStream();
+
+            collect($response);
+
+            Http::assertSent(function (Request $request): bool {
+                $body = json_decode($request->body(), true);
+
+                return isset($body['thinking'])
+                    && $body['thinking']['type'] === 'adaptive'
+                    && ! isset($body['thinking']['budget_tokens']);
             });
+        });
 
-        expect($thinkingDeltas->count())->toBeGreaterThan(10);
+        it('sends effort in stream request', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
-        expect($thinkingDeltas->first()->delta)->not->toBeEmpty();
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions([
+                    'thinking' => ['type' => 'adaptive'],
+                    'effort' => 'medium',
+                ])
+                ->asStream();
 
-        expect($events->where(fn ($event): bool => $event->type() === StreamEventType::ThinkingComplete)->sole())
-            ->toBeInstanceOf(ThinkingCompleteEvent::class);
-    });
+            collect($response);
 
-    it('can process streams with thinking enabled with custom budget', function (): void {
-        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+            Http::assertSent(function (Request $request): bool {
+                $body = json_decode($request->body(), true);
 
-        $customBudget = 2048;
-        $response = Prism::text()
-            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withPrompt('What is the meaning of life?')
-            ->withProviderOptions([
-                'thinking' => [
-                    'enabled' => true,
-                    'budgetTokens' => $customBudget,
-                ],
-            ])
-            ->asStream();
+                return isset($body['output_config']['effort'])
+                    && $body['output_config']['effort'] === 'medium';
+            });
+        });
 
-        collect($response);
+        it('includes thinking_signature in StreamEndEvent additionalContent', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
-        // Verify custom budget was sent
-        Http::assertSent(function (Request $request) use ($customBudget): bool {
-            $body = json_decode($request->body(), true);
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
+                ->asStream();
 
-            return isset($body['thinking'])
-                && $body['thinking']['type'] === 'enabled'
-                && $body['thinking']['budget_tokens'] === $customBudget;
+            $events = collect($response);
+
+            $streamEndEvent = $events->last();
+
+            expect($streamEndEvent)->toBeInstanceOf(StreamEndEvent::class);
+            expect($streamEndEvent->additionalContent)->toHaveKey('thinking');
+            expect($streamEndEvent->additionalContent['thinking'])->not->toBeEmpty();
+            expect($streamEndEvent->additionalContent)->toHaveKey('thinking_signature');
+            expect($streamEndEvent->additionalContent['thinking_signature'])->not->toBeEmpty();
         });
     });
 
-    it('includes thinking_signature in StreamEndEvent additionalContent', function (): void {
-        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+    describe('legacy', function (): void {
+        it('yields thinking events', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
-        $response = Prism::text()
-            ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
-            ->withPrompt('What is the meaning of life?')
-            ->withProviderOptions(['thinking' => ['enabled' => true]])
-            ->asStream();
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions(['thinking' => ['enabled' => true]])
+                ->asStream();
 
-        $events = collect($response);
+            $events = collect($response);
 
-        $streamEndEvent = $events->last();
+            expect($events->where(fn ($event): bool => $event->type() === StreamEventType::ThinkingStart)->sole())
+                ->toBeInstanceOf(ThinkingStartEvent::class);
 
-        expect($streamEndEvent)->toBeInstanceOf(StreamEndEvent::class);
-        expect($streamEndEvent->additionalContent)->toHaveKey('thinking');
-        expect($streamEndEvent->additionalContent['thinking'])->not->toBeEmpty();
-        expect($streamEndEvent->additionalContent)->toHaveKey('thinking_signature');
-        expect($streamEndEvent->additionalContent['thinking_signature'])->not->toBeEmpty();
+            $thinkingDeltas = $events->where(
+                fn (StreamEvent $event): bool => $event->type() === StreamEventType::ThinkingDelta
+            );
+
+            $thinkingDeltas
+                ->each(function (StreamEvent $event): void {
+                    expect($event)->toBeInstanceOf(ThinkingEvent::class);
+                });
+
+            expect($thinkingDeltas->count())->toBeGreaterThan(10);
+
+            expect($thinkingDeltas->first()->delta)->not->toBeEmpty();
+
+            expect($events->where(fn ($event): bool => $event->type() === StreamEventType::ThinkingComplete)->sole())
+                ->toBeInstanceOf(ThinkingCompleteEvent::class);
+        });
+
+        it('can process streams with thinking enabled with custom budget', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+
+            $customBudget = 2048;
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions([
+                    'thinking' => [
+                        'enabled' => true,
+                        'budgetTokens' => $customBudget,
+                    ],
+                ])
+                ->asStream();
+
+            collect($response);
+
+            Http::assertSent(function (Request $request) use ($customBudget): bool {
+                $body = json_decode($request->body(), true);
+
+                return isset($body['thinking'])
+                    && $body['thinking']['type'] === 'enabled'
+                    && $body['thinking']['budget_tokens'] === $customBudget;
+            });
+        });
+
+        it('includes thinking_signature in StreamEndEvent additionalContent', function (): void {
+            FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
+
+            $response = Prism::text()
+                ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+                ->withPrompt('What is the meaning of life?')
+                ->withProviderOptions(['thinking' => ['enabled' => true]])
+                ->asStream();
+
+            $events = collect($response);
+
+            $streamEndEvent = $events->last();
+
+            expect($streamEndEvent)->toBeInstanceOf(StreamEndEvent::class);
+            expect($streamEndEvent->additionalContent)->toHaveKey('thinking');
+            expect($streamEndEvent->additionalContent['thinking'])->not->toBeEmpty();
+            expect($streamEndEvent->additionalContent)->toHaveKey('thinking_signature');
+            expect($streamEndEvent->additionalContent['thinking_signature'])->not->toBeEmpty();
+        });
     });
 });
 
