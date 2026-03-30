@@ -11,7 +11,6 @@ use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsProviderToolCalls;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
@@ -55,8 +54,7 @@ class Text
 
         return match ($this->tempResponse->finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls(),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop(),
-            default => throw new PrismException('Anthropic: unknown finish reason'),
+            default => $this->handleStop(),
         };
     }
 

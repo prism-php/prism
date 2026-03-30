@@ -9,7 +9,6 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
@@ -50,8 +49,7 @@ class Text
 
         return match ($finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request, $response, $finishReason),
-            default => throw new PrismException('Groq: unhandled finish reason'),
+            default => $this->handleStop($data, $request, $response, $finishReason),
         };
     }
 

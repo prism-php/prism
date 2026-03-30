@@ -11,7 +11,6 @@ use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsProviderToolCalls;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
@@ -71,8 +70,7 @@ class Structured
 
         return match ($tempResponse->finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($toolCalls, $tempResponse),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($tempResponse),
-            default => throw new PrismException('Anthropic: unknown finish reason'),
+            default => $this->handleStop($tempResponse),
         };
     }
 

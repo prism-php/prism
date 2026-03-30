@@ -7,8 +7,6 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
@@ -48,16 +46,7 @@ class Text
             return $this->handleToolCalls($data, $request);
         }
 
-        $finishReason = $this->mapFinishReason($data);
-
-        return match ($finishReason) {
-            FinishReason::Stop,
-            FinishReason::Length,
-            FinishReason::Unknown,
-            FinishReason::ContentFilter,
-            FinishReason::Other => $this->handleStop($data, $request),
-            default => throw new PrismException('Ollama: unknown finish reason'),
-        };
+        return $this->handleStop($data, $request);
     }
 
     /**

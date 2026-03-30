@@ -67,8 +67,7 @@ class Structured
 
         return match ($finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request, $finishReason),
-            default => throw new PrismException('Gemini: unhandled finish reason'),
+            default => $this->handleStop($data, $request, $finishReason),
         };
     }
 

@@ -6,6 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
@@ -642,7 +643,7 @@ it('includes status details when max tokens exceeded', function (): void {
     }
 });
 
-it('includes status details for unknown finish reasons', function (): void {
+it('handles unknown finish reasons gracefully', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-unknown-finish-reason');
 
     $schema = new ObjectSchema(
@@ -654,10 +655,11 @@ it('includes status details for unknown finish reasons', function (): void {
         ['weather']
     );
 
-    expect(fn () => Prism::structured()
+    $response = Prism::structured()
         ->withSchema($schema)
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withPrompt('What is the weather?')
-        ->asStructured()
-    )->toThrow(PrismException::class, 'some_future_type');
+        ->asStructured();
+
+    expect($response->finishReason)->toBe(FinishReason::Unknown);
 });
