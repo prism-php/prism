@@ -43,6 +43,8 @@ class StructuredModeResolver
             'gpt-5.1',
             'gpt-5.2',
             'gpt-5.4',
+            'gpt-5.4-mini',
+            'gpt-5.4-nano',
         ]);
     }
 
