@@ -395,6 +395,65 @@ $response = Prism::text()
 
 You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
 
+### Gemini Embedding 2 Preview
+
+Gemini's `gemini-embedding-2-preview` model supports text, images, audio, video, and PDF documents in a unified embedding space. Use Prism's content entry API to control whether you want a single aggregated embedding or multiple embeddings in one request.
+
+### Single Modality Inputs
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->fromImage(Image::fromLocalPath('/path/to/product.png'))
+    ->fromAudio(Audio::fromLocalPath('/path/to/example.mp3'))
+    ->fromVideo(Video::fromLocalPath('/path/to/example.mp4'))
+    ->fromDocument(Document::fromLocalPath('/path/to/report.pdf'))
+    ->asEmbeddings();
+```
+
+### Aggregated Multimodal Embeddings
+
+Use `fromContent()` to combine multiple parts into a single embedding:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->fromContent([
+        'An image of a dog',
+        Image::fromLocalPath('/path/to/dog.png'),
+    ])
+    ->asEmbeddings();
+```
+
+### Batch Embeddings
+
+Use `fromContents()` to generate multiple embeddings in a single request:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Media\Image;
+
+Prism::embeddings()
+    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->fromContents([
+        ['The dog is cute'],
+        [Image::fromLocalPath('/path/to/dog.png')],
+    ])
+    ->asEmbeddings();
+```
+
 ### Title
 
 You can add a title to your embedding request. Only applicable when TaskType is `RETRIEVAL_DOCUMENT`

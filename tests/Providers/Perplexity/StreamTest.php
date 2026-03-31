@@ -30,7 +30,6 @@ it('can generate text with a basic stream', function (): void {
 
         if ($event instanceof TextDeltaEvent) {
             $text .= $event->delta;
-            echo $text;
         }
     }
 

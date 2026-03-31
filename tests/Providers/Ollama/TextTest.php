@@ -266,3 +266,29 @@ describe('Image support', function (): void {
         });
     });
 });
+describe('Finish reason handling', function (): void {
+    it('returns response when done_reason is length (max tokens)', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/generate-text-with-done-reason-length');
+
+        $response = Prism::text()
+            ->using('ollama', 'qwen2.5:14b')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        expect($response->text)->not->toBeEmpty();
+        expect($response->steps)->toHaveCount(1);
+        expect($response->steps[0]->finishReason->value)->toBe('length');
+    });
+
+    it('returns response when done_reason is unknown (treats as stop)', function (): void {
+        FixtureResponse::fakeResponseSequence('api/chat', 'ollama/generate-text-with-done-reason-unknown');
+
+        $response = Prism::text()
+            ->using('ollama', 'qwen2.5:14b')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        expect($response->text)->not->toBeEmpty();
+        expect($response->steps)->toHaveCount(1);
+    });
+});

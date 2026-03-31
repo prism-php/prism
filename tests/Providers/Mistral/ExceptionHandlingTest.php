@@ -45,6 +45,14 @@ it('handles rate limit errors (429)', function (): void {
         ->toThrow(PrismRateLimitedException::class);
 });
 
+it('handles provider overloaded errors (503)', function (): void {
+    $mockResponse = createMistralMockResponse(503, []);
+    $exception = new RequestException($mockResponse);
+
+    expect(fn () => $this->provider->handleRequestException('mistral-large', $exception))
+        ->toThrow(PrismProviderOverloadedException::class);
+});
+
 it('handles provider overloaded errors (529)', function (): void {
     $mockResponse = createMistralMockResponse(529, []);
     $exception = new RequestException($mockResponse);

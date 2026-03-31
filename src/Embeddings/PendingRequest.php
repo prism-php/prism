@@ -9,7 +9,12 @@ use Prism\Prism\Concerns\ConfiguresClient;
 use Prism\Prism\Concerns\ConfiguresProviders;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Media;
+use Prism\Prism\ValueObjects\Media\Text;
+use Prism\Prism\ValueObjects\Media\Video;
 
 class PendingRequest
 {
@@ -17,15 +22,12 @@ class PendingRequest
     use ConfiguresProviders;
     use HasProviderOptions;
 
-    /** @var array<string> */
-    protected array $inputs = [];
-
-    /** @var array<Image> */
-    protected array $images = [];
+    /** @var array<Content> */
+    protected array $contents = [];
 
     public function fromInput(string $input): self
     {
-        $this->inputs[] = $input;
+        $this->contents[] = Content::make([$input]);
 
         return $this;
     }
@@ -35,7 +37,9 @@ class PendingRequest
      */
     public function fromArray(array $inputs): self
     {
-        $this->inputs = array_merge($this->inputs, $inputs);
+        foreach ($inputs as $input) {
+            $this->fromInput($input);
+        }
 
         return $this;
     }
@@ -52,9 +56,7 @@ class PendingRequest
             throw new PrismException(sprintf('%s contents could not be read', $path));
         }
 
-        $this->inputs[] = $contents;
-
-        return $this;
+        return $this->fromInput($contents);
     }
 
     /**
@@ -67,19 +69,98 @@ class PendingRequest
      */
     public function fromImage(Image $image): self
     {
-        $this->images[] = $image;
+        $this->contents[] = Content::make([$image]);
 
         return $this;
     }
 
     /**
-     * Add multiple images for embedding generation.
-     *
      * @param  array<Image>  $images
      */
     public function fromImages(array $images): self
     {
-        $this->images = array_merge($this->images, $images);
+        foreach ($images as $image) {
+            $this->fromImage($image);
+        }
+
+        return $this;
+    }
+
+    public function fromAudio(Audio $audio): self
+    {
+        $this->contents[] = Content::make([$audio]);
+
+        return $this;
+    }
+
+    /**
+     * @param  array<Audio>  $audios
+     */
+    public function fromAudios(array $audios): self
+    {
+        foreach ($audios as $audio) {
+            $this->fromAudio($audio);
+        }
+
+        return $this;
+    }
+
+    public function fromVideo(Video $video): self
+    {
+        $this->contents[] = Content::make([$video]);
+
+        return $this;
+    }
+
+    /**
+     * @param  array<Video>  $videos
+     */
+    public function fromVideos(array $videos): self
+    {
+        foreach ($videos as $video) {
+            $this->fromVideo($video);
+        }
+
+        return $this;
+    }
+
+    public function fromDocument(Document $document): self
+    {
+        $this->contents[] = Content::make([$document]);
+
+        return $this;
+    }
+
+    /**
+     * @param  array<Document>  $documents
+     */
+    public function fromDocuments(array $documents): self
+    {
+        foreach ($documents as $document) {
+            $this->fromDocument($document);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param  array<int, Media|Text|string>  $parts
+     */
+    public function fromContent(array $parts): self
+    {
+        $this->contents[] = Content::make($parts);
+
+        return $this;
+    }
+
+    /**
+     * @param  array<int, array<int, Media|Text|string>>  $contents
+     */
+    public function fromContents(array $contents): self
+    {
+        foreach ($contents as $content) {
+            $this->fromContent($content);
+        }
 
         return $this;
     }
@@ -94,8 +175,8 @@ class PendingRequest
 
     public function asEmbeddings(): Response
     {
-        if ($this->inputs === [] && $this->images === []) {
-            throw new PrismException('Embeddings input is required (text or images)');
+        if ($this->contents === []) {
+            throw new PrismException('Embeddings input is required (text, images, audio, video, documents, or content parts)');
         }
 
         $request = $this->toRequest();
@@ -112,11 +193,10 @@ class PendingRequest
         return new Request(
             model: $this->model,
             providerKey: $this->providerKey(),
-            inputs: $this->inputs,
-            images: $this->images,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
-            providerOptions: $this->providerOptions
+            providerOptions: $this->providerOptions,
+            contents: $this->contents,
         );
     }
 }

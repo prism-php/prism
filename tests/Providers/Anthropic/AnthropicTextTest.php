@@ -146,6 +146,11 @@ describe('tools', function (): void {
             ->asText();
 
         expect($response->text)->toContain('4/3');
+
+        $finalStep = $response->steps->last();
+        expect($finalStep->providerToolCalls)->not->toBeEmpty();
+        expect($finalStep->providerToolCalls[0]->type)->toBe('code_execution');
+        expect($finalStep->providerToolCalls[0]->status)->toBe('completed');
     });
 
     it('handles a provider tool with a user defined tool', function (): void {
