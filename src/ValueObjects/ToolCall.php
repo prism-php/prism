@@ -40,7 +40,7 @@ class ToolCall implements Arrayable
             $arguments = preg_replace('/[\x00-\x1F\x7F]/', '', $this->arguments);
 
             return json_decode(
-                $arguments,
+                (string) $arguments,
                 true,
                 flags: JSON_THROW_ON_ERROR
             );
