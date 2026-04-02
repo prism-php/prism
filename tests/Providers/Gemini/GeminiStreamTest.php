@@ -310,8 +310,13 @@ it('emits step start and step finish events', function (): void {
     expect($stepStartEvents)->toHaveCount(1);
 
     // Check for StepFinishEvent before StreamEndEvent
-    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+    $stepFinishEvents = array_values(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent));
     expect($stepFinishEvents)->toHaveCount(1);
+
+    // Verify StepFinishEvent contains usage data
+    expect($stepFinishEvents[0]->usage)->not->toBeNull();
+    expect($stepFinishEvents[0]->usage->promptTokens)->toBe(21);
+    expect($stepFinishEvents[0]->usage->completionTokens)->toBe(47);
 
     // Verify order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
     $eventTypes = array_map(get_class(...), $events);
