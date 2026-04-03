@@ -137,6 +137,7 @@ class Structured
                 'tools' => $tools !== [] ? $tools : null,
                 'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
                 'safetySettings' => $providerOptions['safetySettings'] ?? null,
+                'service_tier' => $providerOptions['serviceTier'] ?? null,
             ])
         );
 

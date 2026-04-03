@@ -404,3 +404,32 @@ it('filters out thought parts when includeThoughts is true', function (): void {
     expect($response->steps[0]->additionalContent['thoughtSummaries'])->toBeArray();
     expect($response->steps[0]->additionalContent['thoughtSummaries'][0])->toContain('Let me think about');
 });
+
+it('passes service_tier in the request body for structured output', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/generate-structured');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema($schema)
+        ->withPrompt('What is the weather?')
+        ->withProviderOptions(['serviceTier' => 'flex'])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $data = $request->data();
+
+        expect($data)->toHaveKey('service_tier')
+            ->and($data['service_tier'])->toBe('flex');
+
+        return true;
+    });
+});

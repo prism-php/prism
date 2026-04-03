@@ -620,3 +620,41 @@ describe('Thinking Mode for Gemini', function (): void {
         });
     });
 });
+
+describe('Flex Inference for Gemini', function (): void {
+    it('passes service_tier in the request body', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('Summarize this document.')
+            ->withProviderOptions(['serviceTier' => 'flex'])
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data)->toHaveKey('service_tier')
+                ->and($data['service_tier'])->toBe('flex');
+
+            return true;
+        });
+    });
+
+    it('does not include service_tier when not set', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('Hello')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $data = $request->data();
+
+            expect($data)->not->toHaveKey('service_tier');
+
+            return true;
+        });
+    });
+});
