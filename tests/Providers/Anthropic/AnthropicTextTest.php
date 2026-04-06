@@ -9,7 +9,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Citations\CitationSourcePositionType;
 use Prism\Prism\Enums\Citations\CitationSourceType;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
@@ -668,6 +670,52 @@ describe('exceptions', function (): void {
             ->asText();
 
     })->throws(PrismRequestTooLargeException::class);
+
+    it('throws a descriptive exception when Anthropic returns a refusal stop_reason', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-refusal');
+
+        try {
+            Prism::text()
+                ->using('anthropic', 'claude-3-5-sonnet-20240620')
+                ->withPrompt('Tell me something forbidden.')
+                ->asText();
+
+            $this->fail('Expected PrismException to be thrown.');
+        } catch (PrismException $e) {
+            expect($e->getMessage())->toContain('refusal');
+        }
+    });
+});
+
+describe('pause_turn', function (): void {
+    it('resumes the turn when Anthropic returns stop_reason="pause_turn"', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-pause-turn');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withPrompt('Look something up for me.')
+            ->withMaxSteps(5)
+            ->asText();
+
+        // Two HTTP round-trips: the paused response, then the resumed completion.
+        expect($response->steps)->toHaveCount(2);
+        expect($response->steps->first()->finishReason)->toBe(FinishReason::Pause);
+        expect($response->steps->last()->finishReason)->toBe(FinishReason::Stop);
+        expect($response->text)->toContain('the answer is 42');
+    });
+
+    it('stops resuming once maxSteps is reached', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-pause-turn');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withPrompt('Look something up for me.')
+            ->withMaxSteps(1)
+            ->asText();
+
+        expect($response->steps)->toHaveCount(1);
+        expect($response->steps->first()->finishReason)->toBe(FinishReason::Pause);
+    });
 });
 
 it('allows automatic caching enabled via providerOptions', function (): void {

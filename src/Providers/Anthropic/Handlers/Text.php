@@ -56,7 +56,14 @@ class Text
         return match ($this->tempResponse->finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls(),
             FinishReason::Stop, FinishReason::Length => $this->handleStop(),
-            default => throw new PrismException('Anthropic: unknown finish reason'),
+            FinishReason::Pause => $this->handlePause(),
+            FinishReason::Refusal => throw new PrismException(
+                'Anthropic: model refused to respond (stop_reason: refusal)'
+            ),
+            default => throw new PrismException(sprintf(
+                'Anthropic: unhandled finish reason "%s"',
+                data_get($this->httpResponse->json(), 'stop_reason') ?? 'unknown'
+            )),
         };
     }
 
@@ -91,6 +98,28 @@ class Text
             'mcp_servers' => $request->providerOptions('mcp_servers'),
             'cache_control' => $request->providerOptions('cache_control'),
         ]);
+    }
+    /**
+     * Anthropic returns stop_reason="pause_turn" when a long-running server-side
+     * tool (e.g. web_search, web_fetch) needs the client to continue the turn.
+     * Per Anthropic's docs, the client should append the assistant message to
+     * the conversation and re-send the request unchanged so the model can resume.
+     */
+    protected function handlePause(): Response
+    {
+        $this->addStep();
+
+        $this->request->addMessage(new AssistantMessage(
+            $this->tempResponse->text,
+            $this->tempResponse->toolCalls,
+            $this->tempResponse->additionalContent,
+        ));
+
+        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
+            return $this->handle();
+        }
+
+        return $this->responseBuilder->toResponse();
     }
 
     protected function handleToolCalls(): Response
