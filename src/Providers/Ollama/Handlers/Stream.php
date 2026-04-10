@@ -253,14 +253,15 @@ class Stream
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
         foreach (data_get($data, 'message.tool_calls', []) as $index => $toolCall) {
-            if ($name = data_get($toolCall, 'function.name')) {
+            $name = data_get($toolCall, 'function.name');
+            if ($name !== null) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
                 $toolCalls[$index]['id'] = data_get($toolCall, 'id');
             }
 
-            if ($arguments = data_get($toolCall, 'function.arguments')) {
-
+            $arguments = data_get($toolCall, 'function.arguments');
+            if ($arguments !== null) {
                 $argumentValue = is_array($arguments) ? json_encode($arguments) : $arguments;
                 $toolCalls[$index]['arguments'] .= $argumentValue;
             }
