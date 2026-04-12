@@ -7,6 +7,7 @@ namespace Prism\Prism\ValueObjects\Messages;
 use Illuminate\Contracts\Support\Arrayable;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 
 /**
@@ -19,11 +20,13 @@ class AssistantMessage implements Arrayable, Message
     /**
      * @param  ToolCall[]  $toolCalls
      * @param  array<string,mixed>  $additionalContent
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests  Approval requests for approval-required tools (not sent to LLM, for tracking)
      */
     public function __construct(
         public readonly string $content,
         public readonly array $toolCalls = [],
-        public readonly array $additionalContent = []
+        public readonly array $additionalContent = [],
+        public readonly array $toolApprovalRequests = []
     ) {}
 
     /**
@@ -37,6 +40,7 @@ class AssistantMessage implements Arrayable, Message
             'content' => $this->content,
             'tool_calls' => array_map(fn (ToolCall $toolCall): array => $toolCall->toArray(), $this->toolCalls),
             'additional_content' => $this->additionalContent,
+            'tool_approval_requests' => array_map(fn (ToolApprovalRequest $req): array => $req->toArray(), $this->toolApprovalRequests),
         ];
     }
 }

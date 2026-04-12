@@ -1,0 +1,21 @@
+{
+  "id": "gen-approval-phase2",
+  "object": "chat.completion",
+  "created": 1737243490,
+  "model": "z-model",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The file /tmp/test.txt has been deleted successfully."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 180,
+    "completion_tokens": 20,
+    "total_tokens": 200
+  }
+}

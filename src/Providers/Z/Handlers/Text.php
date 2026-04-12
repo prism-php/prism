@@ -12,6 +12,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Z\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\Z\Maps\MessageMap;
+use Prism\Prism\Providers\Z\Maps\ToolCallMap;
 use Prism\Prism\Providers\Z\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Z\Maps\ToolMap;
 use Prism\Prism\Text\Request;
@@ -21,7 +22,7 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -42,20 +43,13 @@ class Text
      */
     public function handle(Request $request): TextResponse
     {
+        $this->resolveToolApprovals($request);
+
         $response = $this->sendRequest($request);
 
         $data = $response->json();
 
-        $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
-
-        $request->addMessage($responseMessage);
-
-        $finishReason = $this->mapFinishReason($data);
-
-        return match ($finishReason) {
+        return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
             FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request),
             default => throw new PrismException('Z: unknown finish reason'),
@@ -69,19 +63,33 @@ class Text
      */
     protected function handleToolCalls(array $data, Request $request): TextResponse
     {
-        $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []));
+        $toolCalls = ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []));
 
         if ($toolCalls === []) {
             throw new PrismException('Z: finish reason is tool_calls but no tool calls found in response');
         }
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callTools(
+            $request->tools(),
+            $toolCalls,
+            $hasPendingToolCalls,
+            $approvalRequests,
+        );
 
-        $request->addMessage(new ToolResultMessage($toolResults));
+        $this->addStep($data, $request, $toolResults, $approvalRequests);
 
-        $this->addStep($data, $request, $toolResults);
+        $request = $request->addMessage(new AssistantMessage(
+            data_get($data, 'choices.0.message.content') ?? '',
+            $toolCalls,
+            [],
+            $approvalRequests,
+        ));
+        $request = $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
@@ -123,28 +131,16 @@ class Text
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $toolCalls
-     * @return array<int, ToolCall>
-     */
-    protected function mapToolCalls(array $toolCalls): array
-    {
-        return array_map(fn (array $toolCall): ToolCall => new ToolCall(
-            id: data_get($toolCall, 'id'),
-            name: data_get($toolCall, 'function.name'),
-            arguments: data_get($toolCall, 'function.arguments'),
-        ), $toolCalls);
-    }
-
-    /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, ToolResult>  $toolResults
+     * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $data, Request $request, array $toolResults = []): void
+    protected function addStep(array $data, Request $request, array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
-            toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
+            toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
             providerToolCalls: [],
             usage: new Usage(
@@ -152,12 +148,14 @@ class Text
                 data_get($data, 'usage.completion_tokens', 0),
             ),
             meta: new Meta(
-                id: data_get($data, 'id'),
-                model: data_get($data, 'model'),
+                id: data_get($data, 'id', ''),
+                model: data_get($data, 'model', $request->model()),
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
+            toolApprovalRequests: $toolApprovalRequests,
             additionalContent: [],
+            raw: $data,
         ));
     }
 }

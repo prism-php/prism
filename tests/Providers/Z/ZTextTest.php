@@ -16,7 +16,12 @@ use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Video;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
+use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -63,6 +68,35 @@ describe('Text generation for Z', function (): void {
             ->and($response->steps[0]->finishReason)->toBe(FinishReason::Stop);
     });
 
+    it('handles missing usage data in response', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/generate-text-with-missing-usage');
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        expect($response)->toBeInstanceOf(TextResponse::class);
+        expect($response->usage->promptTokens)->toBe(0);
+        expect($response->usage->completionTokens)->toBe(0);
+        expect($response->text)->toBe("Hello! I'm an AI assistant. How can I help you today?");
+    });
+
+    it('handles responses with missing id and model fields', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/generate-text-with-missing-meta');
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        expect($response)->toBeInstanceOf(TextResponse::class);
+        expect($response->meta->id)->toBe('');
+        expect($response->meta->model)->toBe('z-model');
+        expect($response->text)->toContain("Hello! I'm an AI assistant");
+        expect($response->finishReason)->toBe(FinishReason::Stop);
+    });
+
     it('can generate text using multiple tools and multiple steps', function (): void {
         FixtureResponse::fakeResponseSequence('chat/completions', 'z/generate-text-with-multiple-tools');
 
@@ -103,6 +137,16 @@ describe('Text generation for Z', function (): void {
             ->and($response->text)->toBe(
                 "\nBased on the information I gathered:\n\n**Tigers Game Time:** The Tigers game today in Detroit is at 3:00 PM.\n\n**Weather and Coat Recommendation:** The weather will be 45° and cold. Yes, you should definitely wear a coat to the game! At 45 degrees, it will be quite chilly, especially if you'll be sitting outdoors for several hours. You might want to consider wearing a warm coat, and possibly dressing in layers with a hat and gloves for extra comfort during the game."
             );
+
+        expect($response->steps)->toHaveCount(2);
+        $secondStep = $response->steps[1];
+        expect($secondStep->messages)->toHaveCount(3);
+        expect($secondStep->messages[0])->toBeInstanceOf(UserMessage::class);
+        expect($secondStep->messages[1])->toBeInstanceOf(AssistantMessage::class);
+        expect($secondStep->messages[1]->toolCalls)->toHaveCount(2);
+        expect($secondStep->messages[1]->toolCalls[0]->name)->toBe('search_games');
+        expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('get_weather');
+        expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
     });
 });
 
@@ -262,4 +306,88 @@ describe('Image support with Z', function (): void {
             ->asText();
 
     })->throws(PrismRateLimitedException::class);
+});
+
+describe('client-executed tools', function (): void {
+    it('stops execution when client-executed tool is called', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/text-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('client_tool');
+        expect($response->steps)->toHaveCount(1);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops execution when approval-required tool is called (Phase 1)', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/text-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete the file at /tmp/test.txt')
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::ToolCalls);
+        expect($response->toolCalls)->toHaveCount(1);
+        expect($response->toolCalls[0]->name)->toBe('delete_file');
+        expect($response->steps)->toHaveCount(1);
+        expect($response->steps[0]->toolApprovalRequests)->toHaveCount(1);
+        expect($response->steps[0]->toolApprovalRequests[0]->toolCallId)->toBe('call_delete_file');
+    });
+
+    it('executes approved tool and continues (Phase 2)', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/text-with-approval-phase2');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using(Provider::Z, 'z-model')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withMessages([
+                new UserMessage('Delete the file at /tmp/test.txt'),
+                new AssistantMessage(
+                    content: '',
+                    toolCalls: [
+                        new ToolCall(id: 'call_delete_file', name: 'delete_file', arguments: ['path' => '/tmp/test.txt']),
+                    ],
+                    additionalContent: [],
+                    toolApprovalRequests: [
+                        new ToolApprovalRequest(approvalId: 'apr_call_delete_file', toolCallId: 'call_delete_file'),
+                    ],
+                ),
+                new ToolResultMessage([], [
+                    new ToolApprovalResponse(approvalId: 'apr_call_delete_file', approved: true),
+                ]),
+            ])
+            ->asText();
+
+        expect($response->finishReason)->toBe(FinishReason::Stop);
+        expect($response->text)->toContain('deleted');
+    });
 });

@@ -9,6 +9,7 @@ use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamCollector;
@@ -288,6 +289,115 @@ it('handles stream with tool calls only', function (): void {
     expect($messages->first())->toBeInstanceOf(AssistantMessage::class);
     expect($messages->first()->content)->toBe('');
     expect($messages->first()->toolCalls)->toHaveCount(1);
+});
+
+it('collects tool approval requests into assistant message', function (): void {
+    $messages = null;
+
+    $toolCall = new ToolCall('call-delete-1', 'delete_file', ['path' => '/tmp/foo.txt']);
+
+    $events = [
+        new TextStartEvent('evt-1', 1640995200, 'msg-1'),
+        new ToolCallEvent('evt-2', 1640995201, $toolCall, 'msg-1'),
+        new ToolApprovalRequestEvent('evt-3', 1640995202, $toolCall, 'msg-1', 'approval-delete-1'),
+        new StreamEndEvent('evt-4', 1640995203, FinishReason::ToolCalls),
+    ];
+
+    $collector = new StreamCollector(
+        createCollectorEventGenerator($events),
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
+            $messages = $collected;
+        }
+    );
+
+    iterator_to_array($collector->collect());
+
+    expect($messages)->toHaveCount(1);
+    expect($messages->first())->toBeInstanceOf(AssistantMessage::class);
+    expect($messages->first()->toolCalls)->toHaveCount(1);
+    expect($messages->first()->toolApprovalRequests)->toHaveCount(1);
+    expect($messages->first()->toolApprovalRequests[0]->approvalId)->toBe('approval-delete-1');
+    expect($messages->first()->toolApprovalRequests[0]->toolCallId)->toBe('call-delete-1');
+});
+
+it('Phase 2: collects ToolResultEvents from approval resolution before LLM continuation events', function (): void {
+    $messages = null;
+
+    $toolResult1 = new ToolResult('call-1', 'delete_file', ['path' => '/tmp/a.txt'], 'Deleted: /tmp/a.txt');
+    $toolResult2 = new ToolResult('call-2', 'delete_file', ['path' => '/tmp/b.txt'], 'Deleted: /tmp/b.txt');
+
+    // Simulates Phase 2 stream: ToolResultEvents from approval resolution first, then LLM continuation
+    $events = [
+        new ToolResultEvent('evt-1', 1640995200, $toolResult1, 'msg-1', true),
+        new ToolResultEvent('evt-2', 1640995201, $toolResult2, 'msg-1', true),
+        new StreamStartEvent('evt-3', 1640995202, 'gpt-4', 'openai'),
+        new TextStartEvent('evt-4', 1640995203, 'msg-2'),
+        new TextDeltaEvent('evt-5', 1640995204, 'Files deleted successfully.', 'msg-2'),
+        new StreamEndEvent('evt-6', 1640995205, FinishReason::Stop),
+    ];
+
+    $collector = new StreamCollector(
+        createCollectorEventGenerator($events),
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
+            $messages = $collected;
+        }
+    );
+
+    $yieldedEvents = iterator_to_array($collector->collect());
+
+    // Events pass through in order - ToolResultEvents before LLM events
+    expect($yieldedEvents)->toHaveCount(6)
+        ->and($yieldedEvents[0])->toBeInstanceOf(ToolResultEvent::class)
+        ->and($yieldedEvents[1])->toBeInstanceOf(ToolResultEvent::class)
+        ->and($yieldedEvents[2])->toBeInstanceOf(StreamStartEvent::class)
+        ->and($yieldedEvents[5])->toBeInstanceOf(StreamEndEvent::class);
+
+    // ToolResultMessage built from Phase 2 events before the assistant response
+    expect($messages)->toHaveCount(2)
+        ->and($messages[0])->toBeInstanceOf(ToolResultMessage::class)
+        ->and($messages[0]->toolResults)->toHaveCount(2)
+        ->and($messages[0]->toolResults[0]->result)->toBe('Deleted: /tmp/a.txt')
+        ->and($messages[0]->toolResults[1]->result)->toBe('Deleted: /tmp/b.txt')
+        ->and($messages[1])->toBeInstanceOf(AssistantMessage::class)
+        ->and($messages[1]->content)->toBe('Files deleted successfully.');
+});
+
+it('collects tool approval requests after server-executed tool results', function (): void {
+    $messages = null;
+
+    $searchCall = new ToolCall('call-search-1', 'search', ['q' => 'test']);
+    $deleteCall = new ToolCall('call-delete-1', 'delete_file', ['path' => '/tmp/foo.txt']);
+    $searchResult = new ToolResult('call-search-1', 'search', ['q' => 'test'], ['result' => 'found']);
+
+    $events = [
+        new TextStartEvent('evt-1', 1640995200, 'msg-1'),
+        new ToolCallEvent('evt-2', 1640995201, $searchCall, 'msg-1'),
+        new ToolCallEvent('evt-3', 1640995202, $deleteCall, 'msg-1'),
+        new ToolResultEvent('evt-4', 1640995203, $searchResult, 'msg-1', true),
+        new ToolApprovalRequestEvent('evt-5', 1640995204, $deleteCall, 'msg-1', 'approval-delete-1'),
+        new StreamEndEvent('evt-6', 1640995205, FinishReason::ToolCalls),
+    ];
+
+    $collector = new StreamCollector(
+        createCollectorEventGenerator($events),
+        null,
+        function ($request, Collection $collected) use (&$messages): void {
+            $messages = $collected;
+        }
+    );
+
+    iterator_to_array($collector->collect());
+
+    expect($messages)->toHaveCount(2);
+    expect($messages[0])->toBeInstanceOf(AssistantMessage::class);
+    expect($messages[0]->toolCalls)->toHaveCount(2);
+    expect($messages[0]->toolApprovalRequests)->toHaveCount(1);
+    expect($messages[0]->toolApprovalRequests[0]->toolCallId)->toBe('call-delete-1');
+    expect($messages[1])->toBeInstanceOf(ToolResultMessage::class);
+    expect($messages[1]->toolResults)->toHaveCount(1);
+    expect($messages[1]->toolResults[0]->toolCallId)->toBe('call-search-1');
 });
 
 it('handles multiple tool results in single message', function (): void {

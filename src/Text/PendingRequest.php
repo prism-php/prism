@@ -87,9 +87,9 @@ class PendingRequest
     /**
      * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
      */
-    public function asDataStreamResponse(?callable $callback = null): StreamedResponse
+    public function asDataStreamResponse(?callable $callback = null, ?string $responseMessageId = null): StreamedResponse
     {
-        return (new DataProtocolAdapter)($this->asStream(), $this, $callback);
+        return (new DataProtocolAdapter($responseMessageId))($this->asStream(), $this, $callback);
     }
 
     /**
@@ -122,6 +122,8 @@ class PendingRequest
         }
 
         $tools = $this->tools;
+
+        collect($tools)->each->ensureRunnable();
 
         if (! $this->toolErrorHandlingEnabled && filled($tools)) {
             $tools = array_map(

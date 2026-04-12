@@ -1,0 +1,1 @@
+{"id":"gen-structured-no-tools","object":"chat.completion","created":1737243487,"model":"openai/gpt-4-turbo","choices":[{"index":0,"message":{"role":"assistant","content":"{\"answer\":\"4\"}"},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":80,"completion_tokens":10,"total_tokens":90}}

@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "{\"weather\":\"75º\",\"game_time\":\"3pm\"}",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1737243487,
+  "object": "chat.completion",
+  "usage": {
+    "prompt_tokens": 187,
+    "completion_tokens": 26,
+    "total_tokens": 213
+  }
+}

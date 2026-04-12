@@ -181,3 +181,15 @@ it('can throw a prism custom exception for invalid return type', function (): vo
 
     $searchTool->handle('What time is the event?');
 });
+
+it('can throw a prism exception when handle is called on a tool without a handler', function (): void {
+    $tool = (new Tool)
+        ->as('client_tool')
+        ->for('A tool without a handler')
+        ->withParameter(new StringSchema('query', 'the search query'));
+
+    $this->expectException(PrismException::class);
+    $this->expectExceptionMessage('Tool (client_tool) has no handler defined');
+
+    $tool->handle('test');
+});
