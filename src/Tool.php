@@ -39,7 +39,7 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():mixed|callable():mixed */
+    /** @var Closure():mixed|callable():mixed|null */
     protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
@@ -68,6 +68,10 @@ class Tool
 
     public function using(Closure|callable $fn): self
     {
+        if ($fn === $this) {
+            return $this;
+        }
+
         $this->fn = $fn;
 
         return $this;
@@ -262,7 +266,9 @@ class Tool
     public function handle(...$args): string|ToolOutput|ToolError
     {
         try {
-            $value = call_user_func($this->fn, ...$args);
+            $callable = $this->resolveHandler();
+
+            $value = call_user_func($callable, ...$args);
 
             if (is_string($value)) {
                 return $value;
@@ -279,6 +285,35 @@ class Tool
         } catch (Throwable $e) {
             return $this->handleToolException($e, $args);
         }
+    }
+
+    /**
+     * Resolve the callable handler for this tool.
+     *
+     * Priority: explicit $fn > invokable subclass (__invoke) > error.
+     * Also unwraps SerializableClosure wrappers that break named arguments.
+     */
+    protected function resolveHandler(): callable
+    {
+        $fn = $this->fn;
+
+        if ($fn === null && method_exists($this, '__invoke')) {
+            $fn = $this;
+        }
+
+        if ($fn === null) {
+            throw new PrismException("Tool handler not defined for tool: {$this->name}");
+        }
+
+        // After ProcessDriver deserialization, $fn may become a
+        // SerializableClosure\Serializers\Native whose __invoke doesn't
+        // forward PHP 8 named arguments. Unwrap via getClosure() to
+        // recover the real Closure so named-arg spreading works.
+        if (is_object($fn) && method_exists($fn, 'getClosure')) {
+            return $fn->getClosure();
+        }
+
+        return $fn;
     }
 
     protected function shouldHandleErrors(): bool

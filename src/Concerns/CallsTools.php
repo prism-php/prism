@@ -126,12 +126,12 @@ trait CallsTools
      * @param  Tool[]  $tools
      * @return array{toolResult: ToolResult, events: array<int, ToolResultEvent|ArtifactEvent>}
      */
-    protected function executeToolCall(array $tools, ToolCall $toolCall, string $messageId): array
+    protected static function executeToolCall(array $tools, ToolCall $toolCall, string $messageId): array
     {
         $events = [];
 
         try {
-            $tool = $this->resolveTool($toolCall->name, $tools);
+            $tool = self::resolveTool($toolCall->name, $tools);
             $output = call_user_func_array(
                 $tool->handle(...),
                 $toolCall->arguments()
@@ -224,8 +224,10 @@ trait CallsTools
 
     /**
      * @param  Tool[]  $tools
+     *
+     * @throws PrismException
      */
-    protected function resolveTool(string $name, array $tools): Tool
+    protected static function resolveTool(string $name, array $tools): Tool
     {
         try {
             return collect($tools)

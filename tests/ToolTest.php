@@ -85,6 +85,47 @@ it('can use an invokeable', function (): void {
         ->toBe('The event is at 3pm eastern');
 });
 
+it('handles invokable subclass with using($this) without circular reference', function (): void {
+    $tool = new class extends Tool
+    {
+        public function __construct()
+        {
+            parent::__construct();
+            $this->as('test_tool')
+                ->for('A test tool')
+                ->withParameter(new StringSchema('query', 'the query'))
+                ->using($this);
+        }
+
+        public function __invoke(string $query): string
+        {
+            return "Result: $query";
+        }
+    };
+
+    expect($tool->handle(query: 'hello'))->toBe('Result: hello');
+});
+
+it('invokable subclass works without calling using() at all', function (): void {
+    $tool = new class extends Tool
+    {
+        public function __construct()
+        {
+            parent::__construct();
+            $this->as('auto_tool')
+                ->for('Auto-detected invokable')
+                ->withParameter(new StringSchema('input', 'the input'));
+        }
+
+        public function __invoke(string $input): string
+        {
+            return "Auto: $input";
+        }
+    };
+
+    expect($tool->handle(input: 'test'))->toBe('Auto: test');
+});
+
 it('can have fluent parameters', function (): void {
     $tool = (new Tool)
         ->as('test tool')
