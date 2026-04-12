@@ -37,14 +37,19 @@ class MessageMap
      */
     public function __invoke(): array
     {
+        // System prompts are mapped before messages so that `system_instruction`
+        // appears before `contents` in the serialized request body. Gemini's
+        // implicit cache keys on the request-body prefix, so placing the stable
+        // portion of the payload first is required for cache hits to occur.
+        // See https://ai.google.dev/gemini-api/docs/caching for details.
+        foreach ($this->systemPrompts as $systemPrompt) {
+            $this->mapSystemMessage($systemPrompt);
+        }
+
         $this->contents['contents'] = [];
 
         foreach ($this->messages as $message) {
             $this->mapMessage($message);
-        }
-
-        foreach ($this->systemPrompts as $systemPrompt) {
-            $this->mapSystemMessage($systemPrompt);
         }
 
         return array_filter($this->contents);

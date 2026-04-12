@@ -274,3 +274,19 @@ it('throws an exception of multiple system prompts are given', function (): void
 
     $messageMap();
 })->throws(PrismException::class, 'Gemini only supports one system instruction.');
+
+it('places system_instruction before contents so implicit caching can engage', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new UserMessage('hello'),
+        ],
+        systemPrompts: [
+            new SystemMessage('you are a helpful assistant'),
+        ]
+    );
+
+    // Gemini's implicit cache keys on the serialized request-body prefix.
+    // Prism must emit `system_instruction` before `contents` so the stable
+    // portion of the payload appears first and cache hits can occur.
+    expect(array_keys($messageMap()))->toBe(['system_instruction', 'contents']);
+});
