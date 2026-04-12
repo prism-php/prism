@@ -1,0 +1,16 @@
+{
+  "id": "chatcmpl-no-usage",
+  "object": "chat.completion",
+  "created": 1737243487,
+  "model": "z-model",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! I'm an AI assistant. How can I help you today?"
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}

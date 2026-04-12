@@ -1,0 +1,16 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "{\"message\":\"Hello.\",\"action\":\"ask_question\"}",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1765785136,
+  "id": "chatcmpl-123",
+  "model": "z-model",
+  "object": "chat.completion"
+}

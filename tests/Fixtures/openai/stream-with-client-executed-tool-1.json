@@ -1,0 +1,22 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_client_executed_stream","object":"response","created_at":1750705330,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4o-2024-08-06","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"A tool that executes on the client","name":"client_tool","parameters":{"type":"object","properties":{"input":{"description":"Input parameter","type":"string"}},"required":["input"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_client_executed_stream","object":"response","created_at":1750705330,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4o-2024-08-06","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"A tool that executes on the client","name":"client_tool","parameters":{"type":"object","properties":{"input":{"description":"Input parameter","type":"string"}},"required":["input"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"fc_client_tool_stream","type":"function_call","status":"in_progress","arguments":"","call_id":"call_client_tool_stream","name":"client_tool"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":3,"item_id":"fc_client_tool_stream","output_index":0,"delta":"{\"input\":\"test input\"}"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":4,"item_id":"fc_client_tool_stream","output_index":0,"arguments":"{\"input\":\"test input\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":5,"output_index":0,"item":{"id":"fc_client_tool_stream","type":"function_call","status":"completed","arguments":"{\"input\":\"test input\"}","call_id":"call_client_tool_stream","name":"client_tool"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":6,"response":{"id":"resp_client_executed_stream","object":"response","created_at":1750705330,"status":"completed","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":2048,"model":"gpt-4o-2024-08-06","output":[{"id":"fc_client_tool_stream","type":"function_call","status":"completed","arguments":"{\"input\":\"test input\"}","call_id":"call_client_tool_stream","name":"client_tool"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"A tool that executes on the client","name":"client_tool","parameters":{"type":"object","properties":{"input":{"description":"Input parameter","type":"string"}},"required":["input"]},"strict":true}],"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":0},"output_tokens":50,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":150},"user":null,"metadata":{}}}
+
+

@@ -1,0 +1,32 @@
+{
+  "id": "client_executed_test",
+  "object": "chat.completion",
+  "created": 1728462827,
+  "model": "mistral-large-latest",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "client_tool_123",
+            "type": "function",
+            "function": {
+              "name": "client_tool",
+              "arguments": "{\"input\": \"test input\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "total_tokens": 150,
+    "completion_tokens": 50
+  }
+}
+

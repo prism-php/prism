@@ -58,6 +58,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate(), $this->state);
+
         $this->state->reset();
         $this->currentThoughtSignature = null;
         $response = $this->sendRequest($request);
@@ -326,6 +328,7 @@ class Stream
         array $data = []
     ): Generator {
         $mappedToolCalls = [];
+        $hasPendingToolCalls = false;
 
         // Convert tool calls to ToolCall objects
         foreach ($this->state->toolCalls() as $toolCallData) {
@@ -334,8 +337,16 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
 
+        if ($hasPendingToolCalls) {
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
+
+        // Add messages for next turn and continue streaming
         if ($toolResults !== []) {
             // Emit step finish after tool calls
             $this->state->markStepFinished();

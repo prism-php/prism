@@ -39,13 +39,18 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():mixed|callable():mixed */
+    /** @var Closure():mixed|callable():mixed|null */
     protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
     protected null|false|Closure $failedHandler = null;
 
+    protected bool $clientExecuted = false;
+
     protected bool $concurrent = false;
+
+    /** @var bool|Closure(array<string,mixed>):bool */
+    protected bool|Closure $requiresApproval = false;
 
     public function __construct()
     {
@@ -69,6 +74,21 @@ class Tool
     public function using(Closure|callable $fn): self
     {
         $this->fn = $fn;
+        $this->clientExecuted = false;
+
+        return $this;
+    }
+
+    /**
+     * Mark this tool as client-executed (no server-side handler).
+     *
+     * Client-executed tools are sent to the AI model but their execution
+     * is handled by the client application rather than the server.
+     */
+    public function clientExecuted(): self
+    {
+        $this->clientExecuted = true;
+        $this->fn = null;
 
         return $this;
     }
@@ -124,6 +144,42 @@ class Tool
     public function isConcurrent(): bool
     {
         return $this->concurrent;
+    }
+
+    /**
+     * Mark this tool as requiring user approval before execution.
+     *
+     * When a closure is provided, it receives the tool call arguments
+     * and should return true if approval is required.
+     *
+     * @param  bool|Closure(array<string,mixed>):bool  $condition
+     */
+    public function requiresApproval(bool|Closure $condition = true): self
+    {
+        $this->requiresApproval = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Whether this tool has approval configured (static true or dynamic closure).
+     * Use this for early-exit checks without invoking the closure.
+     */
+    public function hasApprovalConfigured(): bool
+    {
+        return $this->requiresApproval === true || $this->requiresApproval instanceof Closure;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     */
+    public function needsApproval(array $arguments = []): bool
+    {
+        if ($this->requiresApproval instanceof Closure) {
+            return (bool) ($this->requiresApproval)($arguments);
+        }
+
+        return $this->requiresApproval;
     }
 
     public function withParameter(Schema $parameter, bool $required = true): self
@@ -246,6 +302,23 @@ class Tool
         return (bool) count($this->parameters);
     }
 
+    public function isClientExecuted(): bool
+    {
+        return $this->clientExecuted;
+    }
+
+    public function hasHandler(): bool
+    {
+        return $this->fn !== null;
+    }
+
+    public function ensureRunnable(): void
+    {
+        if (! $this->hasHandler() && ! $this->clientExecuted) {
+            throw PrismException::toolMissingHandler($this->name);
+        }
+    }
+
     /**
      * @return null|false|Closure(Throwable,array<int|string,mixed>):string
      */
@@ -261,6 +334,10 @@ class Tool
      */
     public function handle(...$args): string|ToolOutput|ToolError
     {
+        if ($this->fn === null) {
+            throw PrismException::toolHandlerNotDefined($this->name);
+        }
+
         try {
             $value = call_user_func($this->fn, ...$args);
 

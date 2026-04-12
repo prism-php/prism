@@ -71,6 +71,8 @@ class PendingRequest
             throw new PrismException('A schema is required for structured output');
         }
 
+        collect($this->tools)->each->ensureRunnable();
+
         return new Request(
             systemPrompts: $this->systemPrompts,
             model: $this->model,

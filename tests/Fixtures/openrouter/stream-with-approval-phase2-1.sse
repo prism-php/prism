@@ -1,0 +1,7 @@
+data: {"id":"chatcmpl-approval-phase2","object":"chat.completion.chunk","created":1737243488,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-approval-phase2","object":"chat.completion.chunk","created":1737243488,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{"content":"File deleted successfully."},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-approval-phase2","object":"chat.completion.chunk","created":1737243488,"model":"openai/gpt-4-turbo","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":150,"completion_tokens":10,"total_tokens":160}}
+
+data: [DONE]

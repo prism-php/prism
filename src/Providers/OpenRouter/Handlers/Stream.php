@@ -56,6 +56,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate(), $this->state);
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -100,6 +102,13 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time()
                 );
+            }
+
+            // Extract usage from any chunk that has it
+            // OpenRouter sends usage in a separate final chunk when stream_options.include_usage=true
+            $usage = $this->extractUsage($data);
+            if ($usage instanceof Usage) {
+                $this->state->addUsage($usage);
             }
 
             if ($this->hasToolCalls($data)) {
@@ -232,13 +241,6 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
-            }
-
-            // Extract usage from any chunk that has it
-            // OpenRouter sends usage in a separate final chunk when stream_options.include_usage=true
-            $usage = $this->extractUsage($data);
-            if ($usage instanceof Usage) {
-                $this->state->addUsage($usage);
             }
         }
 
@@ -389,7 +391,15 @@ class Stream
         }
 
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->markStepFinished();
         yield new StepFinishEvent(
