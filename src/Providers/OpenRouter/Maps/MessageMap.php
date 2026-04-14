@@ -163,6 +163,11 @@ class MessageMap
             ],
         ], $message->toolCalls);
 
+        $reasoning = $message->additionalContent['reasoning'] ?? null;
+        $reasoningDetails = empty($message->additionalContent['reasoning_details'])
+            ? null
+            : $message->additionalContent['reasoning_details'];
+
         // OpenRouter supports cache_control on assistant messages
         if ($cacheType && $message->content !== '' && $message->content !== '0') {
             $this->mappedMessages[] = array_filter([
@@ -175,12 +180,16 @@ class MessageMap
                     ],
                 ],
                 'tool_calls' => $toolCalls,
+                'reasoning' => $reasoning,
+                'reasoning_details' => $reasoningDetails,
             ]);
         } else {
             $this->mappedMessages[] = array_filter([
                 'role' => 'assistant',
                 'content' => $message->content,
                 'tool_calls' => $toolCalls,
+                'reasoning' => $reasoning,
+                'reasoning_details' => $reasoningDetails,
             ]);
         }
     }

@@ -10,6 +10,10 @@ use Throwable;
 
 class PrismException extends Exception
 {
+    public ?int $httpStatus = null;
+
+    public ?string $responseBody = null;
+
     public static function promptOrMessages(): self
     {
         return new self('You can only use `prompt` or `messages`');
@@ -55,9 +59,16 @@ class PrismException extends Exception
         );
     }
 
-    public static function providerResponseError(string $message): self
-    {
-        return new self($message);
+    public static function providerResponseError(
+        string $message,
+        ?int $httpStatus = null,
+        ?string $responseBody = null,
+    ): self {
+        $e = new self($message);
+        $e->httpStatus = $httpStatus;
+        $e->responseBody = $responseBody;
+
+        return $e;
     }
 
     public static function providerRequestError(string $model, Throwable $previous): self
