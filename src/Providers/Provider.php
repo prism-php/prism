@@ -16,6 +16,8 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Fim\Request as FimRequest;
+use Prism\Prism\Fim\Response as FimResponse;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
 use Prism\Prism\Moderation\Request as ModerationRequest;
@@ -61,6 +63,11 @@ abstract class Provider
     public function speechToText(SpeechToTextRequest $request): SpeechToTextResponse
     {
         throw PrismException::unsupportedProviderAction('speechToText', class_basename($this));
+    }
+
+    public function fim(FimRequest $request): FimResponse
+    {
+        throw PrismException::unsupportedProviderAction('fim', class_basename($this));
     }
 
     /**

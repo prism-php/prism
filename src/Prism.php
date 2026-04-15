@@ -7,6 +7,7 @@ namespace Prism\Prism;
 use Illuminate\Support\Traits\Macroable;
 use Prism\Prism\Audio\PendingRequest as PendingAudioRequest;
 use Prism\Prism\Embeddings\PendingRequest as PendingEmbeddingRequest;
+use Prism\Prism\Fim\PendingRequest as PendingFimRequest;
 use Prism\Prism\Images\PendingRequest as PendingImageRequest;
 use Prism\Prism\Moderation\PendingRequest as PendingModerationRequest;
 use Prism\Prism\Structured\PendingRequest as PendingStructuredRequest;
@@ -44,5 +45,10 @@ class Prism
     public function moderation(): PendingModerationRequest
     {
         return new PendingModerationRequest;
+    }
+
+    public function fim(): PendingFimRequest
+    {
+        return new PendingFimRequest;
     }
 }
