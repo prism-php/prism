@@ -57,7 +57,7 @@ readonly class Response implements Arrayable
             'tool_results' => array_map(fn (ToolResult $toolResult): array => $toolResult->toArray(), $this->toolResults),
             'usage' => $this->usage->toArray(),
             'meta' => $this->meta->toArray(),
-            'messages' => $this->messages->map(fn (Message $message): array => $this->messageToArray($message))->toArray(),
+            'messages' => $this->messages->map($this->messageToArray(...))->toArray(),
             'additional_content' => $this->additionalContent,
             'raw' => $this->raw,
         ];
