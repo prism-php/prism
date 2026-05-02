@@ -490,6 +490,10 @@ class Stream
             ];
         }
 
+        if ($request->reasoningEnabled() === false && $thinkingConfig === null) {
+            $thinkingConfig = ['thinkingBudget' => 0];
+        }
+
         /** @var Response $response */
         $response = $this->client
             ->withOptions(['stream' => true])

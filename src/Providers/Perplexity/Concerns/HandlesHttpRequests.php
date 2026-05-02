@@ -49,7 +49,9 @@ trait HandlesHttpRequests
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'top_k' => $request->providerOptions('top_k'),
-            'reasoning_effort' => $request->providerOptions('reasoning_effort'),
+            'reasoning_effort' => $request->providerOptions('reasoning_effort') ?? (
+                $request->reasoningEnabled() === false ? 'low' : null
+            ),
             'web_search_options' => $request->providerOptions('web_search_options'),
             'search_mode' => $request->providerOptions('search_mode'),
             'language_preference' => $request->providerOptions('language_preference'),

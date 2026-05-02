@@ -7,6 +7,7 @@ namespace Prism\Prism\Text;
 use Closure;
 use Prism\Prism\Concerns\ChecksSelf;
 use Prism\Prism\Concerns\HasProviderOptions;
+use Prism\Prism\Concerns\HasReasoning;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\ToolChoice;
@@ -16,7 +17,7 @@ use Prism\Prism\ValueObjects\ProviderTool;
 
 class Request implements PrismRequest
 {
-    use ChecksSelf, HasProviderOptions;
+    use ChecksSelf, HasProviderOptions, HasReasoning;
 
     /**
      * @param  SystemMessage[]  $systemPrompts
@@ -43,8 +44,10 @@ class Request implements PrismRequest
         protected string|ToolChoice|null $toolChoice,
         array $providerOptions = [],
         protected array $providerTools = [],
+        ?bool $reasoningEnabled = null,
     ) {
         $this->providerOptions = $providerOptions;
+        $this->reasoningEnabled = $reasoningEnabled;
     }
 
     public function toolChoice(): string|ToolChoice|null

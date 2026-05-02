@@ -588,7 +588,9 @@ class Stream
                         'verbosity' => $request->providerOptions('text_verbosity'),
                     ] : null,
                     'truncation' => $request->providerOptions('truncation'),
-                    'reasoning' => $request->providerOptions('reasoning'),
+                    'reasoning' => $request->providerOptions('reasoning') ?? (
+                        $request->reasoningEnabled() === false ? ['effort' => 'minimal'] : null
+                    ),
                 ]))
             );
 

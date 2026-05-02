@@ -196,6 +196,43 @@ it('sends correct thinking mode in payload', function (): void {
     });
 });
 
+it('omits thinking when withReasoning(false) is used even with thinking.enabled', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->withProviderOptions(['thinking' => ['enabled' => true]])
+        ->withReasoning(false)
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('thinking');
+
+        return true;
+    });
+});
+
+it('does not include thinking when withReasoning(false) on a non-thinking model', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->withReasoning(false)
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('thinking');
+
+        return true;
+    });
+});
+
 it('sends correct thinking mode with default budget tokens', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
 

@@ -216,7 +216,9 @@ class Structured
                 'previous_response_id' => $request->providerOptions('previous_response_id'),
                 'service_tier' => $request->providerOptions('service_tier'),
                 'truncation' => $request->providerOptions('truncation'),
-                'reasoning' => $request->providerOptions('reasoning'),
+                'reasoning' => $request->providerOptions('reasoning') ?? (
+                    $request->reasoningEnabled() === false ? ['effort' => 'minimal'] : null
+                ),
                 'store' => $request->providerOptions('store'),
                 'text' => [
                     'format' => $responseFormat,

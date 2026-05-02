@@ -75,7 +75,8 @@ class Text
             'model' => $request->model(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
-            'thinking' => $request->providerOptions('thinking.enabled') === true
+            'thinking' => $request->reasoningEnabled() !== false
+                && $request->providerOptions('thinking.enabled') === true
                 ? [
                     'type' => 'enabled',
                     'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))

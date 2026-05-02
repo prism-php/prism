@@ -120,6 +120,10 @@ class Structured
             ]);
         }
 
+        if ($request->reasoningEnabled() === false && $thinkingConfig === null) {
+            $thinkingConfig = ['thinkingBudget' => 0];
+        }
+
         /** @var Response $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",

@@ -17,6 +17,7 @@ use Prism\Prism\Concerns\HasMessages;
 use Prism\Prism\Concerns\HasPrompts;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Concerns\HasProviderTools;
+use Prism\Prism\Concerns\HasReasoning;
 use Prism\Prism\Concerns\HasTools;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
@@ -38,6 +39,7 @@ class PendingRequest
     use HasPrompts;
     use HasProviderOptions;
     use HasProviderTools;
+    use HasReasoning;
     use HasTools;
 
     /**
@@ -146,6 +148,7 @@ class PendingRequest
             toolChoice: $this->toolChoice,
             providerOptions: $this->providerOptions,
             providerTools: $this->providerTools,
+            reasoningEnabled: $this->reasoningEnabled,
         );
     }
 }

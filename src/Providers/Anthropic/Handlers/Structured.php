@@ -93,7 +93,8 @@ class Structured
             'model' => $request->model(),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
-            'thinking' => $request->providerOptions('thinking.enabled') === true
+            'thinking' => $request->reasoningEnabled() !== false
+                && $request->providerOptions('thinking.enabled') === true
                 ? [
                     'type' => 'enabled',
                     'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
