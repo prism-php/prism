@@ -63,10 +63,13 @@ class Text
 
         $this->addStep($data, $request, $toolResults);
 
+        $reasoningContent = data_get($data, 'choices.0.message.reasoning_content');
+        $additionalContent = $reasoningContent ? ['reasoning_content' => $reasoningContent] : [];
+
         $request = $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
-            []
+            $additionalContent
         ));
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
@@ -122,6 +125,8 @@ class Text
      */
     protected function addStep(array $data, Request $request, array $toolResults = []): void
     {
+        $reasoningContent = data_get($data, 'choices.0.message.reasoning_content');
+
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
@@ -138,7 +143,7 @@ class Text
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
-            additionalContent: [],
+            additionalContent: $reasoningContent ? ['reasoning_content' => $reasoningContent] : [],
             raw: $data,
         ));
     }
