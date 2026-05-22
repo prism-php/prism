@@ -129,8 +129,13 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('weather');
     expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
 
-    // Assert usage
-    expect($response->usage->promptTokens)->toBe(507);
+    // Assert usage. promptTokens is now the FRESH portion (prompt_tokens minus
+    // prompt_cache_hit_tokens) so cost trackers can apply the cached rate to the
+    // hit portion separately. Aggregated across both steps:
+    //   step 1 fixture: prompt_tokens=220, prompt_cache_hit_tokens=192 → fresh 28, cached 192
+    //   step 2 fixture: prompt_tokens=287, prompt_cache_hit_tokens=256 → fresh 31, cached 256
+    expect($response->usage->promptTokens)->toBe(59);
+    expect($response->usage->cacheReadInputTokens)->toBe(448);
     expect($response->usage->completionTokens)->toBe(76);
 
     // Assert response
