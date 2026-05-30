@@ -9,6 +9,33 @@
 ]
 ```
 
+### OpenAI-compatible gateways
+
+The OpenAI provider can also point at an OpenAI-compatible gateway by changing
+the configured URL and API key. This is useful for teams that want to keep their
+Prism application code unchanged while centralizing model access, policy
+enforcement, audit logs, traces, and usage/cost reporting in a control plane.
+
+For example, to route Prism calls through Tuning Engines:
+
+```php
+'openai' => [
+    'url' => env('OPENAI_URL', 'https://api.tuningengines.com/v1'),
+    'api_key' => env('TUNING_ENGINES_API_KEY', ''),
+    'organization' => null,
+]
+```
+
+Then use the model alias that your Tuning Engines inference key is allowed to
+access:
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-4o')
+    ->withPrompt('Summarize the release risk for this change.')
+    ->asText();
+```
+
 ## Provider-specific options
 ### Strict Tool Schemas
 
