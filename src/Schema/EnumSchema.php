@@ -29,9 +29,23 @@ readonly class EnumSchema implements Schema
     {
         return [
             'description' => $this->description,
-            'enum' => $this->options,
+            'enum' => $this->options(),
             'type' => $this->types(),
         ];
+    }
+
+    /**
+     * @return array
+     */
+    protected function options(): array
+    {
+        $options = $this->options;
+
+        if ($this->nullable) {
+            $options[] = null;
+        }
+
+        return $options;
     }
 
     /**
