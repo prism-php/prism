@@ -212,6 +212,10 @@ export default defineConfig({
                 link: "/providers/openrouter",
               },
               {
+                text: "Requesty",
+                link: "/providers/requesty",
+              },
+              {
                 text: "Voyage AI",
                 link: "/providers/voyageai",
               },

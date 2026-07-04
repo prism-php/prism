@@ -18,6 +18,7 @@ use Prism\Prism\Providers\Ollama\Ollama;
 use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Perplexity\Perplexity;
+use Prism\Prism\Providers\Requesty\Requesty;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
@@ -210,6 +211,22 @@ class PrismManager
         return new OpenRouter(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://openrouter.ai/api/v1',
+            httpReferer: $site['http_referer'] ?? null,
+            xTitle: $site['x_title'] ?? null,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    protected function createRequestyProvider(array $config): Requesty
+    {
+        $siteConfig = $config['site'] ?? null;
+        $site = is_array($siteConfig) ? $siteConfig : [];
+
+        return new Requesty(
+            apiKey: $config['api_key'] ?? '',
+            url: $config['url'] ?? 'https://router.requesty.ai/v1',
             httpReferer: $site['http_referer'] ?? null,
             xTitle: $site['x_title'] ?? null,
         );
