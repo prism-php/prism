@@ -9,6 +9,7 @@ use Prism\Prism\Facades\Tool as ToolFacade;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\ToolError;
 
 it('can return tool details', function (): void {
     $searchTool = (new Tool)
@@ -221,4 +222,61 @@ it('can throw a prism custom exception for invalid return type', function (): vo
     $this->expectExceptionMessage('Invalid return type for tool : search. Tools must return string.');
 
     $searchTool->handle('What time is the event?');
+});
+
+enum ToolTestPriority: string
+{
+    case Low = 'low';
+    case High = 'high';
+}
+
+enum ToolTestLevel: int
+{
+    case One = 1;
+    case Two = 2;
+}
+
+it('coerces string arguments into declared scalar types', function (): void {
+    $tool = (new Tool)
+        ->as('transactions')
+        ->for('fetches transactions')
+        ->withNumberParameter('limit', 'max results')
+        ->withBooleanParameter('include_pending', 'include pending')
+        ->using(function (int $limit, bool $include_pending, float $ratio = 1.0): string {
+            expect($limit)->toBe(5)
+                ->and($include_pending)->toBeTrue()
+                ->and($ratio)->toBe(0.5);
+
+            return 'ok';
+        });
+
+    expect($tool->handle(limit: '5', include_pending: 'true', ratio: '0.5'))->toBe('ok');
+});
+
+it('converts string arguments to BackedEnum handler parameters', function (): void {
+    $tool = (new Tool)
+        ->as('prioritize')
+        ->for('sets priority')
+        ->withStringParameter('priority', 'the priority')
+        ->using(function (ToolTestPriority $priority, ToolTestLevel $level = ToolTestLevel::One): string {
+            expect($priority)->toBe(ToolTestPriority::High)
+                ->and($level)->toBe(ToolTestLevel::Two);
+
+            return 'ok';
+        });
+
+    expect($tool->handle(priority: 'high', level: '2'))->toBe('ok');
+});
+
+it('leaves unknown arguments to the existing validation handling', function (): void {
+    $tool = (new Tool)
+        ->as('search')
+        ->for('searches')
+        ->withStringParameter('query', 'the query')
+        ->using(fn (string $query): string => $query);
+
+    $result = $tool->handle(query: 'hello', made_up_argument: 'noise');
+
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)->toContain('Parameter validation error');
 });
