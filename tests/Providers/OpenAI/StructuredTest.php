@@ -144,6 +144,48 @@ it('uses meta to define strict mode', function (): void {
     });
 });
 
+it('uses structured mode for GPT-5.6 models', function (string $model): void {
+    FixtureResponse::fakeResponseSequence(
+        'v1/responses',
+        'openai/strict-schema-setting-set'
+    );
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    Prism::structured()
+        ->using(Provider::OpenAI, $model)
+        ->withSchema($schema)
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->withProviderOptions([
+            'schema' => ['strict' => true],
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request) use ($model): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'model'))->toBe($model)
+            ->and(data_get($body, 'text.format.type'))->toBe('json_schema')
+            ->and(data_get($body, 'text.format.strict'))->toBeTrue();
+
+        return true;
+    });
+})->with([
+    'GPT-5.6 alias' => 'gpt-5.6',
+    'GPT-5.6 Sol' => 'gpt-5.6-sol',
+    'GPT-5.6 Terra' => 'gpt-5.6-terra',
+    'GPT-5.6 Luna' => 'gpt-5.6-luna',
+]);
+
 it('throws an exception when there is a refusal', function (): void {
     $this->expectException(PrismException::class);
     $this->expectExceptionMessage('OpenAI Refusal: Could not process your request');
