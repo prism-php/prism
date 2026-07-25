@@ -145,3 +145,38 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     // Assert finish reason
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
+
+it('forwards deepseek provider options into the request body', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withProviderOptions([
+            'thinking' => ['type' => 'disabled'],
+            'reasoning_effort' => 'low',
+        ])
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data()['thinking'])->toBe(['type' => 'disabled']);
+        expect($request->data()['reasoning_effort'])->toBe('low');
+
+        return true;
+    });
+});
+
+it('omits deepseek provider options that were not set', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data())->not->toHaveKeys(['thinking', 'reasoning_effort', 'stop']);
+
+        return true;
+    });
+});
