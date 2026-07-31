@@ -9,6 +9,13 @@ use Prism\Prism\Facades\Tool as ToolFacade;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\ToolError;
+
+enum ToolTestStatus: string
+{
+    case Active = 'active';
+    case Inactive = 'inactive';
+}
 
 it('can return tool details', function (): void {
     $searchTool = (new Tool)
@@ -47,6 +54,32 @@ it('can use a closure', function (): void {
 
     expect($searchTool->handle('What time is the event?'))
         ->toBe('The event is at 3pm eastern');
+});
+
+it('converts backed enum arguments before invoking the tool', function (): void {
+    $tool = (new Tool)
+        ->as('set_status')
+        ->for('Set a status')
+        ->withEnumParameter('status', 'The status', ['active', 'inactive'])
+        ->using(function (ToolTestStatus $status): string {
+            return $status->name;
+        });
+
+    expect($tool->handle('active'))->toBe('Active')
+        ->and($tool->handle(status: 'inactive'))->toBe('Inactive');
+});
+
+it('returns a validation error when a backed enum value is invalid', function (): void {
+    $tool = (new Tool)
+        ->as('set_status')
+        ->for('Set a status')
+        ->withEnumParameter('status', 'The status', ['active', 'inactive'])
+        ->using(fn (ToolTestStatus $status): string => $status->name);
+
+    $result = $tool->handle('unknown');
+
+    expect($result)->toBeInstanceOf(ToolError::class)
+        ->and($result->message)->toContain('Parameter validation error');
 });
 
 it('can be used via facade', function (): void {

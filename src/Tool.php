@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism;
 
 use ArgumentCountError;
+use BackedEnum;
 use Closure;
 use Error;
 use Illuminate\Container\Container;
@@ -22,6 +23,8 @@ use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tools\LaravelMcpTool;
 use Prism\Prism\ValueObjects\ToolError;
 use Prism\Prism\ValueObjects\ToolOutput;
+use ReflectionFunction;
+use ReflectionNamedType;
 use Throwable;
 use TypeError;
 
@@ -262,6 +265,7 @@ class Tool
     public function handle(...$args): string|ToolOutput|ToolError
     {
         try {
+            $args = $this->normalizeBackedEnumArguments($args);
             $value = call_user_func($this->fn, ...$args);
 
             if (is_string($value)) {
@@ -279,6 +283,46 @@ class Tool
         } catch (Throwable $e) {
             return $this->handleToolException($e, $args);
         }
+    }
+
+    /**
+     * Convert scalar values returned by a model into backed enum instances
+     * expected by the tool callable.
+     *
+     * @param  array<int|string,mixed>  $args
+     * @return array<int|string,mixed>
+     */
+    protected function normalizeBackedEnumArguments(array $args): array
+    {
+        $reflection = new ReflectionFunction(Closure::fromCallable($this->fn));
+
+        foreach ($reflection->getParameters() as $index => $parameter) {
+            $type = $parameter->getType();
+
+            if (! $type instanceof ReflectionNamedType
+                || ! is_subclass_of($type->getName(), BackedEnum::class)
+                || $parameter->isVariadic()
+            ) {
+                continue;
+            }
+
+            $key = array_key_exists($parameter->getName(), $args)
+                ? $parameter->getName()
+                : $index;
+
+            if (! array_key_exists($key, $args)
+                || (! is_string($args[$key]) && ! is_int($args[$key]))) {
+                continue;
+            }
+
+            try {
+                $args[$key] = $type->getName()::from($args[$key]);
+            } catch (\ValueError $e) {
+                throw new TypeError($e->getMessage(), previous: $e);
+            }
+        }
+
+        return $args;
     }
 
     protected function shouldHandleErrors(): bool
