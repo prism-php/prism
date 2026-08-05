@@ -430,6 +430,41 @@ describe('provider tools', function (): void {
         });
     });
 
+    it('keeps tools a JSON array when provider tools and custom tools are both present', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-search-grounding');
+
+        $tools = [
+            (new Tool)
+                ->as('search_games')
+                ->for('useful for searching current games times in the city')
+                ->withStringParameter('city', 'The city that you want the game times for')
+                ->using(fn (string $city): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-3.1-pro-preview')
+            ->withMaxSteps(1)
+            ->withTools($tools)
+            ->withProviderTools([new ProviderTool('google_search')])
+            ->withPrompt('What sport fixtures are on today?')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $tools = $request->data()['tools'];
+
+            // Assigning $tools['function_declarations'] alongside the numerically
+            // keyed provider tools produced a mixed-key array, which json_encode
+            // emits as an OBJECT — Gemini and Vertex both reject that, since
+            // `tools` is specified as Tool[].
+            expect(array_is_list($tools))->toBeTrue();
+            expect($tools)->toHaveCount(2);
+            expect($tools[0])->toHaveKey('google_search');
+            expect($tools[1])->toHaveKey('function_declarations');
+
+            return true;
+        });
+    });
+
     it('adds file_search provider tool with options to the request', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-file-search');
 
