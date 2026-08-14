@@ -111,7 +111,7 @@ class Stream
 
             $thinkingContent = $this->extractThinking($data, $request);
 
-            if ($thinkingContent !== '' && $thinkingContent !== '0') {
+            if ($thinkingContent !== '') {
                 if ($this->state->shouldEmitThinkingStart()) {
                     $this->state
                         ->withReasoningId(EventID::generate())

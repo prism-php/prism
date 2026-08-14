@@ -137,7 +137,7 @@ class Stream
             }
 
             $reasoningDelta = $this->extractReasoningDelta($data);
-            if ($reasoningDelta !== '' && $reasoningDelta !== '0') {
+            if ($reasoningDelta !== '') {
                 if ($this->state->shouldEmitThinkingStart()) {
                     $this->state->withReasoningId(EventID::generate())->markThinkingStarted();
 
@@ -167,7 +167,7 @@ class Stream
             }
 
             $content = $this->extractContentDelta($data);
-            if ($content !== '' && $content !== '0') {
+            if ($content !== '') {
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 

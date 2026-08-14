@@ -461,6 +461,25 @@ it('does not truncate 0 mid stream', function (): void {
     });
 });
 
+it('does not drop thinking deltas equal to "0" mid stream', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'xai/stream-with-thinking-zero-responses');
+
+    $response = Prism::text()
+        ->using('xai', 'grok-4')
+        ->withPrompt('What is 410 - 410?')
+        ->asStream();
+
+    $thinkingContent = '';
+
+    foreach ($response as $event) {
+        if ($event instanceof ThinkingEvent) {
+            $thinkingContent .= $event->delta;
+        }
+    }
+
+    expect($thinkingContent)->toBe('result is 0 not found');
+});
+
 it('emits step start and step finish events', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'xai/stream-basic-text-responses');
 

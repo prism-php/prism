@@ -214,6 +214,44 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
         ->and($regularContent)->toContain('32');
 });
 
+it('does not drop content deltas equal to "0" mid stream', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-zero-delta');
+
+    $response = Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withPrompt('Who are you?')
+        ->asStream();
+
+    $text = '';
+
+    foreach ($response as $event) {
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+    }
+
+    expect($text)->toBe('410050');
+});
+
+it('does not drop reasoning deltas equal to "0" mid stream', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-zero-reasoning');
+
+    $response = Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-reasoner')
+        ->withPrompt('What is 410 - 410?')
+        ->asStream();
+
+    $thinkingContent = '';
+
+    foreach ($response as $event) {
+        if ($event instanceof ThinkingEvent) {
+            $thinkingContent .= $event->delta;
+        }
+    }
+
+    expect($thinkingContent)->toBe('result is 0 not found');
+});
+
 it('emits step start and step finish events', function (): void {
     FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-basic-text');
 
