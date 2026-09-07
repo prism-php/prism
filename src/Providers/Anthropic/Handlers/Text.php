@@ -87,6 +87,22 @@ class Text
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
             'cache_control' => $request->providerOptions('cache_control'),
+            // A RAW PASSTHROUGH, deliberately not a typed builder.
+            //
+            // The edits are DATED identifiers -- `clear_tool_uses_20250919`,
+            // `clear_thinking_20251015`, `compact_20260112` -- and the beta
+            // header is dated too (`context-management-2025-06-27`). A typed
+            // surface would freeze a shape that is going to move, then need
+            // deprecating; a passthrough carries all three edits and whatever
+            // replaces them, for one line.
+            //
+            // Reported as #35 with the gap measured rather than described: the
+            // beta HEADER was already reachable through
+            // providerOptions('anthropic_beta'), and this body is an allowlist,
+            // so the request silently never carried the field. A caller could
+            // switch the beta on and have nothing happen, with nothing anywhere
+            // reporting a problem.
+            'context_management' => $request->providerOptions('context_management'),
             'output_config' => $request->providerOptions('effort') !== null
                 ? ['effort' => $request->providerOptions('effort')]
                 : null,
@@ -199,6 +215,16 @@ class Text
             messages: new Collection,
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->extractCitations($data),
+                // What the server actually cleared. Without it a caller cannot
+                // tell "cleared 40 tool results" from "the beta header was
+                // ignored" -- both look identical from outside: a successful
+                // response and a smaller bill nobody can attribute.
+                //
+                // That is the half of #35 carrying the weight. Sending the
+                // request without surfacing the answer is a feature you cannot
+                // verify, which on a context-management edit means trusting the
+                // single highest-leverage thing in a token budget on faith.
+                'context_management' => data_get($data, 'context_management'),
                 ...$this->extractThinking($data),
                 ...$this->extractProviderToolContent($data),
             ])

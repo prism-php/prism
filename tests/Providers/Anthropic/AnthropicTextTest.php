@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -461,6 +462,100 @@ it('reads the rate limits a title-casing proxy handed back', function (): void {
     expect($response->meta->rateLimits[0]->limit)->toEqual(1000);
     expect($response->meta->rateLimits[0]->remaining)->toEqual(500);
     expect($response->meta->rateLimits[0]->resetsAt)->toEqual($requests_reset);
+});
+
+describe('Anthropic context management', function (): void {
+    it('sends context_management through to the API', function (): void {
+        // The beta HEADER was already reachable via providerOptions, but the
+        // request body is an allowlist -- so a caller could switch the beta on
+        // and the field silently never travelled. A knob that looks reachable
+        // and is not. Reported as #35 with the gap measured, and the shape below
+        // verified against the live API (HTTP 200) rather than read off docs.
+        //
+        // Deliberately a RAW PASSTHROUGH. The edits carry dated identifiers --
+        // clear_tool_uses_20250919, clear_thinking_20251015, compact_20260112 --
+        // so a typed builder would freeze a shape that is going to move. One
+        // line carries all three and whatever replaces them.
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+        $edits = [
+            'edits' => [[
+                'type' => 'clear_tool_uses_20250919',
+                'trigger' => ['type' => 'input_tokens', 'value' => 30000],
+            ]],
+        ];
+
+        Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withPrompt('Who are you?')
+            ->withProviderOptions(['context_management' => $edits])
+            ->asText();
+
+        Http::assertSent(function (Request $request) use ($edits): bool {
+            expect($request->data())->toHaveKey('context_management');
+            expect($request->data()['context_management'])->toBe($edits);
+
+            return true;
+        });
+    });
+
+    it('omits context_management when the caller asks for none', function (): void {
+        // The control. Without it the test above passes against a handler that
+        // sends the key unconditionally, which would put a null into every
+        // Anthropic request ever made.
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+        Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        Http::assertSent(function (Request $request): bool {
+            expect($request->data())->not->toHaveKey('context_management');
+
+            return true;
+        });
+    });
+
+    it('surfaces what the server actually cleared', function (): void {
+        // The half that carries the weight. Sending the request without
+        // surfacing the answer is a feature you cannot verify: "cleared 40 tool
+        // results" and "the beta header was ignored" look identical from
+        // outside -- a successful response and a smaller bill nobody can
+        // attribute.
+        //
+        // additionalContent is built from named extractors behind
+        // Arr::whereNotNull, so a top-level response key had nowhere to land.
+        // The block below is the real shape, confirmed against the live API.
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-context-management');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        expect($response->additionalContent)->toHaveKey('context_management');
+        expect($response->additionalContent['context_management']['applied_edits'][0]['type'])
+            ->toBe('clear_tool_uses_20250919');
+        expect($response->additionalContent['context_management']['applied_edits'][0]['cleared_tool_uses'])
+            ->toBe(12);
+    });
+
+    it('has no context_management key when the server applied none', function (): void {
+        // The control, and it is the one that matters here: an empty
+        // applied_edits is a REAL answer meaning "the edit ran and cleared
+        // nothing", while an absent block means the request never asked. If the
+        // key appeared unconditionally those two would be indistinguishable,
+        // which is the exact confusion this change exists to remove.
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+            ->withPrompt('Who are you?')
+            ->asText();
+
+        expect($response->additionalContent)->not->toHaveKey('context_management');
+    });
 });
 
 describe('Anthropic citations', function (): void {
