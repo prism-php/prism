@@ -440,6 +440,81 @@ foreach ($messageChunks as $messageChunk) {
 
 Note that when using streaming, Anthropic does not stream citations in the same way. Instead, of building the context as above, yield text to the browser in the usual way and pair text up with the relevant footnote using the `citationIndex` on the text chunk's additionalContent parameter.
 
+## Context management
+
+Anthropic can edit the transcript server-side as a conversation grows — clearing
+older tool results, clearing thinking blocks, or compacting. Pass the edits
+through `context_management`, along with the beta header:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-sonnet-5')
+    ->withMaxSteps(24)
+    ->withTools($tools)
+    ->withPrompt('Audit every page of the ledger.')
+    ->withProviderOptions([
+        'anthropic_beta' => 'context-management-2025-06-27',
+        'context_management' => [
+            'edits' => [[
+                'type' => 'clear_tool_uses_20250919',
+                'trigger' => ['type' => 'input_tokens', 'value' => 30000],
+                'keep' => ['type' => 'tool_uses', 'value' => 3],
+            ]],
+        ],
+    ])
+    ->asText();
+```
+
+`anthropic_beta` **merges** with any beta features set in your config, rather
+than replacing them, and accepts either a comma-separated string or an array. So
+adding context management will not switch off another beta you already rely on.
+
+### Reading what was actually cleared
+
+What Anthropic did comes back on `additionalContent`:
+
+```php
+$applied = $response->additionalContent['context_management'] ?? null;
+
+foreach ($applied['applied_edits'] ?? [] as $edit) {
+    $edit['type'];                  // clear_tool_uses_20250919
+    $edit['cleared_tool_uses'];     // 6
+    $edit['cleared_input_tokens'];  // 12678
+}
+```
+
+**The counts live inside each `applied_edits` entry, not on the block above
+them.** Reading them one level too high returns nothing and raises nothing — you
+get `applied_edits: 1, cleared_input_tokens: 0`, which reads as "the edit ran and
+cleared nothing" rather than as a mistake in your own code.
+
+Three states are worth distinguishing, and only two of them are visible if you
+check for truthiness alone:
+
+| `additionalContent['context_management']` | meaning |
+|---|---|
+| absent | the field never reached the API — usually a missing beta header |
+| present, `applied_edits` empty | the edit ran and had nothing to clear yet |
+| present, `applied_edits` populated | the transcript was edited |
+
+The first is a configuration failure that otherwise looks exactly like a quiet
+success: the request succeeds, the bill is unchanged, and nothing reports a
+problem.
+
+`cleared_input_tokens` accumulates over a conversation rather than reporting a
+per-turn delta.
+
+::: warning Verifying the figure yourself
+A before/after comparison of per-step input tokens will **under-report** what was
+cleared, because the turn that triggered the edit also grew the transcript by its
+own assistant message and a fresh tool result. Subtracting two consecutive step
+totals measures the clearing minus that growth. Add the growth back before
+concluding the reported number is wrong.
+:::
+
 ## Considerations
 ### Message Order
 
