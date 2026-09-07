@@ -477,6 +477,33 @@ it('merges per-request anthropic_beta features with the configured ones', functi
     });
 });
 
+it('merges a per-request anthropic_beta STRING with the configured ones', function (): void {
+    // The array form is covered above. This is the form callers actually
+    // write, and the one a downstream consumer reported building a workaround
+    // around: a single dated flag passed as a bare string, on a config that
+    // already carries another beta.
+    //
+    // If this ever regressed to ASSIGNMENT rather than a merge, the symptom
+    // would be a feature switching itself off silently -- the request still
+    // succeeds, the other beta is simply gone, and nothing reports it.
+    config()->set('prism.providers.anthropic.anthropic_beta', 'web-fetch-2025-09-10');
+
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withPrompt('Test')
+        ->withProviderOptions(['anthropic_beta' => 'context-management-2025-06-27'])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->header('anthropic-beta')[0])
+            ->toBe('web-fetch-2025-09-10,context-management-2025-06-27');
+
+        return true;
+    });
+});
+
 it('sends only configured beta features when the request adds none', function (): void {
     config()->set('prism.providers.anthropic.anthropic_beta', 'code-execution-2025-05-22');
 
