@@ -124,14 +124,14 @@ it('sends correct tools in payload', function (): void {
         $payload = $request->data();
 
         expect($payload)->toHaveKey('tools');
-        expect($payload['tools'])->toBe([
+        expect($payload['tools'])->toEqual([
             [
                 'name' => 'get_weather',
                 'description' => 'Get current weather',
                 'input_schema' => [
                     'type' => 'object',
-                    'properties' => [
-                        'location' => [
+                    'properties' => (object) [
+                        'location' => (object) [
                             'description' => 'The city name',
                             'type' => 'string',
                         ],
@@ -169,7 +169,100 @@ it('sends correct tool_choice in payload', function (): void {
     });
 });
 
-it('sends correct thinking mode in payload', function (): void {
+it('sends correct adaptive thinking mode in payload', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Solve this math problem: 2+2')])
+        ->withProviderOptions([
+            'thinking' => [
+                'type' => 'adaptive',
+            ],
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->toHaveKey('thinking');
+        expect($payload['thinking'])->toBe([
+            'type' => 'adaptive',
+        ]);
+
+        return true;
+    });
+});
+
+it('sends adaptive thinking with effort in payload', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Solve this math problem: 2+2')])
+        ->withProviderOptions([
+            'thinking' => [
+                'type' => 'adaptive',
+            ],
+            'effort' => 'high',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload['thinking'])->toBe([
+            'type' => 'adaptive',
+        ]);
+        expect($payload['output_config'])->toBe([
+            'effort' => 'high',
+        ]);
+
+        return true;
+    });
+});
+
+it('sends effort without thinking in payload', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Quick question')])
+        ->withProviderOptions([
+            'effort' => 'medium',
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('thinking');
+        expect($payload['output_config'])->toBe([
+            'effort' => 'medium',
+        ]);
+
+        return true;
+    });
+});
+
+it('does not include output_config when effort is not set', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('output_config');
+
+        return true;
+    });
+});
+
+it('sends correct legacy thinking mode in payload', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
 
     Prism::text()
@@ -196,7 +289,44 @@ it('sends correct thinking mode in payload', function (): void {
     });
 });
 
-it('sends correct thinking mode with default budget tokens', function (): void {
+it('omits thinking when withReasoning(false) is used even with thinking.enabled', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->withProviderOptions(['thinking' => ['enabled' => true]])
+        ->withReasoning(false)
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('thinking');
+
+        return true;
+    });
+});
+
+it('does not include thinking when withReasoning(false) on a non-thinking model', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withMessages([new UserMessage('Test')])
+        ->withReasoning(false)
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        expect($payload)->not->toHaveKey('thinking');
+
+        return true;
+    });
+});
+
+it('sends correct legacy thinking mode with default budget tokens', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
 
     Prism::text()
@@ -236,6 +366,7 @@ it('omits null values from payload', function (): void {
         expect($payload)->not->toHaveKey('temperature');
         expect($payload)->not->toHaveKey('top_p');
         expect($payload)->not->toHaveKey('mcp_servers');
+        expect($payload)->not->toHaveKey('output_config');
 
         return true;
     });
@@ -322,6 +453,69 @@ it('sends correct mcp_servers', function (): void {
                 'url' => 'https://mcp-server.co/mcp',
             ],
         ]);
+
+        return true;
+    });
+});
+
+it('merges per-request anthropic_beta features with the configured ones', function (): void {
+    config()->set('prism.providers.anthropic.anthropic_beta', 'code-execution-2025-05-22');
+
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withPrompt('Test')
+        ->withProviderOptions(['anthropic_beta' => ['skills-2025-10-02', 'code-execution-2025-05-22']])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->header('anthropic-beta')[0])
+            ->toBe('code-execution-2025-05-22,skills-2025-10-02');
+
+        return true;
+    });
+});
+
+it('merges a per-request anthropic_beta STRING with the configured ones', function (): void {
+    // The array form is covered above. This is the form callers actually
+    // write, and the one a downstream consumer reported building a workaround
+    // around: a single dated flag passed as a bare string, on a config that
+    // already carries another beta.
+    //
+    // If this ever regressed to ASSIGNMENT rather than a merge, the symptom
+    // would be a feature switching itself off silently -- the request still
+    // succeeds, the other beta is simply gone, and nothing reports it.
+    config()->set('prism.providers.anthropic.anthropic_beta', 'web-fetch-2025-09-10');
+
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withPrompt('Test')
+        ->withProviderOptions(['anthropic_beta' => 'context-management-2025-06-27'])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->header('anthropic-beta')[0])
+            ->toBe('web-fetch-2025-09-10,context-management-2025-06-27');
+
+        return true;
+    });
+});
+
+it('sends only configured beta features when the request adds none', function (): void {
+    config()->set('prism.providers.anthropic.anthropic_beta', 'code-execution-2025-05-22');
+
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-5-haiku-latest')
+        ->withPrompt('Test')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->header('anthropic-beta')[0])->toBe('code-execution-2025-05-22');
 
         return true;
     });

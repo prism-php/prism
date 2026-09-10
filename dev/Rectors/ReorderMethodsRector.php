@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Prism\Prism\Rectors;
+namespace Prism\Dev\Rectors;
 
 use PhpParser\Node;
 use PhpParser\Node\Stmt;

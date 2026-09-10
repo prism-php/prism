@@ -598,6 +598,46 @@ it('sends reasoning effort when defined', function (): void {
     ]);
 });
 
+it('maps withReasoning(false) to reasoning.effort=minimal', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-reasoning-effort');
+
+    Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withReasoning(false)
+        ->asText();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'minimal');
+});
+
+it('does not include reasoning key when withReasoning is not called', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-reasoning-effort');
+
+    Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data())->not->toHaveKey('reasoning');
+
+        return true;
+    });
+});
+
+it('honors explicit reasoning provider option over withReasoning(false)', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-reasoning-effort');
+
+    Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions(['reasoning' => ['effort' => 'high']])
+        ->withReasoning(false)
+        ->asText();
+
+    Http::assertSent(fn (Request $request): bool => $request->data()['reasoning']['effort'] === 'high');
+});
+
 describe('provider tool results', function (): void {
     it('captures web search provider tool in providerToolCalls', function (): void {
         FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-web-search-citations');
@@ -886,12 +926,14 @@ it('throws Length when top-level status is incomplete even if last output is com
     }
 });
 
-it('includes status details for unknown finish reasons', function (): void {
+it('handles unknown finish reasons gracefully', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-unknown-finish-reason');
 
-    expect(fn () => Prism::text()
+    $response = Prism::text()
         ->using('openai', 'gpt-4o')
         ->withPrompt('Hello')
-        ->asText()
-    )->toThrow(PrismException::class, 'some_future_type');
+        ->asText();
+
+    expect($response->text)->toBe('Some response');
+    expect($response->finishReason)->toBe(FinishReason::Unknown);
 });

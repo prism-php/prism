@@ -26,7 +26,7 @@ abstract class ProviderMediaMapper
 
             $calledClass = static::class;
 
-            throw new PrismException("The $providerName provider does not support the mediums available in the provided `$calledClass`. Pleae consult the Prism documentation for more information on which mediums the $providerName provider supports.");
+            throw new PrismException("The $providerName provider does not support the mediums available in the provided `$calledClass`. Please consult the Prism documentation for more information on which mediums the $providerName provider supports.");
         }
     }
 }

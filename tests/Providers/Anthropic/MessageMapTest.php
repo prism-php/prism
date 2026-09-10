@@ -226,7 +226,7 @@ describe('Anthropic assistant message mapping', function (): void {
                     ]
                 ),
             ]),
-        ]))->toBe([
+        ]))->toEqual([
             [
                 'role' => 'assistant',
                 'content' => [
@@ -238,7 +238,7 @@ describe('Anthropic assistant message mapping', function (): void {
                         'type' => 'tool_use',
                         'id' => 'tool_1234',
                         'name' => 'search',
-                        'input' => [
+                        'input' => (object) [
                             'query' => 'Laravel collection methods',
                         ],
                     ],
