@@ -255,7 +255,17 @@ class OpenAI extends Provider
                 rateLimits: $this->processRateLimits($e->response),
                 retryAfter: (int) $e->response->header('retry-after')
             ),
-            529 => throw PrismProviderOverloadedException::make(ProviderName::OpenAI),
+            // 503 alongside 529, because OpenAI now returns it. The provider
+            // added "503 Service Unavailable" to its inference endpoints on
+            // 2026-09-08, and this arm listed only 529 — so a 503 fell through
+            // to the generic handler and surfaced as a PrismException rather
+            // than the overloaded exception a caller's retry logic keys on.
+            //
+            // Every other provider that can return 503 already maps it:
+            // Mistral (503, 529), Gemini, OpenRouter, Qwen, Requesty, Vertex.
+            // OpenAI was the only one missing, which is exactly the shape of
+            // drift that is invisible until someone is retrying in production.
+            503, 529 => throw PrismProviderOverloadedException::make(ProviderName::OpenAI),
             413 => throw PrismRequestTooLargeException::make(ProviderName::OpenAI),
             default => $this->handleResponseErrors($e),
         };
