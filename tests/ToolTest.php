@@ -33,6 +33,29 @@ it('can return tool details', function (): void {
     expect($searchTool->requiredParameters())->toBe(['query']);
 });
 
+it('returns parameters as a json object', function (): void {
+    $withParameters = (new Tool)
+        ->as('search')
+        ->for('useful for searching current data')
+        ->withParameter(new StringSchema('query', 'the search query'))
+        ->using(fn (string $query): string => '');
+
+    $withoutParameters = (new Tool)
+        ->as('get_schema')
+        ->for('returns the current schema')
+        ->using(fn (): string => '');
+
+    expect($withParameters->parametersAsJsonObject())->toBe([
+        'query' => [
+            'description' => 'the search query',
+            'type' => 'string',
+        ],
+    ]);
+
+    expect($withoutParameters->parametersAsJsonObject())->toBeInstanceOf(\stdClass::class);
+    expect(json_encode($withoutParameters->parametersAsJsonObject()))->toBe('{}');
+});
+
 it('can use a closure', function (): void {
     $searchTool = (new Tool)
         ->as('search')

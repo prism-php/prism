@@ -58,3 +58,23 @@ it('maps tools with strict mode', function (): void {
         ],
     ]]);
 });
+
+it('maps tools with no parameters with empty properties as json object', function (): void {
+    $tool = (new Tool)
+        ->as('get_schema')
+        ->for('Returns the current schema')
+        ->using(fn (): string => '[Schema]');
+
+    expect(ToolMap::map([$tool]))->toEqual([[
+        'type' => 'function',
+        'function' => [
+            'name' => 'get_schema',
+            'description' => 'Returns the current schema',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => (object) [],
+                'required' => [],
+            ],
+        ],
+    ]]);
+});
