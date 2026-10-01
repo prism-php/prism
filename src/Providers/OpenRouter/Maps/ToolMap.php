@@ -20,19 +20,15 @@ class ToolMap
                 'name' => $tool->name(),
                 'description' => $tool->description(),
                 ...$tool->hasParameters() ? [
-                    'parameters' => (function () use ($tool): array {
-                        $properties = $tool->parametersAsArray();
-
-                        return [
-                            'type' => 'object',
-                            'properties' => $properties === [] ? new \stdClass : $properties,
-                            'required' => $tool->requiredParameters(),
-                        ];
-                    })(),
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => $tool->parametersAsJsonObject(),
+                        'required' => $tool->requiredParameters(),
+                    ],
                 ] : [],
                 'parameters' => [
                     'type' => 'object',
-                    'properties' => $tool->hasParameters() ? $tool->parametersAsArray() : (object) [],
+                    'properties' => $tool->parametersAsJsonObject(),
                     'required' => $tool->requiredParameters(),
                 ],
             ],

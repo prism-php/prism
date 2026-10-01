@@ -231,6 +231,19 @@ class Tool
         ]);
     }
 
+    /**
+     * Tool parameters shaped for a JSON Schema `properties` value.
+     *
+     * An empty array would encode as `[]`, which providers reject; an empty
+     * object encodes as `{}`.
+     *
+     * @return array<string, array<string,mixed>>|\stdClass
+     */
+    public function parametersAsJsonObject(): array|\stdClass
+    {
+        return $this->parametersAsArray() ?: new \stdClass;
+    }
+
     public function name(): string
     {
         return $this->name;
