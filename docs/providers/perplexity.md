@@ -1,4 +1,117 @@
 # Perplexity
+
+> [!IMPORTANT]
+> Prism uses Perplexity's Agent API (`POST /v1/agent`). Review the model mappings
+> and request behavior below when migrating from Sonar.
+
+## Migrating from Sonar
+
+**Your model strings keep working.** Perplexity replaced model slugs with presets, and Prism
+translates the retired slugs for you:
+
+| You pass | Prism sends |
+|---|---|
+| `sonar` | `preset: fast` |
+| `sonar-pro` | `preset: low` |
+| `sonar-reasoning` | `preset: low` (slug retired upstream) |
+| `sonar-reasoning-pro` | `preset: low` |
+| `sonar-deep-research` | `preset: medium` |
+
+A preset name given directly (`fast`, `low`, `medium`, `high`, `xhigh`, `wide-research`) is
+passed through, and anything else is treated as a real model id — `openai/gpt-5.6-sol` is sent
+as `model`, not guessed at as a preset.
+
+### Overriding a preset
+
+`sonar-deep-research` maps to `medium`. To select a different tier, set the preset explicitly:
+
+```php
+Prism::text()
+    ->using(Provider::Perplexity, 'sonar-deep-research')
+    ->withProviderOptions(['preset' => 'high'])
+```
+
+### `withSystemPrompt()` replaces the preset's own prompt
+
+`withSystemPrompt()` sets the Agent API's `instructions` field, replacing the
+preset's built-in system prompt rather than appending to it.
+
+Prism only sends `instructions` when you actually set a system prompt, so presets keep their
+own by default.
+
+### Failures arrive as HTTP 200
+
+An incomplete, failed or cancelled run can return HTTP 200. For text, structured
+and streaming requests, Prism throws `PrismRunException`, which extends
+`PrismException`; it does not return partial output as a successful response.
+
+For streams, catch the exception around iteration of `asStream()`. Text deltas
+already yielded are provisional; an unsuccessful terminal event throws before
+`TextCompleteEvent` or `StreamEndEvent` is emitted. Its run snapshot remains
+available through the same accessors below. An incomplete run does not imply a
+token limit: inspect `incompleteReason()` rather than assuming a larger token
+budget will resolve it.
+
+An unrecognized non-progress stream status ends with `FinishReason::Unknown`;
+it does not confirm successful completion. A `rate_limit_exceeded` error keeps
+its `PrismRateLimitedException` classification, including on a terminal run
+snapshot, so callers can retain their backoff handling.
+
+Use `code()` to distinguish `run_incomplete`, `run_failed` and `run_cancelled`
+without parsing the exception message. The exception provides:
+
+| Accessor | Result |
+|---|---|
+| `status()` | Provider run status, or `null` if unavailable |
+| `runId()` | Provider run ID, or `null` if absent |
+| `incompleteReason()` | `incomplete_details.reason`, or `null` if absent |
+| `incompleteDetails()` | Full provider incomplete-details array |
+| `output()` | Partial output items, including citation annotations and search-result sources |
+| `citations()` | Inline citation annotations in provider order, without deduplication; source items remain in `output()` |
+| `usage()` | Normalized `Usage`, or `null` if usage was not reported |
+| `usageDetails()` | Full provider usage ledger, including cost and tool-call breakdowns |
+
+`httpStatus` is `200`; PHP's numeric `getCode()` remains `200` for compatibility.
+Use `code()` for the run outcome. Usage records resources spent, not successful
+completion: your application decides whether to bill an unsuccessful run.
+
+Partial content is available only through explicit accessors, not appended to
+the message or copied into the public `responseBody` field. Treat returned
+diagnostics as sensitive data and apply your retention and access policies;
+do not log or serialize the complete exception indiscriminately.
+
+### What comes back
+
+```php
+$response->additionalContent['search_results'];   // structured sources, not prose
+$response->additionalContent['fetch_url_results'];
+$response->additionalContent['resolved_model'];   // which model the preset actually used
+```
+
+`resolved_model` identifies the model selected by the preset. Use it when
+interpreting usage and applying your application's provider policies.
+
+An **empty** `search_results` on a completed run is normal — a preset may answer without
+searching — so do not treat a missing source list as an error.
+
+### Cost is reported, not estimated
+
+`cost` contains the provider-reported request cost:
+
+```php
+$response->usage->cost;   // e.g. 0.005, or null if the response carried none
+```
+
+Only two Prism providers do this — Perplexity and OpenRouter. Everywhere else `cost` is null and
+you have to derive it. A `0.0` here is a genuine answer, not a missing one.
+
+The breakdown Perplexity sends alongside the total — input, output and request components — stays
+available on the raw response.
+
+> [!NOTE]
+> `tools: []` does not disable a preset's built-in tools. Perplexity exposes no public field
+> that does.
+
 ## Configuration
 
 ```php

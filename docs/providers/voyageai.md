@@ -16,7 +16,7 @@ You can change some options on your request specific to Voyage AI by using `->wi
 
 By default, Voyage AI generates general purpose vectors.
 
-However, they taylor your vectors for the task they are intended for - for search ("query") or for retrieval ("document"):
+Set the input type to `query` for search queries or `document` for content to be retrieved:
 
 For search / querying:
 

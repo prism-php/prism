@@ -9,7 +9,75 @@
 ]
 ```
 
+### OpenAI-compatible endpoints
+
+`url` is not fixed to OpenAI. Point it at anything that speaks the OpenAI API
+and the provider works unchanged — a self-hosted runtime such as vLLM, LM Studio
+or llama.cpp, an Azure OpenAI deployment, or a gateway or proxy your team runs in
+front of several model vendors to centralise keys, quotas, and audit logging.
+
+Set the base URL and the key that endpoint expects:
+
+```env
+OPENAI_URL=https://your-endpoint.example.com/v1
+OPENAI_API_KEY=your-endpoint-key
+```
+
+Then use whichever model name that endpoint publishes. Nothing else in your
+application changes:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenAI, 'the-model-name-your-endpoint-exposes')
+    ->withPrompt('Summarise the release risk for this change.')
+    ->asText();
+```
+
+Two things to expect when you do this:
+
+- **Feature parity varies.** "OpenAI-compatible" usually means chat completions.
+  Structured outputs, tool calling, streaming, embeddings, audio, and the
+  Responses API are each supported only if that endpoint implements them.
+  Prism sends the same request either way, so an unsupported feature surfaces as
+  an error from the endpoint rather than from Prism.
+- **Model names drive behaviour.** Prism infers some capabilities from the model
+  name — structured-output mode, for example, is resolved from the `gpt-` family
+  prefixes. An endpoint serving `llama-3.1-70b` under the OpenAI provider will
+  not be treated as structured-output capable.
+
+If the endpoint you are targeting already has a dedicated Prism provider —
+Groq, Mistral, DeepSeek, xAI, OpenRouter, Requesty, Qwen, Ollama, Azure — prefer
+that provider. Each one maps the quirks its API actually has, which the generic
+OpenAI provider will not do for you.
+
+## Chat Completions refusals
+
+With `api_format` set to `chat_completions`, text, structured and streaming
+requests throw `Prism\Prism\Exceptions\PrismRefusalException` when the model
+returns a non-empty refusal. It extends `PrismException`; `code()` returns
+`response_refused` and `refusal()` returns the provider's refusal text. Treat that
+text as potentially sensitive. It is excluded from the exception message and
+public `responseBody`.
+
+Streaming collects refusal fragments and throws at the finish event, before
+text completion, tool execution or successful stream completion. Previously
+yielded text remains provisional. If the stream closes without a finish event,
+an observed refusal still throws. Empty content without a refusal remains an
+empty answer; structured output still requires valid JSON. A non-empty refusal
+takes precedence even when the response also contains text.
+
 ## Provider-specific options
+### Embedding encoding
+
+Use `withProviderOptions(['encoding_format' => 'base64'])` on an embeddings
+request to request base64 output. Prism decodes each string as little-endian
+float32 and returns the usual numeric embedding vector; `raw` retains the
+provider payload. Numeric array responses remain supported.
+
+Malformed or noncanonical base64, empty encodings, incomplete float32 values
+and non-finite numbers throw `PrismException`. Invalid payloads are not included
+in the exception message.
+
 ### Strict Tool Schemas
 
 Prism supports OpenAI's [function calling with Structured Outputs](https://platform.openai.com/docs/guides/function-calling#function-calling-with-structured-outputs) via provider-specific meta.
@@ -57,7 +125,7 @@ $response = Prism::structured()
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $schema = new ObjectSchema(
     name: 'weather_analysis',
@@ -320,69 +388,31 @@ Prism::text()
 
 ## Image Generation
 
-OpenAI provides powerful image generation capabilities through multiple models. Prism supports all of OpenAI's image generation models with their full feature sets.
+Use the image generation API with a supported OpenAI model. Available options depend on the model.
 
 ### Supported Models
 
 | Model | Description |
 |-------|-------------|
-| `dall-e-3` | Latest DALL-E model |
-| `dall-e-2` | Previous generation |
-| `gpt-image-1` | GPT-based image model |
+| `gpt-image-1` | GPT image model. Use this for new work |
+| `dall-e-3` | Deprecated by OpenAI |
+| `dall-e-2` | Deprecated by OpenAI |
+
+> [!NOTE]
+> OpenAI has deprecated the DALL-E models and defaults image generation to its GPT
+> image models. Prism continues to support `dall-e-3` and `dall-e-2`; point new work
+> at `gpt-image-1`.
 
 ### Basic Usage
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-1')
     ->withPrompt('A serene mountain landscape at sunset')
     ->generate();
 
 $image = $response->firstImage();
-echo $image->url; // Generated image URL
-```
-
-### DALL-E 3 Options
-
-DALL-E 3 is the most advanced model with the highest quality output:
-
-```php
-$response = Prism::image()
-    ->using('openai', 'dall-e-3')
-    ->withPrompt('A futuristic cityscape with flying cars')
-    ->withProviderOptions([
-        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
-        'quality' => 'hd',              // standard, hd
-        'style' => 'vivid',             // vivid, natural
-    ])
-    ->generate();
-
-// DALL-E 3 automatically revises prompts for better results
-if ($response->firstImage()->hasRevisedPrompt()) {
-    echo "Revised prompt: " . $response->firstImage()->revisedPrompt;
-}
-```
-
-### DALL-E 2 Options
-
-DALL-E 2 supports generating multiple images and is more cost-effective:
-
-```php
-$response = Prism::image()
-    ->using('openai', 'dall-e-2')
-    ->withPrompt('Abstract geometric patterns')
-    ->withProviderOptions([
-        'n' => 4,                       // Number of images (1-10)
-        'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
-        'response_format' => 'url',     // url only
-        'user' => 'user-123',           // Optional user identifier
-    ])
-    ->generate();
-
-// Process multiple images
-foreach ($response->images as $image) {
-    echo "Image: {$image->url}\n";
-}
+file_put_contents('landscape.png', base64_decode($image->base64));
 ```
 
 ### GPT-Image-1 Options
@@ -465,17 +495,67 @@ $response = Prism::image()
     ->generate();
 ```
 
-### Response Format
+### DALL-E 3 Options
 
-Generated images are returned as URLs:
+DALL-E 3 is deprecated by OpenAI. Configure its output options:
 
 ```php
 $response = Prism::image()
     ->using('openai', 'dall-e-3')
+    ->withPrompt('A futuristic cityscape with flying cars')
+    ->withProviderOptions([
+        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
+        'quality' => 'hd',              // standard, hd
+        'style' => 'vivid',             // vivid, natural
+    ])
+    ->generate();
+
+// DALL-E 3 automatically revises prompts for better results
+if ($response->firstImage()->hasRevisedPrompt()) {
+    echo "Revised prompt: " . $response->firstImage()->revisedPrompt;
+}
+```
+
+### DALL-E 2 Options
+
+DALL-E 2 is deprecated by OpenAI. It supports generating multiple images per request:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'dall-e-2')
+    ->withPrompt('Abstract geometric patterns')
+    ->withProviderOptions([
+        'n' => 4,                       // Number of images (1-10)
+        'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
+        'response_format' => 'url',     // url only
+        'user' => 'user-123',           // Optional user identifier
+    ])
+    ->generate();
+
+// Process multiple images
+foreach ($response->images as $image) {
+    echo "Image: {$image->url}\n";
+}
+```
+
+### Response Format
+
+`gpt-image-1` returns base64-encoded image data. The DALL-E models return a URL by
+default, or base64 when `response_format` is set to `b64_json`. Check which one the
+response carries:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1')
     ->withPrompt('Digital artwork')
     ->generate();
 
 $image = $response->firstImage();
+
+if ($image->hasBase64()) {
+    file_put_contents('artwork.png', base64_decode($image->base64));
+}
+
 if ($image->hasUrl()) {
     echo "<img src='{$image->url}' alt='Generated image'>";
 }
@@ -483,7 +563,7 @@ if ($image->hasUrl()) {
 
 ## Audio Processing
 
-OpenAI provides comprehensive audio processing capabilities through their TTS (Text-to-Speech) and Whisper (Speech-to-Text) models. Prism supports all of OpenAI's audio models with their full feature sets.
+Use OpenAI's text-to-speech and speech-to-text APIs through Prism's audio builder.
 
 
 ### Text-to-Speech
@@ -550,7 +630,7 @@ Convert audio files into accurate text transcriptions using Whisper:
 ```php
 use Prism\Prism\ValueObjects\Media\Audio;
 
-$audioFile = Audio::fromPath('/path/to/recording.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/recording.mp3');
 
 $response = Prism::audio()
     ->using('openai', 'whisper-1')
@@ -661,7 +741,7 @@ Load audio from various sources:
 use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file path
-$audio = Audio::fromPath('/path/to/audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/audio.mp3');
 
 // From remote URL
 $audio = Audio::fromUrl('https://example.com/recording.wav');
@@ -671,7 +751,7 @@ $audio = Audio::fromBase64($base64AudioData, 'audio/mpeg');
 
 // From binary content
 $audioContent = file_get_contents('/path/to/audio.wav');
-$audio = Audio::fromContent($audioContent, 'audio/wav');
+$audio = Audio::fromRawContent($audioContent, 'audio/wav');
 ```
 
 #### File Size Considerations
@@ -680,7 +760,7 @@ Whisper has a file size limit of 25 MB. For larger files, consider:
 
 ```php
 // Check file size before processing
-$audio = Audio::fromPath('/path/to/large-audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/large-audio.mp3');
 
 if ($audio->size() > 25 * 1024 * 1024) { // 25 MB
     echo "File too large for processing";
@@ -696,7 +776,7 @@ For more information on the available options, please refer to the [OpenAI API d
 
 ## Moderation
 
-OpenAI provides powerful content moderation capabilities through their moderation API. Prism supports both text and image moderation with OpenAI.
+The OpenAI integration supports text and image moderation.
 
 ### Supported Models
 

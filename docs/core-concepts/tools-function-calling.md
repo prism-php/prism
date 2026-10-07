@@ -1,10 +1,10 @@
 # Tools & Function Calling
 
-Need your AI assistant to check the weather, search a database, or call your API? Tools are here to help! They let you extend your AI's capabilities by giving it access to specific functions it can call.
+Tools let a model request application-defined functions, such as database queries or API calls. Your application executes the function and returns its result to the model.
 
 ## Tool Concept Overview
 
-Think of tools as special functions that your AI assistant can use when it needs to perform specific tasks. Just like how Laravel's facades provide a clean interface to complex functionality, Prism tools give your AI a clean way to interact with external services and data sources.
+Define each tool's name, description, parameters and handler. Prism sends the definition to the provider and uses the handler to execute requested calls.
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -48,7 +48,7 @@ You should use a higher number of max steps if you expect your initial prompt to
 
 ## Creating Basic Tools
 
-Creating tools in Prism is straightforward and fluent. Here's how you can create a simple tool:
+Create a tool with the fluent builder:
 
 ```php
 use Prism\Prism\Facades\Tool;
@@ -62,7 +62,7 @@ $searchTool = Tool::as('search')
     });
 ```
 
-Tools can take a variety of parameters, but must always return a string.
+Return a string for a text result, or a `ToolOutput` to include application artifacts alongside the result.
 
 ## Error Handling
 
@@ -99,7 +99,7 @@ Prism offers multiple ways to define tool parameters, from simple primitives to 
 
 ### String Parameters
 
-Perfect for text inputs:
+For text inputs:
 
 ```php
 use Prism\Prism\Facades\Tool;
@@ -253,8 +253,7 @@ class SearchTool extends Tool
         $this
             ->as('search')
             ->for('useful when you need to search for current events')
-            ->withStringParameter('query', 'Detailed search query. Best to search one topic at a time.')
-            ->using($this);
+            ->withStringParameter('query', 'Detailed search query. Best to search one topic at a time.');
     }
 
     public function __invoke(string $query): string
@@ -295,6 +294,56 @@ use Prism\Prism\Facades\Tool;
 $tool = Tool::make(SearchTool::class);
 ```
 
+### Generating a Tool Class
+
+Generate a tool class with Artisan:
+
+```bash
+php artisan make:prism-tool SearchTool
+```
+
+This creates `app/Tools/SearchTool.php` with the model-facing name `search`.
+The generator removes the `Tool` suffix and converts the name to snake_case.
+
+Declare parameters to generate both their schemas and a matching `__invoke()` signature:
+
+```bash
+php artisan make:prism-tool SearchTool     --description="Search the web for current events"     --parameter="query:string:What to search for"     --parameter="scope:enum(web,news,images):Which index to search"     --parameter="limit:integer?:How many results to return"
+```
+
+```php
+$this
+    ->as('search')
+    ->for('Search the web for current events')
+    ->withStringParameter('query', 'What to search for')
+    ->withEnumParameter('scope', 'Which index to search', ['web', 'news', 'images'])
+    ->withNumberParameter('limit', 'How many results to return', required: false);
+```
+
+```php
+public function __invoke(string $query, string $scope, ?int $limit = null): string
+```
+
+Each `--parameter` is `name:type[:description]`. The types are `string`,
+`number`, `integer`, `boolean` and `enum(a,b,c)` — suffix any of them with `?`
+to make the parameter optional. Optional parameters are always emitted last
+regardless of the order you list them in, since PHP won't accept a required
+argument after an optional one.
+
+> [!TIP]
+> The generator does not accept array or object parameters. Add their schemas
+> to the generated class with `withParameter()`; see the [schemas guide](/core-concepts/schemas).
+
+Publish the stub to customize generated classes:
+
+```bash
+php artisan vendor:publish --tag=prism-stubs
+```
+
+> [!NOTE]
+> `make:prism-tool` generates a tool for Prism's `withTools()` API.
+> Laravel MCP's `make:mcp-tool` generates a tool exposed by an MCP server.
+
 ## Concurrent Tool Execution
 
 When the AI calls multiple tools in a single step, Prism normally executes them sequentially. For I/O-bound operations like API calls or database queries, you can enable concurrent execution to run tools in parallel, reducing total wait time.
@@ -325,7 +374,7 @@ $stockTool = Tool::as('stock_price')
     ->concurrent();
 ```
 
-When the AI calls both tools in a single step, they'll execute in parallel instead of sequentially - taking ~500ms total instead of ~1000ms.
+When both tools are requested in one step, they execute in parallel. Actual latency depends on the operations and concurrency driver.
 
 ### How It Works
 
@@ -454,18 +503,10 @@ foreach ($response->steps as $step) {
 
 ## Tool Artifacts
 
-Sometimes tools need to produce binary data like images, audio, or files alongside their text response. Prism's Artifact system lets you return rich data without bloating the LLM's context window.
+Use artifacts for images, audio, files or structured data that your application
+needs but that should not be included in the model's text context.
 
-### The Problem with Binary Data
-
-Normally, everything your tool returns goes to the LLM as context. This works fine for text, but for binary data like generated images:
-- Base64-encoded images would waste tokens
-- The LLM can't meaningfully process raw binary data
-- Large payloads slow down responses
-
-### The Solution: ToolOutput with Artifacts
-
-Instead of returning a string, return a `ToolOutput` that separates the text result (for the LLM) from artifacts (for your application):
+Return a `ToolOutput` that separates the text result (for the LLM) from artifacts (for your application):
 
 ```php
 use Prism\Prism\Facades\Tool;

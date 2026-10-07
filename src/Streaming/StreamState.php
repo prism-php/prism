@@ -43,6 +43,9 @@ class StreamState
 
     protected ?Usage $usage = null;
 
+    /** The running total when the previous step finished. See takeStepUsage(). */
+    protected ?Usage $usageAtLastStep = null;
+
     protected ?FinishReason $finishReason = null;
 
     protected string $model = '';
@@ -245,7 +248,10 @@ class StreamState
             completionTokens: $this->usage->completionTokens + $usage->completionTokens,
             cacheWriteInputTokens: ($this->usage->cacheWriteInputTokens ?? 0) + ($usage->cacheWriteInputTokens ?? 0),
             cacheReadInputTokens: ($this->usage->cacheReadInputTokens ?? 0) + ($usage->cacheReadInputTokens ?? 0),
-            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0)
+            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0),
+            cost: ($this->usage->cost !== null || $usage->cost !== null)
+                ? ($this->usage->cost ?? 0.0) + ($usage->cost ?? 0.0)
+                : null,
         );
 
         return $this;
@@ -355,6 +361,50 @@ class StreamState
         return $this->usage;
     }
 
+    /**
+     * What the step that just finished cost: the running total, minus what it
+     * was when the previous step finished.
+     *
+     * `usage()` is a RUNNING TOTAL across every step of the turn -- `reset()`
+     * between tool turns deliberately keeps it, and the StreamEndEvent needs
+     * it whole. A StepFinishEvent handed that total showed step 2 as costing
+     * steps 1 and 2 together, and a step span built from it double-counted
+     * every earlier step. Most handlers handed it nothing at all, so a
+     * streamed step span carried no token counts while a non-streamed one did,
+     * and the per-step cost of a streamed multi-step turn was invisible.
+     *
+     * Advances its own snapshot, so call it ONCE per step, at the step's
+     * finish. Null when the provider has reported no usage, which is not the
+     * same as zero.
+     */
+    public function takeStepUsage(): ?Usage
+    {
+        $total = $this->usage;
+
+        if (! $total instanceof Usage) {
+            return null;
+        }
+
+        $previous = $this->usageAtLastStep;
+        $this->usageAtLastStep = $total;
+
+        if (! $previous instanceof Usage) {
+            return $total;
+        }
+
+        return new Usage(
+            promptTokens: $total->promptTokens - $previous->promptTokens,
+            completionTokens: $total->completionTokens - $previous->completionTokens,
+            cacheWriteInputTokens: self::sinceLastStep($total->cacheWriteInputTokens, $previous->cacheWriteInputTokens),
+            cacheReadInputTokens: self::sinceLastStep($total->cacheReadInputTokens, $previous->cacheReadInputTokens),
+            thoughtTokens: self::sinceLastStep($total->thoughtTokens, $previous->thoughtTokens),
+            // addUsage() sums cost, so the step's share of it is recoverable the
+            // same way; dropping it would give a step span token counts and no
+            // price while the root carried both.
+            cost: $total->cost === null ? null : $total->cost - ($previous->cost ?? 0.0),
+        );
+    }
+
     public function finishReason(): ?FinishReason
     {
         return $this->finishReason;
@@ -419,5 +469,15 @@ class StreamState
         $this->currentBlockType = null;
 
         return $this;
+    }
+
+    /**
+     * A nullable counter's growth since the last step. Null stays null: a
+     * provider that never reported cache traffic has no cache delta, which is
+     * a different fact from a delta of zero.
+     */
+    protected static function sinceLastStep(?int $now, ?int $before): ?int
+    {
+        return $now === null ? null : $now - ($before ?? 0);
     }
 }

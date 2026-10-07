@@ -4,7 +4,7 @@ Prism supports including video files and YouTube videos in your messages for adv
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports video files.
+Check that both the provider integration and selected model support the input type.
 
 ::: tip
 For other input modalities like audio and images, see their respective documentation pages:
@@ -127,7 +127,7 @@ The specific supported formats depend on the provider. Gemini is currently the m
 
 ## YouTube Video Support
 
-Prism provides seamless support for YouTube videos. When you pass a YouTube URL to `Video::fromUrl()`, Prism automatically extracts the video ID and sends it to the provider in the appropriate format.
+Pass a YouTube URL to `Video::fromUrl()`. Prism extracts the video ID and formats it for the provider.
 
 Supported YouTube URL formats:
 
@@ -150,7 +150,7 @@ $response = Prism::text()
 
 Providers are not consistent in their support of sending raw contents, base64 and/or URLs.
 
-Prism tries to smooth over these rough edges, but its not always possible.
+Prism converts between supported representations where possible. The following conversions and limitations apply.
 
 ### Supported conversions
 - Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.

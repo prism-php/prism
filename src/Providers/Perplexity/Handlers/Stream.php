@@ -11,6 +11,7 @@ use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAdditionalContent;
+use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAgentResponse;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsFinishReason;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsMeta;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsUsage;
@@ -34,6 +35,7 @@ use Throwable;
 class Stream
 {
     use ExtractsAdditionalContent;
+    use ExtractsAgentResponse;
     use ExtractsFinishReason;
     use ExtractsMeta;
     use ExtractsUsage;
@@ -84,6 +86,24 @@ class Stream
                 );
             }
 
+            $terminal = $this->isStreamTerminal($data);
+            $run = $terminal ? $this->streamRunData($data) : [];
+
+            // Rate limiting is recoverable even when attached to a terminal
+            // run snapshot. Preserve the caller's existing backoff exception.
+            if ($this->isRateLimitError($data) || $this->isRateLimitError($run)) {
+                throw new PrismRateLimitedException([]);
+            }
+
+            if ($terminal && in_array($run['status'] ?? null, ['incomplete', 'failed', 'cancelled'], true)) {
+                // Earlier deltas are provisional. Throw with the full snapshot
+                // before emitting completion events or handling generic errors.
+                $this->assertRunSucceeded($run);
+            }
+
+            // Unknown non-progress statuses retain the historical Unknown
+            // ending; they are not evidence of one of the known run failures.
+
             // Handle error chunks per Perplexity streaming guide
             if ($this->hasError($data)) {
                 yield from $this->handleErrors($data, $request);
@@ -92,7 +112,7 @@ class Stream
                 continue;
             }
 
-            $content = data_get($data, 'choices.0.delta.content', '');
+            $content = $this->extractsStreamDelta($data);
 
             if ($content !== '') {
                 if ($this->state->shouldEmitTextStart()) {
@@ -115,9 +135,9 @@ class Stream
                 );
             }
 
-            // Check for finish reason
-            if ($this->hasFinishReason($data)) {
-                $finishReason = $this->extractsFinishReason($data);
+            // Check for the run ending
+            if ($terminal) {
+                $finishReason = $this->extractsFinishReason($run);
 
                 // Complete text if we have any
                 if ($text !== '' && $this->state->hasTextStarted()) {
@@ -129,7 +149,7 @@ class Stream
                 }
 
                 // Extract usage information from the final chunk
-                $usage = $this->extractUsage($data);
+                $usage = $this->extractUsage($run);
 
                 yield new StreamEndEvent(
                     id: EventID::generate(),
@@ -137,6 +157,8 @@ class Stream
                     finishReason: $finishReason,
                     usage: $usage
                 );
+
+                return;
             }
         }
     }
@@ -198,6 +220,14 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
+     */
+    protected function isRateLimitError(array $data): bool
+    {
+        return data_get($data, 'error.type') === 'rate_limit_exceeded';
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
      * @return Generator<StreamEvent>
      *
      * @throws PrismRateLimitedException
@@ -209,7 +239,7 @@ class Stream
         $message = (string) data_get($error, 'message', 'No error message provided');
 
         // If rate limit, throw so caller can handle retry semantics
-        if ($type === 'rate_limit_exceeded') {
+        if ($this->isRateLimitError($data)) {
             throw new PrismRateLimitedException([]);
         }
 

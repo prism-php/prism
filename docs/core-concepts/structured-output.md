@@ -1,6 +1,6 @@
 # Structured Output
 
-Want your AI responses as neat and tidy as a Marie Kondo-approved closet? Structured output lets you define exactly how you want your data formatted, making it perfect for building APIs, processing forms, or any time you need data in a specific shape.
+Structured output returns data in a schema-defined format. Use it for extraction, classification and other tasks that require machine-readable responses.
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ echo $review['summary'];  // "A mind-bending..."
 
 Different AI providers handle structured output in two main ways:
 
-1. **Structured Mode**: Some providers support strict schema validation, ensuring responses perfectly match your defined structure.
+1. **Structured Mode**: Some providers support strict schema validation, constraining output to the supported schema.
 2. **JSON Mode**: Other providers simply guarantee valid JSON output that approximately matches your schema.
 
 > [!NOTE]
@@ -71,6 +71,30 @@ $response = Prism::structured()
     ])
     // ... rest of your configuration
 ```
+
+### Qwen: JSON Schema Mode
+Qwen supports two modes for structured output through DashScope's `response_format` parameter:
+
+- **JSON Object mode** (default): Ensures valid JSON output. Supported by most Qwen models.
+- **JSON Schema mode**: Strictly enforces the schema structure. Supported by `qwen3-max`, `qwen-plus`, `qwen-flash` series and later models.
+
+To use JSON Schema mode for strict schema validation:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StructuredMode;
+
+$response = Prism::structured()
+    ->using(Provider::Qwen, 'qwen-plus')
+    ->usingStructuredMode(StructuredMode::Structured)
+    ->withSchema($schema)
+    ->withPrompt('Extract user information')
+    ->asStructured();
+```
+
+> [!NOTE]
+> JSON Schema mode is only supported by newer models. If you use a model that does not support it, use the default JSON Object mode (or `StructuredMode::Auto`) instead. Check the [Qwen structured output documentation](https://www.alibabacloud.com/help/en/model-studio/qwen-structured-output) for the full list of supported models.
 
 ### Anthropic
 Anthropic uses native structured outputs by default (Claude Sonnet 4.5+), providing guaranteed schema compliance through constrained decoding. For older models, you can use tool calling mode as a fallback:
@@ -172,7 +196,7 @@ Here's a simple example that uses a weather tool to gather data, then returns st
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $schema = new ObjectSchema(
     name: 'weather_analysis',

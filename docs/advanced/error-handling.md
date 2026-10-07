@@ -6,9 +6,7 @@ import ExceptionSupport from '../components/ExceptionSupport.vue'
 
 By default, Prism throws a `PrismException` for Prism errors, or a `PrismServerException` for Prism Server errors.
 
-For production use cases, you may find yourself needing to catch Exceptions more granularly, for instance to provide more useful error messages to users or to implement failover or retry logic.
-
-Prism has begun rolling out more specific exceptions as use cases arise.
+Catch specific exception types to implement retries, failover or application error messages.
 
 ## Provider agnostic exceptions
 
@@ -16,12 +14,16 @@ Prism has begun rolling out more specific exceptions as use cases arise.
 
 ## Exceptions based on provider feedback
 
-Prism currently supports three exceptions based on provider feedback:
+Provider feedback can raise the following exceptions:
 
 - `PrismRateLimitedException` where you have hit a rate limit or quota (see [Handling rate limits](/advanced/rate-limits.html) for more info).
 - `PrismProviderOverloadedException` where the provider is unable to fulfil your request due to capacity issues.
 - `PrismRequestTooLargeException` where your request is too large.
+- `PrismRunException` where a Perplexity run is incomplete, failed or cancelled. See [Perplexity run failures](/providers/perplexity#failures-arrive-as-http-200) for outcome codes and explicit access to potentially sensitive diagnostics.
+- `PrismRefusalException` where OpenAI Chat Completions returns a non-empty refusal. Its `code()` is `response_refused`; see [Chat Completions refusals](/providers/openai#chat-completions-refusals) for text, structured and streaming behavior.
 
-However, as providers all handle errors differently, support is being rolled out incrementally. If you'd like to make your first contribution, adding one or more of these exceptions for a provider would make a great first contribution. If you'd like to discuss, start an issue on Github, or just jump straight into a pull request.
+Exception mapping varies by provider. Keep a fallback handler for `PrismException` when a more specific exception is unavailable.
+
+The table below covers rate-limit, overload and request-size mappings.
 
 <ExceptionSupport />

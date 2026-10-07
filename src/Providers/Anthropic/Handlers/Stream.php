@@ -46,6 +46,16 @@ class Stream
 
     protected AnthropicStreamState $state;
 
+    /**
+     * What `message_start` reported for the message in flight.
+     *
+     * Kept so `message_delta` can turn its final output count into an
+     * INCREMENT on the running total rather than a replacement for it -- the
+     * difference between a multi-step turn reporting every step's output and
+     * reporting only the last one's.
+     */
+    protected ?Usage $messageStartUsage = null;
+
     public function __construct(protected PendingRequest $client)
     {
         $this->state = new AnthropicStreamState;
@@ -56,6 +66,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $this->state->reset();
         $response = $this->sendRequest($request);
 
@@ -96,7 +108,8 @@ class Stream
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->state->takeStepUsage(),
         );
 
         yield $this->emitStreamEndEvent();
@@ -131,13 +144,26 @@ class Stream
         $this->state->withMessageId($message['id'] ?? EventID::generate());
 
         $usageData = $message['usage'] ?? [];
+
+        // A baseline for THIS message, always -- a zero one when the start
+        // carries no usage block. Left alone, the previous message's baseline
+        // survived into this one and message_delta subtracted ANOTHER step's
+        // output from the running total: on a three-step turn whose second
+        // start had no usage, the total fell from 96 to 71 and that step's own
+        // usage came out at minus 25. Found by the pre-publish audit of the fix
+        // that introduced the baseline.
+        $this->messageStartUsage = new Usage(0, 0);
+
         if (! empty($usageData)) {
-            $this->state->addUsage(new Usage(
+            $this->messageStartUsage = new Usage(
                 promptTokens: $usageData['input_tokens'] ?? 0,
                 completionTokens: $usageData['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
-                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null
-            ));
+                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
+                thoughtTokens: $usageData['output_tokens_details']['thinking_tokens'] ?? null
+            );
+
+            $this->state->addUsage($this->messageStartUsage);
         }
 
         // Only emit StreamStartEvent once per streaming session
@@ -234,17 +260,55 @@ class Stream
      */
     protected function handleMessageDelta(array $event): null
     {
-        // Update usage with final data from message_delta
+        // `message_delta` carries THIS MESSAGE's final output count, and the
+        // state holds a RUNNING TOTAL across every step of the turn -- so the
+        // count is an increment on what message_start already added, not a
+        // replacement for the total.
+        //
+        // It used to REPLACE: `completionTokens: $usageData['output_tokens']`.
+        // The prompt side accumulates at message_start, so a three-step turn
+        // came out 1225 in / 36 out when 203 tokens had been generated -- input
+        // right, output only the last step's. Every multi-step streamed turn
+        // under-reported what it generated, and so did everything reading the
+        // StreamEndEvent's usage, which includes consumers' own billing ledgers
+        // as well as telemetry.
         $usageData = $event['usage'] ?? [];
-        // Update completion tokens if provided
-        if (! empty($usageData) && $this->state->usage() instanceof Usage && isset($usageData['output_tokens'])) {
-            $currentUsage = $this->state->usage();
+
+        if (
+            ! empty($usageData)
+            && isset($usageData['output_tokens'])
+            && $this->messageStartUsage instanceof Usage
+        ) {
+            // A turn whose FIRST start carried no usage has no total yet; the
+            // delta still has output to record, so it starts from zero rather
+            // than being dropped.
+            $total = $this->state->usage() ?? new Usage(0, 0);
+            $started = $this->messageStartUsage;
+            $finalOutput = (int) $usageData['output_tokens'];
+            $finalThought = isset($usageData['output_tokens_details']['thinking_tokens'])
+                ? (int) $usageData['output_tokens_details']['thinking_tokens']
+                : null;
+
             $this->state->withUsage(new Usage(
-                promptTokens: $currentUsage->promptTokens,
-                completionTokens: $usageData['output_tokens'],
-                cacheWriteInputTokens: $currentUsage->cacheWriteInputTokens,
-                cacheReadInputTokens: $currentUsage->cacheReadInputTokens
+                promptTokens: $total->promptTokens,
+                completionTokens: $total->completionTokens - $started->completionTokens + $finalOutput,
+                cacheWriteInputTokens: $total->cacheWriteInputTokens,
+                cacheReadInputTokens: $total->cacheReadInputTokens,
+                thoughtTokens: $finalThought === null
+                    ? $total->thoughtTokens
+                    : ($total->thoughtTokens ?? 0) - ($started->thoughtTokens ?? 0) + $finalThought,
             ));
+
+            // Revised in place, so a second message_delta for the same message
+            // -- which the API is free to send -- increments from the right base
+            // instead of counting this one twice.
+            $this->messageStartUsage = new Usage(
+                promptTokens: $started->promptTokens,
+                completionTokens: $finalOutput,
+                cacheWriteInputTokens: $started->cacheWriteInputTokens,
+                cacheReadInputTokens: $started->cacheReadInputTokens,
+                thoughtTokens: $finalThought ?? $started->thoughtTokens,
+            );
         }
 
         return null;
@@ -499,7 +563,17 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $toolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $toolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         // Add messages to request for next turn
         if ($toolResults !== []) {
@@ -507,16 +581,20 @@ class Stream
             $this->state->markStepFinished();
             yield new StepFinishEvent(
                 id: EventID::generate(),
-                timestamp: time()
+                timestamp: time(),
+                usage: $this->state->takeStepUsage(),
             );
 
             $request->addMessage(new AssistantMessage(
                 content: $this->state->currentText(),
                 toolCalls: $toolCalls,
-                additionalContent: in_array($this->state->currentThinking(), ['', '0'], true) ? [] : [
-                    'thinking' => $this->state->currentThinking(),
-                    'thinking_signature' => $this->state->currentThinkingSignature(),
-                ]
+                additionalContent: Arr::whereNotNull([
+                    'thinking' => $this->state->currentThinking() ?: null,
+                    'thinking_signature' => $this->state->currentThinkingSignature() ?: null,
+                    'citations' => $this->state->citations() ?: null,
+                    'provider_tool_calls' => array_values($this->state->providerToolCalls()) ?: null,
+                    'provider_tool_results' => array_values($this->state->providerToolResults()) ?: null,
+                ]),
             ));
 
             $request->addMessage(new ToolResultMessage($toolResults));

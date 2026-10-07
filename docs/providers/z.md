@@ -3,7 +3,7 @@
 
 ```php
 'z' => [
-    'url' => env('Z_URL', 'https://api.z.ai/api/coding/paas/v4'),
+    'url' => env('Z_URL', 'https://api.z.ai/api/paas/v4'),
     'api_key' => env('Z_API_KEY', ''),
 ]
 ```
@@ -119,7 +119,7 @@ Z AI supports function calling, allowing the model to execute your custom tools 
 
 ```php
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get current weather for a location')
@@ -178,7 +178,7 @@ $response = Prism::text()
     ->using('z', 'glm-4.6')
     ->withPrompt('Get the weather')
     ->withTools([$searchTool, $weatherTool])
-    ->withToolChoice(ToolChoice::from('get_weather'))
+    ->withToolChoice('get_weather')
     ->asText();
 
 // Let the model decide (default)

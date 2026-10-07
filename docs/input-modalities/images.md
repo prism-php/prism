@@ -4,7 +4,7 @@ Prism supports including images in your messages for vision analysis for most pr
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports images.
+Check that both the provider integration and selected model support the input type.
 
 ## Getting started
 
@@ -105,7 +105,7 @@ Without custom filenames, images are automatically named using a default pattern
 
 Providers are not consistent in their support of sending raw contents, base64 and/or URLs (as noted above).
 
-Prism tries to smooth over these rough edges, but its not always possible.
+Prism converts between supported representations where possible. The following conversions and limitations apply.
 
 ### Supported conversions
 - Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.

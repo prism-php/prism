@@ -1,6 +1,6 @@
 # Custom Providers
 
-Want to add support for a new AI provider in Prism? This guide will walk you through creating and registering your own custom provider implementation.
+Implement and register a custom provider to connect Prism to an additional API.
 
 ## Building Your Provider
 
@@ -40,7 +40,7 @@ class MyCustomProvider extends Provider
 
 ## Registration Process
 
-Once you've created your provider, you'll need to register it with Prism. Let's add it to a service provider:
+Register the implementation in a Laravel service provider:
 
 ```php
 namespace App\Providers;
@@ -74,7 +74,7 @@ return [
 ];
 ```
 
-That's it! You're ready to use your custom provider:
+Use the registered provider:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -123,4 +123,4 @@ The method must throw an exception (return type `never`). If you don't handle a 
 - **Document your models**: Let users know which models your provider supports and any special parameters they can use.
 
 > [!TIP]
-> Looking at existing provider implementations in Prism's source code can give you great insights into best practices and patterns to follow.
+> Use the existing provider implementations as references for request mapping, response handling and tests.

@@ -180,6 +180,28 @@ describe('Anthropic user message mapping', function (): void {
             ->toBe('text/plain');
     });
 
+    it('sends every text document as text/plain, which is the only text media type Anthropic accepts', function (string $mimeType): void {
+        // prism#49. A storage disk infers text/markdown, text/csv and so on from
+        // the extension, and Anthropic refused the whole request: "source.text.
+        // media_type: Input should be 'text/plain'". The content is sent as given.
+        $mappedMessage = MessageMap::map([
+            new UserMessage('Summarise the attached file.', [
+                Document::fromRawContent("# Brief\n\n- one\n- two\n", $mimeType, 'brief'),
+            ]),
+        ]);
+
+        expect(data_get($mappedMessage, '0.content.1.source'))->toBe([
+            'type' => 'text',
+            'media_type' => 'text/plain',
+            'data' => "# Brief\n\n- one\n- two\n",
+        ]);
+    })->with([
+        'markdown' => ['text/markdown'],
+        'csv' => ['text/csv'],
+        'html' => ['text/html'],
+        'plain with a charset' => ['text/plain; charset=utf-8'],
+    ]);
+
     it('maps user messages with txt documents from text string', function (): void {
         $mappedMessage = MessageMap::map([
             new UserMessage('Here is the document', [
@@ -226,7 +248,7 @@ describe('Anthropic assistant message mapping', function (): void {
                     ]
                 ),
             ]),
-        ]))->toBe([
+        ]))->toEqual([
             [
                 'role' => 'assistant',
                 'content' => [
@@ -238,7 +260,7 @@ describe('Anthropic assistant message mapping', function (): void {
                         'type' => 'tool_use',
                         'id' => 'tool_1234',
                         'name' => 'search',
-                        'input' => [
+                        'input' => (object) [
                             'query' => 'Laravel collection methods',
                         ],
                     ],
@@ -395,6 +417,89 @@ it('maps system messages', function (): void {
 });
 
 describe('Anthropic cache mapping', function (): void {
+    it('places an assistant message breakpoint only on its final content block', function (AssistantMessage $message, array $types, bool $marked): void {
+        if ($marked) {
+            $message = $message->copyWithProviderOptions(['cacheType' => AnthropicCacheType::Ephemeral, 'cacheTtl' => '1h']);
+        }
+
+        $content = MessageMap::map([$message])[0]['content'];
+        expect(array_column($content, 'type'))->toBe($types);
+        $count = 0;
+        array_walk_recursive($content, function (mixed $value, string|int $key) use (&$count): void {
+            if ($key === 'type' && $value === 'ephemeral') {
+                $count++;
+            }
+        });
+        expect($count)->toBe($marked ? 1 : 0);
+        expect(array_keys(array_filter($content, fn (array $block): bool => array_key_exists('cache_control', $block))))
+            ->toBe($marked ? [array_key_last($content)] : []);
+
+        if ($marked) {
+            expect($content[array_key_last($content)]['cache_control'])->toBe(['type' => 'ephemeral', 'ttl' => '1h']);
+        }
+    })->with([
+        'citations' => [new AssistantMessage('', additionalContent: [
+            'citations' => [new MessagePartWithCitations('First'), new MessagePartWithCitations('Last')],
+        ]), ['text', 'text']],
+        'thinking and text' => [new AssistantMessage('Reply', additionalContent: [
+            'thinking' => 'Thinking', 'thinking_signature' => 'signature',
+        ]), ['thinking', 'text']],
+        'text and tools' => [new AssistantMessage('Reply', [new ToolCall('call_1', 'first', []), new ToolCall('call_2', 'last', [])]), ['text', 'tool_use', 'tool_use']],
+        'tools only' => [new AssistantMessage('', [new ToolCall('call_1', 'first', [])]), ['tool_use']],
+        'thinking and text ending in a tool call' => [new AssistantMessage('Reply', [new ToolCall('call_1', 'search', [])], additionalContent: [
+            'thinking' => 'Thinking', 'thinking_signature' => 'signature',
+        ]), ['thinking', 'text', 'tool_use']],
+        'provider tools and results' => [new AssistantMessage('Reply', additionalContent: [
+            'provider_tool_calls' => [['id' => 'call_1', 'name' => 'web_search', 'input' => '{}']],
+            'provider_tool_results' => [['type' => 'web_search_tool_result', 'tool_use_id' => 'call_1', 'content' => []]],
+        ]), ['text', 'server_tool_use', 'web_search_tool_result']],
+    ])->with([true, false]);
+
+    it('does not add a cache block to an empty or thinking-only assistant message', function (array $additionalContent, array $types): void {
+        $message = (new AssistantMessage('', additionalContent: $additionalContent))
+            ->withProviderOptions(['cacheType' => 'ephemeral']);
+        $content = MessageMap::map([$message])[0]['content'];
+
+        expect(array_column($content, 'type'))->toBe($types);
+        expect(array_filter($content, fn (array $block): bool => array_key_exists('cache_control', $block)))->toBe([]);
+    })->with([
+        'empty' => [[], []],
+        'thinking only' => [['thinking' => 'Thinking', 'thinking_signature' => 'signature'], ['thinking']],
+    ]);
+
+    it('places a user message breakpoint only on its final content block', function (bool $marked, bool $attachments): void {
+        $message = new UserMessage('Review these attachments.', $attachments ? [
+            Document::fromText('First document'),
+            Image::fromUrl('https://example.test/first.png'),
+            Document::fromText('Last document'),
+            Image::fromUrl('https://example.test/last.png'),
+        ] : []);
+
+        if ($marked) {
+            $message->withProviderOptions(['cacheType' => 'ephemeral']);
+        }
+
+        $content = MessageMap::map([$message])[0]['content'];
+        $count = 0;
+        array_walk_recursive($content, function (mixed $value, string|int $key) use (&$count): void {
+            if ($key === 'type' && $value === 'ephemeral') {
+                $count++;
+            }
+        });
+
+        expect(array_column($content, 'type'))->toBe($attachments
+            ? ['text', 'image', 'image', 'document', 'document']
+            : ['text']);
+        expect($count)->toBe($marked ? 1 : 0);
+        expect(array_keys(array_filter($content, fn (array $block): bool => array_key_exists('cache_control', $block))))
+            ->toBe($marked ? [array_key_last($content)] : []);
+    })->with([
+        'marked with attachments' => [true, true],
+        'marked text only' => [true, false],
+        'unmarked with attachments' => [false, true],
+        'unmarked text only' => [false, false],
+    ]);
+
     it('sets the cache type on a UserMessage if cacheType providerOptions is set on message', function (mixed $cacheType): void {
         expect(MessageMap::map([
             (new UserMessage(content: 'Who are you?'))->withProviderOptions(['cacheType' => $cacheType]),
@@ -425,16 +530,15 @@ describe('Anthropic cache mapping', function (): void {
                 [
                     'type' => 'text',
                     'text' => 'Who are you?',
-                    'cache_control' => ['type' => 'ephemeral'],
                 ],
                 [
                     'type' => 'image',
-                    'cache_control' => ['type' => 'ephemeral'],
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'image/png',
                         'data' => base64_encode(file_get_contents('tests/Fixtures/diamond.png')),
                     ],
+                    'cache_control' => ['type' => 'ephemeral'],
                 ],
             ],
         ]]);
@@ -452,16 +556,15 @@ describe('Anthropic cache mapping', function (): void {
                 [
                     'type' => 'text',
                     'text' => 'Who are you?',
-                    'cache_control' => ['type' => 'ephemeral'],
                 ],
                 [
                     'type' => 'document',
-                    'cache_control' => ['type' => 'ephemeral'],
                     'source' => [
                         'type' => 'base64',
                         'media_type' => 'application/pdf',
                         'data' => base64_encode(file_get_contents('tests/Fixtures/test-pdf.pdf')),
                     ],
+                    'cache_control' => ['type' => 'ephemeral'],
                 ],
             ],
         ]]);

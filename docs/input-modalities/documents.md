@@ -4,7 +4,7 @@ Prism supports including documents in your messages with some providers.
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports documents.
+Check that both the provider integration and selected model support the input type.
 
 ## Supported file types
 
@@ -22,7 +22,7 @@ The most supported file types are pdf and text/plain (which may include markdown
 
 Providers are not consistent in their support of sending file raw contents, base64 and/or URLs.
 
-Prism tries to smooth over these rough edges, but its not always possible.
+Prism converts between supported representations where possible. The following conversions and limitations apply.
 
 ### Supported conversions
 
@@ -74,7 +74,7 @@ $response = Prism::text()
     ->withPrompt(
         'Extract key points from this document',
         [Document::fromBase64(
-            base64: $baseFromDB,
+            document: $baseFromDB,
             mimeType: 'optional/mimetype', // optional
             title: 'My document title' // optional
         )]

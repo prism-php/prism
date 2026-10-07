@@ -22,7 +22,7 @@ readonly class OCRResponse
     public static function fromResponse(string $model, array $response): self
     {
         $pages = [];
-        foreach (data_get($response, 'pages', []) as $page) {
+        foreach (data_get($response, 'pages') ?? [] as $page) {
             $pages[] = OCRPageResponse::fromResponse($page);
         }
 

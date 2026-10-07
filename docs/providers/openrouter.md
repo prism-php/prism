@@ -41,7 +41,7 @@ use Prism\Prism\Enums\Provider;
 $response = Prism::text()
     ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
     ->withPrompt('Tell me a story about AI.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -66,7 +66,7 @@ $response = Prism::structured()
     ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
     ->withPrompt('Generate a person profile for John Doe.')
     ->withSchema($schema)
-    ->generate();
+    ->asStructured();
 
 echo $response->text;
 ```
@@ -76,7 +76,7 @@ echo $response->text;
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get the current weather for a location')
@@ -89,7 +89,7 @@ $response = Prism::text()
     ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
     ->withPrompt('What is the weather like in New York?')
     ->withTools([$weatherTool])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -108,7 +108,7 @@ $response = Prism::text()
     ->withPrompt('Describe the key trends in this diagram.', [
         Image::fromLocalPath('storage/charts/retention.png'),
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -130,7 +130,7 @@ $response = Prism::text()
     ->withPrompt('Summarize this document.', [
         Document::fromUrl('https://example.com/report.pdf', 'report.pdf'),
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -152,7 +152,7 @@ $response = Prism::text()
     ->withPrompt('Describe what happens in this video.', [
         Video::fromLocalPath('/path/to/video.mp4'),
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -165,7 +165,7 @@ $response = Prism::text()
     ->withPrompt('Summarize this video.', [
         Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
     ])
-    ->generate();
+    ->asText();
 ```
 
 > [!NOTE]
@@ -201,7 +201,7 @@ foreach ($stream as $event) {
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get the current weather for a location')
@@ -228,32 +228,11 @@ foreach ($stream as $event) {
 
 ### Reasoning/Thinking Tokens
 
-Some models (like OpenAI's o1 series) support reasoning tokens that show the model's thought process:
-
-```php
-use Prism\Prism\Facades\Prism;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Enums\StreamEventType;
-
-$stream = Prism::text()
-    ->using(Provider::OpenRouter, 'openai/o1-preview')
-    ->withPrompt('Solve this complex math problem: What is the derivative of x^3 + 2x^2 - 5x + 1?')
-    ->asStream();
-
-foreach ($stream as $event) {
-    if ($event->type() === StreamEventType::ThinkingDelta) {
-        // This is the model's reasoning/thinking process
-        echo "Thinking: " . $event->delta . "\n";
-    } elseif ($event->type() === StreamEventType::TextDelta) {
-        // This is the final answer
-        echo $event->delta;
-    }
-}
-```
+OpenRouter provides a unified `reasoning` API that normalizes reasoning tokens across providers (Anthropic, OpenAI, Gemini, DeepSeek, etc.). Models that support reasoning will return their thought process alongside the response.
 
 #### Reasoning Effort
 
-Control how much reasoning the model performs before generating a response using the `reasoning` parameter. The way this is structured depends on the underlying model you are calling:
+Control how much reasoning the model performs using the `reasoning` provider option. OpenRouter normalizes the configuration across different underlying providers:
 
 ```php
 $response = Prism::text()
@@ -261,9 +240,9 @@ $response = Prism::text()
     ->withPrompt('Write a PHP function to implement a binary search algorithm with proper error handling')
     ->withProviderOptions([
         'reasoning' => [
-            'effort' => 'high',  // Can be "high", "medium", or "low" (OpenAI-style)
-            'max_tokens' =>  2000, // Specific token limit (Gemini / Anthropic-style)
-            
+            'effort' => 'high',  // "xhigh", "high", "medium", "low", "minimal", or "none" (OpenAI-style)
+            'max_tokens' => 2000, // Specific token limit (Anthropic / Gemini-style)
+
             // Optional: Default is false. All models support this.
             'exclude' => false, // Set to true to exclude reasoning tokens from response
             // Or enable reasoning with the default parameters:
@@ -271,6 +250,59 @@ $response = Prism::text()
         ]
     ])
     ->asText();
+```
+
+> [!NOTE]
+> The `effort` and `max_tokens` options are mutually exclusive. Use `effort` for OpenAI-style models and `max_tokens` for Anthropic/Gemini-style models. OpenRouter will translate between the two formats as needed.
+
+#### Inspecting Reasoning Content
+
+Reasoning content is available via the `additionalContent` property on the response or individual steps:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4.5')
+    ->withPrompt('What is the derivative of x^3 + 2x^2 - 5x + 1?')
+    ->withProviderOptions([
+        'reasoning' => ['max_tokens' => 4000]
+    ])
+    ->asText();
+
+// Plaintext reasoning (when available)
+$response->additionalContent['reasoning'];
+
+// Structured reasoning details (includes type, format, and provider-specific metadata)
+$response->additionalContent['reasoning_details'];
+
+// Reasoning token usage
+$response->usage->thoughtTokens;
+```
+
+> [!NOTE]
+> Some models (like OpenAI's o-series and GPT-5) return encrypted reasoning via `reasoning_details` rather than plaintext `reasoning`. Prism preserves these opaque blocks so they can be passed back for multi-turn reasoning continuity.
+
+#### Streaming with Reasoning
+
+When streaming, reasoning tokens arrive as `ThinkingDelta` events before the text content:
+
+```php
+use Prism\Prism\Enums\StreamEventType;
+
+$stream = Prism::text()
+    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4.5')
+    ->withPrompt('Solve this complex math problem step by step.')
+    ->withProviderOptions([
+        'reasoning' => ['max_tokens' => 4000]
+    ])
+    ->asStream();
+
+foreach ($stream as $event) {
+    if ($event->type() === StreamEventType::ThinkingDelta) {
+        echo "Thinking: " . $event->delta . "\n";
+    } elseif ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
+}
 ```
 
 ### Provider Routing & Advanced Options
@@ -293,7 +325,7 @@ $response = Prism::text()
         'top_k' => 40,
         // Reference: https://openrouter.ai/docs/api-reference/parameters for the full parameter list.
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```

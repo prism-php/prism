@@ -53,6 +53,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -203,7 +205,8 @@ class Stream
                 $this->state->markStepFinished();
                 yield new StepFinishEvent(
                     id: EventID::generate(),
-                    timestamp: time()
+                    timestamp: time(),
+                    usage: $this->state->takeStepUsage(),
                 );
 
                 // Emit stream end event with usage
@@ -252,7 +255,7 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'message.tool_calls', []) as $index => $toolCall) {
+        foreach (data_get($data, 'message.tool_calls') ?? [] as $index => $toolCall) {
             if ($name = data_get($toolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
@@ -291,13 +294,24 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         // Emit step finish after tool calls
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->state->takeStepUsage(),
         );
 
         // Add messages for next turn
@@ -339,7 +353,9 @@ class Stream
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => true,
                 ...Arr::whereNotNull([
-                    'think' => $request->providerOptions('thinking'),
+                    'think' => $request->providerOptions('thinking') ?? (
+                        $request->reasoningEnabled() === false ? false : null
+                    ),
                     'keep_alive' => $request->providerOptions('keep_alive'),
                 ]),
                 'options' => Arr::whereNotNull(array_merge([

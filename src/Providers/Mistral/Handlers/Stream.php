@@ -59,6 +59,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -239,7 +241,8 @@ class Stream
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->state->takeStepUsage(),
         );
 
         yield $this->emitStreamEndEvent();
@@ -321,12 +324,23 @@ class Stream
         }
 
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->state->takeStepUsage(),
         );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
@@ -406,6 +420,7 @@ class Stream
                 ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
+                    'reasoning_effort' => $request->providerOptions('reasoning_effort'),
                     'tools' => ToolMap::map($request->tools()),
                     'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
                 ]))
@@ -460,7 +475,7 @@ class Stream
 
             foreach ($content as $block) {
                 if (data_get($block, 'type') === 'thinking') {
-                    foreach (data_get($block, 'thinking', []) as $thinkingBlock) {
+                    foreach (data_get($block, 'thinking') ?? [] as $thinkingBlock) {
                         $thinking .= data_get($thinkingBlock, 'text', '');
                     }
                 }

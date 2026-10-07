@@ -1,0 +1,158 @@
+{
+    "suite": "embedding-decoding",
+    "schema_version": 1,
+    "corpus_version": "0.1.1",
+    "generated_by": "prism:dev/generate-embedding-corpus.php executes EmbeddingDecoder; prism:tests/Providers/Base64EmbeddingsTest.php verifies both provider handlers. TS/Python are unverified, not asserted to agree.",
+    "cases": [
+        {
+            "id": "emb-0001",
+            "title": "float array control",
+            "since": "0.1.1",
+            "embedding": [
+                1,
+                -2.5,
+                0.5,
+                0
+            ],
+            "expected": {
+                "php": {
+                    "embedding": [
+                        1,
+                        -2.5,
+                        0.5,
+                        0
+                    ]
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "An existing numeric array must remain a vector."
+        },
+        {
+            "id": "emb-0002",
+            "title": "little endian float32 control",
+            "since": "0.1.1",
+            "embedding": "AACAPwAAIMAAAAA/AAAAAA==",
+            "expected": {
+                "php": {
+                    "embedding": [
+                        1,
+                        -2.5,
+                        0.5,
+                        0
+                    ]
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Fixed IEEE-754 bytes discriminate little endian decoding from host-dependent or big endian decoding."
+        },
+        {
+            "id": "emb-0003",
+            "title": "malformed base64",
+            "since": "0.1.1",
+            "embedding": "not!base64",
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject invalid alphabet bytes rather than discard them."
+        },
+        {
+            "id": "emb-0004",
+            "title": "partial float",
+            "since": "0.1.1",
+            "embedding": "AACAPwA=",
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject trailing bytes rather than silently shorten the vector."
+        },
+        {
+            "id": "emb-0005",
+            "title": "NaN",
+            "since": "0.1.1",
+            "embedding": "AADAfw==",
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject non-finite values before they poison similarity calculations."
+        },
+        {
+            "id": "emb-0006",
+            "title": "infinity",
+            "since": "0.1.1",
+            "embedding": "AACAfw==",
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject positive infinity rather than return a numeric-looking vector."
+        },
+        {
+            "id": "emb-0007",
+            "title": "empty encoding",
+            "since": "0.1.1",
+            "embedding": "",
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject an empty encoded vector."
+        },
+        {
+            "id": "emb-0008",
+            "title": "invalid padding bits",
+            "since": "0.1.1",
+            "embedding": "AAAAAB==",
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject noncanonical padding bits that strict base64 decoding alone accepts."
+        },
+        {
+            "id": "emb-0009",
+            "title": "wrong response type",
+            "since": "0.1.1",
+            "embedding": null,
+            "expected": {
+                "php": {
+                    "exception": "Prism\\Prism\\Exceptions\\PrismException"
+                },
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Reject an invalid response type as a PrismException, never a TypeError."
+        }
+    ]
+}

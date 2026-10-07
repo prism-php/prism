@@ -1,10 +1,10 @@
 # Embeddings
 
-Transform your content into powerful vector representations! Embeddings let you add semantic search, recommendation systems, and other advanced features to your applications - whether you're working with text, images, audio, video, or documents.
+Embeddings represent content as vectors for semantic search, similarity comparisons and retrieval. Supported input types depend on the provider and model.
 
 ## Quick Start
 
-Here's how to generate an embedding with just a few lines of code:
+Generate an embedding from text:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -55,7 +55,7 @@ echo $response->usage->tokens;
 
 ## Input Methods
 
-You've got two convenient ways to feed text into the embeddings generator:
+Supply text directly or read it from a file:
 
 ### Direct Text Input
 
@@ -71,7 +71,7 @@ $response = Prism::embeddings()
 
 ### From File
 
-Need to analyze a larger document? No problem:
+Read input from a text file:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -84,11 +84,11 @@ $response = Prism::embeddings()
 ```
 
 > [!NOTE]
-> Make sure your file exists and is readable. The generator will throw a helpful `PrismException` if there's any issue accessing the file.
+> Make sure your file exists and is readable. The generator will throw a `PrismException` if there's any issue accessing the file.
 
 ## Multimodal Embeddings
 
-Some providers support multimodal embeddings, enabling powerful use cases like visual similarity search, cross-modal retrieval, and mixed media retrieval. Prism makes it easy to generate embeddings from images, audio, video, and documents using the same fluent API.
+For supported providers, use images, audio, video or documents as embedding inputs. These embeddings can support media similarity search and cross-modal retrieval.
 
 > [!IMPORTANT]
 > Multimodal embeddings require a provider and model that supports the input modalities you send. Check your provider's documentation to confirm support for images, audio, video, documents, and grouped content.
@@ -202,7 +202,7 @@ $response = Prism::embeddings()
 
 ## Response Handling
 
-The embeddings response gives you everything you need:
+Read results and metadata from the embeddings response:
 
 ```php
 namespace Prism\Prism\ValueObjects\Embedding;
@@ -225,7 +225,7 @@ $tokenCount = $response->usage->tokens;
 
 ## Error Handling
 
-Always handle potential errors gracefully:
+Handle request failures:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -244,15 +244,11 @@ try {
 }
 ```
 
-## Pro Tips
+## Usage Notes
 
 **Vector Storage**: Consider using a vector database like Milvus, Qdrant, or pgvector to store and query your embeddings efficiently.
 
-**Text Preprocessing**: For best results, clean and normalize your text before generating embeddings. This might include:
-   - Removing unnecessary whitespace
-   - Converting to lowercase
-   - Removing special characters
-   - Handling Unicode normalization
+**Text Preprocessing**: Follow the model's input requirements. Avoid removing case, punctuation or characters that carry meaning in your content.
 
 > [!IMPORTANT]
 > Different providers and models produce vectors of different dimensions. Always check your provider's documentation for specific details about the embedding model you're using.

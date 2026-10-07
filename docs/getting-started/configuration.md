@@ -1,6 +1,6 @@
 # Configuration
 
-Prism's flexible configuration allows you to easily set up and switch between different AI providers. Let's dive into how you can configure Prism to work with your preferred providers.
+Configure provider credentials, endpoints and request options in `config/prism.php`.
 
 ## Configuration File
 
@@ -10,7 +10,7 @@ After installation, you'll find the Prism configuration file at `config/prism.ph
 php artisan vendor:publish --tag=prism-config
 ```
 
-Let's break down the key sections of this configuration file:
+The configuration includes provider settings:
 
 ```php
 return [
@@ -44,7 +44,7 @@ Prism::text()
 
 ## Provider Configuration
 
-Prism uses a straightforward provider configuration system that lets you set up multiple AI providers in one place. Each provider has its own section in the configuration file where you can specify:
+Each provider has a configuration section for:
 
 - API credentials
 - Base URLs (useful for self-hosted instances or custom endpoints)
@@ -64,7 +64,7 @@ Here's a general template for how providers are configured:
 
 ## Environment Variables
 
-Prism follows Laravel's environment configuration best practices. All sensitive or environment-specific values should be stored in your `.env` file. Here's how it works:
+Use environment variables for credentials and deployment-specific settings. For local development, store them in an uncommitted `.env` file.
 
 1. Each provider's configuration pulls values from environment variables
 2. Default values are provided as fallbacks
@@ -86,7 +86,7 @@ PROVIDER_URL=https://custom-endpoint.com
 ```
 
 > [!NOTE]
-> Remember to always refer to your chosen provider's documentation pages for the most up-to-date configuration options and requirements specific to that provider.
+> See the provider's documentation for supported configuration options and requirements.
 
 ## Overriding config in your code
 

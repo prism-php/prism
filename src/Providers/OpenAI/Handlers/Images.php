@@ -115,7 +115,7 @@ class Images
     {
         $images = [];
 
-        foreach (data_get($data, 'data', []) as $imageData) {
+        foreach (data_get($data, 'data') ?? [] as $imageData) {
             $images[] = new GeneratedImage(
                 url: data_get($imageData, 'url'),
                 base64: data_get($imageData, 'b64_json'),

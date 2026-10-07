@@ -1,34 +1,34 @@
 # Installation
 
-Getting started with Prism is a breeze.
+Install the PHP package with Composer, then publish its Laravel configuration.
 
 ## Requirements
 
-Before we dive in, make sure your project meets these requirements:
+The PHP package requires:
 
 - PHP 8.2 or higher
-- Laravel 11.0 or higher
+- Laravel 12.61.1+ or 13.12.0+, within the package's Composer constraints
 
 ## Step 1: Composer Installation
 
 ::: tip
-Prism is actively evolving. To prevent unexpected issues from breaking changes, we strongly recommend pinning your installation to a specific version. Example: "prism-php/prism": "^0.3.0".
+Prism is pre-1.0. Choose a version constraint appropriate for your application, commit your lockfile and review release notes before upgrading.
 :::
 
-First, let's add Prism to your project using Composer. Open your terminal, navigate to your project directory, and run:
+Run this command from your project directory:
 
 ```bash
-composer require prism-php/prism
+composer require particle-academy/prism
 ```
 
 This command will download Prism and its dependencies into your project.
 
 ## Step 2: Publish the Configuration
 
-Prism comes with a configuration file that you'll want to customize. Publish it to your config directory by running:
+Publish the configuration file:
 
 ```bash
 php artisan vendor:publish --tag=prism-config
 ```
 
-This will create a new file at `config/prism.php`. We'll explore how to configure Prism in the next section.
+This creates `config/prism.php`. Continue to [Configuration](/getting-started/configuration) to set up provider credentials.

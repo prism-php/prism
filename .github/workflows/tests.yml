@@ -7,21 +7,22 @@ on:
       - "*.x"
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    needs: third-party
     timeout-minutes: 5
     strategy:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
         php: [8.2, 8.3, 8.4]
-        laravel: [11.*, 12.*, 13.*]
+        laravel: [12.*, 13.*]
         stability: [prefer-lowest, prefer-stable]
         include:
-          - laravel: 11.*
-            testbench: 9.*
-            carbon: ^2.63
           - laravel: 12.*
             testbench: 10.*
             carbon: ^3.8.4
@@ -58,5 +59,98 @@ jobs:
       - name: List Installed Dependencies
         run: composer show -D
 
+      # NOTHING HERE HAD EVER AUDITED A PHP DEPENDENCY. composer.lock is
+      # gitignored -- correct for a library, since consumers resolve their own --
+      # which leaves Dependabot no lock to scan, so it reported zero and the zero
+      # was never a measurement. `composer audit` found four advisories in the
+      # production tree the first time it was run, including a Laravel XSS and a
+      # Flysystem path-normalizer bypass.
+      #
+      # Placed INSIDE the matrix on purpose: it then audits the resolution of both
+      # legs, and the `prefer-lowest` leg is the one that matters. That leg is what
+      # our declared FLOOR permits, and the floor is what a consumer with old pins
+      # actually gets -- which is exactly how the vulnerable Laravel range stayed
+      # legal here while a fresh install looked fine.
+      - name: Audit dependencies for known advisories
+        run: composer audit --no-interaction
+
       - name: Execute tests
         run: vendor/bin/pest --parallel
+
+  third-party:
+    name: Third-party dependency allowlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # This job only reads files, so it keeps no token in .git/config for
+      # the fetched checker to find.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Every direct dependency must be approved on the org allowlist and still
+      # maintained. The list is fetched, never vendored, so there is no copy here
+      # to drift. This has to pass BEFORE a tag is pushed: Packagist publishes a
+      # Composer package the moment its tag exists, so the release guard, which
+      # requires this workflow to have succeeded, can only withhold the GitHub
+      # release. It cannot withdraw a version.
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/.github
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      - name: Third-party dependency allowlist
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+
+  release-notes:
+    name: Release-notes check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # tools/check-release-notes.sh refuses a tag annotation that does not say
+      # whether the release breaks anything. It runs in publish.yml's guard, and
+      # a release manager runs it by hand before tagging -- which is the only
+      # moment refusing still prevents a Composer publish.
+      #
+      # It is tested HERE because a guard nobody tried to defeat is the recurring
+      # way one of these ends up checking nothing. The suite asserts both
+      # directions, and its sharpest case is a note that discusses breakage in
+      # prose without declaring any: a plain `grep -i breaking` passes that, and
+      # three real annotations in this estate are exactly that shape.
+      - name: tools/check-release-notes.sh must refuse what it claims to
+        run: sh tools/check-release-notes.test.sh
+
+      # The checker is vendored rather than fetched -- the pre-tag run is the
+      # only control that can prevent a Composer publish, so it has to work from
+      # the tree being tagged, offline, without piping a remote script into a
+      # shell. That buys a copy, and an unchecked copy is one that has already
+      # drifted without telling anyone. So the copy is diffed against the
+      # canonical file instead of trusted, the same argument prism-parity makes
+      # for the corpus copies it generates and then checks.
+      - name: Fetch the canonical checker
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/.github
+          path: .canonical
+          persist-credentials: false
+
+      - name: The vendored checker must match the canonical one
+        run: |
+          for pair in check.sh:check-release-notes.sh check.test.sh:check-release-notes.test.sh; do
+            diff -u ".canonical/release-notes/${pair%%:*}" "tools/${pair##*:}" || {
+              echo "::error::tools/${pair##*:} has drifted from Particle-Academy/.github release-notes/${pair%%:*}. Change the canonical file and re-vendor it; do not patch the copy."
+              exit 1
+            }
+          done
+          echo "Both vendored files match the canonical checker."
+          node -e "require('node:fs').rmSync('.canonical',{recursive:true,force:true})"

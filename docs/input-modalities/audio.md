@@ -4,7 +4,7 @@ Prism supports including audio files in your messages for advanced analysis with
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports audio files.
+Check that both the provider integration and selected model support the input type.
 
 ::: tip
 For other input modalities like videos and images, see their respective documentation pages:
@@ -42,12 +42,12 @@ $response = Prism::text()
     )
     ->asText();
 
-// From a URL
+// From a URL you trust — fetched explicitly before sending
 $response = Prism::text()
     ->using(Provider::Gemini, 'gemini-1.5-flash')
     ->withPrompt(
         'Analyze this audio:',
-        [Audio::fromUrl(url: 'https://example.com/audio.mp3')]
+        [Audio::fromUrl(url: 'https://example.com/audio.mp3')->fetchUrlContent()]
     )
     ->asText();
 
@@ -110,7 +110,7 @@ The specific supported formats depend on the provider. Gemini is currently the m
 
 Providers are not consistent in their support of sending raw contents, base64 and/or URLs.
 
-Prism tries to smooth over these rough edges, but its not always possible.
+Prism converts between supported representations where possible. The following conversions and limitations apply.
 
 ### Supported conversions
 - Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.

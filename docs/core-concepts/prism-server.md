@@ -1,6 +1,6 @@
 # Prism Server
 
-Prism Server is a powerful feature that allows you to expose your Prism-powered AI models through a standardized API. This makes it easy to integrate your custom AI solutions into various applications, including chat interfaces and other tools that support OpenAI-compatible APIs.
+Prism Server exposes registered Prism configurations through an OpenAI-compatible API for use by chat interfaces and other clients.
 
 ## How It Works
 
@@ -75,7 +75,7 @@ curl "http://your-app.com/prism/openai/v1/models"
 
 ## Integration with Open WebUI
 
-Prism Server works seamlessly with OpenAI-compatible chat interfaces like [Open WebUI](https://openwebui.com). Here's an example Docker Compose configuration:
+Connect an OpenAI-compatible client such as [Open WebUI](https://openwebui.com). Example Docker Compose configuration:
 
 ```yaml
 services:
@@ -99,8 +99,6 @@ services:
 ```
 
 With this setup, you can access your Prism models through a user-friendly chat interface at `http://localhost:3000`.
-
-By leveraging Prism Server, you can create powerful, custom AI experiences while maintaining compatibility with a wide ecosystem of tools and libraries. Whether you're building a chatbot, a content generation tool, or something entirely new, Prism Server provides the flexibility and standardization you need to succeed.
 
 ## Adding Middleware
 

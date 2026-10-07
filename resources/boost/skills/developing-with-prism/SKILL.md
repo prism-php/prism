@@ -108,19 +108,19 @@ $response = Prism::text()
 
 1. **Read a specific doc file directly:**
    ```
-   read vendor/prism-php/prism/docs/core-concepts/text-generation.md
-   read vendor/prism-php/prism/docs/providers/openai.md
+   read vendor/particle-academy/prism/docs/core-concepts/text-generation.md
+   read vendor/particle-academy/prism/docs/providers/openai.md
    ```
 
 2. **Search for a topic across docs:**
    ```
-   grep "streaming" vendor/prism-php/prism/docs/
-   grep "withProviderOptions" vendor/prism-php/prism/docs/providers/
+   grep "streaming" vendor/particle-academy/prism/docs/
+   grep "withProviderOptions" vendor/particle-academy/prism/docs/providers/
    ```
 
 3. **Find all doc files:**
    ```
-   glob "vendor/prism-php/prism/docs/**/*.md"
+   glob "vendor/particle-academy/prism/docs/**/*.md"
    ```
 
 ### Documentation Paths
@@ -181,12 +181,15 @@ $response = Prism::text()
 
 **NEVER use the old package:** `echolabsdev/prism` is deprecated.
 
-**ALWAYS use:** `prism-php/prism`
+**ALWAYS use:** `particle-academy/prism`
 
 ```bash
 # Correct
-composer require prism-php/prism
+composer require particle-academy/prism
+```
 
+<!-- factcheck-ignore-next: Deliberate deprecated package counter-example. -->
+```bash
 # Wrong - do not use
 composer require echolabsdev/prism
 ```
@@ -201,7 +204,10 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Tool;
 use Prism\Prism\Schema\ObjectSchema;
+```
 
+<!-- factcheck-ignore-next: Deliberate nonexistent namespace counter-examples. -->
+```php
 // Wrong - these namespaces do not exist
 use EchoLabs\Prism\Prism;
 use Prism\Facades\Prism;

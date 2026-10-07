@@ -1,10 +1,10 @@
 # Provider Interoperability
 
-When working with Prism, you might need to customize requests based on which provider you're using. Different providers have unique capabilities, configuration options, and requirements that can affect how you structure your requests for optimal results.
+Provider capabilities and options differ. Use conditional configuration when a request needs provider-specific settings.
 
 ## Using the `whenProvider` Method
 
-The `whenProvider` method lets you easily customize your requests for specific providers while maintaining clean, readable code.
+`whenProvider` applies a callback only when the request uses the specified provider.
 
 ```php
 $response = Prism::text()
@@ -21,12 +21,6 @@ $response = Prism::text()
 ```
 
 In this example, the `withProviderOptions` settings will only be applied when using Anthropic's provider. If you're using OpenAI (as specified in the `using` method), these customizations are simply skipped.
-
-## Key Benefits
-
-- **Cleaner Code**: Keep your provider-specific customizations encapsulated and only apply them when needed
-- **Easy Provider Switching**: Swap between providers without rewriting your configuration code
-- **Maintainable Applications**: Define provider-specific behaviors in one place
 
 ## Advanced Usage
 

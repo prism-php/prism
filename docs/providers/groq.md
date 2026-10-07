@@ -10,7 +10,7 @@
 
 ## Streaming
 
-Groq's ultra-fast LPU architecture provides exceptional streaming performance. All standard streaming methods are supported:
+The Groq integration supports the standard streaming methods:
 
 ```php
 return Prism::text()
@@ -23,7 +23,7 @@ For complete streaming documentation, see [Streaming Output](/core-concepts/stre
 
 ## Audio Processing
 
-Groq provides high-performance audio processing capabilities through their ultra-fast Language Processing Unit (LPU) architecture, enabling both text-to-speech (TTS) and speech-to-text (STT) functionality with exceptional speed and quality.
+The Groq integration supports text-to-speech and speech-to-text requests.
 
 ### Text-to-Speech
 
@@ -78,14 +78,14 @@ file_put_contents('arabic_speech.wav', base64_decode($response->audio->base64));
 
 ### Speech-to-Text
 
-Groq provides ultra-fast speech recognition using Whisper models, offering exceptional speed with real-time factors of up to 299x.
+Use a supported Whisper model to transcribe audio:
 
 #### Basic STT Usage
 
 ```php
 use Prism\Prism\ValueObjects\Media\Audio;
 
-$audioFile = Audio::fromPath('/path/to/recording.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/recording.mp3');
 
 $response = Prism::audio()
     ->using('groq', 'whisper-large-v3')
@@ -188,7 +188,7 @@ $response = Prism::audio()
 use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file path
-$audio = Audio::fromPath('/path/to/audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/audio.mp3');
 
 // From remote URL (recommended for large files)
 $audio = Audio::fromUrl('https://example.com/recording.wav');
@@ -198,5 +198,5 @@ $audio = Audio::fromBase64($base64AudioData, 'audio/mpeg');
 
 // From binary content
 $audioContent = file_get_contents('/path/to/audio.wav');
-$audio = Audio::fromContent($audioContent, 'audio/wav');
+$audio = Audio::fromRawContent($audioContent, 'audio/wav');
 ```

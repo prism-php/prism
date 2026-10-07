@@ -1,31 +1,30 @@
 # Image Generation
 
-Generate stunning images from text prompts using AI-powered models. Prism provides a clean, consistent API for image generation across different providers, starting with comprehensive OpenAI support.
+Generate or edit images using a supported provider and model. Provider options control output format, size and other model-specific settings.
 
 ## Getting Started
 
-Creating images with Prism is as simple as describing what you want:
+Select a provider and model, then supply a prompt:
 
 ```php
 use Prism\Prism\Facades\Prism;
 
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-1')
     ->withPrompt('A cute baby sea otter floating on its back in calm blue water')
     ->generate();
 
 $image = $response->firstImage();
-echo $image->url; // https://oaidalleapiprodscus.blob.core.windows.net/...
+file_put_contents('otter.png', base64_decode($image->base64));
 ```
 
 ## Provider Support
 
 Currently, Prism supports image generation through:
 
-- **OpenAI**: DALL-E 2, DALL-E 3, and GPT-Image-1 models
+- **OpenAI**: GPT-Image-1, plus the deprecated DALL-E 3 and DALL-E 2 models
 - **Gemini**: Gemini 2.0 Flash Preview Image Generation, Imagen 4, Imagen 3
-
-Additional providers will be added in future releases as the ecosystem evolves.
+- **Qwen**: Qwen-Image (generation), Qwen-Image-Edit (editing & multi-image fusion)
 
 ## Basic Usage
 
@@ -35,7 +34,7 @@ The most straightforward way to generate an image:
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-1')
     ->withPrompt('A serene mountain landscape at sunset')
     ->generate();
 
@@ -55,8 +54,9 @@ The response object provides helpful methods for accessing generated content:
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-2')
+    ->using('openai', 'gpt-image-1')
     ->withPrompt('Abstract geometric patterns in vibrant colors')
+    ->withProviderOptions(['n' => 2])
     ->generate();
 
 // Check if images were generated
@@ -98,21 +98,6 @@ While Prism provides a consistent API, you can access provider-specific features
 
 OpenAI offers various customization options depending on the model:
 
-#### DALL-E 3 Options
-
-```php
-$response = Prism::image()
-    ->using('openai', 'dall-e-3')
-    ->withPrompt('A beautiful sunset over mountains')
-    ->withProviderOptions([
-        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
-        'quality' => 'hd',              // standard, hd
-        'style' => 'vivid',             // vivid, natural
-        'response_format' => 'url',     // url, b64_json
-    ])
-    ->generate();
-```
-
 #### GPT-Image-1 (Base64 Only)
 
 The GPT-Image-1 model always returns base64-encoded images, regardless of the `response_format` setting:
@@ -136,6 +121,23 @@ if ($image->hasBase64()) {
     file_put_contents('generated-image.png', base64_decode($image->base64));
     echo "Base64 image saved to generated-image.png";
 }
+```
+
+#### DALL-E 3 Options
+
+DALL-E 3 is deprecated by OpenAI.
+
+```php
+$response = Prism::image()
+    ->using('openai', 'dall-e-3')
+    ->withPrompt('A beautiful sunset over mountains')
+    ->withProviderOptions([
+        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
+        'quality' => 'hd',              // standard, hd
+        'style' => 'vivid',             // vivid, natural
+        'response_format' => 'url',     // url, b64_json
+    ])
+    ->generate();
 ```
 
 #### Base64 vs URL Responses
@@ -250,26 +252,98 @@ $response = Prism::image()
     ->generate();
 ```
 
+### Qwen Options
+
+#### Image Generation
+
+Qwen provides image generation through `qwen-image-max` and `qwen-image-plus` models:
+
+```php
+$response = Prism::image()
+    ->using(Provider::Qwen, 'qwen-image-max')
+    ->withPrompt('A cute baby sea otter floating on its back')
+    ->withProviderOptions([
+        'size' => '1328*1328',                         // Image resolution (width*height)
+        'negative_prompt' => 'low quality, blurry',    // Content to avoid
+        'prompt_extend' => true,                       // Enable prompt rewriting
+        'watermark' => false,                          // Disable watermark
+        'seed' => 42,                                  // Random seed for reproducibility
+    ])
+    ->generate();
+```
+
+> [!IMPORTANT]
+> Generated image URLs are valid for **24 hours** only. Download and save images promptly.
+
+#### Image Editing
+
+Qwen's `qwen-image-edit-max` and `qwen-image-edit-plus` models support single-image editing and multi-image fusion. Pass your images as the second parameter to `withPrompt()`:
+
+```php
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Prism::image()
+    ->using(Provider::Qwen, 'qwen-image-edit-max')
+    ->withPrompt('Generate an image following this depth map: a red bicycle on a muddy path with dense forest', [
+        Image::fromUrl('https://example.com/depth-map.png'),
+    ])
+    ->withProviderOptions([
+        'n' => 2,                              // Output 1-6 images (max/plus models)
+        'size' => '1536*1024',                 // Custom output resolution
+        'negative_prompt' => 'low quality',    // Content to avoid
+        'prompt_extend' => true,               // Enable prompt rewriting
+        'watermark' => false,                  // Disable watermark
+    ])
+    ->generate();
+```
+
+For multi-image fusion, pass multiple images — the model can combine elements from up to 3 input images:
+
+```php
+$response = Prism::image()
+    ->using(Provider::Qwen, 'qwen-image-edit-max')
+    ->withPrompt('The girl in image 1 wearing the black dress from image 2, sitting in the pose of image 3', [
+        Image::fromUrl('https://example.com/person.png'),
+        Image::fromUrl('https://example.com/dress.png'),
+        Image::fromUrl('https://example.com/pose.png'),
+    ])
+    ->withProviderOptions([
+        'n' => 2,
+        'size' => '1024*1536',
+    ])
+    ->generate();
+```
+
+You can also pass images from local files or base64 data:
+
+```php
+$response = Prism::image()
+    ->using(Provider::Qwen, 'qwen-image-edit-max')
+    ->withPrompt('Add a sunset sky to the background', [
+        Image::fromLocalPath('/path/to/photo.png'),
+    ])
+    ->generate();
+```
+
 ## Testing
 
-Prism provides convenient fakes for testing image generation:
+Use fakes to test image generation without external API calls:
 
 ```php
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Testing\PrismFake;
+use Prism\Prism\Testing\ImageResponseFake;
 
 test('can generate images', function () {
-    $fake = PrismFake::create()->image();
-    Prism::fake($fake);
+    Prism::fake([ImageResponseFake::make()]);
 
     $response = Prism::image()
-        ->using('openai', 'dall-e-3')
+        ->using('openai', 'gpt-image-1')
         ->withPrompt('Test image')
         ->generate();
 
     expect($response->hasImages())->toBeTrue();
-    expect($response->firstImage()->url)->toContain('fake-image-url');
+    expect($response->firstImage()->url)->toContain('fake-image.png');
 });
 ```
 
-Need help with a specific provider or use case? Check the [openai documentation](/providers/openai) or [gemini documentation](/providers/gemini) for detailed configuration options and examples.
+See the [OpenAI](/providers/openai), [Gemini](/providers/gemini) and [Qwen](/providers/qwen) guides for provider-specific options.

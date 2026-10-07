@@ -232,20 +232,30 @@ it('works with base StreamState tool calls', function (): void {
         ->and($state->completionTokens())->toBe(25);
 });
 
-it('works with base StreamState usage tracking', function (): void {
+it('reports its token counts as the usage every step event is built from', function (): void {
+    // These counters used to be private to Ollama: `usage()` stayed null, so
+    // `takeStepUsage()` handed each StepFinishEvent nothing and a streamed
+    // step span carried no token counts while a non-streamed one did. The
+    // counters now ARE the running usage, which is what this asserts.
     $state = new OllamaStreamState;
-    $usage = new Usage(
-        promptTokens: 100,
-        completionTokens: 50
-    );
 
-    $state->withUsage($usage)
+    $state->withUsage(new Usage(promptTokens: 1, completionTokens: 1))
         ->addPromptTokens(100)
         ->addCompletionTokens(50);
 
-    expect($state->usage())->toBe($usage)
+    expect($state->usage()?->promptTokens)->toBe(100)
+        ->and($state->usage()?->completionTokens)->toBe(50)
         ->and($state->promptTokens())->toBe(100)
         ->and($state->completionTokens())->toBe(50);
+
+    // And the per-step delta works off them: the second step costs what it
+    // added, not everything the turn has spent so far.
+    expect($state->takeStepUsage()?->completionTokens)->toBe(50);
+
+    $state->addPromptTokens(30)->addCompletionTokens(20);
+
+    expect($state->takeStepUsage()?->completionTokens)->toBe(20)
+        ->and($state->usage()?->completionTokens)->toBe(70);
 });
 
 it('works with base StreamState finish reason', function (): void {

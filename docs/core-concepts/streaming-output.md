@@ -1,6 +1,6 @@
 # Streaming Output
 
-Want to show AI responses to your users in real-time? Prism provides multiple ways to handle streaming AI responses, from simple Server-Sent Events to WebSocket broadcasting for real-time applications.
+Stream generated content to clients with Server-Sent Events, the Vercel AI SDK data protocol or WebSocket broadcasting.
 
 > [!WARNING]
 > When using Laravel Telescope or other packages that intercept Laravel's HTTP client events, they may consume the stream before Prism can emit the stream events. This can cause streaming to appear broken or incomplete. Consider disabling such interceptors when using streaming functionality, or configure them to ignore Prism's HTTP requests.
@@ -277,7 +277,7 @@ All streaming approaches emit the same core events with consistent data structur
 
 ### Event Data Examples
 
-Based on actual streaming output:
+Example event payloads:
 
 ```javascript
 // stream_start event
@@ -550,7 +550,7 @@ For more information about creating tools that produce artifacts, see [Tool Arti
 
 ### Handling Completion with Callbacks
 
-Need to save a conversation to your database after the AI finishes responding? Pass a callback directly to your terminal method to handle the completed response. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+Pass a callback to the terminal method to process the completed response or collected stream events. Use callbacks to persist conversations or record usage.
 
 #### Text Generation Callbacks
 

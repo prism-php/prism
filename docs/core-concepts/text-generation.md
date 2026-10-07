@@ -1,10 +1,10 @@
 # Text Generation
 
-Prism provides a powerful interface for generating text using Large Language Models (LLMs). This guide covers everything from basic usage to advanced features like multi-modal interactions and response handling.
+Generate text with a configured provider and model. Requests can include system prompts, conversation history and supported media.
 
 ## Basic Text Generation
 
-At its simplest, you can generate text with just a few lines of code:
+Select a provider and model, set a prompt, and call `asText()`:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -46,7 +46,7 @@ $response = Prism::text()
     ->asText();
 ```
 
-You an also pass a View to the `withPrompt` method.
+You can also pass a View to the `withPrompt` method.
 
 ## Multi-Modal Input
 
@@ -107,6 +107,19 @@ $response = Prism::text()
         ]
     )
     ->asText();
+
+// Multi-image analysis with Qwen VL models
+$response = Prism::text()
+    ->using(Provider::Qwen, 'qwen-vl-max')
+    ->withPrompt(
+        'What are these?',
+        [
+            Image::fromUrl('https://example.com/dog.jpeg'),
+            Image::fromUrl('https://example.com/tiger.png'),
+            Image::fromUrl('https://example.com/rabbit.png'),
+        ]
+    )
+    ->asText();
 ```
 
 ## Message Chains and Conversations
@@ -139,6 +152,48 @@ $response = Prism::text()
 > [!NOTE]
 > Some providers, like Anthropic, do not support the `SystemMessage` type. In those cases we convert `SystemMessage` to `UserMessage`.
 
+### Threads
+
+Implement `Thread` to supply conversation history from your application's storage:
+
+```php
+use Prism\Prism\Contracts\Message;
+use Prism\Prism\Contracts\Thread;
+
+class Conversation extends Model implements Thread
+{
+    /** @return iterable<int, Message> */
+    public function messages(): iterable
+    {
+        return $this->turns->map(fn (Turn $turn): Message => $turn->toPrismMessage());
+    }
+}
+```
+
+Pass the thread with `withThread()` and the new user message with `withPrompt()`. Unlike `withMessages()`, these methods can be used together:
+
+```php
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->withThread($conversation)
+    ->withPrompt('Can you show me an example?')
+    ->asText();
+```
+
+Prism reads from a thread but does not write to it. Persist `$response->messages` in your application to record the exchange, including tool calls and results.
+
+```php
+$conversation->record($response->messages);
+```
+
+`messages()` returns an `iterable`, allowing incremental reads from storage. Prism still materializes the complete message list for the provider request. Limit the history you supply to manage memory use and input tokens.
+
+> [!WARNING]
+> A thread is replayed as context, and `Message` includes `SystemMessage` — so anything that can write to your conversation store can put instructions in front of the model. Treat stored history as untrusted input: restrict who can write it, and don't persist a `SystemMessage` you didn't author.
+
+> [!NOTE]
+> Prism provides the `Thread` interface; your application supplies storage. `withThread()` works with both `Prism::text()` and `Prism::structured()`.
+
 ## Generation Parameters
 
 Fine-tune your generations with various parameters:
@@ -165,6 +220,15 @@ The value is passed through to the provider. The range depends on the provider a
 > [!TIP]
 > It is recommended to set either temperature or topP, but not both.
 
+`usingTopK`
+
+Top-K sampling.
+
+The value is passed through to the provider. Top-K sampling considers only the K most likely tokens. For example, a topK of 40 means only the top 40 tokens are considered for sampling. This parameter is supported by providers such as Gemini and Anthropic.
+
+> [!TIP]
+> It is recommended to set either temperature or topK, but not both.
+
 `withClientOptions`
 
 Under the hood we use Laravel's [HTTP client](https://laravel.com/docs/11.x/http-client#main-content). You can use this method to pass any of Guzzles [request options](https://docs.guzzlephp.org/en/stable/request-options.html) e.g. `->withClientOptions(['timeout' => 30])`.
@@ -179,7 +243,7 @@ This allows for complete or partial override of the providers configuration. Thi
 
 ## Response Handling
 
-The response object provides rich access to the generation results:
+Read text, usage and metadata from the response:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -212,16 +276,47 @@ foreach ($response->steps as $step) {
 }
 
 // Access message history
-foreach ($response->responseMessages as $message) {
+foreach ($response->messages as $message) {
     if ($message instanceof AssistantMessage) {
         echo $message->content;
     }
 }
 ```
 
+### Understanding Token Usage
+
+The `Usage` value object exposes these token counts:
+
+| Property | Meaning |
+|---|---|
+| `promptTokens` | Input tokens, **excluding** cached (prompt-cache) tokens |
+| `completionTokens` | Output tokens |
+| `cacheReadInputTokens` | Input tokens served from the provider's prompt cache |
+| `cacheWriteInputTokens` | Input tokens written to the prompt cache |
+| `thoughtTokens` | Reasoning / thinking tokens, where the provider reports them |
+| `cost` | Provider-reported cost, where available |
+
+Prism normalizes `promptTokens` to **exclude** cached input tokens across every
+provider that exposes them, so `promptTokens + cacheReadInputTokens` is the
+total input billed. This is consistent everywhere.
+
+> [!IMPORTANT]
+> **`completionTokens` and reasoning tokens are not yet normalized across providers.**
+> Most providers (OpenAI, Anthropic, and the OpenAI-compatible providers)
+> report `completionTokens` **inclusive** of `thoughtTokens` — the reasoning
+> tokens are part of the output count, and `thoughtTokens` breaks out how many
+> of them were reasoning. **Gemini and Vertex** report `completionTokens`
+> **exclusive** of reasoning (`thoughtTokens` is separate and additive).
+>
+> If you compute cost or output length from `completionTokens` for a
+> reasoning-enabled model, account for this difference — e.g. for a
+> provider-agnostic "total output tokens" figure use
+> `completionTokens + (thoughtTokens excluded ? thoughtTokens : 0)`, or read
+> the provider's `raw` usage block directly.
+
 ## Handling Completions with Callbacks
 
-Need to perform actions after text generation completes? Pass a callback directly to `asText()` to handle the response without interrupting the return flow. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+Pass a callback to `asText()` to process the completed response before it is returned, for example to persist messages or record usage.
 
 ### Basic Example
 

@@ -1,0 +1,52 @@
+name: Require Checker
+
+on:
+  push:
+    branches:
+      - main
+      - "*.x"
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  phpv: 8.2
+
+jobs:
+  require-checker:
+    name: composer-require-checker
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.phpv }}
+          coverage: none
+          tools: composer-require-checker
+
+      # BEFORE the install. `ramsey/composer-install` resolves and installs the
+      # whole dependency tree, which is an install performed by an ACTION — a thing
+      # neither this estate's audit nor the org's could see, because both asked
+      # whether a `run:` string contained an install command. 27 jobs passed both
+      # audits green on that question.
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/.github
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      - name: Third-party dependency allowlist
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+
+      - name: Install composer dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Check declared dependencies match used symbols
+        run: composer-require-checker check --config-file=composer-require-checker.json composer.json

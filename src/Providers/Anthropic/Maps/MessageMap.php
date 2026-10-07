@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Maps;
 
 use Exception;
+use Illuminate\Support\Arr;
+use Prism\Prism\Contracts\DeclaresCacheStability;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Enums\CacheStability;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\NormalizesCacheControl;
+use Prism\Prism\Providers\Support\Payload;
+use Prism\Prism\Support\Json;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -36,6 +41,8 @@ class MessageMap
             fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
         );
+
+        $mappedMessages = self::applyCacheHints($messages, $mappedMessages);
 
         if (isset($requestProviderOptions['tool_result_cache_type'])) {
             $lastToolResultIndex = null;
@@ -91,7 +98,7 @@ class MessageMap
      */
     protected static function mapSystemMessage(SystemMessage $systemMessage): array
     {
-        return array_filter([
+        return Payload::compact([
             'type' => 'text',
             'text' => $systemMessage->content,
             'cache_control' => self::normalizeCacheControl($systemMessage),
@@ -112,7 +119,7 @@ class MessageMap
                 // Only add cache_control to the last tool result
                 $isLastResult = $index === $totalResults - 1;
 
-                return array_filter([
+                return Payload::compact([
                     'type' => 'tool_result',
                     'tool_use_id' => $toolResult->toolCallId,
                     'content' => $toolResult->result,
@@ -132,15 +139,14 @@ class MessageMap
 
         return [
             'role' => 'user',
-            'content' => [
-                array_filter([
+            'content' => self::cacheFinalContentBlock([
+                Payload::compact([
                     'type' => 'text',
                     'text' => $message->text(),
-                    'cache_control' => $cacheControl,
                 ]),
-                ...self::mapImageParts($message->images(), $cacheControl),
-                ...self::mapDocumentParts($message->documents(), $cacheControl, $requestProviderOptions),
-            ],
+                ...self::mapImageParts($message->images()),
+                ...self::mapDocumentParts($message->documents(), requestProviderOptions: $requestProviderOptions),
+            ], $cacheControl),
         ];
     }
 
@@ -163,17 +169,15 @@ class MessageMap
 
         if (isset($message->additionalContent['citations'])) {
             foreach ($message->additionalContent['citations'] as $part) {
-                $content[] = array_filter([
-                    ...CitationsMapper::mapToAnthropic($part),
-                    'cache_control' => $cacheControl,
-                ]);
+                $content[] = Payload::compact(CitationsMapper::mapToAnthropic($part));
             }
-        } elseif ($message->content !== '' && $message->content !== '0') {
+        } elseif ($message->content !== '') {
 
-            $content[] = array_filter([
+            // Payload::compact, not array_filter: a bare array_filter would
+            // also drop 'text' => '0', which is falsy but is real output.
+            $content[] = Payload::compact([
                 'type' => 'text',
                 'text' => $message->content,
-                'cache_control' => $cacheControl,
             ]);
         }
 
@@ -182,24 +186,24 @@ class MessageMap
                 'type' => 'tool_use',
                 'id' => $toolCall->id,
                 'name' => $toolCall->name,
-                'input' => $toolCall->arguments() === [] ? new \stdClass : $toolCall->arguments(),
+                'input' => $toolCall->argumentsAsObject(),
             ], $message->toolCalls)
             : [];
 
         if (isset($message->additionalContent['provider_tool_calls'])) {
             foreach ($message->additionalContent['provider_tool_calls'] as $toolCall) {
-                $content[] = array_filter([
+                $content[] = Payload::compact([
                     'type' => $toolCall['type'] ?? 'server_tool_use',
                     'id' => $toolCall['id'] ?? null,
                     'name' => $toolCall['name'] ?? null,
-                    'input' => isset($toolCall['input']) && $toolCall['input'] !== '' ? json_decode((string) $toolCall['input'], true) : new \stdClass,
+                    'input' => isset($toolCall['input']) && $toolCall['input'] !== '' ? Json::decode((string) $toolCall['input'], preservingContainerTypes: true) : new \stdClass,
                 ]);
             }
         }
 
         if (isset($message->additionalContent['provider_tool_results'])) {
             foreach ($message->additionalContent['provider_tool_results'] as $toolResult) {
-                $content[] = array_filter([
+                $content[] = Payload::compact([
                     'type' => $toolResult['type'],
                     'tool_use_id' => $toolResult['tool_use_id'] ?? null,
                     'content' => $toolResult['content'] ?? null,
@@ -209,8 +213,89 @@ class MessageMap
 
         return [
             'role' => 'assistant',
-            'content' => array_merge($content, $toolCalls),
+            'content' => self::cacheFinalContentBlock(array_merge($content, $toolCalls), $cacheControl),
         ];
+    }
+
+    /**
+     * Turn a portable stability declaration into Anthropic's breakpoint.
+     *
+     * THE RULE IS A DEFINITION, NOT A HEURISTIC. A breakpoint says "everything
+     * before this is the same next turn", so it belongs after the last STABLE
+     * message that precedes the first VOLATILE one. Deriving it means a caller
+     * says what they know -- which parts change -- without counting markers or
+     * learning that Anthropic allows four.
+     *
+     * Exactly one breakpoint is derived, and only when the caller placed none
+     * themselves. Someone who has written `cacheType` is working in Anthropic's
+     * idiom already; adding to their marks would spend one of the four they are
+     * budgeting. A volatile-first conversation gets nothing, because nothing
+     * stable precedes it -- there is no prefix to cache.
+     *
+     * @param  array<int, Message>  $messages
+     * @param  array<int, array<string, mixed>>  $mapped
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function applyCacheHints(array $messages, array $mapped): array
+    {
+        // A caller who has already placed a breakpoint is working in
+        // Anthropic's idiom and budgeting against its limit of four. Read from
+        // the MAPPED payload rather than from the messages, so any route to a
+        // mark -- a message's `cacheType`, a tool result's, a request option --
+        // counts as the caller having taken charge.
+        if (str_contains(json_encode($mapped) ?: '', 'cache_control')) {
+            return $mapped;
+        }
+
+        $messages = array_values($messages);
+        $breakpoint = null;
+
+        foreach ($messages as $index => $message) {
+            if (! $message instanceof DeclaresCacheStability) {
+                continue;
+            }
+
+            $stability = $message->cacheStability();
+
+            if ($stability === CacheStability::Volatile) {
+                break;
+            }
+
+            if ($stability === CacheStability::Stable) {
+                $breakpoint = $index;
+            }
+        }
+
+        if ($breakpoint === null || ! isset($mapped[$breakpoint]['content'])) {
+            return $mapped;
+        }
+
+        $hinted = $messages[$breakpoint];
+        $ttl = $hinted instanceof DeclaresCacheStability ? $hinted->cacheTtl() : null;
+
+        $mapped[$breakpoint]['content'] = self::cacheFinalContentBlock(
+            $mapped[$breakpoint]['content'],
+            Arr::whereNotNull(['type' => 'ephemeral', 'ttl' => $ttl]),
+        );
+
+        return $mapped;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $content
+     * @param  array<string, mixed>|null  $cacheControl
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function cacheFinalContentBlock(array $content, ?array $cacheControl): array
+    {
+        $last = array_key_last($content);
+
+        // Thinking blocks cannot carry an explicit cache breakpoint.
+        if ($cacheControl !== null && $last !== null && ! in_array($content[$last]['type'] ?? null, ['thinking', 'redacted_thinking'], true)) {
+            $content[$last]['cache_control'] = $cacheControl;
+        }
+
+        return $content;
     }
 
     /**

@@ -1,0 +1,206 @@
+{
+    "suite": "media-fetch-guard",
+    "schema_version": 1,
+    "corpus_version": "0.1.0",
+    "generated_by": "PHP refusals are exercised by prism:tests/ValueObjects/Media/FetchGuardCorpusTest.php. The TypeScript and Python columns were recorded by executing their guarded fetch methods against the shipped loader rows with injected DNS and HTTP seams. Python skips url-0009 because no unguarded media fetch exists by design.",
+    "cases": [
+        {
+            "id": "url-0001",
+            "title": "a genuinely public host",
+            "since": "0.1.0",
+            "url": "https://public.test/x.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": true,
+            "notes": "The control. Every refusal row below is noise until this one fetches: a guard that refuses everything passes them all."
+        },
+        {
+            "id": "url-0002",
+            "title": "the cloud metadata endpoint",
+            "since": "0.1.0",
+            "url": "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "The address this guard exists for: it hands role credentials to anything inside the network that asks. Link-local, so the literal check alone refuses it."
+        },
+        {
+            "id": "url-0003",
+            "title": "a loopback literal",
+            "since": "0.1.0",
+            "url": "http://127.0.0.1/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "Refuse loopback literals before making a request to a service on the caller's own machine."
+        },
+        {
+            "id": "url-0004",
+            "title": "an IPv6 loopback literal",
+            "since": "0.1.0",
+            "url": "http://[::1]/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "Bracketed, so a port that forgets to strip the brackets before validating reads it as a hostname and tries to resolve it \u00e2\u20ac\u201d which is how an IPv6 hole opens in a guard that closed the IPv4 one."
+        },
+        {
+            "id": "url-0005",
+            "title": "an RFC 1918 literal",
+            "since": "0.1.0",
+            "url": "http://10.0.0.5/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "Refuse private IPv4 literals so public media fetching cannot reach internal network services."
+        },
+        {
+            "id": "url-0006",
+            "title": "a public NAME that resolves to a private address",
+            "since": "0.1.0",
+            "url": "http://evil.test/x.png",
+            "resolves": {
+                "evil.test": [
+                    "10.0.0.5"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "The bypass a URL-string check misses entirely: the attacker owns the DNS record, so the host looks public and the connection is internal. A port that validates only the literal passes every row above this one and fails here."
+        },
+        {
+            "id": "url-0007",
+            "title": "a name answering with one public and one private address",
+            "since": "0.1.0",
+            "url": "http://split.test/x.png",
+            "resolves": {
+                "split.test": [
+                    "93.184.216.34",
+                    "10.0.0.5"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "EVERY resolved address is checked, not the first. A host answering with both reaches the private one, and a port that stops at the first record reads this as public."
+        },
+        {
+            "id": "url-0008",
+            "title": "a public host redirecting into the metadata endpoint",
+            "since": "0.1.0",
+            "url": "http://public.test/x.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "redirects_to": "http://169.254.169.254/latest/meta-data/",
+            "refusal": {
+                "php": "redirect_refused",
+                "ts": "redirect_refused",
+                "py": "redirect_refused"
+            },
+            "agrees": true,
+            "notes": "A DIFFERENT code from the address refusals, and deliberately so: the caller's input was fine and the server aimed them somewhere internal. Redirects are followed by default in every HTTP client here, so a port that validates only the URL it was handed makes the internal request and never knows."
+        },
+        {
+            "id": "url-0009",
+            "title": "the UNGUARDED fetch still fetches a loopback address",
+            "since": "0.1.0",
+            "url": "http://127.0.0.1/x.png",
+            "guarded": false,
+            "resolves": {},
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "PHP and TypeScript preserve their pre-existing unguarded fetch methods. Python has no unguarded media fetch by design and skips this legacy-path control; adding one would introduce an SSRF-capable path solely to make the corpus greener.",
+            "skip": {
+                "py": "Python has no unguarded fetch method by design; there is no legacy path to assert."
+            }
+        },
+        {
+            "id": "url-0010",
+            "title": "a non-http scheme",
+            "since": "0.1.0",
+            "url": "file:///etc/passwd",
+            "resolves": {},
+            "refusal": {
+                "php": "scheme_not_allowed",
+                "ts": "scheme_not_allowed",
+                "py": "scheme_not_allowed"
+            },
+            "agrees": true,
+            "notes": "Handed to an HTTP client that would happily read the file. Refused before any address check, because there is no address to check."
+        },
+        {
+            "id": "url-0011",
+            "title": "a host that resolves to nothing",
+            "since": "0.1.0",
+            "url": "http://nowhere.test/x.png",
+            "resolves": {
+                "nowhere.test": []
+            },
+            "refusal": {
+                "php": "host_did_not_resolve",
+                "ts": "host_did_not_resolve",
+                "py": "host_did_not_resolve"
+            },
+            "agrees": true,
+            "notes": "An empty answer must mean \"could not be verified\", never \"nothing to check\". A port that treats no records as a pass turns every DNS failure into an allowed fetch."
+        },
+        {
+            "id": "url-0012",
+            "title": "a public host redirecting forever",
+            "since": "0.1.7",
+            "url": "https://public.test/loop.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "redirects_to": "https://public.test/loop.png",
+            "redirects_always": true,
+            "refusal": {
+                "php": "too_many_redirects",
+                "ts": "too_many_redirects",
+                "py": "too_many_redirects"
+            },
+            "agrees": true,
+            "notes": "Six requests pin the default redirect-hop allowance at five in PHP, TypeScript and Python: the initial request plus five allowed hops are sent, then too_many_redirects must be raised before a seventh request. A language that defaults to three would refuse under the same code but fail this six-request assertion. Every response redirects even when already at redirects_to; no hop serves content."
+        }
+    ]
+}

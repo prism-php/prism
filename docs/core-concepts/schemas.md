@@ -1,10 +1,10 @@
 # Schemas
 
-Schemas are the blueprints that help you define the shape of your data in Prism. Whether you're building tool parameters or crafting structured outputs, schemas help you clearly communicate what your data should look like.
+Schemas define the structure and types of tool parameters and structured output.
 
 ## Quick Start
 
-Let's dive right in with a practical example:
+Define an object with named properties and required fields:
 
 > [!IMPORTANT]
 > **Structured Output Requirement**: When using schemas for structured output with providers like OpenAI (especially in strict mode), the root schema should be an `ObjectSchema`. Other schema types can only be used as properties within an ObjectSchema, not as the top-level schema. Different providers may have varying requirements.
@@ -41,7 +41,7 @@ $userSchema = new ObjectSchema(
 
 ### StringSchema
 
-For text values of any length. Perfect for names, descriptions, or any textual data.
+For text values, such as names and descriptions.
 
 ```php
 use Prism\Prism\Schema\StringSchema;
@@ -54,7 +54,7 @@ $nameSchema = new StringSchema(
 
 ### NumberSchema
 
-Handles both integers and floating-point numbers. Great for ages, quantities, or measurements.
+For numeric values, such as quantities and measurements.
 
 ```php
 use Prism\Prism\Schema\NumberSchema;
@@ -67,7 +67,7 @@ $ageSchema = new NumberSchema(
 
 ### BooleanSchema
 
-For simple true/false values. Perfect for flags and toggles.
+For boolean values.
 
 ```php
 use Prism\Prism\Schema\BooleanSchema;
@@ -109,7 +109,7 @@ $statusSchema = new EnumSchema(
 
 ### ObjectSchema
 
-For complex, nested data structures. The Swiss Army knife of schemas!
+For objects with named properties, including nested objects.
 
 > [!NOTE]
 > ObjectSchema is typically required as the root schema for structured output operations with providers like OpenAI. It's the recommended schema type to use directly with `withSchema()` in structured output requests, though different providers may have varying requirements.
@@ -305,7 +305,7 @@ $userSchema = new ObjectSchema(
 
 ## Best Practices
 
-1. **Clear Descriptions**: Write clear, concise descriptions for each field. Future you (and other developers) will thank you!
+1. **Clear Descriptions**: Write clear, concise descriptions for each field.
    ```php
    // ❌ Not helpful
    new StringSchema('name', 'the name');
@@ -342,4 +342,4 @@ $userSchema = new ObjectSchema(
    ```
 
 > [!NOTE]
-> Remember that while schemas help define the structure of your data, Prism doesn't currently validate the data against these schemas. Schema validation is planned for a future release!
+> Prism defines schemas for provider requests but does not validate returned data against them. Validate responses in your application.

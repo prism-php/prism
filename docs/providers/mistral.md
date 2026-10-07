@@ -9,6 +9,42 @@
 ```
 ## Provider-specific options
 
+### Embedding encoding
+
+Embeddings accept `withProviderOptions(['encoding_format' => 'base64'])`.
+Prism decodes the result as little-endian float32 into numeric vectors while
+preserving the provider payload in `raw`. Omitting this option preserves the
+provider's default float format.
+
+Malformed or noncanonical base64, empty encodings, incomplete float32 values
+and non-finite numbers throw `PrismException` without including the payload in
+the exception message.
+
+### Reasoning Effort
+
+Adjustable reasoning is currently supported by `mistral-small-latest` via the `reasoning_effort` parameter.
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::text()
+    ->using('mistral', 'mistral-small-latest')
+    ->withPrompt('Solve this logic problem step by step.')
+    ->withProviderOptions([ // [!code focus]
+        'reasoning_effort' => 'high', // [!code focus]
+    ]) // [!code focus]
+    ->asText();
+
+// Access the final answer
+echo $response->text;
+
+// Access the reasoning process
+echo $response->additionalContent['thinking'];
+```
+
+More details in the official Mistral documentation:
+https://docs.mistral.ai/capabilities/reasoning/adjustable
+
 ## Reasoning Models
 ### Using Reasoning Models
 
@@ -78,7 +114,7 @@ Reasoning models return content in a structured format with two types of blocks:
 1. **Thinking blocks** - The model's internal reasoning process (stored in `additionalContent['thinking']`)
 2. **Text blocks** - The final self-contained answer (stored in `text`)
 
-Prism automatically separates these for you, making both easily accessible.
+Prism exposes thinking and text content separately.
 
 ## Streaming
 
@@ -95,18 +131,18 @@ For complete streaming documentation, see [Streaming Output](/core-concepts/stre
 
 ## Audio Processing
 
-Mistral provides advanced speech-to-text capabilities through their Voxtral models, offering state-of-the-art transcription accuracy with native multilingual support and audio understanding features.
+Use Mistral's Voxtral models for speech-to-text requests.
 
 ### Speech-to-Text
 
-Mistral's Voxtral models deliver exceptional speech recognition performance, outperforming industry standards like Whisper large-v3 across multiple languages and acoustic environments.
+Select a Voxtral transcription model and supply an audio file:
 
 #### Basic STT Usage
 
 ```php
 use Prism\Prism\ValueObjects\Media\Audio;
 
-$audioFile = Audio::fromPath('/path/to/recording.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/recording.mp3');
 
 $response = Prism::audio()
     ->using('mistral', 'voxtral-mini-2507')
@@ -210,7 +246,7 @@ Voxtral handles extended audio without chunking:
 
 ```php
 // Process up to 30 minutes of audio in a single request
-$longAudioFile = Audio::fromPath('/path/to/long_meeting.wav');
+$longAudioFile = Audio::fromLocalPath('/path/to/long_meeting.wav');
 
 $response = Prism::audio()
     ->using('mistral', 'voxtral-small-latest')
@@ -236,7 +272,7 @@ if ($response->usage) {
 use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file path
-$audio = Audio::fromPath('/path/to/audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/audio.mp3');
 
 // From remote URL
 $audio = Audio::fromUrl('https://example.com/recording.wav');
@@ -246,7 +282,7 @@ $audio = Audio::fromBase64($base64AudioData, 'audio/mpeg');
 
 // From binary content
 $audioContent = file_get_contents('/path/to/audio.wav');
-$audio = Audio::fromContent($audioContent, 'audio/wav');
+$audio = Audio::fromRawContent($audioContent, 'audio/wav');
 ```
 
 ## Documents
@@ -260,7 +296,7 @@ This OCR endpoint can be used like this:
 ```php
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\Providers\Mistral\Mistral;

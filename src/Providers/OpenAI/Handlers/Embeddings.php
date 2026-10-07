@@ -10,6 +10,7 @@ use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Concerns\ValidatesResponse;
+use Prism\Prism\Support\EmbeddingDecoder;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\Meta;
@@ -30,7 +31,7 @@ class Embeddings
         $data = $response->json();
 
         return new EmbeddingsResponse(
-            embeddings: array_map(fn (array $item): Embedding => Embedding::fromArray($item['embedding']), data_get($data, 'data', [])),
+            embeddings: array_map(fn (array $item): Embedding => EmbeddingDecoder::decode($item['embedding'] ?? null), data_get($data, 'data', [])),
             usage: new EmbeddingsUsage(data_get($data, 'usage.total_tokens')),
             meta: new Meta(
                 id: '',

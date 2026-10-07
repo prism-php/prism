@@ -1,0 +1,6 @@
+data: {"id":"chatcmpl-z-final","object":"chat.completion.chunk","created":1752805596,"model":"glm-4.6","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-z-final","object":"chat.completion.chunk","created":1752805596,"model":"glm-4.6","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_weather_1","type":"function","function":{"name":"weather","arguments":"{\"city\":\"Detroit\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":238,"completion_tokens":117,"total_tokens":355,"prompt_tokens_details":{"cached_tokens":43}}}
+
+data: [DONE]
+

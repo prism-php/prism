@@ -1,5 +1,10 @@
 <template>
   <div>
+    <p>
+      Built-in providers' HTTP request exception mappings. Supported means at
+      least one corresponding HTTP status is mapped; provider-specific errors
+      inside successful responses or streams can follow different paths.
+    </p>
     <table style="width: max-content !important;">
       <thead>
         <tr>
@@ -100,12 +105,6 @@ export default {
       exceptions: ["Rate Limited", "Overloaded", "Too Large"],
       providers: [
         {
-          name: "Amazon Bedrock",
-          rateLimited: Unsupported,
-          overloaded: Unsupported,
-          tooLarge: Unsupported,
-        },
-        {
           name: "Anthropic",
           rateLimited: Supported,
           overloaded: Supported,
@@ -113,9 +112,9 @@ export default {
         },
         {
           name: "Azure OpenAI",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
           overloaded: Unsupported,
-          tooLarge: Unsupported,
+          tooLarge: Supported,
         },
         {
           name: "DeepSeek",
@@ -124,33 +123,75 @@ export default {
           tooLarge: Unsupported,
         },
         {
-          name: "Gemini",
+          name: "ElevenLabs",
           rateLimited: Supported,
           overloaded: Unsupported,
+          tooLarge: Unsupported,
+        },
+        {
+          name: "Gemini",
+          rateLimited: Supported,
+          overloaded: Supported,
           tooLarge: Unsupported,
         },
         {
           name: "Groq",
           rateLimited: Supported,
-          overloaded: Unsupported,
-          tooLarge: Unsupported,
+          overloaded: Supported,
+          tooLarge: Supported,
         },
         {
           name: "Mistral",
           rateLimited: Supported,
-          overloaded: Unsupported,
-          tooLarge: Unsupported,
+          overloaded: Supported,
+          tooLarge: Supported,
         },
         {
           name: "Ollama",
-          rateLimited: Unsupported,
+          rateLimited: Supported,
           overloaded: Unsupported,
           tooLarge: Unsupported,
         },
         {
           name: "OpenAI",
           rateLimited: Supported,
-          overloaded: Unsupported,
+          overloaded: Supported,
+          tooLarge: Supported,
+        },
+        {
+          name: "OpenRouter",
+          rateLimited: Supported,
+          overloaded: Supported,
+          tooLarge: Supported,
+        },
+        {
+          name: "Perplexity",
+          rateLimited: Supported,
+          overloaded: Supported,
+          tooLarge: Supported,
+        },
+        {
+          name: "Qwen",
+          rateLimited: Supported,
+          overloaded: Supported,
+          tooLarge: Unsupported,
+        },
+        {
+          name: "Replicate",
+          rateLimited: Supported,
+          overloaded: Supported,
+          tooLarge: Supported,
+        },
+        {
+          name: "Requesty",
+          rateLimited: Supported,
+          overloaded: Supported,
+          tooLarge: Supported,
+        },
+        {
+          name: "Vertex AI",
+          rateLimited: Supported,
+          overloaded: Supported,
           tooLarge: Unsupported,
         },
         {
@@ -166,10 +207,10 @@ export default {
           tooLarge: Unsupported,
         },
         {
-          name: "Perplexity",
+          name: "Z",
           rateLimited: Supported,
-          overloaded: Unsupported,
-          tooLarge: Unsupported,
+          overloaded: Supported,
+          tooLarge: Supported,
         },
       ],
     };
