@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Psr7\NoSeekStream;
 use GuzzleHttp\Psr7\Response as PsrResponse;
+use GuzzleHttp\Psr7\Utils;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Prism\Prism\Exceptions\PrismException;
@@ -258,4 +260,26 @@ it('uses metadata.raw as the message when it is a non-JSON string', function ():
 
     expect(fn () => $this->provider->handleRequestException('test-model', $exception))
         ->toThrow(PrismException::class, 'OpenRouter Bad Request: upstream service unavailable');
+});
+
+it('reads the error message from a streamed response whose body can only be read once', function (): void {
+    $body = new NoSeekStream(Utils::streamFor((string) json_encode([
+        'error' => [
+            'code' => 402,
+            'message' => 'Insufficient credits',
+        ],
+    ])));
+    $exception = new RequestException(new Response(new PsrResponse(402, [], $body)));
+
+    try {
+        $this->provider->handleRequestException('test-model', $exception);
+    } catch (PrismException $e) {
+        expect($e->getMessage())->toContain('OpenRouter Insufficient Credits: Insufficient credits')
+            ->and($e->httpStatus)->toBe(402)
+            ->and($e->responseBody)->toContain('Insufficient credits');
+
+        return;
+    }
+
+    $this->fail('Expected a PrismException.');
 });

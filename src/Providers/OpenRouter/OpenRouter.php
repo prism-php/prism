@@ -85,8 +85,10 @@ class OpenRouter extends Provider
     public function handleRequestException(string $model, RequestException $e): never
     {
         $statusCode = $e->response->getStatusCode();
+        // Read the body once. A streamed error response is not seekable, so
+        // asking the response for json() after body() would decode an empty string.
         $responseBody = (string) $e->response->body();
-        $responseData = $e->response->json();
+        $responseData = json_decode($responseBody, true);
 
         $errorData = data_get($responseData, 'error', []);
         $details = $this->extractErrorDetails(is_array($errorData) ? $errorData : []);
