@@ -14,7 +14,8 @@ trait ExtractsThinking
      */
     protected function extractThinking(array $data): array
     {
-        if ($this->request->providerOptions('thinking.enabled') !== true) {
+        if ($this->request->providerOptions('thinking.enabled') !== true
+            && $this->request->providerOptions('thinking.type') !== 'adaptive') {
             return [];
         }
 

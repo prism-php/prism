@@ -91,14 +91,7 @@ class Structured
             'model' => $request->model(),
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
-            'thinking' => $request->providerOptions('thinking.enabled') === true
-                ? [
-                    'type' => 'enabled',
-                    'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
-                        ? $request->providerOptions('thinking.budgetTokens')
-                        : config('prism.anthropic.default_thinking_budget', 1024),
-                ]
-                : null,
+            'thinking' => static::resolveThinking($request),
             'max_tokens' => $request->maxTokens() ?? 64000,
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
@@ -106,6 +99,9 @@ class Structured
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
             'cache_control' => $request->providerOptions('cache_control'),
+            'output_config' => $request->providerOptions('effort') !== null
+                ? ['effort' => $request->providerOptions('effort')]
+                : null,
         ]);
 
         return $structuredStrategy->mutatePayload($basePayload);
@@ -139,6 +135,27 @@ class Structured
         );
 
         return array_merge($providerTools, $tools);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected static function resolveThinking(PrismRequest $request): ?array
+    {
+        if ($request->providerOptions('thinking.type') === 'adaptive') {
+            return ['type' => 'adaptive'];
+        }
+
+        if ($request->providerOptions('thinking.enabled') === true) {
+            return [
+                'type' => 'enabled',
+                'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
+                    ? $request->providerOptions('thinking.budgetTokens')
+                    : config('prism.anthropic.default_thinking_budget', 1024),
+            ];
+        }
+
+        return null;
     }
 
     /**

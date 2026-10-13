@@ -564,79 +564,151 @@ describe('Anthropic citations', function (): void {
     });
 });
 
-describe('Anthropic extended thinking', function (): void {
-    it('can use extending thinking', function (): void {
-        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking');
+describe('Anthropic thinking', function (): void {
+    describe('adaptive', function (): void {
+        it('can use adaptive thinking', function (): void {
+            FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking');
 
-        $response = Prism::text()
-            ->using('anthropic', 'claude-3-7-sonnet-latest')
-            ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-            ->withProviderOptions(['thinking' => ['enabled' => true]])
-            ->asText();
+            $response = Prism::text()
+                ->using('anthropic', 'claude-sonnet-4-6')
+                ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
+                ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
+                ->asText();
 
-        $expected_thinking = "This is a reference to Douglas Adams' popular science fiction series \"The Hitchhiker's Guide to the Galaxy\" where the supercomputer Deep Thought was built to calculate \"the Answer to the Ultimate Question of Life, the Universe, and Everything.\" After 7.5 million years of computation, it famously determined the answer to be \"42\" - a deliberately anticlimactic and absurd response that has become a significant pop culture reference.\n\nBeyond the Hitchhiker's reference, the question of life's meaning appears in many works of fiction across different media, with various philosophical approaches.\n\nI should note this humorous 42 reference while also mentioning how other fictional works have approached this philosophical question.";
-        $expected_signature = 'EuYBCkQYAiJAQ7ZOmBu5pa8U03x/RN5+Gs3tyKXFYcruUfnC8X/4AKBpJmB8qX+nQQ9atvYOXLD/mUAClCRZEaxt2fyEvdxnhRIMfFi6CLULECysli0mGgy5JRaOXL06fVJndm8iMD2T+D8dSIFJuctCnVeFKZme2TfIPIH+UMFO33a0ojzUq2VYy8+RzKkH7WYK9+580ipQ4yDVegd/67LKRtfb574HOHqwlPcfEbeiJuFuHrayoqK8KS2ltGYRckVGH6lNH46zUyjGaD2z3nZeti8UjmgnfMWRpjUmv0TWWGtrCKRoHGQ=';
+            expect($response->additionalContent)->toHaveKey('thinking');
+            expect($response->additionalContent['thinking'])->toContain('Douglas Adams');
+            expect($response->additionalContent)->toHaveKey('thinking_signature');
+            expect($response->additionalContent['thinking_signature'])->not->toBeEmpty();
+        });
 
-        expect($response->text)->toBe("In popular fiction, the most famous answer to this question comes from Douglas Adams' \"The Hitchhiker's Guide to the Galaxy,\" where a supercomputer named Deep Thought calculates for 7.5 million years and determines that the answer is simply \"42.\" This deliberately absurd response has become an iconic joke about the futility of seeking simple answers to profound existential questions.\n\nBeyond this humorous reference, fiction explores life's meaning in countless ways:\n- Finding purpose through love and human connection (seen in works like \"The Good Place\")\n- The pursuit of knowledge and understanding (as in \"Contact\" by Carl Sagan)\n- Creating your own meaning in an indifferent universe (explored in existentialist fiction)\n- Religious or spiritual fulfillment (depicted in works like \"Life of Pi\")\n\nWhat makes this question compelling in fiction is that there's never a definitive answer - just different perspectives that reflect our own search for meaning.");
-        expect($response->additionalContent['thinking'])->toBe($expected_thinking);
-        expect($response->additionalContent['thinking_signature'])->toBe($expected_signature);
+        it('can use adaptive thinking with tool calls', function (): void {
+            FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking-and-tool-calls');
 
-        expect($response->messages->last())
-            ->additionalContent->thinking->toBe($expected_thinking)
-            ->additionalContent->thinking_signature->toBe($expected_signature);
+            $tools = [
+                Tool::as('weather')
+                    ->for('useful when you need to search for current weather conditions')
+                    ->withStringParameter('city', 'the city you want the weather for')
+                    ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+                Tool::as('search')
+                    ->for('useful for searching curret events or data')
+                    ->withStringParameter('query', 'The detailed search query')
+                    ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+            ];
+
+            $response = Prism::text()
+                ->using('anthropic', 'claude-sonnet-4-6')
+                ->withTools($tools)
+                ->withMaxSteps(3)
+                ->withPrompt('What time is the tigers game today and should I wear a coat?')
+                ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
+                ->asText();
+
+            expect($response->steps->first())
+                ->additionalContent->thinking->toContain('Tigers')
+                ->additionalContent->thinking_signature->not->toBeEmpty();
+
+            expect($response->steps->last()->messages[1])
+                ->additionalContent->thinking->toContain('Tigers')
+                ->additionalContent->thinking_signature->not->toBeEmpty();
+        });
+
+        it('sends adaptive thinking payload', function (): void {
+            $response = Prism::text()
+                ->using('anthropic', 'claude-sonnet-4-6')
+                ->withPrompt('Test')
+                ->withProviderOptions(['thinking' => ['type' => 'adaptive']]);
+
+            $payload = Text::buildHttpRequestPayload($response->toRequest());
+
+            expect(data_get($payload, 'thinking'))->toBe(['type' => 'adaptive']);
+        });
+
+        it('sends effort via output_config', function (): void {
+            $response = Prism::text()
+                ->using('anthropic', 'claude-sonnet-4-6')
+                ->withPrompt('Test')
+                ->withProviderOptions(['effort' => 'medium']);
+
+            $payload = Text::buildHttpRequestPayload($response->toRequest());
+
+            expect(data_get($payload, 'output_config.effort'))->toBe('medium');
+        });
     });
 
-    it('can override budget tokens', function (): void {
-        $response = Prism::text()
-            ->using('anthropic', 'claude-3-7-sonnet-latest')
-            ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-            ->withProviderOptions([
-                'thinking' => [
-                    'enabled' => true,
-                    'budgetTokens' => 2048,
-                ],
-            ]);
+    describe('legacy', function (): void {
+        it('can use extended thinking', function (): void {
+            FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking');
 
-        $payload = Text::buildHttpRequestPayload($response->toRequest());
+            $response = Prism::text()
+                ->using('anthropic', 'claude-3-7-sonnet-latest')
+                ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
+                ->withProviderOptions(['thinking' => ['enabled' => true]])
+                ->asText();
 
-        expect(data_get($payload, 'thinking.budget_tokens'))->toBe(2048);
-    });
+            $expected_thinking = "This is a reference to Douglas Adams' popular science fiction series \"The Hitchhiker's Guide to the Galaxy\" where the supercomputer Deep Thought was built to calculate \"the Answer to the Ultimate Question of Life, the Universe, and Everything.\" After 7.5 million years of computation, it famously determined the answer to be \"42\" - a deliberately anticlimactic and absurd response that has become a significant pop culture reference.\n\nBeyond the Hitchhiker's reference, the question of life's meaning appears in many works of fiction across different media, with various philosophical approaches.\n\nI should note this humorous 42 reference while also mentioning how other fictional works have approached this philosophical question.";
+            $expected_signature = 'EuYBCkQYAiJAQ7ZOmBu5pa8U03x/RN5+Gs3tyKXFYcruUfnC8X/4AKBpJmB8qX+nQQ9atvYOXLD/mUAClCRZEaxt2fyEvdxnhRIMfFi6CLULECysli0mGgy5JRaOXL06fVJndm8iMD2T+D8dSIFJuctCnVeFKZme2TfIPIH+UMFO33a0ojzUq2VYy8+RzKkH7WYK9+580ipQ4yDVegd/67LKRtfb574HOHqwlPcfEbeiJuFuHrayoqK8KS2ltGYRckVGH6lNH46zUyjGaD2z3nZeti8UjmgnfMWRpjUmv0TWWGtrCKRoHGQ=';
 
-    it('can use extending thinking with tool calls', function (): void {
-        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking-and-tool-calls');
+            expect($response->text)->toBe("In popular fiction, the most famous answer to this question comes from Douglas Adams' \"The Hitchhiker's Guide to the Galaxy,\" where a supercomputer named Deep Thought calculates for 7.5 million years and determines that the answer is simply \"42.\" This deliberately absurd response has become an iconic joke about the futility of seeking simple answers to profound existential questions.\n\nBeyond this humorous reference, fiction explores life's meaning in countless ways:\n- Finding purpose through love and human connection (seen in works like \"The Good Place\")\n- The pursuit of knowledge and understanding (as in \"Contact\" by Carl Sagan)\n- Creating your own meaning in an indifferent universe (explored in existentialist fiction)\n- Religious or spiritual fulfillment (depicted in works like \"Life of Pi\")\n\nWhat makes this question compelling in fiction is that there's never a definitive answer - just different perspectives that reflect our own search for meaning.");
+            expect($response->additionalContent['thinking'])->toBe($expected_thinking);
+            expect($response->additionalContent['thinking_signature'])->toBe($expected_signature);
 
-        $tools = [
-            Tool::as('weather')
-                ->for('useful when you need to search for current weather conditions')
-                ->withStringParameter('city', 'the city you want the weather for')
-                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
-            Tool::as('search')
-                ->for('useful for searching curret events or data')
-                ->withStringParameter('query', 'The detailed search query')
-                ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
-        ];
+            expect($response->messages->last())
+                ->additionalContent->thinking->toBe($expected_thinking)
+                ->additionalContent->thinking_signature->toBe($expected_signature);
+        });
 
-        $response = Prism::text()
-            ->using('anthropic', 'claude-3-7-sonnet-latest')
-            ->withTools($tools)
-            ->withMaxSteps(3)
-            ->withPrompt('What time is the tigers game today and should I wear a coat?')
-            ->withProviderOptions(['thinking' => ['enabled' => true]])
-            ->asText();
+        it('can override budget tokens', function (): void {
+            $response = Prism::text()
+                ->using('anthropic', 'claude-3-7-sonnet-latest')
+                ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
+                ->withProviderOptions([
+                    'thinking' => [
+                        'enabled' => true,
+                        'budgetTokens' => 2048,
+                    ],
+                ]);
 
-        $expected_thinking = "The user is asking about:\n1. The time of the Tigers game today (likely referring to a sports team, probably Detroit Tigers baseball)\n2. Whether they should wear a coat (which relates to weather conditions)\n\nFor the first question, I need to search for the Tigers game schedule for today. For the second question, I need to check the weather in the relevant location.\n\nHowever, I'm missing some information:\n- The user hasn't specified which Tigers team they're referring to (though Detroit Tigers is most likely)\n- The user hasn't specified their location, which I need for the weather check\n\nI'll need to search for the Tigers game information first, and then check the weather in the appropriate location (likely Detroit if it's a home game).";
-        $expected_signature = 'EuYBCkQYAiJAY1corUurDaKsURSV32GUvrp4ZySJDYJXGHIBx2aPaphiKr+Kcenv2gTcLxAvkU5zUxek2mX3GGkrp8XlN2qJAhIM7v4WGU9Wwfpn8qu1Ggzd9cK0sZX2z6qEbaciMKAfMsaYMc9zVHF1Y2qY+iC35WGiXAnEAZk+KBNGCo0V+t/U1bzJGhAigvTRKkDKpipQDXkfw+XdPzHh+VGFXut2TIPatMN5UrE1CvR+GtQT1cscbxBnuiXFwgs3B/QPlC2/l2VloajCHeYVaHqY3MIXiTyqe4HAyt51Go1Xt1ydVaY=';
+            $payload = Text::buildHttpRequestPayload($response->toRequest());
 
-        expect($response->text)->toBe("The Detroit Tigers game is today at 3pm in Detroit. The weather in Detroit will be 75° and sunny, so you likely won't need a coat. It's a warm, pleasant day - just a light jacket or sweater might be enough if you tend to get cold at outdoor events, but generally, these are comfortable conditions.");
+            expect(data_get($payload, 'thinking.budget_tokens'))->toBe(2048);
+        });
 
-        expect($response->steps->first())
-            ->additionalContent->thinking->toBe($expected_thinking)
-            ->additionalContent->thinking_signature->toBe($expected_signature);
+        it('can use extended thinking with tool calls', function (): void {
+            FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking-and-tool-calls');
 
-        // Verify the assistant message with thinking is present in the second step's input messages
-        expect($response->steps->last()->messages[1])
-            ->additionalContent->thinking->toBe($expected_thinking)
-            ->additionalContent->thinking_signature->toBe($expected_signature);
+            $tools = [
+                Tool::as('weather')
+                    ->for('useful when you need to search for current weather conditions')
+                    ->withStringParameter('city', 'the city you want the weather for')
+                    ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+                Tool::as('search')
+                    ->for('useful for searching curret events or data')
+                    ->withStringParameter('query', 'The detailed search query')
+                    ->using(fn (string $query): string => 'The tigers game is at 3pm in detroit'),
+            ];
+
+            $response = Prism::text()
+                ->using('anthropic', 'claude-3-7-sonnet-latest')
+                ->withTools($tools)
+                ->withMaxSteps(3)
+                ->withPrompt('What time is the tigers game today and should I wear a coat?')
+                ->withProviderOptions(['thinking' => ['enabled' => true]])
+                ->asText();
+
+            $expected_thinking = "The user is asking about:\n1. The time of the Tigers game today (likely referring to a sports team, probably Detroit Tigers baseball)\n2. Whether they should wear a coat (which relates to weather conditions)\n\nFor the first question, I need to search for the Tigers game schedule for today. For the second question, I need to check the weather in the relevant location.\n\nHowever, I'm missing some information:\n- The user hasn't specified which Tigers team they're referring to (though Detroit Tigers is most likely)\n- The user hasn't specified their location, which I need for the weather check\n\nI'll need to search for the Tigers game information first, and then check the weather in the appropriate location (likely Detroit if it's a home game).";
+            $expected_signature = 'EuYBCkQYAiJAY1corUurDaKsURSV32GUvrp4ZySJDYJXGHIBx2aPaphiKr+Kcenv2gTcLxAvkU5zUxek2mX3GGkrp8XlN2qJAhIM7v4WGU9Wwfpn8qu1Ggzd9cK0sZX2z6qEbaciMKAfMsaYMc9zVHF1Y2qY+iC35WGiXAnEAZk+KBNGCo0V+t/U1bzJGhAigvTRKkDKpipQDXkfw+XdPzHh+VGFXut2TIPatMN5UrE1CvR+GtQT1cscbxBnuiXFwgs3B/QPlC2/l2VloajCHeYVaHqY3MIXiTyqe4HAyt51Go1Xt1ydVaY=';
+
+            expect($response->text)->toBe("The Detroit Tigers game is today at 3pm in Detroit. The weather in Detroit will be 75° and sunny, so you likely won't need a coat. It's a warm, pleasant day - just a light jacket or sweater might be enough if you tend to get cold at outdoor events, but generally, these are comfortable conditions.");
+
+            expect($response->steps->first())
+                ->additionalContent->thinking->toBe($expected_thinking)
+                ->additionalContent->thinking_signature->toBe($expected_signature);
+
+            // Verify the assistant message with thinking is present in the second step's input messages
+            expect($response->steps->last()->messages[1])
+                ->additionalContent->thinking->toBe($expected_thinking)
+                ->additionalContent->thinking_signature->toBe($expected_signature);
+        });
     });
 });
 
