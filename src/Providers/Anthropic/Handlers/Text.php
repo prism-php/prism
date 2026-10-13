@@ -89,6 +89,7 @@ class Text
                 : null,
         ]);
     }
+
     /**
      * Anthropic returns stop_reason="pause_turn" when a long-running server-side
      * tool (e.g. web_search, web_fetch) needs the client to continue the turn.
