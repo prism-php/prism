@@ -39,7 +39,7 @@ class Tool
     /** @var array <int, string> */
     protected array $requiredParameters = [];
 
-    /** @var Closure():mixed|callable():mixed */
+    /** @var Closure():mixed|callable():mixed|null */
     protected $fn;
 
     /** @var null|false|Closure(Throwable,array<int|string,mixed>):string */
@@ -68,6 +68,10 @@ class Tool
 
     public function using(Closure|callable $fn): self
     {
+        if ($fn === $this) {
+            return $this;
+        }
+
         $this->fn = $fn;
 
         return $this;
@@ -262,7 +266,9 @@ class Tool
     public function handle(...$args): string|ToolOutput|ToolError
     {
         try {
-            $value = call_user_func($this->fn, ...$args);
+            $callable = $this->resolveHandler();
+
+            $value = call_user_func($callable, ...$this->coerceArguments($callable, $args));
 
             if (is_string($value)) {
                 return $value;
@@ -279,6 +285,106 @@ class Tool
         } catch (Throwable $e) {
             return $this->handleToolException($e, $args);
         }
+    }
+
+    /**
+     * Coerce model-supplied string arguments into the scalar or BackedEnum
+     * types declared by the handler's signature. Models routinely serialize
+     * every argument as a JSON string (notably Llama models on Groq) even
+     * when the schema declares boolean or number, and under strict types the
+     * handler would otherwise fail with a TypeError. Arguments that don't
+     * match a declared parameter pass through untouched so the existing
+     * validation-error handling still reports them.
+     *
+     * @param  array<int|string, mixed>  $args
+     * @return array<int|string, mixed>
+     */
+    protected function coerceArguments(callable $callable, array $args): array
+    {
+        if (array_is_list($args)) {
+            return $args;
+        }
+
+        try {
+            $reflection = new \ReflectionFunction(Closure::fromCallable($callable));
+        } catch (\ReflectionException) {
+            return $args;
+        }
+
+        $parameters = collect($reflection->getParameters())->keyBy(
+            fn (\ReflectionParameter $parameter): string => $parameter->getName()
+        );
+
+        foreach ($args as $name => $value) {
+            /** @var \ReflectionParameter|null $parameter */
+            $parameter = $parameters->get($name);
+            $type = $parameter?->getType();
+
+            if ($type instanceof \ReflectionNamedType) {
+                $args[$name] = $this->coerceValue($value, $type);
+            }
+        }
+
+        return $args;
+    }
+
+    protected function coerceValue(mixed $value, \ReflectionNamedType $type): mixed
+    {
+        $typeName = $type->getName();
+
+        if (is_a($typeName, \BackedEnum::class, true)) {
+            $backingType = (new \ReflectionEnum($typeName))->getBackingType();
+
+            $candidate = $backingType instanceof \ReflectionNamedType && $backingType->getName() === 'int'
+                ? (is_numeric($value) ? (int) $value : null)
+                : (is_string($value) ? $value : null);
+
+            return $candidate === null ? $value : ($typeName::tryFrom($candidate) ?? $value);
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        return match ($typeName) {
+            'int' => is_numeric($value) ? (int) $value : $value,
+            'float' => is_numeric($value) ? (float) $value : $value,
+            'bool' => match (strtolower($value)) {
+                'true', '1' => true,
+                'false', '0' => false,
+                default => $value,
+            },
+            default => $value,
+        };
+    }
+
+    /**
+     * Resolve the callable handler for this tool.
+     *
+     * Priority: explicit $fn > invokable subclass (__invoke) > error.
+     * Also unwraps SerializableClosure wrappers that break named arguments.
+     */
+    protected function resolveHandler(): callable
+    {
+        $fn = $this->fn;
+
+        if ($fn === null && method_exists($this, '__invoke')) {
+            $fn = $this;
+        }
+
+        if ($fn === null) {
+            throw new PrismException("Tool handler not defined for tool: {$this->name}");
+        }
+
+        // After ProcessDriver deserialization, $fn may become a
+        // SerializableClosure\Serializers\Native whose __invoke doesn't
+        // forward PHP 8 named arguments. Unwrap via getClosure() to
+        // recover the real Closure so named-arg spreading works.
+        if (is_object($fn) && method_exists($fn, 'getClosure')) {
+            return $fn->getClosure();
+        }
+
+        return $fn;
     }
 
     protected function shouldHandleErrors(): bool

@@ -95,7 +95,8 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
     protected function resolveToolChoice(): string|array|null
     {
         // Thinking mode doesn't support tool_choice (Anthropic restriction)
-        if ($this->request->providerOptions('thinking.enabled') === true) {
+        if ($this->request->providerOptions('thinking.enabled') === true
+            || $this->request->providerOptions('thinking.type') === 'adaptive') {
             return null;
         }
 

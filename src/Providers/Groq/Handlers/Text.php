@@ -9,7 +9,6 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
@@ -50,8 +49,7 @@ class Text
 
         return match ($finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request, $response),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request, $response, $finishReason),
-            default => throw new PrismException('Groq: unhandled finish reason'),
+            default => $this->handleStop($data, $request, $response, $finishReason),
         };
     }
 
@@ -148,10 +146,28 @@ class Text
      */
     protected function mapToolCalls(array $toolCalls): array
     {
-        return array_map(fn (array $toolCall): ToolCall => new ToolCall(
-            id: data_get($toolCall, 'id'),
-            name: data_get($toolCall, 'function.name'),
-            arguments: data_get($toolCall, 'function.arguments'),
-        ), $toolCalls);
+        return array_map(function (array $toolCall): ToolCall {
+            $name = data_get($toolCall, 'function.name', '');
+            $arguments = data_get($toolCall, 'function.arguments', '{}');
+
+            // Some Llama models (e.g. llama-3.3-70b-versatile on Groq) embed
+            // the arguments JSON directly in the function name field, separated
+            // by a comma: "tool_name,{\"arg\":\"val\"}". Groq then rejects the
+            // follow-up turn because the mangled name is not in request.tools.
+            // Detect this pattern and split the name from the inline arguments.
+            if (is_string($name) && str_contains($name, ',{')) {
+                [$extractedName, $inlineArgs] = explode(',', $name, 2);
+                if (json_decode($inlineArgs) !== null) {
+                    $name = $extractedName;
+                    $arguments = $inlineArgs;
+                }
+            }
+
+            return new ToolCall(
+                id: data_get($toolCall, 'id'),
+                name: $name,
+                arguments: $arguments ?: '{}',
+            );
+        }, $toolCalls);
     }
 }

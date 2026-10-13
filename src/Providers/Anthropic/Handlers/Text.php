@@ -11,7 +11,6 @@ use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsProviderToolCalls;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
@@ -55,8 +54,10 @@ class Text
 
         return match ($this->tempResponse->finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls(),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop(),
-            default => throw new PrismException('Anthropic: unknown finish reason'),
+            FinishReason::Pause => $this->handlePause(),
+            // Refusal and unknown reasons resolve gracefully (prism-php/prism#996);
+            // the response carries the mapped finish reason for the caller.
+            default => $this->handleStop(),
         };
     }
 
@@ -75,14 +76,7 @@ class Text
             'model' => $request->model(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
             'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
-            'thinking' => $request->providerOptions('thinking.enabled') === true
-                ? [
-                    'type' => 'enabled',
-                    'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
-                        ? $request->providerOptions('thinking.budgetTokens')
-                        : config('prism.anthropic.default_thinking_budget', 1024),
-                ]
-                : null,
+            'thinking' => static::resolveThinking($request),
             'max_tokens' => $request->maxTokens() ?? 64000,
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
@@ -90,7 +84,33 @@ class Text
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
             'mcp_servers' => $request->providerOptions('mcp_servers'),
             'cache_control' => $request->providerOptions('cache_control'),
+            'output_config' => $request->providerOptions('effort') !== null
+                ? ['effort' => $request->providerOptions('effort')]
+                : null,
         ]);
+    }
+
+    /**
+     * Anthropic returns stop_reason="pause_turn" when a long-running server-side
+     * tool (e.g. web_search, web_fetch) needs the client to continue the turn.
+     * Per Anthropic's docs, the client should append the assistant message to
+     * the conversation and re-send the request unchanged so the model can resume.
+     */
+    protected function handlePause(): Response
+    {
+        $this->addStep();
+
+        $this->request->addMessage(new AssistantMessage(
+            $this->tempResponse->text,
+            $this->tempResponse->toolCalls,
+            $this->tempResponse->additionalContent,
+        ));
+
+        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
+            return $this->handle();
+        }
+
+        return $this->responseBuilder->toResponse();
     }
 
     protected function handleToolCalls(): Response
@@ -171,8 +191,50 @@ class Text
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->extractCitations($data),
                 ...$this->extractThinking($data),
+                ...$this->extractProviderToolContent($data),
             ])
         );
+    }
+
+    /**
+     * Extract server tool use and result content blocks from the response.
+     *
+     * These must be preserved in additionalContent so that MessageMap can
+     * replay them alongside citations during multi-step tool loops.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    protected function extractProviderToolContent(array $data): array
+    {
+        $providerToolCalls = [];
+        $providerToolResults = [];
+
+        foreach (data_get($data, 'content', []) as $content) {
+            $type = data_get($content, 'type');
+
+            if ($type === 'server_tool_use') {
+                $providerToolCalls[] = [
+                    'type' => $type,
+                    'id' => data_get($content, 'id'),
+                    'name' => data_get($content, 'name'),
+                    'input' => json_encode(data_get($content, 'input', [])),
+                ];
+            }
+
+            if (str_ends_with((string) $type, '_tool_result')) {
+                $providerToolResults[] = [
+                    'type' => $type,
+                    'tool_use_id' => data_get($content, 'tool_use_id'),
+                    'content' => data_get($content, 'content'),
+                ];
+            }
+        }
+
+        return Arr::whereNotNull([
+            'provider_tool_calls' => $providerToolCalls !== [] ? $providerToolCalls : null,
+            'provider_tool_results' => $providerToolResults !== [] ? $providerToolResults : null,
+        ]);
     }
 
     /**
@@ -196,6 +258,27 @@ class Text
         );
 
         return array_merge($providerTools, $tools);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected static function resolveThinking(PrismRequest $request): ?array
+    {
+        if ($request->providerOptions('thinking.type') === 'adaptive') {
+            return ['type' => 'adaptive'];
+        }
+
+        if ($request->providerOptions('thinking.enabled') === true) {
+            return [
+                'type' => 'enabled',
+                'budget_tokens' => is_int($request->providerOptions('thinking.budgetTokens'))
+                    ? $request->providerOptions('thinking.budgetTokens')
+                    : config('prism.anthropic.default_thinking_budget', 1024),
+            ];
+        }
+
+        return null;
     }
 
     /**

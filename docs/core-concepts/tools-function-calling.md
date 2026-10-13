@@ -253,8 +253,7 @@ class SearchTool extends Tool
         $this
             ->as('search')
             ->for('useful when you need to search for current events')
-            ->withStringParameter('query', 'Detailed search query. Best to search one topic at a time.')
-            ->using($this);
+            ->withStringParameter('query', 'Detailed search query. Best to search one topic at a time.');
     }
 
     public function __invoke(string $query): string

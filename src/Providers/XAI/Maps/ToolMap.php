@@ -14,17 +14,21 @@ class ToolMap
      */
     public static function Map(array $tools): array
     {
-        return array_map(fn (Tool $tool): array => [
-            'type' => 'function',
-            'function' => [
-                'name' => $tool->name(),
-                'description' => $tool->description(),
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => $tool->parametersAsArray(),
-                    'required' => $tool->requiredParameters(),
+        return array_map(function (Tool $tool): array {
+            $properties = $tool->parametersAsArray();
+
+            return [
+                'type' => 'function',
+                'function' => [
+                    'name' => $tool->name(),
+                    'description' => $tool->description(),
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => $properties === [] ? new \stdClass : $properties,
+                        'required' => $tool->requiredParameters(),
+                    ],
                 ],
-            ],
-        ], $tools);
+            ];
+        }, $tools);
     }
 }

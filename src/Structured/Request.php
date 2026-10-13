@@ -38,6 +38,7 @@ class Request implements PrismRequest
         protected ?int $maxTokens,
         protected int|float|null $temperature,
         protected int|float|null $topP,
+        protected ?int $topK,
         protected array $clientOptions,
         protected array $clientRetry,
         protected Schema $schema,
@@ -96,6 +97,11 @@ class Request implements PrismRequest
     public function topP(): int|float|null
     {
         return $this->topP;
+    }
+
+    public function topK(): ?int
+    {
+        return $this->topK;
     }
 
     /**

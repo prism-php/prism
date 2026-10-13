@@ -249,13 +249,14 @@ class Media implements Arrayable
 
     public function mimeType(): ?string
     {
-        if ($this->mimeType) {
-            return $this->mimeType;
-        }
-
-        if ($content = $this->rawContent()) {
+        if ($this->mimeType === null && $content = $this->rawContent()) {
             $this->mimeType = (new finfo(FILEINFO_MIME_TYPE))->buffer($content) ?: null;
         }
+
+        $this->mimeType = match ($this->mimeType) {
+            'audio/x-wav', 'audio/wave', 'audio/x-pn-wav', 'audio/vnd.wave' => 'audio/wav',
+            default => $this->mimeType,
+        };
 
         return $this->mimeType;
     }

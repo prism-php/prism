@@ -357,9 +357,15 @@ class Stream
             return null;
         }
 
+        $totalPrompt = (int) data_get($usage, 'prompt_tokens', 0);
+        $cacheHit = (int) data_get($usage, 'prompt_cache_hit_tokens', 0);
+        $reasoning = (int) data_get($usage, 'completion_tokens_details.reasoning_tokens', 0);
+
         return new Usage(
-            promptTokens: (int) data_get($usage, 'prompt_tokens', 0),
-            completionTokens: (int) data_get($usage, 'completion_tokens', 0)
+            promptTokens: max(0, $totalPrompt - $cacheHit),
+            completionTokens: (int) data_get($usage, 'completion_tokens', 0),
+            cacheReadInputTokens: $cacheHit > 0 ? $cacheHit : null,
+            thoughtTokens: $reasoning > 0 ? $reasoning : null,
         );
     }
 

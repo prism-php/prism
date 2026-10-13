@@ -513,10 +513,13 @@ class Stream
             $request->addMessage(new AssistantMessage(
                 content: $this->state->currentText(),
                 toolCalls: $toolCalls,
-                additionalContent: in_array($this->state->currentThinking(), ['', '0'], true) ? [] : [
-                    'thinking' => $this->state->currentThinking(),
-                    'thinking_signature' => $this->state->currentThinkingSignature(),
-                ]
+                additionalContent: Arr::whereNotNull([
+                    'thinking' => $this->state->currentThinking() ?: null,
+                    'thinking_signature' => $this->state->currentThinkingSignature() ?: null,
+                    'citations' => $this->state->citations() ?: null,
+                    'provider_tool_calls' => array_values($this->state->providerToolCalls()) ?: null,
+                    'provider_tool_results' => array_values($this->state->providerToolResults()) ?: null,
+                ]),
             ));
 
             $request->addMessage(new ToolResultMessage($toolResults));

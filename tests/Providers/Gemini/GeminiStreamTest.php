@@ -310,8 +310,13 @@ it('emits step start and step finish events', function (): void {
     expect($stepStartEvents)->toHaveCount(1);
 
     // Check for StepFinishEvent before StreamEndEvent
-    $stepFinishEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent);
+    $stepFinishEvents = array_values(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StepFinishEvent));
     expect($stepFinishEvents)->toHaveCount(1);
+
+    // Verify StepFinishEvent contains usage data
+    expect($stepFinishEvents[0]->usage)->not->toBeNull();
+    expect($stepFinishEvents[0]->usage->promptTokens)->toBe(21);
+    expect($stepFinishEvents[0]->usage->completionTokens)->toBe(47);
 
     // Verify order: StreamStart -> StepStart -> ... -> StepFinish -> StreamEnd
     $eventTypes = array_map(get_class(...), $events);
@@ -439,4 +444,53 @@ it('can generate text stream using multiple parallel tool calls', function (): v
     expect($toolCalls[0]->reasoningId)->not->toBeNull();
     expect($toolCalls[1]->reasoningId)->not->toBeNull();
     expect($toolCalls[0]->reasoningId)->toBe($toolCalls[1]->reasoningId);
+});
+
+it('sends topK in generationConfig for streaming', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text');
+
+    $events = [];
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.0-flash')
+        ->withPrompt('Explain how AI works')
+        ->usingTopK(40)
+        ->asStream();
+
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $data = $request->data();
+
+        expect($data['generationConfig'])
+            ->toHaveKey('topK')
+            ->and($data['generationConfig']['topK'])->toBe(40);
+
+        return true;
+    });
+});
+
+it('passes service_tier in the request body for streaming', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-basic-text');
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withPrompt('Summarize this document.')
+        ->withProviderOptions(['serviceTier' => 'flex'])
+        ->asStream();
+
+    // Consume the stream
+    foreach ($response as $event) {
+        //
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $data = $request->data();
+
+        expect($data)->toHaveKey('service_tier')
+            ->and($data['service_tier'])->toBe('flex');
+
+        return true;
+    });
 });

@@ -153,7 +153,7 @@ describe('Media support with Gemini', function (): void {
                     'text' => 'Transcribe this audio',
                 ])
                 ->and($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data'])
-                ->and($message[1]['inline_data']['mime_type'])->toBe('audio/x-wav')
+                ->and($message[1]['inline_data']['mime_type'])->toBe('audio/wav')
                 ->and($message[1]['inline_data']['data'])->toBe(
                     base64_encode(file_get_contents('tests/Fixtures/sample-audio.wav'))
                 );
@@ -171,7 +171,7 @@ describe('Media support with Gemini', function (): void {
             $audioUrl => Http::response(
                 file_get_contents('tests/Fixtures/sample-audio.wav'),
                 200,
-                ['Content-Type' => 'audio/x-wav']
+                ['Content-Type' => 'audio/wav']
             ),
         ]);
 
@@ -197,7 +197,7 @@ describe('Media support with Gemini', function (): void {
                         'text' => 'What is in this audio',
                     ])
                     ->and($message[1]['inline_data'])->toHaveKeys(['mime_type', 'data'])
-                    ->and($message[1]['inline_data']['mime_type'])->toBe('audio/x-wav')
+                    ->and($message[1]['inline_data']['mime_type'])->toBe('audio/wav')
                     ->and($message[1]['inline_data']['data'])->toBe(
                         base64_encode(file_get_contents('tests/Fixtures/sample-audio.wav'))
                     );

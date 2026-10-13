@@ -117,63 +117,100 @@ When multiple tool results are returned, Prism automatically applies caching to 
 
 Please ensure you read Anthropic's [prompt caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), which covers some important information on e.g. minimum cacheable tokens and message order consistency.
 
-## Extended thinking
+## Thinking
 
-Claude Sonnet 3.7 supports an optional extended thinking mode, where it will reason before returning its answer. Please ensure your consider [Anthropic's own extended thinking documentation](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking) before using extended thinking with caching and/or tools, as there are some important limitations and behaviours to be aware of.
+Anthropic models support extended thinking, where the model reasons before returning its answer. Claude 4.6+ models (Opus 4.6, Sonnet 4.6) use **adaptive thinking** (recommended), where Claude dynamically determines when and how much to think. Older models use manual thinking with a fixed token budget.
 
-### Enabling extended thinking and setting budget
-Prism supports thinking mode for text and structured with the same API:
+Please refer to Anthropic's [adaptive thinking](https://docs.anthropic.com/en/docs/build-with-claude/adaptive-thinking) and [extended thinking](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking) documentation for important limitations and behaviours when using thinking with caching and/or tools.
+
+### Adaptive thinking (recommended for Claude 4.6+)
+
+Adaptive thinking lets Claude decide when and how much to think based on the complexity of each request:
 
 ```php
-use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-4-6')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-    // enable thinking
-    ->withProviderOptions(['thinking' => ['enabled' => true]]) 
+    ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
     ->asText();
 ```
-By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
 
-You can overide the config (or its default) using `withProviderOptions`:
+Use the `effort` parameter to guide how much thinking Claude does:
 
 ```php
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Facades\Prism;
+Prism::text()
+    ->using('anthropic', 'claude-sonnet-4-6')
+    ->withPrompt('Analyze the trade-offs between microservices and monolithic architectures')
+    ->withProviderOptions([
+        'thinking' => ['type' => 'adaptive'],
+        'effort' => 'high',
+    ])
+    ->asText();
+```
 
+Available effort levels:
+
+| Level    | Description                                                              |
+|----------|--------------------------------------------------------------------------|
+| `max`    | Maximum capability with no constraints on thinking depth. Opus 4.6 only. |
+| `high`   | Deep reasoning on complex tasks. This is the default.                    |
+| `medium` | Balanced approach with moderate token savings.                           |
+| `low`    | Most efficient. Significant token savings with some capability reduction.|
+
+> [!NOTE]
+> Setting `effort` to `"high"` produces the same behavior as omitting the parameter entirely.
+
+> [!TIP]
+> The `effort` parameter can also be used without thinking enabled, in which case it controls overall token spend for text responses and tool calls.
+
+Works identically with `Prism::structured()`.
+
+### Manual thinking (legacy)
+
+> [!WARNING]
+> Manual thinking with `enabled` and `budgetTokens` is deprecated on Claude 4.6+ models. Use adaptive thinking instead. Manual thinking is still required for older models (Sonnet 4.5, Opus 4.5, Sonnet 3.7, etc.).
+
+```php
 Prism::text()
     ->using('anthropic', 'claude-3-7-sonnet-latest')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-    // Enable thinking and set a budget
+    ->withProviderOptions(['thinking' => ['enabled' => true]])
+    ->asText();
+```
+
+By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
+
+You can override the config (or its default) using `withProviderOptions`:
+
+```php
+Prism::text()
+    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     ->withProviderOptions([
         'thinking' => [
-            'enabled' => true, 
-            'budgetTokens' => 2048
-        ]
+            'enabled' => true,
+            'budgetTokens' => 2048,
+        ],
     ]);
 ```
-Note that thinking tokens count towards output tokens, so you will be billed for them and your token budget must be less than the max tokens you have set for the request. 
 
-If you expect a long response, you should ensure there's enough tokens left for the response - i.e. does (maxTokens - thinkingBudget) leave a sufficient remainder.
+Note that thinking tokens count towards output tokens, so you will be billed for them and your token budget must be less than the max tokens you have set for the request. If you expect a long response, ensure there's enough tokens left for the response — i.e. does (maxTokens - thinkingBudget) leave a sufficient remainder.
 
 ### Inspecting the thinking block
 
-Anthropic returns the thinking block with its response. 
+Anthropic returns the thinking block with its response. This works identically for both adaptive and manual thinking modes.
 
 You can access it via the additionalContent property on either the Response or the relevant step.
 
 On the Response (easiest if not using tools):
 
 ```php
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Facades\Prism;
-
-Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+$response = Prism::text()
+    ->using('anthropic', 'claude-sonnet-4-6')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-    ->withProviderOptions(['thinking' => ['enabled' => true']]) 
+    ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
     ->asText();
 
 $response->additionalContent['thinking'];
@@ -185,19 +222,22 @@ On the Step (necessary if using tools, as Anthropic returns the thinking block o
 $tools = [...];
 
 $response = Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-4-6')
     ->withTools($tools)
     ->withMaxSteps(3)
     ->withPrompt('What time is the tigers game today and should I wear a coat?')
-    ->withProviderOptions(['thinking' => ['enabled' => true]])
+    ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
     ->asText();
 
 $response->steps->first()->additionalContent->thinking;
 ```
 
+> [!NOTE]
+> With adaptive thinking, Claude may skip thinking for simple queries, in which case no thinking block is returned.
+
 ### Extended output mode
 
-Claude Sonnet 3.7 also brings extended output mode which increase the output limit to 128k tokens. 
+Claude Sonnet 3.7 also brings extended output mode which increase the output limit to 128k tokens.
 
 This feature is currently in beta, so you will need to enable to by adding `output-128k-2025-02-19` to your Anthropic anthropic_beta config (see [Configuration](#configuration) above).
 
@@ -219,9 +259,9 @@ return Prism::text()
     ->asEventStreamResponse();
 ```
 
-### Streaming with Extended Thinking
+### Streaming with Thinking
 
-When using extended thinking, the reasoning process streams separately from the final answer:
+When using thinking (adaptive or manual), the reasoning process streams separately from the final answer:
 
 ```php
 use Prism\Prism\Enums\StreamEventType;

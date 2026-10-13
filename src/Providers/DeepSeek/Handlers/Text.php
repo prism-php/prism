@@ -9,7 +9,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
@@ -47,8 +46,7 @@ class Text
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop => $this->handleStop($data, $request),
-            default => throw new PrismException('DeepSeek: unknown finish reason'),
+            default => $this->handleStop($data, $request),
         };
     }
 
@@ -63,10 +61,13 @@ class Text
 
         $this->addStep($data, $request, $toolResults);
 
+        $reasoningContent = data_get($data, 'choices.0.message.reasoning_content');
+        $additionalContent = $reasoningContent ? ['reasoning_content' => $reasoningContent] : [];
+
         $request = $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
-            []
+            $additionalContent
         ));
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
@@ -122,6 +123,11 @@ class Text
      */
     protected function addStep(array $data, Request $request, array $toolResults = []): void
     {
+        $totalPrompt = (int) (data_get($data, 'usage.prompt_tokens') ?? 0);
+        $cacheHit = (int) (data_get($data, 'usage.prompt_cache_hit_tokens') ?? 0);
+        $reasoning = (int) (data_get($data, 'usage.completion_tokens_details.reasoning_tokens') ?? 0);
+        $reasoningContent = data_get($data, 'choices.0.message.reasoning_content');
+
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
@@ -129,8 +135,10 @@ class Text
             toolResults: $toolResults,
             providerToolCalls: [],
             usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
+                promptTokens: max(0, $totalPrompt - $cacheHit),
+                completionTokens: (int) (data_get($data, 'usage.completion_tokens') ?? 0),
+                cacheReadInputTokens: $cacheHit > 0 ? $cacheHit : null,
+                thoughtTokens: $reasoning > 0 ? $reasoning : null,
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
@@ -138,7 +146,7 @@ class Text
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
-            additionalContent: [],
+            additionalContent: $reasoningContent ? ['reasoning_content' => $reasoningContent] : [],
             raw: $data,
         ));
     }

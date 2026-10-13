@@ -292,6 +292,42 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
     $streamEndEvent = array_values($streamEndEvents)[0];
     expect($streamEndEvent->usage)->not->toBeNull();
     expect($streamEndEvent->usage->thoughtTokens)->toBe(12);
+
+    expect($streamEndEvent->additionalContent)->toHaveKey('reasoning');
+    expect($streamEndEvent->additionalContent['reasoning'])->toContain('math problem');
+});
+
+it('captures reasoning_details from streaming responses', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-reasoning-details');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-5')
+        ->withPrompt('What is 2 + 2?')
+        ->asStream();
+
+    $events = [];
+    $text = '';
+
+    foreach ($response as $event) {
+        $events[] = $event;
+
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+    }
+
+    expect($text)->toBe('The answer is 4.');
+
+    $thinkingStartEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof ThinkingStartEvent);
+    expect($thinkingStartEvents)->toBeEmpty();
+
+    $streamEndEvent = array_values(array_filter($events, fn (StreamEvent $e): bool => $e instanceof StreamEndEvent))[0];
+    expect($streamEndEvent->additionalContent)->toHaveKey('reasoning_details');
+    expect($streamEndEvent->additionalContent['reasoning_details'])->toHaveCount(1);
+    expect($streamEndEvent->additionalContent['reasoning_details'][0]['type'])->toBe('reasoning.encrypted');
+    expect($streamEndEvent->additionalContent['reasoning_details'][0]['id'])->toBe('rs_045e88aab38b');
+
+    expect($streamEndEvent->usage->thoughtTokens)->toBe(15);
 });
 
 it('emits step start and step finish events', function (): void {

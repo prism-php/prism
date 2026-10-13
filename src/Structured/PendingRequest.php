@@ -80,6 +80,7 @@ class PendingRequest
             maxTokens: $this->maxTokens,
             temperature: $this->temperature,
             topP: $this->topP,
+            topK: $this->topK,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,
             schema: $this->schema,
