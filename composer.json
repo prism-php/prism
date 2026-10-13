@@ -1,6 +1,6 @@
 {
-  "name": "particle-academy/prism",
-  "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications. Actively maintained fork of prism-php/prism.",
+  "name": "prism-php/prism",
+  "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications.",
   "type": "library",
   "license": "MIT",
   "autoload": {
