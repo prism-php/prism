@@ -75,6 +75,25 @@ it('can generate text with a basic stream', function (): void {
     });
 });
 
+it('keeps content delivered in the first chunk of the stream', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-content-in-first-chunk');
+
+    $response = Prism::text()
+        ->using(Provider::Z, 'glm-5')
+        ->withPrompt('Say hello')
+        ->asStream();
+
+    $text = '';
+
+    foreach ($response as $event) {
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+    }
+
+    expect($text)->toBe('Hello there');
+});
+
 it('can generate text using tools with streaming', function (): void {
     FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-with-tools');
 

@@ -92,8 +92,6 @@ class Stream
                 );
 
                 $this->state->markStreamStarted();
-
-                continue;
             }
 
             if ($this->state->shouldEmitStepStart()) {
