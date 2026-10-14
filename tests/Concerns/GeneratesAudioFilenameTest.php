@@ -30,6 +30,10 @@ it('generates correct filename for mp4 audio', function (): void {
     expect($this->instance->generate('audio/mp4'))->toBe('audio.mp4');
 });
 
+it('generates correct filename for mp4 video container', function (): void {
+    expect($this->instance->generate('video/mp4'))->toBe('audio.mp4');
+});
+
 it('generates correct filename for mpga audio', function (): void {
     expect($this->instance->generate('audio/mpga'))->toBe('audio.mpga');
 });
@@ -46,6 +50,10 @@ it('generates correct filename for ogg audio', function (): void {
     expect($this->instance->generate('audio/ogg'))->toBe('audio.ogg');
 });
 
+it('generates correct filename for ogg video container', function (): void {
+    expect($this->instance->generate('video/ogg'))->toBe('audio.ogg');
+});
+
 it('generates correct filename for opus audio', function (): void {
     expect($this->instance->generate('audio/opus'))->toBe('audio.opus');
 });
@@ -60,6 +68,10 @@ it('generates correct filename for wave audio', function (): void {
 
 it('generates correct filename for webm audio', function (): void {
     expect($this->instance->generate('audio/webm'))->toBe('audio.webm');
+});
+
+it('generates correct filename for webm video container', function (): void {
+    expect($this->instance->generate('video/webm'))->toBe('audio.webm');
 });
 
 it('defaults to mp3 for null mime type', function (): void {
