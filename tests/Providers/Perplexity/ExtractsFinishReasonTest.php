@@ -26,10 +26,18 @@ it('extracts finish reason correctly from response data', function (array $data,
         ],
         'expected' => FinishReason::Stop,
     ],
-    'length finish reason (unsupported -> unknown)' => [
+    'length finish reason' => [
         'data' => [
             'choices' => [
                 ['finish_reason' => 'length'],
+            ],
+        ],
+        'expected' => FinishReason::Length,
+    ],
+    'undocumented finish reason' => [
+        'data' => [
+            'choices' => [
+                ['finish_reason' => 'content_filter'],
             ],
         ],
         'expected' => FinishReason::Unknown,

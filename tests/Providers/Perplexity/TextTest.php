@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
@@ -64,4 +65,28 @@ it('reports completion tokens as Perplexity does and leaves reasoning and citati
         'cache_read_input_tokens' => null,
         'thought_tokens' => null,
     ]);
+});
+
+it('reports Length when the response hits the token limit', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'id' => 'pplx-length',
+            'model' => 'sonar',
+            'choices' => [[
+                'index' => 0,
+                'message' => ['role' => 'assistant', 'content' => 'The weather in southern'],
+                'finish_reason' => 'length',
+            ]],
+            'usage' => ['prompt_tokens' => 8, 'completion_tokens' => 5, 'total_tokens' => 13],
+        ]),
+    ])->preventStrayRequests();
+
+    $response = Prism::text()
+        ->using(Provider::Perplexity, 'sonar')
+        ->withMaxTokens(5)
+        ->withPrompt("How's the weather in southern Brazil?")
+        ->asText();
+
+    expect($response->finishReason)->toBe(FinishReason::Length)
+        ->and($response->text)->toBe('The weather in southern');
 });
