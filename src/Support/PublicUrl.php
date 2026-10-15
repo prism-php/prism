@@ -80,11 +80,83 @@ class PublicUrl
      */
     protected static function assertPublicAddress(string $address, string $host): void
     {
-        // NO_PRIV_RANGE covers 10/8, 172.16/12, 192.168/16 and fc00::/7;
-        // NO_RES_RANGE covers loopback, link-local (169.254/16, where the
-        // metadata endpoint lives), and the rest of the reserved space.
+        $packed = @inet_pton($address);
+
+        if ($packed === false) {
+            throw new PrismUrlRefused('private_address_refused', $host.' is not a valid address, which a guarded fetch will not request.');
+        }
+
+        // NAT64 and 6to4 carry an IPv4 address inside an IPv6 one, and that
+        // embedded address is where the packet goes: 64:ff9b::a9fe:a9fe IS the
+        // metadata endpoint on a NAT64 network. Judge the embedded address. Not
+        // refused outright, because a DNS64 resolver hands an IPv6-only host
+        // 64:ff9b:: addresses for perfectly public sites.
+        foreach (self::EMBEDDING as [$prefix, $bits, $offset]) {
+            if (strlen($packed) === 16 && self::inRange($packed, $prefix, $bits)) {
+                self::assertPublicAddress((string) inet_ntop(substr($packed, $offset, 4)), $host);
+
+                return;
+            }
+        }
+
+        // The explicit list is the contract, spelled identically in all three
+        // languages (G-89). filter_var stays as a second layer, but it cannot be
+        // the only one: its flags do not cover CGNAT, where Alibaba Cloud's
+        // metadata endpoint lives, and they vary by PHP version.
+        foreach (self::BLOCKED as [$network, $bits]) {
+            if (self::inRange($packed, $network, $bits)) {
+                throw new PrismUrlRefused('private_address_refused', $host.' is a private or reserved address, which a guarded fetch will not request.');
+            }
+        }
+
         if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
             throw new PrismUrlRefused('private_address_refused', $host.' is a private or reserved address, which a guarded fetch will not request.');
         }
+    }
+
+    /**
+     * Every range a guarded fetch refuses: private, loopback, link-local,
+     * shared (CGNAT), documentation, benchmarking, multicast, reserved, and the
+     * IPv6 spellings that reach them.
+     */
+    protected const BLOCKED = [
+        ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+        ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
+        ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
+        ['224.0.0.0', 4], ['240.0.0.0', 4],
+        ['::', 96], ['::ffff:0:0', 96], ['64:ff9b:1::', 48], ['100::', 64],
+        ['2001::', 32], ['2001:db8::', 32], ['fc00::', 7], ['fe80::', 10],
+        ['fec0::', 10], ['ff00::', 8],
+    ];
+
+    /** Prefixes that embed an IPv4 address: [prefix, bits, byte offset]. */
+    protected const EMBEDDING = [
+        ['64:ff9b::', 96, 12],
+        ['2002::', 16, 2],
+    ];
+
+    protected static function inRange(string $packed, string $network, int $bits): bool
+    {
+        $base = (string) inet_pton($network);
+
+        if (strlen($packed) !== strlen($base)) {
+            return false;
+        }
+
+        $bytes = intdiv($bits, 8);
+
+        if (strncmp($packed, $base, $bytes) !== 0) {
+            return false;
+        }
+
+        $rest = $bits % 8;
+
+        if ($rest === 0) {
+            return true;
+        }
+
+        $mask = (0xFF << (8 - $rest)) & 0xFF;
+
+        return (ord($packed[$bytes]) & $mask) === (ord($base[$bytes]) & $mask);
     }
 }

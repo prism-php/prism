@@ -235,3 +235,69 @@ it('still follows a chain that stays inside the bound', function (): void {
 
     Http::assertSentCount(6);
 });
+
+/*
+| G-89. Every spelling below was ADMITTED by all three languages, which is why no
+| cross-language comparison could see it. filter_var's private and reserved flags
+| do not cover CGNAT (Alibaba Cloud's metadata endpoint lives there), and a
+| NAT64 or 6to4 address is 169.254.169.254 written in IPv6.
+*/
+dataset('non-public addresses', [
+    'alibaba cloud metadata (CGNAT)' => ['100.100.100.200'],
+    'CGNAT' => ['100.64.0.1'],
+    'IETF protocol assignments' => ['192.0.0.170'],
+    'TEST-NET-1' => ['192.0.2.1'],
+    'benchmarking' => ['198.18.0.1'],
+    'TEST-NET-2' => ['198.51.100.1'],
+    'TEST-NET-3' => ['203.0.113.1'],
+    'multicast' => ['224.0.0.1'],
+    'NAT64 of the metadata endpoint' => ['64:ff9b::a9fe:a9fe'],
+    'NAT64 of loopback' => ['64:ff9b::7f00:1'],
+    'local-use NAT64' => ['64:ff9b:1::a9fe:a9fe'],
+    '6to4 of the metadata endpoint' => ['2002:a9fe:a9fe::'],
+    '6to4 of a private address' => ['2002:a00:5::1'],
+    'Teredo' => ['2001:0:4136:e378:8000:63bf:3fff:fdd2'],
+    'IPv6 documentation' => ['2001:db8::1'],
+    'IPv6 discard' => ['100::1'],
+    'deprecated site-local' => ['fec0::1'],
+    'IPv6 multicast' => ['ff02::1'],
+    'IPv4-mapped loopback, compressed' => ['::ffff:7f00:1'],
+    'IPv4-compatible loopback, compressed' => ['::7f00:1'],
+]);
+
+it('refuses a non-public address written as a literal', function (string $address): void {
+    Http::fake();
+    $host = str_contains($address, ':') ? "[{$address}]" : $address;
+
+    expect(fn (): Image => Image::fromUrl("http://{$host}/x.png")->fetchPublicUrlContent())
+        ->toThrow(PrismUrlRefused::class);
+
+    Http::assertNothingSent();
+})->with('non-public addresses');
+
+it('refuses a public name that resolves to a non-public address', function (string $address): void {
+    resolvesTo(['evil.test' => [$address]]);
+    Http::fake();
+
+    expect(fn (): Image => Image::fromUrl('http://evil.test/x.png')->fetchPublicUrlContent())
+        ->toThrow(PrismUrlRefused::class);
+
+    Http::assertNothingSent();
+})->with('non-public addresses');
+
+// The controls. An IPv6-only host behind DNS64 is TOLD 64:ff9b:: addresses for
+// public sites, so refusing NAT64 outright would break every fetch there. The
+// embedded IPv4 is what gets judged.
+it('still fetches public addresses, including through NAT64 and 6to4', function (string $address): void {
+    resolvesTo(['public.test' => [$address]]);
+    Http::fake([
+        'public.test/*' => Http::response(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), 200),
+    ]);
+
+    expect(Image::fromUrl('https://public.test/x.png')->fetchPublicUrlContent()->hasRawContent())->toBeTrue();
+})->with([
+    'public IPv4' => ['8.8.8.8'],
+    'NAT64 of a public IPv4' => ['64:ff9b::808:808'],
+    '6to4 of a public IPv4' => ['2002:808:808::1'],
+    'public IPv6' => ['2606:4700:4700::1111'],
+]);
