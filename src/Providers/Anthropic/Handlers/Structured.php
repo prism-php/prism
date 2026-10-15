@@ -74,6 +74,10 @@ class Structured
             return $this->handleToolCalls($toolCalls, $tempResponse);
         }
 
+        if ($tempResponse->finishReason === FinishReason::Pause) {
+            return $this->handlePause($tempResponse);
+        }
+
         return $this->handleStop($tempResponse);
     }
 
@@ -216,6 +220,22 @@ class Structured
     protected function canContinue(): bool
     {
         return $this->responseBuilder->steps->count() < $this->request->maxSteps();
+    }
+
+    /**
+     * A long-running server tool paused the turn (`pause_turn`). The paused
+     * assistant content is already on the request, so re-sending it lets the
+     * model resume the same turn.
+     */
+    protected function handlePause(Response $tempResponse): Response
+    {
+        $this->addStep([], $tempResponse);
+
+        if ($this->canContinue()) {
+            return $this->handle();
+        }
+
+        return $this->responseBuilder->toResponse();
     }
 
     protected function handleStop(Response $tempResponse): Response

@@ -267,7 +267,7 @@ foreach ($response->messages as $message) {
 | `Length` | The output hit `maxTokens` (or the model's context window or message limit) |
 | `Refusal` | The model declined the request |
 | `ContentFilter` | The provider filtered the output |
-| `Pause` | Anthropic paused a long-running server tool turn. `asText()` resumes it automatically while `maxSteps` allows; streams and structured requests return it to you |
+| `Pause` | The provider paused a long-running turn, such as a server-side tool that's still working. Prism resumes it for you, so you only see `Pause` when `maxSteps` runs out. Raise `maxSteps`, or continue from `$response->messages` |
 | `Error` | The provider reported a failure |
 | `Other`, `Unknown` | Anything else. The provider's raw value is usually in `additionalContent` |
 

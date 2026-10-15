@@ -270,7 +270,7 @@ Thinking blocks have to go back to Anthropic complete and unmodified, in their o
   - For `asText()`, persist `$response->messages`. It holds the messages you sent, every step of the tool loop and the final assistant message. `$response->steps->last()->messages` is only what Prism sent for the last step, so it stops before the final answer.
   - For `asStructured()`, which has no `messages`, persist `$response->steps->last()->messages`. Structured steps record the assistant message they produced, so it's already there.
   - For streams, persist the messages a `StreamCollector` gives you, after the messages you sent.
-- A turn that ends without `tool_use` (a refusal, `max_tokens`) never runs its tool calls, so Prism stores it without them: `content_blocks` leave out its `tool_use` blocks and any server tool use left without a result (except on `pause_turn`, which Anthropic resumes), and the step has no `toolCalls`. A refused turn replays as whatever text it produced, so don't expect tool calls from it when you continue the conversation. The untouched response is still in the step's `raw`.
+- A turn that ends without `tool_use` (a refusal, `max_tokens`) never runs its tool calls, so Prism stores it without them: `content_blocks` leave out its `tool_use` blocks and any server tool use left without a result (except on `pause_turn`, where it goes back unchanged so the turn can [resume](#paused-turns)), and the step has no `toolCalls`. A refused turn replays as whatever text it produced, so don't expect tool calls from it when you continue the conversation. The untouched response is still in the step's `raw`.
 - When an `AssistantMessage` is mapped back to Anthropic, Prism uses the first of these it finds: `content_blocks`, then `thinking_blocks` (followed by the message's text and tool calls), then the legacy `thinking`/`thinking_signature` pair. Messages stored before `content_blocks` existed keep replaying as they always have.
 - To deliberately drop replay state (for example, when you edit a message), remove those keys from `additionalContent`.
 
@@ -328,6 +328,32 @@ Streams carry the same metadata as `asText()`, split across two events:
 If you persist streamed conversations, run the stream through `Prism\Prism\Streaming\StreamCollector`. It builds one `AssistantMessage` per step and attaches that step's `additionalContent`, so the stored messages replay exactly like the ones Prism sends inside its own tool loop.
 
 The stream's `finishReason` reflects Anthropic's `stop_reason`, and Prism only runs the tools Claude asked for when the turn actually ended with `tool_use`. A turn that ends in a refusal, `max_tokens` or an error doesn't execute the tool calls it streamed. You still get their `ToolCallEvent`s, but the step's `content_blocks` leave them out (along with any block the stream never finished), the `StepFinishEvent` reports the step's `finishReason`, and the `AssistantMessage` a `StreamCollector` builds for that step has no tool calls.
+
+## Paused turns
+
+Server tools such as web search, web fetch and code execution run in a loop on Anthropic's side. When that loop reaches its iteration limit, the response stops with `pause_turn` (`FinishReason::Pause`), and the turn continues once you send the paused assistant content back as it is.
+
+Prism resumes paused turns for you in `asText()`, `asStructured()` and `asStream()`, within `maxSteps`. The paused response becomes a step with `FinishReason::Pause`, its `content_blocks` go back unchanged (server tool use still waiting on its result included), and the next request picks the turn up. Structured output comes from the final step. A stream stays a single stream: each paused step ends with its own `StepFinishEvent`, and there is one `StreamEndEvent` at the very end.
+
+Every resumed request is a step, so it counts toward `maxSteps`, and the default of 1 leaves no room to resume. You only see `FinishReason::Pause` on the response (or the `StreamEndEvent`) when `maxSteps` runs out before the turn finishes. Raise `maxSteps` when you use server tools, or continue from the messages yourself: send the stored messages back as they are, and the paused assistant message at the end resumes the turn.
+
+```php
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\ProviderTool;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-opus-5-5')
+    ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
+    ->withMaxSteps(5)
+    ->withPrompt('Summarize this week\'s Laravel releases.')
+    ->asText();
+
+if ($response->finishReason === FinishReason::Pause) {
+    // Still paused after 5 steps: raise maxSteps or continue from $response->messages.
+}
+```
+
+A paused turn never asks for your tools, so Prism doesn't run client tool calls from one.
 
 ## Refusals
 

@@ -99,6 +99,12 @@ class Stream
             return;
         }
 
+        if ($this->state->finishReason() === FinishReason::Pause) {
+            yield from $this->handlePause($request, $depth, $additionalContent);
+
+            return;
+        }
+
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
@@ -643,14 +649,50 @@ class Stream
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        $depth++;
+        yield from $this->continueOrEnd($request, $depth + 1, $additionalContent);
+    }
+
+    /**
+     * A long-running server tool paused the turn (`pause_turn`). The paused
+     * assistant content goes back unchanged so the model can resume the turn.
+     *
+     * @param  array<string, mixed>  $additionalContent
+     * @return Generator<StreamEvent>
+     */
+    protected function handlePause(Request $request, int $depth, array $additionalContent): Generator
+    {
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            usage: $this->state->stepUsage(),
+            additionalContent: $additionalContent,
+            finishReason: FinishReason::Pause,
+        );
+
+        $request->addMessage(new AssistantMessage(
+            content: $this->state->currentText(),
+            additionalContent: $additionalContent,
+        ));
+
+        yield from $this->continueOrEnd($request, $depth + 1, $additionalContent);
+    }
+
+    /**
+     * @param  array<string, mixed>  $additionalContent
+     * @return Generator<StreamEvent>
+     */
+    protected function continueOrEnd(Request $request, int $depth, array $additionalContent): Generator
+    {
         if ($depth < $request->maxSteps()) {
             $this->state->reset();
             $nextResponse = $this->sendRequest($request);
             yield from $this->processStream($nextResponse, $request, $depth);
-        } else {
-            yield $this->emitStreamEndEvent($additionalContent);
+
+            return;
         }
+
+        yield $this->emitStreamEndEvent($additionalContent);
     }
 
     /**
