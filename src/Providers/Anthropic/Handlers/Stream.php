@@ -220,7 +220,8 @@ class Stream
                 promptTokens: $usageData['input_tokens'] ?? 0,
                 completionTokens: $usageData['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
-                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null
+                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
+                thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens'),
             ));
         }
 
@@ -377,6 +378,7 @@ class Stream
             completionTokens: $usageData['output_tokens'] ?? $current->completionTokens,
             cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? $current->cacheWriteInputTokens,
             cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? $current->cacheReadInputTokens,
+            thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens') ?? $current->thoughtTokens,
         ));
     }
 

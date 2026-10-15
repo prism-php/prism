@@ -149,17 +149,20 @@ describe('ordered replay', function (): void {
             ->promptTokens->toBe(481)
             ->completionTokens->toBe(862)
             ->cacheWriteInputTokens->toBe(120)
-            ->cacheReadInputTokens->toBe(0);
+            ->cacheReadInputTokens->toBe(0)
+            ->thoughtTokens->toBe(717);
         expect($stepUsages[1])
             ->promptTokens->toBe(3)
             ->completionTokens->toBe(140)
             ->cacheWriteInputTokens->toBe(90)
-            ->cacheReadInputTokens->toBe(1300);
+            ->cacheReadInputTokens->toBe(1300)
+            ->thoughtTokens->toBe(60);
         expect($events->last()->usage)
             ->promptTokens->toBe(484)
             ->completionTokens->toBe(1002)
             ->cacheWriteInputTokens->toBe(210)
-            ->cacheReadInputTokens->toBe(1300);
+            ->cacheReadInputTokens->toBe(1300)
+            ->thoughtTokens->toBe(777);
     });
 });
 

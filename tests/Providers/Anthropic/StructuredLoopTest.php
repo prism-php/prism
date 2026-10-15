@@ -106,6 +106,23 @@ it('replays tool-step text and thinking across a multi-step native structured lo
     expect($response->steps->first()->additionalContent['thinking'])->toBe("Start with A1.\n\n");
 });
 
+it('maps thinking tokens per step and sums them across a structured loop', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-thinking-tool-loop');
+
+    $response = Prism::structured()
+        ->using('anthropic', 'claude-sonnet-5-5')
+        ->withSchema(anthropicLoopSchema())
+        ->withTools([anthropicLoopPriceTool()])
+        ->withMaxSteps(6)
+        ->withPrompt('Price SKUs A1 through E5')
+        ->asStructured();
+
+    expect($response->steps->map(fn ($step): ?int => $step->usage->thoughtTokens)->all())->toBe([40, 20, 0, 10, 10]);
+    expect($response->usage)
+        ->completionTokens->toBe(340)
+        ->thoughtTokens->toBe(80);
+});
+
 it('keeps each request append-only across the loop', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-thinking-tool-loop');
 

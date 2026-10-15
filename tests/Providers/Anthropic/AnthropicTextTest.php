@@ -42,6 +42,7 @@ it('can generate text with a prompt', function (): void {
     expect($response->usage->completionTokens)->toBe(55);
     expect($response->usage->cacheWriteInputTokens)->toBeNull();
     expect($response->usage->cacheReadInputTokens)->toBeNull();
+    expect($response->usage->thoughtTokens)->toBeNull();
     expect($response->meta->id)->toBe('msg_01X2Qk7LtNEh4HB9xpYU57XU');
     expect($response->meta->model)->toBe('claude-3-5-sonnet-20240620');
     expect($response->text)->toBe(
@@ -708,6 +709,28 @@ describe('Anthropic thinking', function (): void {
                 ->additionalContent->thinking->toBe($expected_thinking)
                 ->additionalContent->thinking_signature->toBe($expected_signature);
         });
+    });
+
+    it('maps thinking tokens per step and sums them across the tool loop', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-interleaved-thinking-tools');
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-opus-5-5')
+            ->withTools([
+                Tool::as('get_weather')
+                    ->for('Get current weather for a city')
+                    ->withStringParameter('city', 'The city')
+                    ->using(fn (string $city): string => '20°C'),
+            ])
+            ->withMaxSteps(3)
+            ->withPrompt('Which is warmer, London or Rome?')
+            ->asText();
+
+        expect($response->steps->map(fn ($step): ?int => $step->usage->thoughtTokens)->all())->toBe([506, 40]);
+        expect($response->steps->first()->usage->completionTokens)->toBe(691);
+        expect($response->usage)
+            ->completionTokens->toBe(811)
+            ->thoughtTokens->toBe(546);
     });
 });
 

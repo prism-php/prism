@@ -253,6 +253,15 @@ $response->steps->first()->additionalContent['thinking_blocks'];
 > [!NOTE]
 > Claude may skip thinking for simple queries, in which case no thinking keys are present.
 
+### Thinking tokens
+
+When Anthropic reports `usage.output_tokens_details.thinking_tokens`, Prism puts it on `$response->usage->thoughtTokens`, for text, structured and streamed responses, per step and summed across a tool loop. `completionTokens` is still Anthropic's `output_tokens`, which already includes those thinking tokens, so don't add the two together. Older models don't send the field, so `thoughtTokens` stays `null` (a streamed tool loop's total reports `0`).
+
+```php
+$response->usage->completionTokens; // everything Claude generated, thinking included
+$response->usage->thoughtTokens;    // the thinking part of it
+```
+
 ### Replaying conversations with thinking
 
 Thinking blocks have to go back to Anthropic complete and unmodified, in their original position, when you continue a tool loop. On newer models the API also checks that everything before a thinking block (system prompt, tools and earlier messages) is unchanged. Prism handles this for you inside its own tool loops, and it keeps what you need to do the same with conversations you store:
