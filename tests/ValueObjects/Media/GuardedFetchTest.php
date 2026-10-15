@@ -252,6 +252,7 @@ dataset('non-public addresses', [
     'TEST-NET-3' => ['203.0.113.1'],
     'multicast' => ['224.0.0.1'],
     'NAT64 of the metadata endpoint' => ['64:ff9b::a9fe:a9fe'],
+    'NAT64 of the metadata endpoint, dotted' => ['64:ff9b::169.254.169.254'],
     'NAT64 of loopback' => ['64:ff9b::7f00:1'],
     'local-use NAT64' => ['64:ff9b:1::a9fe:a9fe'],
     '6to4 of the metadata endpoint' => ['2002:a9fe:a9fe::'],
