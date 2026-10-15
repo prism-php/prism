@@ -181,12 +181,14 @@ class Structured
                 $errorDetail = $isEmpty
                     ? 'no tokens remained for structured output'
                     : "output was truncated at {$contentLength} characters resulting in invalid JSON";
+                $minimumMaxTokens = $thoughtTokens + $outputTokens + 1000;
 
                 throw PrismException::providerResponseError(
                     'Gemini hit token limit with high thinking token usage. '.
                     "Token usage: {$promptTokens} prompt{$toolUseAccounting} + {$thoughtTokens} thinking + {$outputTokens} output = {$totalTokens} total. ".
                     "The {$errorDetail}. ".
-                    'Try increasing maxTokens to at least '.($totalTokens + 1000).' (suggested: '.($totalTokens * 2).' for comfortable margin).'
+                    "maxTokens caps thinking plus output ({$thoughtTokens} + {$outputTokens} used here), not the prompt. ".
+                    "Try increasing maxTokens to at least {$minimumMaxTokens} (suggested: ".($minimumMaxTokens * 2).' for comfortable margin), or lower the thinking budget.'
                 );
             }
         }
