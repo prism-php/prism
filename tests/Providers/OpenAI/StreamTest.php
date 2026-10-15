@@ -6,6 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
@@ -755,7 +756,10 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
 });
 
 it('emits TextStart and TextComplete events for each output item', function (): void {
@@ -785,4 +789,45 @@ it('emits TextStart and TextComplete events for each output item', function (): 
     expect($textStartIndices[0])->toBeLessThan($textCompleteIndices[0]);
     expect($textCompleteIndices[0])->toBeLessThan($textStartIndices[1]);
     expect($textStartIndices[1])->toBeLessThan($textCompleteIndices[1]);
+});
+
+it('ends with a step finish and Stop when the stream closes before a terminal event', function (): void {
+    $truncated = collect(explode("\n\n", (string) file_get_contents(__DIR__.'/../../Fixtures/openai/stream-with-tools-responses-1.json')))
+        ->reject(fn (string $event): bool => str_contains($event, '"type":"response.completed"'))
+        ->implode("\n\n");
+
+    Http::fake([
+        '*' => Http::response($truncated, 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $countCall = function (string $input) use (&$calls): string {
+        $calls++;
+
+        return "Result for {$input}";
+    };
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withTools([
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using($countCall),
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using($countCall),
+        ])
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+
+    expect($calls)->toBe(0)
+        ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+    Http::assertSentCount(1);
 });

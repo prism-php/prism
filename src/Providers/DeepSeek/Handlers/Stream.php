@@ -404,6 +404,7 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
+        $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),

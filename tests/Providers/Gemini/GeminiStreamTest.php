@@ -407,7 +407,10 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
 });
 
 it('can generate text stream using multiple parallel tool calls', function (): void {
@@ -546,7 +549,7 @@ function geminiGatingFunctionCallChunk(?string $finishReason = null): array
 /**
  * @return Collection<int, StreamEvent>
  */
-function geminiGatingStream(int &$calls): Collection
+function geminiGatingStream(int &$calls, int $maxSteps = 3): Collection
 {
     return collect(iterator_to_array(Prism::text()
         ->using(Provider::Gemini, 'gemini-2.5-flash')
@@ -560,7 +563,7 @@ function geminiGatingStream(int &$calls): Collection
                     return "Sunny in {$city}";
                 }),
         ])
-        ->withMaxSteps(3)
+        ->withMaxSteps($maxSteps)
         ->withPrompt('What is the weather in Detroit?')
         ->asStream(), false));
 }
@@ -609,6 +612,25 @@ describe('tool execution gating', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    })->with([
+        'STOP on the function call chunk' => [[geminiGatingFunctionCallChunk('STOP')]],
+        'STOP in a separate chunk' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'STOP')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
     })->with([
         'STOP on the function call chunk' => [[geminiGatingFunctionCallChunk('STOP')]],
         'STOP in a separate chunk' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'STOP')]],

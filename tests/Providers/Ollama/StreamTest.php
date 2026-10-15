@@ -412,7 +412,10 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
 });
 
 function ollamaGatingStreamBody(array ...$chunks): string
@@ -470,7 +473,7 @@ function ollamaGatingThinkingDoneChunk(string $doneReason): array
 /**
  * @return Collection<int, StreamEvent>
  */
-function ollamaGatingStream(int &$calls): Collection
+function ollamaGatingStream(int &$calls, int $maxSteps = 3): Collection
 {
     return collect(iterator_to_array(Prism::text()
         ->using('ollama', 'qwen3:14b')
@@ -484,7 +487,7 @@ function ollamaGatingStream(int &$calls): Collection
                     return "Sunny in {$city}";
                 }),
         ])
-        ->withMaxSteps(3)
+        ->withMaxSteps($maxSteps)
         ->withPrompt('What is the weather in Detroit?')
         ->asStream(), false));
 }
@@ -533,6 +536,26 @@ describe('tool execution gating', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    })->with([
+        'stop after the tool call' => [[ollamaGatingToolChunk(), ollamaGatingDoneChunk('stop')]],
+        'stop on the tool call chunk' => [[ollamaGatingToolChunk('stop')]],
+        'stop on a thinking chunk' => [[ollamaGatingToolChunk(), ollamaGatingThinkingDoneChunk('stop')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(...$chunks), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
     })->with([
         'stop after the tool call' => [[ollamaGatingToolChunk(), ollamaGatingDoneChunk('stop')]],
         'stop on the tool call chunk' => [[ollamaGatingToolChunk('stop')]],

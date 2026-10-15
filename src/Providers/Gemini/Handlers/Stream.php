@@ -358,29 +358,27 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
-        if ($toolResults !== []) {
-            // Emit step finish after tool calls
-            $this->state->markStepFinished();
-            yield new StepFinishEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                usage: $this->stepUsage,
-                finishReason: FinishReason::ToolCalls,
-            );
+        $this->state->withFinishReason(FinishReason::ToolCalls);
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            usage: $this->stepUsage,
+            finishReason: FinishReason::ToolCalls,
+        );
 
-            $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
-            $request->addMessage(new ToolResultMessage($toolResults));
-            $request->resetToolChoice();
+        $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
+        $request->addMessage(new ToolResultMessage($toolResults));
+        $request->resetToolChoice();
 
-            $depth++;
-            if ($depth < $request->maxSteps()) {
-                $this->state->reset()->withMessageId(EventID::generate());
-                $this->currentThoughtSignature = null;
-                $nextResponse = $this->sendRequest($request);
-                yield from $this->processStream($nextResponse, $request, $depth);
-            } else {
-                yield $this->emitStreamEndEvent();
-            }
+        $depth++;
+        if ($depth < $request->maxSteps()) {
+            $this->state->reset()->withMessageId(EventID::generate());
+            $this->currentThoughtSignature = null;
+            $nextResponse = $this->sendRequest($request);
+            yield from $this->processStream($nextResponse, $request, $depth);
+        } else {
+            yield $this->emitStreamEndEvent();
         }
     }
 

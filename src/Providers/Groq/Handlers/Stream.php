@@ -293,6 +293,7 @@ class Stream
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         // Emit step finish after tool calls
+        $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),

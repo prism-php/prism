@@ -359,7 +359,10 @@ describe('tools', function (): void {
         expect($events)->not->toBeEmpty();
 
         $lastEvent = end($events);
-        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+            ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
     });
 });
 
@@ -963,4 +966,40 @@ describe('step events', function (): void {
         // Verify step start/finish pairs are balanced
         expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
     });
+});
+
+it('ends with a step finish and Stop when the stream closes before message_delta', function (): void {
+    $truncated = collect(explode("\n\n", (string) file_get_contents(__DIR__.'/../../Fixtures/anthropic/stream-with-tools-1.sse')))
+        ->reject(fn (string $event): bool => str_contains($event, '"type":"message_delta"') || str_contains($event, '"type":"message_stop"'))
+        ->implode("\n\n");
+
+    Http::fake([
+        '*' => Http::response($truncated, 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+        ->withTools([
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "The weather will be 75° and sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+
+    expect($calls)->toBe(0)
+        ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+    Http::assertSentCount(1);
 });

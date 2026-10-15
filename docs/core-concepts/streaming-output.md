@@ -389,6 +389,12 @@ Based on actual streaming output:
 
 The `finish_reason` on `stream_end` reports why the model really stopped, so watch for `Refusal`, `Length` and `Error` as well as `Stop`. The same values are covered in [Why Generation Stopped](/core-concepts/text-generation#why-generation-stopped).
 
+Every stream ends the same way on every provider: a `step_finish` for the last step, then exactly one `stream_end`. A few cases worth knowing:
+
+- If `maxSteps` runs out on a step that ended with tool calls, Prism runs those tools and stops there. That step's `step_finish` and the `stream_end` both report `ToolCalls`, just like `$response->finishReason` on a non-streaming request.
+- If the connection closes before the provider sends a finish reason, the stream still ends with `step_finish` and `stream_end`, reporting `Stop`.
+- If the provider repeats its finish reason across several chunks, you still get one `stream_end`.
+
 ## Handling Artifact Events
 
 When tools produce binary artifacts (images, audio, files), they're emitted as `ArtifactEvent` through the stream. This lets your application handle binary data without it going to the LLM's context window.

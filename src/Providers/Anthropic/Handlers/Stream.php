@@ -627,10 +627,6 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $toolCalls, $this->state->messageId(), $toolResults);
 
-        if ($toolResults === []) {
-            return;
-        }
-
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),

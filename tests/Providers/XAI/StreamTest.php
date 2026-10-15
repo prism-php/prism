@@ -557,7 +557,10 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
 });
 
 function xaiGatingSse(array ...$chunks): string
@@ -607,7 +610,7 @@ function xaiGatingFinishChunk(string $finishReason): array
 /**
  * @return Collection<int, StreamEvent>
  */
-function xaiGatingStream(int &$calls): Collection
+function xaiGatingStream(int &$calls, int $maxSteps = 3): Collection
 {
     return collect(iterator_to_array(Prism::text()
         ->using('xai', 'grok-4')
@@ -621,7 +624,7 @@ function xaiGatingStream(int &$calls): Collection
                     return "Sunny in {$city}";
                 }),
         ])
-        ->withMaxSteps(3)
+        ->withMaxSteps($maxSteps)
         ->withPrompt('What is the weather in Detroit?')
         ->asStream(), false));
 }
@@ -669,6 +672,25 @@ describe('tool execution gating', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    })->with([
+        'tool_calls in a separate chunk' => [[xaiGatingToolChunk(), xaiGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[xaiGatingToolChunk('tool_calls')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
     })->with([
         'tool_calls in a separate chunk' => [[xaiGatingToolChunk(), xaiGatingFinishChunk('tool_calls')]],
         'tool_calls on the tool call chunk' => [[xaiGatingToolChunk('tool_calls')]],
