@@ -10,6 +10,8 @@
     'anthropic_beta' => env('ANTHROPIC_BETA', null),
 ]
 ```
+
+You can also override `anthropic_beta` per request with `->using('anthropic', $model, ['anthropic_beta' => '...'])`. On top of the configured list, Prism adds the betas a request's provider options need (`fallbacks`, `thinking.display: updates`, `thinking.block_binding`), de-duplicated, on every request and step.
 ## Prompt caching
 
 Anthropic's prompt caching feature allows you to drastically reduce latency and your API bill when repeatedly re-using blocks of content within five minutes or one hour of each other, depending on the Anthropic compatible TTL option you provide.
@@ -113,64 +115,88 @@ $response = Prism::text()
     ->asText();
 ```
 
-When multiple tool results are returned, Prism automatically applies caching to only the last result, which caches all preceding results as well. This avoids Anthropic's 4-cache-breakpoint limitation.
+When multiple tool results are returned, Prism automatically applies caching to only the last result, which caches all preceding results as well. The breakpoint rolls forward to the newest tool result on each step of a tool loop (text, streaming and structured alike), so a long loop never exceeds Anthropic's 4-cache-breakpoint limitation.
 
 Please ensure you read Anthropic's [prompt caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), which covers some important information on e.g. minimum cacheable tokens and message order consistency.
 
 ## Thinking
 
-Anthropic models support extended thinking, where the model reasons before returning its answer. Claude 4.6+ models (Opus 4.6, Sonnet 4.6) use **adaptive thinking** (recommended), where Claude dynamically determines when and how much to think. Older models use manual thinking with a fixed token budget.
+Claude can reason before it answers. On current models that reasoning is **adaptive**: Claude decides when and how deeply to think, and you steer it with `effort`. Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 think by default, even when you send no thinking option at all. Older models (Opus 4.5, Sonnet 4.5, Sonnet 3.7 and earlier) use manual thinking with a fixed token budget.
 
-Please refer to Anthropic's [adaptive thinking](https://docs.anthropic.com/en/docs/build-with-claude/adaptive-thinking) and [extended thinking](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking) documentation for important limitations and behaviours when using thinking with caching and/or tools.
+Please refer to Anthropic's [thinking documentation](https://platform.claude.com/docs/en/build-with-claude/thinking) for limitations and behaviours when using thinking with caching and/or tools.
 
-### Adaptive thinking (recommended for Claude 4.6+)
-
-Adaptive thinking lets Claude decide when and how much to think based on the complexity of each request:
+### Adaptive thinking (recommended)
 
 ```php
 use Prism\Prism\Facades\Prism;
 
 Prism::text()
-    ->using('anthropic', 'claude-sonnet-4-6')
+    ->using('anthropic', 'claude-opus-5-5')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
     ->asText();
 ```
 
-Use the `effort` parameter to guide how much thinking Claude does:
+On the 5.x models thinking is on without this option, and the thinking text is hidden by default (`display: omitted`): you get thinking blocks with an empty `thinking` field and a `signature`. To read a summary of Claude's reasoning, ask for it with `display`:
 
 ```php
 Prism::text()
-    ->using('anthropic', 'claude-sonnet-4-6')
+    ->using('anthropic', 'claude-opus-5-5')
     ->withPrompt('Analyze the trade-offs between microservices and monolithic architectures')
     ->withProviderOptions([
-        'thinking' => ['type' => 'adaptive'],
+        'thinking' => ['type' => 'adaptive', 'display' => 'summarized'],
         'effort' => 'high',
     ])
     ->asText();
 ```
 
-Available effort levels:
+Use the `effort` parameter to guide how much work Claude puts into the whole response, thinking included:
 
-| Level    | Description                                                              |
-|----------|--------------------------------------------------------------------------|
-| `max`    | Maximum capability with no constraints on thinking depth. Opus 4.6 only. |
-| `high`   | Deep reasoning on complex tasks. This is the default.                    |
-| `medium` | Balanced approach with moderate token savings.                           |
-| `low`    | Most efficient. Significant token savings with some capability reduction.|
+| Level    | Description                                                               |
+|----------|---------------------------------------------------------------------------|
+| `max`    | Maximum capability with no constraints on thinking depth.                 |
+| `xhigh`  | Deeper than `high` for the hardest tasks.                                 |
+| `high`   | Deep reasoning on complex tasks. This is the default.                     |
+| `medium` | Balanced approach with moderate token savings.                            |
+| `low`    | Most efficient. Significant token savings with some capability reduction. |
 
-> [!NOTE]
-> Setting `effort` to `"high"` produces the same behavior as omitting the parameter entirely.
+Which levels a model accepts varies; an unsupported level comes back as a `PrismException` from the API.
 
 > [!TIP]
-> The `effort` parameter can also be used without thinking enabled, in which case it controls overall token spend for text responses and tool calls.
+> The `effort` parameter can also be used without a thinking option, in which case it controls overall token spend for text responses and tool calls.
 
-Works identically with `Prism::structured()`.
+Works identically with `Prism::structured()` and streaming.
+
+### The thinking option
+
+When you set `thinking.type`, Prism sends your `thinking` array to Anthropic as given, using the API's field names. That means anything the API accepts works without a Prism release:
+
+| Option | Example | Notes |
+|--------|---------|-------|
+| `type` | `adaptive`, `enabled`, `disabled`, `between_tools` | Required for passthrough. |
+| `display` | `summarized`, `omitted`, `updates` | `updates` is in beta; Prism adds the `thinking-display-updates-2026-08-18` header for you. |
+| `block_binding` | `['prefix_mismatch_behavior' => 'error']` | Prefix enforcement for preserved thinking (`error` or `drop_block`); Prism adds the `thinking-binding-controls-2026-08-01` header for you. |
+| `budget_tokens` | `2048` | Only meaningful for `type: enabled`. Prism's `budgetTokens` alias is translated for `enabled`, and the config default is used when neither is set. |
+
+Prism doesn't validate these against the model. The API's answer is the source of truth, and a rejected combination surfaces as a `PrismException`. As of this writing:
+
+- `enabled` (with `budget_tokens`) returns a 400 on all of the 5.x models above.
+- `disabled` returns a 400 on Opus 5.5, Sonnet 5.5 and Fable 5.1. Haiku 5.5 accepts it at `high` effort or below.
+- Sonnet 5.5's lowest setting is `between_tools`, which turns off up-front thinking but still returns the short progress updates it writes between tool calls as thinking blocks. It's accepted at `high` effort or below and takes no other field. Opus 5.5 rejects it.
+
+```php
+// Turn up-front thinking off on Sonnet 5.5
+Prism::text()
+    ->using('anthropic', 'claude-sonnet-5-5')
+    ->withPrompt('Summarize this article in one sentence.')
+    ->withProviderOptions(['thinking' => ['type' => 'between_tools']])
+    ->asText();
+```
 
 ### Manual thinking (legacy)
 
 > [!WARNING]
-> Manual thinking with `enabled` and `budgetTokens` is deprecated on Claude 4.6+ models. Use adaptive thinking instead. Manual thinking is still required for older models (Sonnet 4.5, Opus 4.5, Sonnet 3.7, etc.).
+> Manual thinking with `enabled` and a token budget is deprecated on Claude 4.6 and rejected by the 5.x models. Use adaptive thinking instead. Manual thinking is still required for older models (Sonnet 4.5, Opus 4.5, Sonnet 3.7, etc.).
 
 ```php
 Prism::text()
@@ -200,40 +226,46 @@ Note that thinking tokens count towards output tokens, so you will be billed for
 
 ### Inspecting the thinking block
 
-Anthropic returns the thinking block with its response. This works identically for both adaptive and manual thinking modes.
+Prism reads thinking from the response whenever the model returns it, whether or not you sent a thinking option. You can access it via the `additionalContent` property on either the Response or the relevant step:
 
-You can access it via the additionalContent property on either the Response or the relevant step.
-
-On the Response (easiest if not using tools):
+| Key | Contents |
+|-----|----------|
+| `thinking_blocks` | Every `thinking` and `redacted_thinking` block, in order, exactly as returned. |
+| `thinking` | The text of the first `thinking` block (an empty string when display is omitted). |
+| `thinking_signature` | The signature of that same block. |
 
 ```php
 $response = Prism::text()
-    ->using('anthropic', 'claude-sonnet-4-6')
+    ->using('anthropic', 'claude-opus-5-5')
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
-    ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
+    ->withProviderOptions(['thinking' => ['type' => 'adaptive', 'display' => 'summarized']])
     ->asText();
 
 $response->additionalContent['thinking'];
 ```
 
-On the Step (necessary if using tools, as Anthropic returns the thinking block on the ToolCall step):
+When using tools, Anthropic returns thinking on the tool call steps, so look at the steps:
 
 ```php
-$tools = [...];
-
-$response = Prism::text()
-    ->using('anthropic', 'claude-sonnet-4-6')
-    ->withTools($tools)
-    ->withMaxSteps(3)
-    ->withPrompt('What time is the tigers game today and should I wear a coat?')
-    ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
-    ->asText();
-
-$response->steps->first()->additionalContent->thinking;
+$response->steps->first()->additionalContent['thinking_blocks'];
 ```
 
 > [!NOTE]
-> With adaptive thinking, Claude may skip thinking for simple queries, in which case no thinking block is returned.
+> Claude may skip thinking for simple queries, in which case no thinking keys are present.
+
+### Replaying conversations with thinking
+
+Thinking blocks have to go back to Anthropic complete and unmodified, in their original position, when you continue a tool loop. On newer models the API also checks that everything before a thinking block (system prompt, tools and earlier messages) is unchanged. Prism handles this for you inside its own tool loops, and it keeps what you need to do the same with conversations you store:
+
+- Every step's `additionalContent['content_blocks']` holds the response's `content` array as returned: thinking, text, tool calls, server tool blocks and fallback markers, in order. The `AssistantMessage` Prism builds for each step carries the same keys, so the stored messages replay the conversation exactly:
+  - For `asText()`, persist `$response->messages`. It holds the messages you sent, every step of the tool loop and the final assistant message. `$response->steps->last()->messages` is only what Prism sent for the last step, so it stops before the final answer.
+  - For `asStructured()`, which has no `messages`, persist `$response->steps->last()->messages`. Structured steps record the assistant message they produced, so it's already there.
+  - For streams, persist the messages a `StreamCollector` gives you, after the messages you sent.
+- A turn that ends without `tool_use` (a refusal, `max_tokens`) never runs its tool calls, so Prism stores it without them: `content_blocks` leave out its `tool_use` blocks and any server tool use left without a result (except on `pause_turn`, which Anthropic resumes), and the step has no `toolCalls`. A refused turn replays as whatever text it produced, so don't expect tool calls from it when you continue the conversation. The untouched response is still in the step's `raw`.
+- When an `AssistantMessage` is mapped back to Anthropic, Prism uses the first of these it finds: `content_blocks`, then `thinking_blocks` (followed by the message's text and tool calls), then the legacy `thinking`/`thinking_signature` pair. Messages stored before `content_blocks` existed keep replaying as they always have.
+- To deliberately drop replay state (for example, when you edit a message), remove those keys from `additionalContent`.
+
+A `cacheType` on an `AssistantMessage` that carries `content_blocks` goes on its last cacheable block; thinking and fallback blocks never get `cache_control`.
 
 ### Extended output mode
 
@@ -276,6 +308,63 @@ foreach ($stream as $event) {
 ```
 
 For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
+
+### Step metadata in streams
+
+Streams carry the same metadata as `asText()`, split across two events:
+
+- Each `StepFinishEvent` has the step's `additionalContent`: `content_blocks`, `thinking_blocks`, `thinking`, `thinking_signature`, `stop_reason`, `stop_details`, `fallbacks`, `usage_iterations` and the citation/provider tool keys, plus that step's `usage`. These replay blobs stay out of `toArray()`, so they never reach SSE, Data Protocol or broadcast output.
+- The `StreamEndEvent` carries the final step's `thinking`, `thinking_signature`, `stop_reason`, `stop_details`, `fallbacks` and `usage_iterations`, but not `content_blocks` or `thinking_blocks`.
+
+If you persist streamed conversations, run the stream through `Prism\Prism\Streaming\StreamCollector`. It builds one `AssistantMessage` per step and attaches that step's `additionalContent`, so the stored messages replay exactly like the ones Prism sends inside its own tool loop.
+
+The stream's `finishReason` reflects Anthropic's `stop_reason`, and Prism only runs the tools Claude asked for when the turn actually ended with `tool_use`. A turn that ends in a refusal, `max_tokens` or an error doesn't execute the tool calls it streamed. You still get their `ToolCallEvent`s, but the step's `content_blocks` leave them out (along with any block the stream never finished), the `StepFinishEvent` reports the step's `finishReason`, and the `AssistantMessage` a `StreamCollector` builds for that step has no tool calls.
+
+## Refusals
+
+Claude's safety classifiers can decline a request. That comes back as a normal response, not an error, with `FinishReason::Refusal`. Check the finish reason rather than the content, since a refusal can arrive before any output or part-way through it:
+
+```php
+use Prism\Prism\Enums\FinishReason;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-opus-5-5')
+    ->withPrompt($prompt)
+    ->asText();
+
+if ($response->finishReason === FinishReason::Refusal) {
+    $response->additionalContent['stop_details'];
+    // ['type' => 'refusal', 'category' => 'cyber', 'explanation' => '...']
+}
+```
+
+Every step and response carries the raw `stop_reason` in `additionalContent`, and `stop_details` whenever Anthropic sends one. Both `category` and `explanation` can be `null`. The same keys are on the `StepFinishEvent` and `StreamEndEvent` when streaming. `model_context_window_exceeded` maps to `FinishReason::Length`.
+
+## Fallbacks
+
+Anthropic can retry a declined request on another model inside the same API call. Pass `fallbacks` as a provider option, either `'default'` (Anthropic picks the recommended fallback for the refusal category) or a list of up to three models with optional overrides. Prism sends it as the top-level `fallbacks` field and adds the `server-side-fallback-2026-07-01` beta header for you, on text, structured and streaming requests and on every step of a tool loop.
+
+```php
+$response = Prism::text()
+    ->using('anthropic', 'claude-opus-5-5')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'fallbacks' => 'default',
+        // or: 'fallbacks' => [['model' => 'claude-opus-4-8']],
+    ])
+    ->asText();
+
+$response->meta->model;                            // the model that served the response
+$response->additionalContent['fallbacks'];         // [['from' => 'claude-opus-5-5', 'to' => 'claude-opus-4-8']]
+$response->additionalContent['usage_iterations'];  // one entry per attempt, with its own model
+```
+
+A few things worth knowing:
+
+- `fallbacks` is only present when the response contains a `fallback` block. With sticky routing, a later turn can go straight to the fallback model; that turn has no `fallback` block, so look for a `fallback_message` entry in `usage_iterations` and at `meta->model`.
+- `usage_iterations` is Anthropic's raw `usage.iterations` for that step. Prism's `Usage` keeps the API's meaning: the attempt that produced the returned message, never tokens from different models added together. Bill each attempt at its own `model`'s rates, and for a tool loop sum `usage_iterations` across `$response->steps`, since each step is a separate API call.
+- Replayed turns follow Anthropic's echo rules for you: the `fallback` blocks stay where they appeared, text and everything after the last fallback is kept, and declined thinking, connector text, tool calls and unpaired server tool calls before it are dropped. Tool calls made before the last fallback are never executed.
+- Claude Haiku 5.5 has no server-side fallback, and `fallbacks` isn't available on the Message Batches API or on Bedrock, Google Cloud or Foundry.
 
 ## Documents
 
@@ -498,6 +587,11 @@ $response = Prism::structured()
 **Limitations:**
 - Cannot be used with citations (citations are not supported in tool calling mode)
 - Slightly more complex under the hood but identical API usage
+
+> [!IMPORTANT]
+> Without custom tools or thinking, tool calling mode forces Claude to call the structured output tool (`tool_choice` of type `tool`). Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 reject forced tool use with a 400. On those models use native structured output (the default), or keep tool calling mode and pass `->withToolChoice(ToolChoice::Auto)`, which Prism honours. With `Auto` the structured output tool is best effort rather than schema-enforced, so native mode remains the recommendation. `ToolChoice::None` is still rejected in tool calling mode.
+
+Prism adds the "use the structured output tool" instruction once, before the first request, so multi-step tool loops stay append-only (required for preserved thinking on newer models).
 
 #### Combining Custom Tools with Structured Output
 

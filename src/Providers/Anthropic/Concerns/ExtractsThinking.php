@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Concerns;
 
 use Illuminate\Support\Arr;
+use Prism\Prism\Providers\Anthropic\Support\ContentBlocks;
 
 trait ExtractsThinking
 {
@@ -14,19 +15,23 @@ trait ExtractsThinking
      */
     protected function extractThinking(array $data): array
     {
-        if ($this->request->providerOptions('thinking.enabled') !== true
-            && $this->request->providerOptions('thinking.type') !== 'adaptive') {
+        $thinkingBlocks = ContentBlocks::thinkingBlocks(
+            ContentBlocks::servingBlocks(data_get($data, 'content') ?? [])
+        );
+
+        if ($thinkingBlocks === []) {
             return [];
         }
 
-        $thinking = Arr::first(
-            data_get($data, 'content', []),
-            fn ($content): bool => data_get($content, 'type') === 'thinking'
+        $firstThinking = Arr::first(
+            $thinkingBlocks,
+            fn (array $block): bool => ($block['type'] ?? null) === 'thinking'
         );
 
         return [
-            'thinking' => data_get($thinking, 'thinking'),
-            'thinking_signature' => data_get($thinking, 'signature'),
+            'thinking_blocks' => $thinkingBlocks,
+            'thinking' => $firstThinking['thinking'] ?? null,
+            'thinking_signature' => $firstThinking['signature'] ?? null,
         ];
     }
 }

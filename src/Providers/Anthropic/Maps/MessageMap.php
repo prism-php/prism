@@ -8,6 +8,7 @@ use Exception;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\NormalizesCacheControl;
+use Prism\Prism\Providers\Anthropic\Support\ContentBlocks;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -145,21 +146,20 @@ class MessageMap
     }
 
     /**
+     * Replay precedence: `content_blocks` (the ordered response content) >
+     * `thinking_blocks` > the legacy `thinking`/`thinking_signature` pair.
+     *
      * @return array<string, mixed>
      */
     protected static function mapAssistantMessage(AssistantMessage $message): array
     {
         $cacheControl = self::normalizeCacheControl($message);
 
-        $content = [];
-
-        if (isset($message->additionalContent['thinking']) && isset($message->additionalContent['thinking_signature'])) {
-            $content[] = [
-                'type' => 'thinking',
-                'thinking' => $message->additionalContent['thinking'],
-                'signature' => $message->additionalContent['thinking_signature'],
-            ];
+        if (is_array($message->additionalContent['content_blocks'] ?? null)) {
+            return self::mapAssistantContentBlocks($message->additionalContent['content_blocks'], $cacheControl);
         }
+
+        $content = self::mapAssistantThinking($message);
 
         if (isset($message->additionalContent['citations'])) {
             foreach ($message->additionalContent['citations'] as $part) {
@@ -211,6 +211,41 @@ class MessageMap
             'role' => 'assistant',
             'content' => array_merge($content, $toolCalls),
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $contentBlocks
+     * @param  array<string, mixed>|null  $cacheControl
+     * @return array<string, mixed>
+     */
+    protected static function mapAssistantContentBlocks(array $contentBlocks, ?array $cacheControl): array
+    {
+        $content = ContentBlocks::forReplay($contentBlocks);
+
+        return [
+            'role' => 'assistant',
+            'content' => $cacheControl === null ? $content : ContentBlocks::withCacheControl($content, $cacheControl),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function mapAssistantThinking(AssistantMessage $message): array
+    {
+        if (is_array($message->additionalContent['thinking_blocks'] ?? null)) {
+            return array_values($message->additionalContent['thinking_blocks']);
+        }
+
+        if (isset($message->additionalContent['thinking']) && isset($message->additionalContent['thinking_signature'])) {
+            return [[
+                'type' => 'thinking',
+                'thinking' => $message->additionalContent['thinking'],
+                'signature' => $message->additionalContent['thinking_signature'],
+            ]];
+        }
+
+        return [];
     }
 
     /**
