@@ -41,8 +41,7 @@ class Text
 
         $this->validateResponse($data);
 
-        // Check for tool calls first, regardless of finish reason
-        if (! empty(data_get($data, 'message.tool_calls'))) {
+        if (! empty(data_get($data, 'message.tool_calls')) && $this->isToolCallFinish($this->mapFinishReason($data))) {
             return $this->handleToolCalls($data, $request);
         }
 

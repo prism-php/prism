@@ -72,6 +72,7 @@ class Stream
         }
 
         $text = '';
+        $stepFinishReason = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -124,7 +125,9 @@ class Stream
                     reasoningId: $this->state->reasoningId()
                 );
 
-                continue;
+                if (! (bool) data_get($data, 'done', false)) {
+                    continue;
+                }
             }
 
             // If we were emitting thinking and it's now stopped, mark it complete
@@ -168,26 +171,9 @@ class Stream
                 );
             }
 
-            // Handle tool call completion when stream is done (like original)
-            if ((bool) data_get($data, 'done', false) && $this->state->hasToolCalls()) {
-                // Emit text complete if we had text content
-                if ($this->state->hasTextStarted()) {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
-
-                yield from $this->handleToolCalls($request, $text, $depth);
-
-                return;
-            }
-
-            // Handle regular completion (no tool calls)
             if ((bool) data_get($data, 'done', false)) {
+                $stepFinishReason = $this->mapFinishReason($data);
+
                 // Emit text complete if we had text content
                 if ($this->state->hasTextStarted()) {
                     $this->state->markTextCompleted();
@@ -199,19 +185,27 @@ class Stream
                     );
                 }
 
-                // Emit step finish before stream end
-                $this->state->markStepFinished();
-                yield new StepFinishEvent(
-                    id: EventID::generate(),
-                    timestamp: time()
-                );
+                if ($this->state->hasToolCalls() && $this->isToolCallFinish($stepFinishReason)) {
+                    yield from $this->handleToolCalls($request, $text, $depth);
 
-                // Emit stream end event with usage
-                yield $this->emitStreamEndEvent();
+                    return;
+                }
 
-                return;
+                break;
             }
         }
+
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
+
+        // Emit step finish before stream end
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            finishReason: $this->state->finishReason(),
+        );
+
+        yield $this->emitStreamEndEvent();
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent
@@ -219,7 +213,7 @@ class Stream
         return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
-            finishReason: FinishReason::Stop,
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
             usage: new Usage(
                 promptTokens: $this->state->promptTokens(),
                 completionTokens: $this->state->completionTokens()
@@ -294,10 +288,12 @@ class Stream
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         // Emit step finish after tool calls
+        $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            finishReason: FinishReason::ToolCalls,
         );
 
         // Add messages for next turn

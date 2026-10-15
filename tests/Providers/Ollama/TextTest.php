@@ -292,3 +292,63 @@ describe('Finish reason handling', function (): void {
         expect($response->steps)->toHaveCount(1);
     });
 });
+
+describe('Tool execution gating', function (): void {
+    it('only runs tool calls when the turn completes normally', function (?string $doneReason, int $expectedCalls, int $expectedRequests): void {
+        $toolTurn = array_filter([
+            'model' => 'qwen2.5:14b',
+            'created_at' => '2025-06-09T18:55:26.684517Z',
+            'message' => [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [['function' => ['name' => 'get_weather', 'arguments' => ['city' => 'Detroit']]]],
+            ],
+            'done_reason' => $doneReason,
+            'done' => true,
+            'prompt_eval_count' => 10,
+            'eval_count' => 5,
+        ], fn (mixed $value): bool => $value !== null);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push($toolTurn, 200)
+                ->push([
+                    'model' => 'qwen2.5:14b',
+                    'created_at' => '2025-06-09T18:55:32.104592Z',
+                    'message' => ['role' => 'assistant', 'content' => 'Sunny in Detroit.'],
+                    'done_reason' => 'stop',
+                    'done' => true,
+                    'prompt_eval_count' => 20,
+                    'eval_count' => 5,
+                ], 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+
+        $response = Prism::text()
+            ->using('ollama', 'qwen2.5:14b')
+            ->withTools([
+                Tool::as('get_weather')
+                    ->for('Get the weather for a city')
+                    ->withStringParameter('city', 'The city')
+                    ->using(function (string $city) use (&$calls): string {
+                        $calls++;
+
+                        return "Sunny in {$city}";
+                    }),
+            ])
+            ->withMaxSteps(3)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asText();
+
+        expect($calls)->toBe($expectedCalls)
+            ->and($response->steps)->toHaveCount($expectedRequests)
+            ->and($response->steps[0]->toolResults)->toHaveCount($expectedCalls);
+
+        Http::assertSentCount($expectedRequests);
+    })->with([
+        'stop runs the tools' => ['stop', 1, 2],
+        'length does not' => ['length', 0, 1],
+        'a missing done reason does not' => [null, 0, 1],
+    ]);
+});

@@ -131,7 +131,9 @@ class Stream
                     reasoningId: $this->state->reasoningId()
                 );
 
-                continue;
+                if (data_get($data, 'choices.0.finish_reason') === null) {
+                    continue;
+                }
             }
 
             if ($this->state->hasThinkingStarted() && $thinkingContent === '') {
@@ -145,6 +147,11 @@ class Stream
 
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
+                $finishReason = $this->extractFinishReason($data) ?? $finishReason;
+
+                if ($finishReason instanceof FinishReason) {
+                    $this->state->withFinishReason($finishReason);
+                }
 
                 continue;
             }
@@ -186,7 +193,7 @@ class Stream
             }
         }
 
-        if ($toolCalls !== []) {
+        if ($toolCalls !== [] && $finishReason === FinishReason::ToolCalls) {
             if ($this->state->hasTextStarted() && $text !== '') {
                 $this->state->markTextCompleted();
 
@@ -212,10 +219,12 @@ class Stream
             );
         }
 
+        $this->state->withFinishReason($finishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            finishReason: $this->state->finishReason(),
         );
 
         yield $this->emitStreamEndEvent();
@@ -312,7 +321,7 @@ class Stream
      */
     protected function extractContent(array $data): string
     {
-        return data_get($data, 'choices.0.delta.content', '');
+        return data_get($data, 'choices.0.delta.content') ?? '';
     }
 
     /**
@@ -373,7 +382,8 @@ class Stream
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            finishReason: FinishReason::ToolCalls,
         );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));

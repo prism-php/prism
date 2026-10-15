@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Mistral;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
@@ -562,4 +563,195 @@ it('can stream with reasoning models', function (): void {
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
     expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
+});
+
+function mistralGatingSse(array ...$chunks): string
+{
+    return collect($chunks)
+        ->map(fn (array $chunk): string => 'data: '.json_encode($chunk)."\n\n")
+        ->implode('')."data: [DONE]\n\n";
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function mistralGatingToolChunk(?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'mistral-large-latest',
+        'choices' => [[
+            'index' => 0,
+            'delta' => [
+                'role' => 'assistant',
+                'tool_calls' => [[
+                    'index' => 0,
+                    'id' => 'call_gating',
+                    'type' => 'function',
+                    'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Detroit"}'],
+                ]],
+            ],
+            'finish_reason' => $finishReason,
+        ]],
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function mistralGatingFinishChunk(string $finishReason): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'mistral-large-latest',
+        'choices' => [['index' => 0, 'delta' => ['content' => ''], 'finish_reason' => $finishReason]],
+        'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+    ];
+}
+
+/**
+ * @return Collection<int, StreamEvent>
+ */
+function mistralGatingStream(int &$calls): Collection
+{
+    return collect(iterator_to_array(Prism::text()
+        ->using('mistral', 'mistral-large-latest')
+        ->withTools([
+            Tool::as('get_weather')
+                ->for('Get the weather for a city')
+                ->withStringParameter('city', 'The city')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "Sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+}
+
+describe('tool execution gating', function (): void {
+    it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
+        Http::fake([
+            '*' => Http::response(mistralGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe($finishReason)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe($finishReason);
+
+        Http::assertSentCount(1);
+    })->with([
+        'length after the tool call' => [[mistralGatingToolChunk(), mistralGatingFinishChunk('length')], FinishReason::Length],
+        'length on the tool call chunk' => [[mistralGatingToolChunk('length')], FinishReason::Length],
+        'content filter after the tool call' => [[mistralGatingToolChunk(), mistralGatingFinishChunk('content_filter')], FinishReason::ContentFilter],
+        'stream ends without a finish reason' => [[mistralGatingToolChunk()], FinishReason::Stop],
+    ]);
+
+    it('runs tool calls once when the step finishes with tool calls', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(mistralGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(mistralGatingSse(mistralGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    })->with([
+        'tool_calls in a separate chunk' => [[mistralGatingToolChunk(), mistralGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[mistralGatingToolChunk('tool_calls')]],
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function mistralGatingDeltaChunk(array $delta, ?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'mistral-large-latest',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finishReason]],
+    ];
+}
+
+describe('tool execution gating with mixed chunks', function (): void {
+    it('runs tool calls once when the tool-call finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(mistralGatingSse(mistralGatingToolChunk(), mistralGatingDeltaChunk($delta, 'tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(mistralGatingSse(mistralGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($events->whereInstanceOf([TextDeltaEvent::class, ThinkingEvent::class])->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(2);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+        'thinking' => [['content' => [['type' => 'thinking', 'thinking' => [['type' => 'text', 'text' => 'Thinking it over.']]]]], 'Thinking it over.'],
+    ]);
+
+    it('never runs tool calls when a non-tool finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::response(mistralGatingSse(mistralGatingToolChunk(), mistralGatingDeltaChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf([TextDeltaEvent::class, ThinkingEvent::class])->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(1);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+        'thinking' => [['content' => [['type' => 'thinking', 'thinking' => [['type' => 'text', 'text' => 'Thinking it over.']]]]], 'Thinking it over.'],
+    ]);
+
+    it('ends with Stop when the step after a tool call has no finish reason', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(mistralGatingSse(mistralGatingToolChunk(), mistralGatingFinishChunk('tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(mistralGatingSse(mistralGatingDeltaChunk(['content' => 'Sunny in Detroit.'])), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    });
 });

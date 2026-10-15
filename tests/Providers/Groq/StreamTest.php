@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Groq;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
@@ -475,4 +476,193 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
 
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+});
+
+function groqGatingSse(array ...$chunks): string
+{
+    return collect($chunks)
+        ->map(fn (array $chunk): string => 'data: '.json_encode($chunk)."\n\n")
+        ->implode('')."data: [DONE]\n\n";
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function groqGatingToolChunk(?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'llama-3.3-70b-versatile',
+        'choices' => [[
+            'index' => 0,
+            'delta' => [
+                'role' => 'assistant',
+                'tool_calls' => [[
+                    'index' => 0,
+                    'id' => 'call_gating',
+                    'type' => 'function',
+                    'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Detroit"}'],
+                ]],
+            ],
+            'finish_reason' => $finishReason,
+        ]],
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function groqGatingFinishChunk(string $finishReason): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'llama-3.3-70b-versatile',
+        'choices' => [['index' => 0, 'delta' => ['content' => ''], 'finish_reason' => $finishReason]],
+        'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+    ];
+}
+
+/**
+ * @return Collection<int, StreamEvent>
+ */
+function groqGatingStream(int &$calls): Collection
+{
+    return collect(iterator_to_array(Prism::text()
+        ->using('groq', 'llama-3.3-70b-versatile')
+        ->withTools([
+            Tool::as('get_weather')
+                ->for('Get the weather for a city')
+                ->withStringParameter('city', 'The city')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "Sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+}
+
+describe('tool execution gating', function (): void {
+    it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
+        Http::fake([
+            '*' => Http::response(groqGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe($finishReason)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe($finishReason);
+
+        Http::assertSentCount(1);
+    })->with([
+        'length after the tool call' => [[groqGatingToolChunk(), groqGatingFinishChunk('length')], FinishReason::Length],
+        'length on the tool call chunk' => [[groqGatingToolChunk('length')], FinishReason::Length],
+        'content filter after the tool call' => [[groqGatingToolChunk(), groqGatingFinishChunk('content_filter')], FinishReason::ContentFilter],
+        'stream ends without a finish reason' => [[groqGatingToolChunk()], FinishReason::Stop],
+    ]);
+
+    it('runs tool calls once when the step finishes with tool calls', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(groqGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    })->with([
+        'tool_calls in a separate chunk' => [[groqGatingToolChunk(), groqGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[groqGatingToolChunk('tool_calls')]],
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function groqGatingDeltaChunk(array $delta, ?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'llama-3.3-70b-versatile',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finishReason]],
+    ];
+}
+
+describe('tool execution gating with mixed chunks', function (): void {
+    it('runs tool calls once when the tool-call finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(groqGatingSse(groqGatingToolChunk(), groqGatingDeltaChunk($delta, 'tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(2);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+    ]);
+
+    it('never runs tool calls when a non-tool finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::response(groqGatingSse(groqGatingToolChunk(), groqGatingDeltaChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(1);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+    ]);
+
+    it('ends with Stop when the step after a tool call has no finish reason', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(groqGatingSse(groqGatingToolChunk(), groqGatingFinishChunk('tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(groqGatingSse(groqGatingDeltaChunk(['content' => 'Sunny in Detroit.'])), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    });
 });

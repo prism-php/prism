@@ -72,6 +72,7 @@ class Stream
 
         $text = '';
         $toolCalls = [];
+        $stepFinishReason = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -130,32 +131,12 @@ class Stream
                     return;
                 }
 
+                if (data_get($data, 'choices.0.finish_reason') !== null) {
+                    $stepFinishReason = $this->mapFinishReason($data);
+                    $this->state->withFinishReason($stepFinishReason);
+                }
+
                 continue;
-            }
-
-            $finishReasonValue = data_get($data, 'choices.0.finish_reason');
-            if ($finishReasonValue !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
-
-                if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
-                    yield new ThinkingCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        reasoningId: $this->state->reasoningId()
-                    );
-                }
-
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                return;
             }
 
             if ($this->hasReasoningData($data)) {
@@ -186,7 +167,9 @@ class Stream
 
                 $this->captureReasoningDetails($data);
 
-                continue;
+                if (data_get($data, 'choices.0.finish_reason') === null) {
+                    continue;
+                }
             }
 
             $content = $this->extractContentDelta($data);
@@ -209,6 +192,31 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId()
                 );
+            }
+
+            $finishReasonValue = data_get($data, 'choices.0.finish_reason');
+            if ($finishReasonValue !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
+                if ($this->state->hasTextStarted() && $text !== '') {
+                    $this->state->markTextCompleted();
+
+                    yield new TextCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        messageId: $this->state->messageId()
+                    );
+                }
+
+                if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
+                    yield new ThinkingCompleteEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
+
+                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+
+                return;
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
@@ -234,6 +242,7 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
+                $stepFinishReason = $finishReason;
             }
 
             // Extract usage from any chunk that has it
@@ -244,10 +253,12 @@ class Stream
             }
         }
 
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            finishReason: $this->state->finishReason(),
         );
 
         yield $this->emitStreamEndEvent();
@@ -385,7 +396,7 @@ class Stream
      */
     protected function extractContentDelta(array $data): string
     {
-        return data_get($data, 'choices.0.delta.content', '');
+        return data_get($data, 'choices.0.delta.content') ?? '';
     }
 
     /**
@@ -429,7 +440,8 @@ class Stream
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            finishReason: FinishReason::ToolCalls,
         );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls, $this->buildAdditionalContent()));

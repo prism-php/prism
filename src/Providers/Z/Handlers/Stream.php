@@ -75,6 +75,7 @@ class Stream
 
         $text = '';
         $toolCalls = [];
+        $stepFinishReason = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -124,6 +125,11 @@ class Stream
                     return;
                 }
 
+                if ($rawFinishReason !== null) {
+                    $stepFinishReason = $this->mapFinishReason($data);
+                    $this->state->withFinishReason($stepFinishReason);
+                }
+
                 continue;
             }
 
@@ -148,8 +154,6 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId(),
                 );
-
-                continue;
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
@@ -168,6 +172,7 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
+                $stepFinishReason = $finishReason;
 
                 $usage = $this->extractUsage($data);
 
@@ -177,17 +182,19 @@ class Stream
             }
         }
 
-        if ($toolCalls !== []) {
+        if ($toolCalls !== [] && $stepFinishReason === FinishReason::ToolCalls) {
             yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
             return;
         }
 
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
 
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            finishReason: $this->state->finishReason(),
         );
 
         yield $this->emitStreamEndEvent();
@@ -336,6 +343,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            finishReason: FinishReason::ToolCalls,
         );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));

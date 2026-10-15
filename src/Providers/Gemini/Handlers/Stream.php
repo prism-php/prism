@@ -75,6 +75,8 @@ class Stream
             throw new PrismException('Maximum tool call chain depth exceeded');
         }
 
+        $stepFinishReason = null;
+
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
 
@@ -137,10 +139,17 @@ class Stream
                 }
 
                 // Check if this is the final part of the tool calls
-                if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
+                $chunkFinishReason = $this->mapFinishReason($data);
+
+                if ($chunkFinishReason === FinishReason::ToolCalls) {
                     yield from $this->handleToolCalls($request, $depth, $data);
 
                     return;
+                }
+
+                if ($chunkFinishReason !== FinishReason::Unknown) {
+                    $stepFinishReason = $chunkFinishReason;
+                    $this->state->withFinishReason($chunkFinishReason);
                 }
 
                 continue;
@@ -225,17 +234,20 @@ class Stream
                 }
 
                 $this->state->withFinishReason($finishReason);
+                $stepFinishReason = $finishReason;
                 $this->state->withMetadata([
                     'grounding_metadata' => $this->extractGroundingMetadata($data),
                 ]);
             }
         }
 
-        if ($this->state->hasToolCalls()) {
+        if ($this->state->hasToolCalls() && $stepFinishReason === FinishReason::ToolCalls) {
             yield from $this->handleToolCalls($request, $depth);
 
             return;
         }
+
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
 
         // Emit step finish before stream end
         $this->state->markStepFinished();
@@ -243,6 +255,7 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             usage: $this->state->usage(),
+            finishReason: $this->state->finishReason(),
         );
 
         yield $this->emitStreamEndEvent();
@@ -344,6 +357,7 @@ class Stream
                 id: EventID::generate(),
                 timestamp: time(),
                 usage: $this->state->usage(),
+                finishReason: FinishReason::ToolCalls,
             );
 
             $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
@@ -440,7 +454,7 @@ class Stream
             return FinishReason::Unknown;
         }
 
-        $isToolCall = $this->hasToolCalls($data);
+        $isToolCall = $this->hasToolCalls($data) || $this->state->hasToolCalls();
 
         return FinishReasonMap::map($finishReason, $isToolCall);
     }
