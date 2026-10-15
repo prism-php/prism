@@ -15,6 +15,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenAI\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
@@ -49,6 +50,7 @@ class Stream
     use BuildsTools;
     use CallsTools;
     use MapsFinishReason;
+    use MapsUsage;
     use ProcessRateLimits;
 
     protected OpenAIStreamState $state;
@@ -343,13 +345,7 @@ class Stream
         $this->state->withFinishReason($this->mapTerminalFinishReason($response));
 
         if (is_array(data_get($response, 'usage'))) {
-            $this->state->addUsage(new Usage(
-                promptTokens: data_get($response, 'usage.input_tokens', 0),
-                completionTokens: data_get($response, 'usage.output_tokens', 0),
-                cacheWriteInputTokens: data_get($response, 'usage.input_tokens_details.cache_write_tokens'),
-                cacheReadInputTokens: data_get($response, 'usage.input_tokens_details.cached_tokens'),
-                thoughtTokens: data_get($response, 'usage.output_tokens_details.reasoning_tokens')
-            ));
+            $this->state->addUsage($this->mapUsage($response));
         }
 
         if (data_get($data, 'type') === 'response.failed') {

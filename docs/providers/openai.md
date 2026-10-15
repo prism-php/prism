@@ -395,7 +395,17 @@ For complete details on handling provider tool events, see [Streaming Output](/c
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.
 
-OpenAI reports tokens read from the cache as `cacheReadInputTokens` and tokens written to it as `cacheWriteInputTokens`. OpenAI counts written tokens inside its input token total, so they're already included in `promptTokens`. Don't add the two together.
+OpenAI's `input_tokens` includes the tokens it read from the cache and the tokens it wrote to it. Prism splits that total into buckets that don't overlap, the same way it does for Anthropic, so text, structured and streamed responses all report usage like this:
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `input_tokens` minus cache reads and cache writes, so only the uncached input |
+| `cacheReadInputTokens` | `input_tokens_details.cached_tokens` |
+| `cacheWriteInputTokens` | `input_tokens_details.cache_write_tokens` |
+| `completionTokens` | `output_tokens`, reasoning tokens included |
+| `thoughtTokens` | `output_tokens_details.reasoning_tokens` |
+
+Add `promptTokens`, `cacheReadInputTokens` and `cacheWriteInputTokens` together to get OpenAI's `input_tokens` back. `thoughtTokens` is already part of `completionTokens`, so don't add those two.
 
 ## Provider Tools
 

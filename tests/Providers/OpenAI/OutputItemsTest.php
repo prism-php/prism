@@ -26,6 +26,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -291,7 +292,7 @@ describe('text output items', function (): void {
             ->withPrompt('A long prompt')
             ->asText();
 
-        expect($response->usage->promptTokens)->toBe(2652)
+        expect($response->usage->promptTokens)->toBe(3)
             ->and($response->usage->cacheWriteInputTokens)->toBe(2649)
             ->and($response->usage->cacheReadInputTokens)->toBe(0)
             ->and($response->steps[0]->usage->cacheWriteInputTokens)->toBe(2649);
@@ -658,5 +659,110 @@ describe('stream output items and terminal states', function (): void {
         expect($calls)->toBeGreaterThan(0)
             ->and(array_column($input, 'type'))->toContain('function_call')
             ->and(openAIUnansweredCalls($input))->toBe([]);
+    });
+});
+
+/**
+ * @return array<string, mixed>
+ */
+function openAICachedUsage(): array
+{
+    return [
+        'input_tokens' => 5000,
+        'input_tokens_details' => ['cached_tokens' => 3000, 'cache_write_tokens' => 1500],
+        'output_tokens' => 400,
+        'output_tokens_details' => ['reasoning_tokens' => 250],
+        'total_tokens' => 5400,
+    ];
+}
+
+/**
+ * @param  array<string, mixed>  $usage
+ */
+function openAIFixtureWithUsage(string $fixture, array $usage): string
+{
+    $contents = (string) file_get_contents(__DIR__."/../../Fixtures/openai/{$fixture}");
+
+    if (! str_starts_with($contents, 'event:')) {
+        return (string) json_encode([...json_decode($contents, true), 'usage' => $usage]);
+    }
+
+    return (string) preg_replace_callback('/^data: (.+)$/m', function (array $line) use ($usage): string {
+        $event = json_decode($line[1], true);
+
+        if (in_array($event['type'], ['response.completed', 'response.incomplete'], true)) {
+            $event['response']['usage'] = $usage;
+        }
+
+        return 'data: '.json_encode($event);
+    }, $contents);
+}
+
+/**
+ * @param  array<int, array<string, mixed>>  $usages
+ */
+function fakeOpenAIResponses(string $fixture, array $usages): void
+{
+    Http::fake([
+        'v1/responses' => Http::sequence(array_map(
+            fn (array $usage) => Http::response(openAIFixtureWithUsage($fixture, $usage)),
+            $usages
+        )),
+    ])->preventStrayRequests();
+}
+
+function openAIUsageFrom(string $path): Usage
+{
+    return match ($path) {
+        'text' => Prism::text()->using('openai', 'gpt-6.1-sol')->withPrompt('A long prompt')->asText()->usage,
+        'structured' => Prism::structured()
+            ->using('openai', 'gpt-6.1-sol')
+            ->withSchema(openAIReportSchema())
+            ->withPrompt('Weather report for Chicago')
+            ->asStructured()
+            ->usage,
+        'stream' => collect(iterator_to_array(Prism::text()->using('openai', 'gpt-6.1-sol')->withPrompt('A long prompt')->asStream(), false))
+            ->whereInstanceOf(StreamEndEvent::class)
+            ->sole()
+            ->usage,
+    };
+}
+
+describe('usage buckets', function (): void {
+    it('splits input tokens into the same disjoint buckets for every path', function (string $fixture, string $path): void {
+        fakeOpenAIResponses($fixture, [openAICachedUsage()]);
+
+        expect(openAIUsageFrom($path)->toArray())->toBe([
+            'prompt_tokens' => 500,
+            'completion_tokens' => 400,
+            'cache_write_input_tokens' => 1500,
+            'cache_read_input_tokens' => 3000,
+            'thought_tokens' => 250,
+        ]);
+    })->with([
+        'text' => ['gpt6-text-cache-write-1.json', 'text'],
+        'structured' => ['gpt6-structured-commentary-1.json', 'structured'],
+        'completed stream' => ['stream-basic-text-responses-1.json', 'stream'],
+        'incomplete stream' => ['gpt6-stream-incomplete-1.json', 'stream'],
+    ]);
+
+    it('treats missing cache details as zero and never reports a negative prompt', function (): void {
+        fakeOpenAIResponses('gpt6-text-cache-write-1.json', [
+            [
+                'input_tokens' => 10,
+                'input_tokens_details' => ['cached_tokens' => 8, 'cache_write_tokens' => 5],
+                'output_tokens' => 2,
+            ],
+            ['input_tokens' => 10, 'output_tokens' => 2],
+        ]);
+
+        $inconsistent = openAIUsageFrom('text');
+        $withoutDetails = openAIUsageFrom('text');
+
+        expect($inconsistent->promptTokens)->toBe(0)
+            ->and($withoutDetails->promptTokens)->toBe(10)
+            ->and($withoutDetails->cacheReadInputTokens)->toBeNull()
+            ->and($withoutDetails->cacheWriteInputTokens)->toBeNull()
+            ->and($withoutDetails->thoughtTokens)->toBeNull();
     });
 });
