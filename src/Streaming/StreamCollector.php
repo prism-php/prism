@@ -10,6 +10,8 @@ use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -55,12 +57,25 @@ class StreamCollector
         $finishReason = FinishReason::Stop;
         $usage = null;
         $additionalContent = [];
+        $insideStep = false;
 
         foreach ($this->stream as $event) {
             yield $event;
 
-            if ($event instanceof TextStartEvent) {
-                $this->handleTextStart($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
+            if ($event instanceof StepStartEvent) {
+                $insideStep = true;
+            } elseif ($event instanceof StepFinishEvent) {
+                $insideStep = false;
+
+                if ($this->leftToolCallsUnexecuted($event)) {
+                    $toolCalls = [];
+                }
+
+                $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages, $event->additionalContent);
+            } elseif ($event instanceof TextStartEvent) {
+                if (! $insideStep) {
+                    $this->handleTextStart($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
+                }
             } elseif ($event instanceof TextDeltaEvent) {
                 $accumulatedText .= $event->delta;
             } elseif ($event instanceof ToolCallEvent) {
@@ -69,7 +84,7 @@ class StreamCollector
                 $toolResults[] = $event->toolResult;
             } elseif ($event instanceof ProviderToolEvent) {
                 // Finalize any accumulated text before tool events to preserve order
-                if ($accumulatedText !== '' && empty($providerToolCalls)) {
+                if (! $insideStep && $accumulatedText !== '' && empty($providerToolCalls)) {
                     $this->finalizeCurrentMessage($accumulatedText, $toolCalls, $toolResults, $providerToolCalls, $messages);
                 }
 
@@ -186,20 +201,26 @@ class StreamCollector
     }
 
     /**
+     * Streams that emit step events are grouped per step: the step's
+     * assistant message is finalized on StepFinishEvent and carries that
+     * event's additionalContent (provider replay metadata).
+     *
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
      * @param  ProviderToolCall[]  $providerToolCalls
      * @param  Message[]  $messages
+     * @param  array<string, mixed>  $additionalContent
      */
     protected function finalizeCurrentMessage(
         string &$accumulatedText,
         array &$toolCalls,
         array &$toolResults,
         array &$providerToolCalls,
-        array &$messages
+        array &$messages,
+        array $additionalContent = []
     ): void {
-        if ($accumulatedText !== '' || $toolCalls !== []) {
-            $messages[] = new AssistantMessage($accumulatedText, $toolCalls);
+        if ($accumulatedText !== '' || $toolCalls !== [] || $this->hasReplayContent($additionalContent)) {
+            $messages[] = new AssistantMessage($accumulatedText, $toolCalls, $additionalContent);
             $accumulatedText = '';
             $toolCalls = [];
         }
@@ -211,5 +232,29 @@ class StreamCollector
 
         // Note: Provider tool calls are not added to messages,
         // they are tracked separately and included in steps
+    }
+
+    /**
+     * A step that reports a finish reason other than ToolCalls (a refusal, a
+     * truncated or failed turn) streamed tool calls that were never executed.
+     * They stay out of the assistant message, which would otherwise replay
+     * them without results.
+     */
+    protected function leftToolCallsUnexecuted(StepFinishEvent $event): bool
+    {
+        return $event->finishReason instanceof FinishReason
+            && $event->finishReason !== FinishReason::ToolCalls;
+    }
+
+    /**
+     * A step without text or tool calls still produces an assistant message
+     * when the provider attached ordered replay content to it.
+     *
+     * @param  array<string, mixed>  $additionalContent
+     */
+    protected function hasReplayContent(array $additionalContent): bool
+    {
+        return ! empty($additionalContent['content_blocks'])
+            || ! empty($additionalContent['output_items']);
     }
 }

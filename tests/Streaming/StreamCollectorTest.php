@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -364,4 +366,172 @@ it('preserves event data integrity during pass-through', function (): void {
     expect($yieldedEvents[3]->toolCall->arguments())->toBe(['q' => 'test', 'limit' => 10]);
     expect($yieldedEvents[4]->toolResult->result)->toBe(['items' => [1, 2, 3]]);
     expect($yieldedEvents[5]->finishReason)->toBe(FinishReason::Stop);
+});
+
+describe('step replay metadata', function (): void {
+    it('attaches each step finish additionalContent to that step assistant message', function (): void {
+        $messages = null;
+
+        $toolCall = new ToolCall('tool-1', 'search', ['q' => 'test']);
+        $toolResult = new ToolResult('tool-1', 'search', ['q' => 'test'], 'found');
+        $stepOne = ['content_blocks' => [['type' => 'thinking', 'thinking' => '', 'signature' => 'sig-1']], 'stop_reason' => 'tool_use'];
+        $stepTwo = ['content_blocks' => [['type' => 'text', 'text' => 'Done']], 'stop_reason' => 'end_turn'];
+
+        $events = [
+            new StepStartEvent('evt-1', 1640995200),
+            new TextStartEvent('evt-2', 1640995201, 'msg-1'),
+            new TextDeltaEvent('evt-3', 1640995202, 'Searching', 'msg-1'),
+            new ToolCallEvent('evt-4', 1640995203, $toolCall, 'msg-1'),
+            new ToolResultEvent('evt-5', 1640995204, $toolResult, 'msg-1', true),
+            new StepFinishEvent('evt-6', 1640995205, null, $stepOne),
+            new StepStartEvent('evt-7', 1640995206),
+            new TextStartEvent('evt-8', 1640995207, 'msg-2'),
+            new TextDeltaEvent('evt-9', 1640995208, 'Done', 'msg-2'),
+            new StepFinishEvent('evt-10', 1640995209, null, $stepTwo),
+            new StreamEndEvent('evt-11', 1640995210, FinishReason::Stop),
+        ];
+
+        $collector = new StreamCollector(
+            createCollectorEventGenerator($events),
+            null,
+            function ($request, Collection $collected) use (&$messages): void {
+                $messages = $collected;
+            }
+        );
+
+        iterator_to_array($collector->collect());
+
+        expect($messages)->toHaveCount(3);
+        expect($messages[0])->toBeInstanceOf(AssistantMessage::class)
+            ->content->toBe('Searching')
+            ->additionalContent->toBe($stepOne);
+        expect($messages[0]->toolCalls)->toBe([$toolCall]);
+        expect($messages[1])->toBeInstanceOf(ToolResultMessage::class);
+        expect($messages[2])->toBeInstanceOf(AssistantMessage::class)
+            ->content->toBe('Done')
+            ->additionalContent->toBe($stepTwo);
+    });
+
+    it('keeps one assistant message per step when a step has several text blocks', function (): void {
+        $messages = null;
+
+        $toolCall = new ToolCall('tool-1', 'search', ['q' => 'test']);
+
+        $events = [
+            new StepStartEvent('evt-1', 1640995200),
+            new TextStartEvent('evt-2', 1640995201, 'msg-1'),
+            new TextDeltaEvent('evt-3', 1640995202, 'First. ', 'msg-1'),
+            new ToolCallEvent('evt-4', 1640995203, $toolCall, 'msg-1'),
+            new TextStartEvent('evt-5', 1640995204, 'msg-1'),
+            new TextDeltaEvent('evt-6', 1640995205, 'Second.', 'msg-1'),
+            new StepFinishEvent('evt-7', 1640995206, null, ['content_blocks' => [['type' => 'text', 'text' => 'First. ']]]),
+            new StreamEndEvent('evt-8', 1640995207, FinishReason::ToolCalls),
+        ];
+
+        $collector = new StreamCollector(
+            createCollectorEventGenerator($events),
+            null,
+            function ($request, Collection $collected) use (&$messages): void {
+                $messages = $collected;
+            }
+        );
+
+        iterator_to_array($collector->collect());
+
+        expect($messages)->toHaveCount(1);
+        expect($messages[0])
+            ->content->toBe('First. Second.')
+            ->toolCalls->toBe([$toolCall]);
+    });
+
+    it('keeps a step that only produced replay content, such as thinking', function (): void {
+        $messages = null;
+        $additionalContent = ['content_blocks' => [['type' => 'thinking', 'thinking' => '', 'signature' => 'sig']], 'stop_reason' => 'max_tokens'];
+
+        $events = [
+            new StepStartEvent('evt-1', 1640995200),
+            new StepFinishEvent('evt-2', 1640995201, null, $additionalContent),
+            new StreamEndEvent('evt-3', 1640995202, FinishReason::Length),
+        ];
+
+        $collector = new StreamCollector(
+            createCollectorEventGenerator($events),
+            null,
+            function ($request, Collection $collected) use (&$messages): void {
+                $messages = $collected;
+            }
+        );
+
+        iterator_to_array($collector->collect());
+
+        expect($messages)->toHaveCount(1);
+        expect($messages[0])
+            ->content->toBe('')
+            ->additionalContent->toBe($additionalContent);
+    });
+
+    it('does not create a message for an empty step without replay content', function (): void {
+        $messages = null;
+
+        $events = [
+            new StepStartEvent('evt-1', 1640995200),
+            new StepFinishEvent('evt-2', 1640995201, null, ['stop_reason' => 'refusal']),
+            new StreamEndEvent('evt-3', 1640995202, FinishReason::Refusal),
+        ];
+
+        $collector = new StreamCollector(
+            createCollectorEventGenerator($events),
+            null,
+            function ($request, Collection $collected) use (&$messages): void {
+                $messages = $collected;
+            }
+        );
+
+        iterator_to_array($collector->collect());
+
+        expect($messages)->toBeEmpty();
+    });
+
+    it('leaves tool calls out of a step that finished without executing them', function (?FinishReason $finishReason, int $expectedToolCalls): void {
+        $messages = null;
+
+        $toolCall = new ToolCall('tool-1', 'search', ['q' => 'test']);
+
+        $events = [
+            new StepStartEvent('evt-1', 1640995200),
+            new TextStartEvent('evt-2', 1640995201, 'msg-1'),
+            new TextDeltaEvent('evt-3', 1640995202, 'Searching', 'msg-1'),
+            new ToolCallEvent('evt-4', 1640995203, $toolCall, 'msg-1'),
+            new StepFinishEvent('evt-5', 1640995204, null, [], $finishReason),
+            new StreamEndEvent('evt-6', 1640995205, $finishReason ?? FinishReason::Stop),
+        ];
+
+        $collector = new StreamCollector(
+            createCollectorEventGenerator($events),
+            null,
+            function ($request, Collection $collected) use (&$messages): void {
+                $messages = $collected;
+            }
+        );
+
+        $yielded = iterator_to_array($collector->collect(), false);
+
+        expect($yielded)->toHaveCount(6);
+        expect($messages)->toHaveCount(1);
+        expect($messages[0])->content->toBe('Searching');
+        expect($messages[0]->toolCalls)->toHaveCount($expectedToolCalls);
+    })->with([
+        'refusal' => [FinishReason::Refusal, 0],
+        'length' => [FinishReason::Length, 0],
+        'error' => [FinishReason::Error, 0],
+        'tool calls' => [FinishReason::ToolCalls, 1],
+        'not reported' => [null, 1],
+    ]);
+
+    it('keeps replay metadata out of the serialized step finish event', function (): void {
+        $event = new StepFinishEvent('evt-1', 1640995200, null, ['content_blocks' => [['type' => 'text', 'text' => 'x']]]);
+
+        expect($event->toArray())->not->toHaveKey('additionalContent')
+            ->and(json_encode($event->toArray()))->not->toContain('content_blocks');
+    });
 });

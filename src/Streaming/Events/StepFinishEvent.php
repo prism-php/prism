@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Streaming\Events;
 
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\StreamEventType;
 use Prism\Prism\ValueObjects\Usage;
 
 readonly class StepFinishEvent extends StreamEvent
 {
+    /**
+     * @param  array<string, mixed>  $additionalContent
+     */
     public function __construct(
         string $id,
         int $timestamp,
         public ?Usage $usage = null,        // Token usage information
+        public array $additionalContent = [],
+        public ?FinishReason $finishReason = null,
     ) {
         parent::__construct($id, $timestamp);
     }
