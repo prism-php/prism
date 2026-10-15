@@ -715,3 +715,29 @@ it('omits text.verbosity when text_verbosity is not set', function (): void {
         return true;
     });
 });
+
+// prism#83. The default Auto mode must send a strict json_schema to the current
+// OpenAI flagships, not fall back to json_object where the schema is unenforced.
+it('sends a json_schema format under auto mode for current models', function (string $model, string $format): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/strict-schema-defaults');
+
+    Prism::structured()
+        ->using(Provider::OpenAI, $model)
+        ->withSchema(new ObjectSchema('output', 'the output object', [
+            new StringSchema('weather', 'The weather forecast'),
+        ], ['weather']))
+        ->withPrompt('What is the weather?')
+        ->asStructured();
+
+    Http::assertSent(function (Request $request) use ($format): true {
+        expect(data_get(json_decode($request->body(), true), 'text.format.type'))->toBe($format);
+
+        return true;
+    });
+})->with([
+    ['gpt-6-sol', 'json_schema'],
+    ['gpt-6.1-sol', 'json_schema'],
+    ['o3', 'json_schema'],
+    ['o4-mini', 'json_schema'],
+    ['gpt-3.5-turbo', 'json_object'],
+]);

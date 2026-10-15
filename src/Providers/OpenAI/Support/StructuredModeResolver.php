@@ -57,7 +57,19 @@ class StructuredModeResolver
             }
         }
 
-        return false;
+        // Families recognised by OpenAI's naming rather than listed one by one.
+        // A list goes stale in the unsafe direction: the newest models fall back
+        // to JSON mode, where the schema is not enforced, and nothing says so.
+        // gpt-6.x and o1/o3/o4 did exactly that until prism#83. A name only has
+        // to LOOK like a family to be caught, so custom models served through
+        // this provider under other names keep the JSON-mode default.
+        if (preg_match('/^gpt-(\d+)(?:[.\-]|$)/', $model, $match) === 1) {
+            return (int) $match[1] >= 5;
+        }
+
+        // The o-series reasoning models. o1-mini and o1-preview never supported
+        // structured output; unsupported() refuses them before this is reached.
+        return preg_match('/^o\d+(?:-|$)/', $model) === 1;
     }
 
     protected static function supportsJsonMode(string $model): bool

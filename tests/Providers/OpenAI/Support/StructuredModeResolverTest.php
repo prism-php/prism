@@ -64,3 +64,37 @@ it('throws for unsupported models', function (string $model): void {
     'o1-preview',
     'o1-preview-2024-09-12',
 ])->throws(PrismException::class);
+
+// OpenAI's current roster, measured by prism-provider-watch on 2026-10-15. The
+// prefix list stopped at gpt-5 and o3-mini, so every one of these silently got
+// JSON mode, where the schema is not enforced (prism#83).
+it('resolves structured mode for current and future OpenAI families', function (string $model): void {
+    expect(StructuredModeResolver::forModel($model))->toBe(StructuredMode::Structured);
+})->with([
+    'gpt-6-sol',
+    'gpt-6-luna',
+    'gpt-6-astra',
+    'gpt-6.1-sol',
+    'gpt-7',
+    'gpt-10-mini',
+    'o1',
+    'o1-pro',
+    'o3',
+    'o3-pro',
+    'o4-mini',
+    'o5',
+    'ft:gpt-6-sol:my-org:custom-name:abc123',
+    'ft:o4-mini:my-org:custom-name:abc123',
+]);
+
+// A family pattern must not swallow names that only look like one.
+it('keeps json mode for names outside the chat families', function (string $model): void {
+    expect(StructuredModeResolver::forModel($model))->toBe(StructuredMode::Json);
+})->with([
+    'gpt-image-1',
+    'gpt-realtime-2.1',
+    'gpt-4',
+    'gpt-3.5-turbo-0125',
+    'omni-moderation-latest',
+    'ollama-llama3',
+]);
