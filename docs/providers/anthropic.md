@@ -340,6 +340,8 @@ if ($response->finishReason === FinishReason::Refusal) {
 
 Every step and response carries the raw `stop_reason` in `additionalContent`, and `stop_details` whenever Anthropic sends one. Both `category` and `explanation` can be `null`. The same keys are on the `StepFinishEvent` and `StreamEndEvent` when streaming. `model_context_window_exceeded` maps to `FinishReason::Length`.
 
+A refusal before any output still adds an assistant message to `$response->messages`, but that message has nothing to replay. Prism leaves it out of the next request, since an empty assistant turn reads to the model as a reply it skipped. The refused user prompt stays in the history, though, so if you continue the conversation as is, the model will usually decline again. Drop the refused exchange from the messages you send back, or use [fallbacks](#fallbacks) to get an answer in the same call.
+
 ## Fallbacks
 
 Anthropic can retry a declined request on another model inside the same API call. Pass `fallbacks` as a provider option, either `'default'` (Anthropic picks the recommended fallback for the refusal category) or a list of up to three models with optional overrides. Prism sends it as the top-level `fallbacks` field and adds the `server-side-fallback-2026-07-01` beta header for you, on text, structured and streaming requests and on every step of a tool loop.

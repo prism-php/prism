@@ -331,6 +331,51 @@ describe('stop reasons', function (): void {
         expect($response->steps->sole()->additionalContent['stop_details']['category'])->toBe('cyber');
     });
 
+    it('leaves the empty assistant turn of a refusal before output out of the next request', function (): void {
+        $fixtures = __DIR__.'/../../Fixtures/anthropic';
+
+        Http::fake([
+            'v1/messages' => Http::sequence([
+                Http::response((string) file_get_contents("{$fixtures}/text-refusal-stop-details-1.json")),
+                Http::response((string) file_get_contents("{$fixtures}/generate-text-with-a-prompt-1.json")),
+            ]),
+        ])->preventStrayRequests();
+
+        $refused = Prism::text()
+            ->using('anthropic', 'claude-fable-5-1')
+            ->withPrompt('Something declined')
+            ->asText();
+
+        expect($refused->messages->last())->toBeInstanceOf(AssistantMessage::class);
+
+        Prism::text()
+            ->using('anthropic', 'claude-fable-5-1')
+            ->withMessages([...$refused->messages->all(), new UserMessage('Something else')])
+            ->asText();
+
+        expect(anthropicRequestBodies()[1]['messages'])->toBe([
+            ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'Something declined']]],
+            ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'Something else']]],
+        ]);
+    });
+
+    it('omits assistant messages that map to no content from any replay path', function (): void {
+        $mapped = MessageMap::map([
+            new UserMessage('First'),
+            new AssistantMessage('', [], ['content_blocks' => []]),
+            new AssistantMessage('', [], ['thinking_blocks' => []]),
+            new AssistantMessage(''),
+            new UserMessage('Second'),
+            new AssistantMessage('Still here'),
+        ]);
+
+        expect($mapped)->toBe([
+            ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'First']]],
+            ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'Second']]],
+            ['role' => 'assistant', 'content' => [['type' => 'text', 'text' => 'Still here']]],
+        ]);
+    });
+
     it('maps model_context_window_exceeded to Length', function (): void {
         FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-context-window-exceeded');
 

@@ -33,10 +33,10 @@ class MessageMap
             throw new PrismException('Anthropic does not support SystemMessages in the messages array. Use withSystemPrompt or withSystemPrompts instead.');
         }
 
-        $mappedMessages = array_map(
+        $mappedMessages = self::withoutEmptyAssistantMessages(array_map(
             fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
-        );
+        ));
 
         if (isset($requestProviderOptions['tool_result_cache_type'])) {
             $lastToolResultIndex = null;
@@ -71,6 +71,21 @@ class MessageMap
             self::mapSystemMessage(...),
             $messages
         );
+    }
+
+    /**
+     * An assistant turn with nothing to replay (a refusal before any output)
+     * reads to the model as a reply it skipped, so it is left out.
+     *
+     * @param  array<int, array<string, mixed>>  $mappedMessages
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function withoutEmptyAssistantMessages(array $mappedMessages): array
+    {
+        return array_values(array_filter(
+            $mappedMessages,
+            fn (array $message): bool => $message['role'] !== 'assistant' || $message['content'] !== []
+        ));
     }
 
     /**
