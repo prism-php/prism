@@ -36,6 +36,7 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\Concerns\CanGenerateFakeChunksFromTextResponses;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
 use Prism\Prism\ValueObjects\GeneratedAudio;
 use Prism\Prism\ValueObjects\GeneratedImage;
@@ -234,6 +235,9 @@ class PrismFake extends Provider
     }
 
     /**
+     * Yields every event itself rather than delegating with `yield from`, so the
+     * keys stay sequential for callers that use iterator_to_array().
+     *
      * @return Generator<StreamEvent>
      */
     protected function streamEventsFromTextResponse(TextResponse $response, TextRequest $request): Generator
@@ -252,99 +256,106 @@ class PrismFake extends Provider
             timestamp: time()
         );
 
-        if ($response->steps->isNotEmpty()) {
-            $stepIndex = 0;
-            $totalSteps = $response->steps->count();
-
-            foreach ($response->steps as $step) {
-                if ($step->text !== '') {
-                    yield new TextStartEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $messageId
-                    );
-
-                    foreach ($this->convertStringToTextChunkGenerator($step->text, $this->fakeChunkSize) as $chunk) {
-                        yield new TextDeltaEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            delta: $chunk->text,
-                            messageId: $messageId
-                        );
-                    }
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $messageId
-                    );
-                }
-
-                foreach ($step->toolCalls as $toolCall) {
-                    yield new ToolCallEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        toolCall: $toolCall,
-                        messageId: $messageId
-                    );
-                }
-
-                foreach ($step->toolResults as $toolResult) {
-                    yield new ToolResultEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        toolResult: $toolResult,
-                        messageId: $messageId,
-                        success: true
-                    );
-                }
-
-                $stepIndex++;
-
-                // If this step has tool calls/results and there are more steps, end current step and start new one
-                if (($step->toolCalls !== [] || $step->toolResults !== []) && $stepIndex < $totalSteps) {
-                    yield new StepFinishEvent(
-                        id: EventID::generate(),
-                        timestamp: time()
-                    );
-                    yield new StepStartEvent(
-                        id: EventID::generate(),
-                        timestamp: time()
-                    );
-                }
+        if ($response->steps->isEmpty()) {
+            foreach ($this->streamTextEvents($response->text, $messageId) as $event) {
+                yield $event;
             }
-        } elseif ($response->text !== '') {
-            yield new TextStartEvent(
+
+            yield new StepFinishEvent(
                 id: EventID::generate(),
                 timestamp: time(),
-                messageId: $messageId
-            );
-            foreach ($this->convertStringToTextChunkGenerator($response->text, $this->fakeChunkSize) as $chunk) {
-                yield new TextDeltaEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    delta: $chunk->text,
-                    messageId: $messageId
-                );
-            }
-            yield new TextCompleteEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                messageId: $messageId
+                usage: $response->usage,
+                additionalContent: $response->additionalContent,
+                finishReason: $response->finishReason,
             );
         }
 
-        yield new StepFinishEvent(
-            id: EventID::generate(),
-            timestamp: time(),
-            usage: $response->usage
-        );
+        foreach ($response->steps->values() as $index => $step) {
+            if ($index > 0) {
+                yield new StepStartEvent(
+                    id: EventID::generate(),
+                    timestamp: time()
+                );
+            }
+
+            foreach ($this->streamStepEvents($step, $messageId) as $event) {
+                yield $event;
+            }
+        }
 
         yield new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $response->finishReason,
             usage: $response->usage
+        );
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function streamStepEvents(Step $step, string $messageId): Generator
+    {
+        foreach ($this->streamTextEvents($step->text, $messageId) as $event) {
+            yield $event;
+        }
+
+        foreach ($step->toolCalls as $toolCall) {
+            yield new ToolCallEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolCall: $toolCall,
+                messageId: $messageId
+            );
+        }
+
+        foreach ($step->toolResults as $toolResult) {
+            yield new ToolResultEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                toolResult: $toolResult,
+                messageId: $messageId,
+                success: true
+            );
+        }
+
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            usage: $step->usage,
+            additionalContent: $step->additionalContent,
+            finishReason: $step->finishReason,
+        );
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function streamTextEvents(string $text, string $messageId): Generator
+    {
+        if ($text === '') {
+            return;
+        }
+
+        yield new TextStartEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            messageId: $messageId
+        );
+
+        foreach ($this->convertStringToTextChunkGenerator($text, $this->fakeChunkSize) as $chunk) {
+            yield new TextDeltaEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                delta: $chunk->text,
+                messageId: $messageId
+            );
+        }
+
+        yield new TextCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            messageId: $messageId
         );
     }
 
