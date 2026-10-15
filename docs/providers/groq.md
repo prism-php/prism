@@ -182,6 +182,12 @@ foreach ($segments as $segment) {
 }
 ```
 
+#### Transcription Usage
+
+Groq bills transcription by the length of the audio, and its transcription responses don't include a `usage` object. So `$response->usage` is `null` rather than zero tokens. If you need the audio length, `verbose_json` responses carry it in `$response->additionalContent['duration']`. Keep in mind that's the audio length, not necessarily what Groq bills (it has a minimum billed length per request).
+
+If a response does include token counts, Prism maps them the same way as text responses (see [Token Usage](#token-usage)). A duration-style `usage` object (`type: duration`) leaves `usage` as `null` and puts the seconds in `$response->additionalContent['usage_seconds']`, matching the OpenAI provider.
+
 #### Context and Prompts
 
 Improve transcription accuracy with context:
