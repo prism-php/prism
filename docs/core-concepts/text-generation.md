@@ -305,7 +305,7 @@ if ($response->finishReason === FinishReason::Refusal) {
 
 The three input fields never overlap, so their sum is the request's total input. `thoughtTokens` is already inside `completionTokens`, so don't add the two together or price reasoning twice.
 
-A field is `null` when the provider doesn't report it, and `0` when the provider reports zero. Only some providers report cache writes, and some don't break out reasoning, so `null` there means "not reported", not "none".
+The optional fields (`cacheReadInputTokens`, `cacheWriteInputTokens` and `thoughtTokens`) are `null` when the provider doesn't report them and `0` when it reports zero. Only some providers report cache writes, and some don't break out reasoning, so `null` there means "not reported", not "none". `promptTokens` and `completionTokens` are always integers, so a response that carries no usage at all shows `0` for both.
 
 > [!NOTE]
 > `Usage` is normalized token accounting, not a full bill. Charges outside these counters aren't in it: per-request and search fees, Perplexity's reasoning and citation tokens, and Anthropic fallback attempts on other models (see `usage_iterations` on the [Anthropic page](/providers/anthropic#fallbacks)). Ollama only splits out cached input on servers that report it (0.33.3 and later). Check the provider's page for these details.
