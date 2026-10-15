@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
@@ -20,7 +19,7 @@ use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
-use Prism\Prism\Streaming\StreamCollector;
+use Prism\Prism\Streaming\StreamedMessages;
 use Prism\Prism\Tool as PrismTool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -90,9 +89,9 @@ function openAIUnansweredCalls(array $input): array
 }
 
 /**
- * Streams a turn through a StreamCollector the way a caller persisting the
- * conversation would, and returns the persisted (serialized and rebuilt)
- * messages.
+ * Streams a turn and rebuilds its messages from the events the way a caller
+ * persisting the conversation would, and returns the persisted (serialized
+ * and rebuilt) messages.
  *
  * @return array<int, Message>
  */
@@ -104,15 +103,9 @@ function openAIPersistedStreamTurn(string $prompt, int &$calls): array
         ->withMaxSteps(3)
         ->withPrompt($prompt);
 
-    $persisted = [];
+    $events = iterator_to_array($pendingRequest->asStream(), false);
 
-    $collector = new StreamCollector($pendingRequest->asStream(), $pendingRequest, function ($request, Collection $messages) use (&$persisted): void {
-        $persisted = $messages->all();
-    });
-
-    iterator_to_array($collector->collect(), false);
-
-    return unserialize(serialize($persisted));
+    return unserialize(serialize(StreamedMessages::fromEvents($events)->all()));
 }
 
 describe('text output items', function (): void {

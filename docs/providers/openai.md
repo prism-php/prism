@@ -344,7 +344,7 @@ A stream ends with exactly one `StreamEndEvent`, whose `finishReason` reflects h
 - `response.incomplete` maps to `Length` (or `ContentFilter`), with the usage OpenAI reported
 - `response.failed` emits an `ErrorEvent` first, then ends with `Error`
 
-`additionalContent` on the `StreamEndEvent` includes the response `status` and any `incomplete_details`. Prism only runs your tools when the turn finished with `ToolCalls`. Tool calls from a refused, truncated or failed turn are never executed. Their `ToolCallEvent`s are still emitted, but the `StepFinishEvent` reports the step's `finishReason` and its `output_items` leave them out, so the `AssistantMessage` a `StreamCollector` builds for that step has no tool calls to replay.
+`additionalContent` on the `StreamEndEvent` includes the response `status` and any `incomplete_details`. Prism only runs your tools when the turn finished with `ToolCalls`. Tool calls from a refused, truncated or failed turn are never executed. Their `ToolCallEvent`s are still emitted, but the `StepFinishEvent` reports the step's `finishReason` and its `output_items` leave them out, so the `AssistantMessage` `StreamedMessages::fromEvents()` builds for that step has no tool calls to replay.
 
 ### Streaming Reasoning Models
 

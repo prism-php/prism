@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Anthropic;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
@@ -16,7 +15,7 @@ use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
-use Prism\Prism\Streaming\StreamCollector;
+use Prism\Prism\Streaming\StreamedMessages;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -167,9 +166,9 @@ describe('ordered replay', function (): void {
 });
 
 /**
- * Streams a turn through a StreamCollector the way a caller persisting the
- * conversation would, and returns the persisted (serialized and rebuilt)
- * messages.
+ * Streams a turn and rebuilds its messages from the events the way a caller
+ * persisting the conversation would, and returns the persisted (serialized
+ * and rebuilt) messages.
  *
  * @param  array<string, int>  $calls
  * @return array<int, Message>
@@ -182,15 +181,9 @@ function anthropicPersistedStreamTurn(string $prompt, array &$calls): array
         ->withMaxSteps(3)
         ->withPrompt($prompt);
 
-    $persisted = [];
+    $events = iterator_to_array($pendingRequest->asStream(), false);
 
-    $collector = new StreamCollector($pendingRequest->asStream(), $pendingRequest, function ($request, Collection $messages) use (&$persisted): void {
-        $persisted = $messages->all();
-    });
-
-    iterator_to_array($collector->collect(), false);
-
-    return unserialize(serialize($persisted));
+    return unserialize(serialize(StreamedMessages::fromEvents($events)->all()));
 }
 
 /**
@@ -392,7 +385,6 @@ it('collects streamed steps into messages that replay exactly what the provider 
     FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-interleaved-thinking-tools');
 
     $calls = [];
-    $collected = null;
 
     $stream = Prism::text()
         ->using('anthropic', 'claude-opus-5-5')
@@ -401,11 +393,7 @@ it('collects streamed steps into messages that replay exactly what the provider 
         ->withPrompt('Which is warmer, London or Rome?')
         ->asStream();
 
-    $collector = new StreamCollector($stream, null, function ($request, Collection $messages) use (&$collected): void {
-        $collected = $messages;
-    });
-
-    iterator_to_array($collector->collect(), false);
+    $collected = StreamedMessages::fromEvents(iterator_to_array($stream, false));
 
     expect($collected)->toHaveCount(3);
     expect($collected[0])->toBeInstanceOf(AssistantMessage::class);

@@ -706,36 +706,41 @@ Prism only runs your tools when a step actually ends with tool calls. If the mod
 
 ### Persisting Streamed Conversations
 
-The callbacks above give you the raw events. When you want to continue the conversation later, you need the messages instead: each assistant turn with its tool calls, its tool results, and the provider state that newer models expect back. `StreamCollector` builds them for you while the events pass through:
+The callbacks above hand you the raw events. When you want to continue the conversation later, you need messages instead: each assistant turn with its tool calls, its tool results, and the provider state that newer models expect back. `StreamedMessages::fromEvents()` rebuilds them from the events your callback already receives:
 
 ```php
 use Illuminate\Support\Collection;
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Streaming\StreamCollector;
+use Prism\Prism\Streaming\StreamedMessages;
 use Prism\Prism\Text\PendingRequest;
-use Prism\Prism\Text\Response;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
-$pending = Prism::text()
+$userMessage = new UserMessage(request('message'));
+
+return Prism::text()
     ->using('anthropic', 'claude-sonnet-5-5')
-    ->withMessages($conversation->messages())
+    ->withMessages([...$conversation->messages(), $userMessage])
     ->withTools([$searchTool])
-    ->withMaxSteps(5);
+    ->withMaxSteps(5)
+    ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use ($conversation, $userMessage) {
+        // One assistant message per step, followed by that step's tool results
+        $messages = StreamedMessages::fromEvents($events);
 
-$collector = new StreamCollector(
-    $pending->asStream(),
-    $pending,
-    function (PendingRequest $request, Collection $messages, Response $response) use ($conversation) {
-        // $messages holds only the new turns from this stream, one assistant message per step
-        $conversation->append($messages);
-    }
-);
-
-foreach ($collector->collect() as $event) {
-    // Forward each event to your client as it arrives
-}
+        $conversation->append([$userMessage, ...$messages]);
+    });
 ```
 
-Each collected `AssistantMessage` carries its step's replay data in `additionalContent`. Store that along with the text, then pass the stored messages back with `withMessages()` on the next turn. See [Continuing a Conversation](/core-concepts/text-generation#continuing-a-conversation) for why this matters.
+The same callback works with `asDataStreamResponse()` and `asBroadcast()`.
+
+You only get back the messages the stream produced. The messages you sent aren't included, so store your own user message (or whatever input you passed) ahead of them, like `$userMessage` above.
+
+Each `AssistantMessage` carries its step's replay data in `additionalContent`, such as Claude's thinking signatures or OpenAI's reasoning items. Store that along with the text, then pass the stored messages back with `withMessages()` on the next turn. See [Continuing a Conversation](/core-concepts/text-generation#continuing-a-conversation) for why this matters.
+
+A few details worth knowing:
+
+- Tool calls from a step that didn't end with tool calls (a refusal, a `maxTokens` cutoff, a failure) never ran, so they're left out of that step's `AssistantMessage`.
+- If the stream stops early, say because the client disconnected, you get the messages for what arrived. Tool calls that never got a result are left out, so the stored conversation still replays cleanly.
+- Outside a callback, collect the events from `asStream()` yourself and pass them in: `StreamedMessages::fromEvents(iterator_to_array($stream, false))`.
 
 ### Data Protocol Output
 
