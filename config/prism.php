@@ -61,6 +61,14 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+        'requesty' => [
+            'api_key' => env('REQUESTY_API_KEY', ''),
+            'url' => env('REQUESTY_URL', 'https://router.requesty.ai/v1'),
+            'site' => [
+                'http_referer' => env('REQUESTY_SITE_HTTP_REFERER', null),
+                'x_title' => env('REQUESTY_SITE_X_TITLE', null),
+            ],
+        ],
         'perplexity' => [
             'api_key' => env('PERPLEXITY_API_KEY', ''),
             'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
