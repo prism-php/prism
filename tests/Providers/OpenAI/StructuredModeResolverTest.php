@@ -29,6 +29,12 @@ it('resolves structured mode for supported models', function (string $model): vo
     'gpt-5.1',
     'gpt-5.2',
     'gpt-5.4',
+    'gpt-6.1-sol',
+    'gpt-6-luna',
+    'gpt-6-astra',
+    'gpt-5.6-terra',
+    'o3',
+    'o4-mini',
 ]);
 
 it('resolves json mode for unsupported structured models', function (): void {
