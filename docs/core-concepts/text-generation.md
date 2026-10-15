@@ -293,7 +293,7 @@ if ($response->finishReason === FinishReason::Refusal) {
 
 ### Token Usage
 
-`$response->usage` adds up every step of the request. With Anthropic and OpenAI the counts don't overlap, so you can price each one separately:
+`$response->usage` adds up every step of the request. With Anthropic and OpenAI the three input counts don't overlap, so you can price each input bucket separately. `thoughtTokens` is already part of `completionTokens`, so don't charge for it again:
 
 - `promptTokens`: input tokens that were not read from or written to the cache
 - `cacheReadInputTokens` and `cacheWriteInputTokens`: cached input
