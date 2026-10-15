@@ -62,7 +62,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Vertex, 'gemini-1.5-flash')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withPrompt('Explain quantum computing in simple terms.')
     ->asText();
 
@@ -73,7 +73,7 @@ echo $response->text;
 
 ```php
 $response = Prism::text()
-    ->using(Provider::Vertex, 'gemini-1.5-flash')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withSystemPrompt('You are a helpful coding assistant.')
     ->withPrompt('Write a Python function to calculate fibonacci numbers.')
     ->asText();
@@ -102,7 +102,7 @@ $schema = new ObjectSchema(
 );
 
 $response = Prism::structured()
-    ->using(Provider::Vertex, 'gemini-1.5-flash')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withSchema($schema)
     ->withPrompt('Generate a profile for a fictional user named John Doe.')
     ->asStructured();
@@ -133,7 +133,7 @@ $weatherTool = (new Tool)
     });
 
 $response = Prism::text()
-    ->using(Provider::Vertex, 'gemini-1.5-flash')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withTools([$weatherTool])
     ->withMaxSteps(3)
     ->withPrompt('What is the weather like in San Francisco?')
@@ -151,7 +151,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::embeddings()
-    ->using(Provider::Vertex, 'text-embedding-004')
+    ->using(Provider::Vertex, 'gemini-embedding-001')
     ->fromInput('The quick brown fox jumps over the lazy dog.')
     ->asEmbeddings();
 
@@ -168,7 +168,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $stream = Prism::text()
-    ->using(Provider::Vertex, 'gemini-1.5-flash')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withPrompt('Write a short story about a robot.')
     ->asStream();
 
@@ -190,7 +190,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::text()
-    ->using(Provider::Vertex, 'gemini-1.5-flash')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'What do you see in this image?',
@@ -210,7 +210,7 @@ For models that support it (like Gemini 2.5), you can configure thinking mode:
 
 ```php
 $response = Prism::text()
-    ->using(Provider::Vertex, 'gemini-2.5-flash-preview')
+    ->using(Provider::Vertex, 'gemini-2.5-flash')
     ->withPrompt('Solve this complex math problem...')
     ->withProviderOptions([
         'thinkingBudget' => 2048,
@@ -227,11 +227,12 @@ Vertex AI provides access to Google's Gemini model family:
 
 | Model | Description |
 |-------|-------------|
-| `gemini-1.5-flash` | Fast and efficient for most tasks |
-| `gemini-1.5-pro` | Most capable model for complex tasks |
-| `gemini-2.0-flash` | Latest generation with improved capabilities |
-| `gemini-2.5-flash-preview` | Preview of next generation with thinking support |
-| `text-embedding-004` | Text embeddings model |
+| `gemini-2.5-flash` | Fast and efficient for most tasks, with thinking support |
+| `gemini-2.5-flash-lite` | Lowest latency and cost |
+| `gemini-2.5-pro` | Most capable 2.5 model for complex tasks |
+| `gemini-embedding-001` | Text embeddings model |
+
+Model availability changes; check Google's [Vertex AI model list](https://cloud.google.com/vertex-ai/generative-ai/docs/models) for the current set.
 
 ## Regions
 

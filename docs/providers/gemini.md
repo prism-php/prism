@@ -21,7 +21,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderTool;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-2.0-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt('What is the stock price of Google right now?')
     // Enable search grounding
     ->withProviderTools([
@@ -99,7 +99,7 @@ $schema = new ObjectSchema(
 );
 
 $response = Prism::structured()
-    ->using(Provider::Gemini, 'gemini-2.0-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withSchema($schema)
     ->withPrompt('Review the movie Inception')
     ->asStructured();
@@ -328,7 +328,7 @@ $weatherTool = Tool::as('get_weather')
     ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
 
 $response = Prism::structured()
-    ->using('gemini', 'gemini-2.0-flash')
+    ->using('gemini', 'gemini-2.5-flash')
     ->withSchema($schema)
     ->withTools([$weatherTool])
     ->withMaxSteps(3)
@@ -368,7 +368,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 $provider = Prism::provider(Provider::Gemini);
 
 $object = $provider->cache(
-    model: 'gemini-1.5-flash-002',
+    model: 'gemini-2.5-flash',
     messages: [
         new UserMessage('', [
             Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
@@ -385,7 +385,7 @@ Then reference that object's name in your request using withProviderOptions:
 
 ```php
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withProviderOptions(['cachedContentName' => $object->name])
     ->withPrompt('In no more than 100 words, what is the document about?')
     ->asText();
@@ -395,9 +395,9 @@ $response = Prism::text()
 
 You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
 
-### Gemini Embedding 2 Preview
+### Gemini Embedding 2
 
-Gemini's `gemini-embedding-2-preview` model supports text, images, audio, video, and PDF documents in a unified embedding space. Use Prism's content entry API to control whether you want a single aggregated embedding or multiple embeddings in one request.
+Gemini's `gemini-embedding-2` model supports text, images, audio, video, and PDF documents in a unified embedding space. Use Prism's content entry API to control whether you want a single aggregated embedding or multiple embeddings in one request.
 
 ### Single Modality Inputs
 
@@ -410,7 +410,7 @@ use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Video;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->using(Provider::Gemini, 'gemini-embedding-2')
     ->fromImage(Image::fromLocalPath('/path/to/product.png'))
     ->fromAudio(Audio::fromLocalPath('/path/to/example.mp3'))
     ->fromVideo(Video::fromLocalPath('/path/to/example.mp4'))
@@ -428,7 +428,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->using(Provider::Gemini, 'gemini-embedding-2')
     ->fromContent([
         'An image of a dog',
         Image::fromLocalPath('/path/to/dog.png'),
@@ -446,7 +446,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->using(Provider::Gemini, 'gemini-embedding-2')
     ->fromContents([
         ['The dog is cute'],
         [Image::fromLocalPath('/path/to/dog.png')],
@@ -463,7 +463,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'text-embedding-004')
+    ->using(Provider::Gemini, 'gemini-embedding-001')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderOptions(['title' => 'Restaurant Review'])
     ->asEmbeddings();
@@ -478,7 +478,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'text-embedding-004')
+    ->using(Provider::Gemini, 'gemini-embedding-001')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderOptions(['taskType' => 'RETRIEVAL_QUERY'])
     ->asEmbeddings();
@@ -495,7 +495,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'text-embedding-004')
+    ->using(Provider::Gemini, 'gemini-embedding-001')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderOptions(['outputDimensionality' => 768])
     ->asEmbeddings();
@@ -510,7 +510,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
     // Set thinking budget
     ->withProviderOptions(['thinkingBudget' => 300])
@@ -526,7 +526,7 @@ Gemini supports streaming responses in real-time. All the standard streaming met
 
 ```php
 return Prism::text()
-    ->using('gemini', 'gemini-2.5-flash-preview')
+    ->using('gemini', 'gemini-2.5-flash')
     ->withPrompt(request('message'))
     ->asEventStreamResponse();
 ```
@@ -592,7 +592,7 @@ use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'What is happening in this video?',
@@ -614,7 +614,7 @@ use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'Summarize this YouTube video:',
@@ -636,7 +636,7 @@ use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'Transcribe this audio file:',
@@ -656,7 +656,7 @@ Prism supports Gemini image generation through Imagen and Gemini models. See Gem
 
 | Model                                       | Description                                        |
 | ------------------------------------------- | -------------------------------------------------- |
-| `gemini-2.0-flash-preview-image-generation` | Experimental gemini image generation model.        |
+| `gemini-2.5-flash-image`                    | Gemini image generation and editing.               |
 | `imagen-4.0-generate-001`                   | Latest Imagen model. Good for HD image generation. |
 | `imagen-4.0-ultra-generate-001`             | Highest quality images, only one image per request |
 | `imagen-4.0-fast-generate-001`              | Fastest Imagen 4 model                             |
@@ -666,7 +666,7 @@ Prism supports Gemini image generation through Imagen and Gemini models. See Gem
 
 ```php
 $response = Prism::image()
-    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->using(Provider::Gemini, 'gemini-2.5-flash-image')
     ->withPrompt('Generate an image of ducklings wearing rubber boots')
     ->generate();
 
@@ -683,7 +683,7 @@ echo $response->meta->id;
 $originalImage = fopen('image/boots.png', 'r');
 
 $response = Prism::image()
-    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->using(Provider::Gemini, 'gemini-2.5-flash-image')
     ->withPrompt('Actually, could we make those boots red?')
     ->withProviderOptions([
         'image' => $originalImage,

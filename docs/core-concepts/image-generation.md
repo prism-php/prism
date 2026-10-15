@@ -232,7 +232,7 @@ use Prism\Prism\ValueObjects\Media\Image;
 $originalImage = Image::fromLocalPath('image/boots.png');
 
 $response = Prism::image()
-    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->using(Provider::Gemini, 'gemini-2.5-flash-image')
     ->withPrompt('Actually, could we make those boots red?', [$originalImage])
     ->generate();
 ```

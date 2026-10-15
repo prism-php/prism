@@ -23,7 +23,7 @@ use Prism\Prism\ValueObjects\Media\Video;
 
 // From a local path
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         "What's in this video?",
         [Video::fromLocalPath(path: '/path/to/video.mp4')]
@@ -32,7 +32,7 @@ $response = Prism::text()
 
 // From a path on a storage disk
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         "What's in this video?",
         [Video::fromStoragePath(
@@ -44,7 +44,7 @@ $response = Prism::text()
 
 // From a URL
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this video:',
         [Video::fromUrl(url: 'https://example.com/video.mp4')]
@@ -53,7 +53,7 @@ $response = Prism::text()
 
 // From a YouTube URL (automatically extracts the video ID)
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'What is this YouTube video about?',
         [Video::fromUrl(url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
@@ -62,7 +62,7 @@ $response = Prism::text()
 
 // From shortened YouTube URL
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'What is this YouTube video about?',
         [Video::fromUrl(url: 'https://youtu.be/dQw4w9WgXcQ')]
@@ -71,7 +71,7 @@ $response = Prism::text()
 
 // From base64
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this video:',
         [Video::fromBase64(
@@ -83,7 +83,7 @@ $response = Prism::text()
 
 // From raw content
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this video:',
         [Video::fromRawContent(
@@ -108,7 +108,7 @@ $message = new UserMessage(
 );
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([$message])
     ->asText();
 ```
@@ -138,7 +138,7 @@ Example:
 
 ```php
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'What is this YouTube video about?',
         [Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')]

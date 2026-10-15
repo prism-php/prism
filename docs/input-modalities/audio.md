@@ -23,7 +23,7 @@ use Prism\Prism\ValueObjects\Media\Audio;
 
 // From a local path
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         "What's in this audio?",
         [Audio::fromLocalPath(path: '/path/to/audio.mp3')]
@@ -32,7 +32,7 @@ $response = Prism::text()
 
 // From a path on a storage disk
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         "What's in this audio?",
         [Audio::fromStoragePath(
@@ -44,7 +44,7 @@ $response = Prism::text()
 
 // From a URL you trust — fetched explicitly before sending
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this audio:',
         [Audio::fromUrl(url: 'https://example.com/audio.mp3')->fetchUrlContent()]
@@ -53,7 +53,7 @@ $response = Prism::text()
 
 // From base64
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this audio:',
         [Audio::fromBase64(
@@ -65,7 +65,7 @@ $response = Prism::text()
 
 // From raw content
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this audio:',
         [Audio::fromRawContent(
@@ -90,7 +90,7 @@ $message = new UserMessage(
 );
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([$message])
     ->asText();
 ```

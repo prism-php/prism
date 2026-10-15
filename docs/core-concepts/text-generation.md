@@ -80,7 +80,7 @@ $response = Prism::text()
 
 // Analyze audio content
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'What is being discussed in this audio?',
         [Audio::fromLocalPath('/path/to/audio.mp3')]
@@ -89,7 +89,7 @@ $response = Prism::text()
 
 // Process video content
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Describe what happens in this video',
         [Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')]
@@ -98,7 +98,7 @@ $response = Prism::text()
 
 // Multiple media types in one prompt
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Compare this image with the information in this document',
         [
