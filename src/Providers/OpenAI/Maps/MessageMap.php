@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\Maps;
 
 use Exception;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Providers\OpenAI\Support\OutputItems;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -117,6 +118,14 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
+        $outputItems = $message->additionalContent['output_items'] ?? null;
+
+        if (is_array($outputItems) && $outputItems !== []) {
+            $this->mapOutputItems($outputItems);
+
+            return;
+        }
+
         if ($message->toolCalls !== []) {
             $grouped = collect($message->toolCalls)
                 ->groupBy(fn (ToolCall $toolCall): string => $toolCall->reasoningId ?? '');
@@ -128,7 +137,7 @@ class MessageMap
                     $this->mappedMessages[] = [
                         'type' => 'reasoning',
                         'id' => $first->reasoningId,
-                        'summary' => $first->reasoningSummary,
+                        'summary' => $first->reasoningSummary ?? [],
                     ];
                 }
 
@@ -160,6 +169,19 @@ class MessageMap
             }
 
             $this->mappedMessages[] = $mappedMessage;
+        }
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $outputItems
+     */
+    protected function mapOutputItems(array $outputItems): void
+    {
+        foreach ($outputItems as $item) {
+            if (OutputItems::isReplayable($item)) {
+                /** @var array<string, mixed> $item */
+                $this->mappedMessages[] = OutputItems::normalize($item);
+            }
         }
     }
 }

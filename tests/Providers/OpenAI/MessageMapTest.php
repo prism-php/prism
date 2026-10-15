@@ -277,6 +277,50 @@ it('maps assistant message with multiple tool calls and different reasoning ids'
     ]);
 });
 
+it('sends an empty reasoning summary when a stored tool call has none', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('', [
+                new ToolCall('fc_1', 'search', ['query' => 'prism'], 'call_1', 'rs_1'),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap()[0])->toBe([
+        'type' => 'reasoning',
+        'id' => 'rs_1',
+        'summary' => [],
+    ]);
+});
+
+it('replays stored output items in order instead of the tool call projection', function (): void {
+    $outputItems = [
+        ['id' => 'rs_1', 'type' => 'reasoning', 'content' => [], 'encrypted_content' => 'gAAAA-one', 'summary' => null],
+        ['id' => 'msg_1', 'type' => 'message', 'status' => 'completed', 'role' => 'assistant', 'phase' => 'commentary', 'content' => [
+            ['type' => 'output_text', 'annotations' => [], 'logprobs' => [], 'text' => 'Checking.'],
+        ]],
+        ['id' => 'fc_1', 'type' => 'function_call', 'status' => 'completed', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{"query":"prism"}'],
+    ];
+
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage(
+                'Checking.',
+                [new ToolCall('fc_1', 'search', ['query' => 'prism'], 'call_1', 'rs_1', [])],
+                ['output_items' => $outputItems],
+            ),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        ['id' => 'rs_1', 'type' => 'reasoning', 'content' => [], 'encrypted_content' => 'gAAAA-one', 'summary' => []],
+        $outputItems[1],
+        $outputItems[2],
+    ]);
+});
+
 it('maps tool result messages', function (): void {
     $messageMap = new MessageMap(
         messages: [

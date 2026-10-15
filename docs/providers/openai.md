@@ -51,6 +51,35 @@ $response = Prism::structured()
 >
 > For more details on required vs nullable fields, see [Schemas - Required vs Nullable Fields](/core-concepts/schemas#required-vs-nullable-fields).
 
+### Structured Output Mode
+
+Prism sends OpenAI's native `json_schema` response format for every model by default, including new families like `gpt-6.x`, `gpt-5.6`, `o3` and `o4`, unknown model names, proxies and fine-tunes of those models. OpenAI treats an omitted `strict` as `strict: true`, so your schema is enforced.
+
+Only a short list of legacy models falls back to JSON mode (a `json_object` response format plus a system message describing your schema): `gpt-4`, `gpt-4-*` snapshots (like `gpt-4-turbo`), `gpt-3.5-turbo*`, `gpt-4o-2024-05-13`, and fine-tunes of those. `o1-mini` and `o1-preview` don't support structured output at all.
+
+Strict schemas have two OpenAI requirements:
+
+- every property must be listed in `requiredFields` (use `nullable: true` for optional values, see the warning above)
+- objects must not allow additional properties. Prism's `ObjectSchema` already sends `additionalProperties: false` unless you set `allowAdditionalProperties: true`
+
+If your schema can't meet those rules, either relax strict mode with `'schema' => ['strict' => false]`, or opt out of `json_schema` entirely:
+
+```php
+use Prism\Prism\Enums\StructuredMode;
+
+$response = Prism::structured()
+    ->using('openai', 'my-custom-model')
+    ->withSchema($schema)
+    ->usingStructuredMode(StructuredMode::Json) // [!code focus]
+    ->withPrompt('...')
+    ->asStructured();
+```
+
+Asking for `StructuredMode::Structured` explicitly always sends `json_schema`, whatever the model is called.
+
+> [!NOTE]
+> Earlier versions sent unknown or custom model names through JSON mode. If you relied on that for a model that can't handle strict schemas, add `->usingStructuredMode(StructuredMode::Json)`.
+
 ### Combining Tools with Structured Output
 
 ```php
@@ -95,6 +124,65 @@ foreach ($response->toolCalls as $toolCall) {
 > When combining tools with structured output, set `maxSteps` to at least 2. OpenAI automatically uses the `/responses` endpoint and sets `parallel_tool_calls: false`.
 
 For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
+
+### Refusals
+
+When an OpenAI model declines a request it returns a refusal instead of text. Prism reports this as `FinishReason::Refusal` and puts the refusal message in `additionalContent['refusal']`. Nothing is thrown, so check the finish reason before trusting the output:
+
+```php
+use Prism\Prism\Enums\FinishReason;
+
+$response = Prism::structured()
+    ->using('openai', 'gpt-6.1-sol')
+    ->withSchema($schema)
+    ->withPrompt($prompt)
+    ->asStructured();
+
+if ($response->finishReason === FinishReason::Refusal) {
+    logger()->warning('OpenAI refused', ['reason' => $response->additionalContent['refusal']]);
+}
+```
+
+For structured requests `structured` is an empty array on refusal (the refusal is never parsed as JSON). Text and streaming responses use the same finish reason and key; on a stream they're on the `StreamEndEvent`. Tool calls in a refused streamed turn are not executed.
+
+> [!NOTE]
+> Earlier versions threw a `PrismException` for structured refusals and ignored refusals in text and streams.
+
+### Commentary and Final Answers
+
+Newer models such as `gpt-6.x` label every assistant message with a `phase`: `commentary` for progress updates (like "I'll check the weather first") and `final_answer` for the answer itself. Prism handles them like this:
+
+- `text` on a step or response is the `final_answer` text when there is one. Steps that end in tool calls usually only have commentary, so their `text` is that commentary.
+- `additionalContent['phase']` holds the phase of the step's last message.
+- Structured output is decoded from the final answer, never from commentary.
+
+> [!NOTE]
+> Earlier versions only read the last output item, so tool-call steps often had empty text. That text can now contain the model's commentary.
+
+### Conversation Replay and Reasoning Items
+
+Each step keeps the response's message, reasoning and function call items, in their original order, in `additionalContent['output_items']`. When you send those messages back (the next tool-loop request, or a conversation you stored and reloaded), Prism replays these items exactly as OpenAI returned them: commentary before its tool calls, every reasoning item with its `encrypted_content`, and each message's `phase`, which OpenAI asks you to resend.
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-6.1-sol')
+    ->withProviderOptions(['store' => false])
+    ->withPrompt('What is 17 × 23?')
+    ->asText();
+
+// Store $response->messages however you like, then continue the conversation.
+$followUp = Prism::text()
+    ->using('openai', 'gpt-6.1-sol')
+    ->withProviderOptions(['store' => false])
+    ->withMessages([...$response->messages, new UserMessage('Now double it.')])
+    ->asText();
+```
+
+Because reasoning items carry their `encrypted_content`, reasoning survives across turns with `store: false` too, which is what you want for Zero Data Retention. If you rebuild `AssistantMessage` objects from storage, keep `additional_content` intact. Messages without `output_items` (for example ones saved by older versions of Prism) replay the way they always have. To drop replay state on purpose, remove the `output_items` key.
+
+A step that doesn't finish with tool calls (a refusal, or an incomplete or failed response) never runs its function calls, so Prism stores it without them: its `output_items` leave out the `function_call` items and any reasoning that only led up to them, and the step has no `toolCalls`. Continuing after a refusal sends back the refusal message alone, so don't expect tool calls from that turn. The untouched response is still in the step's `raw`.
+
+When streaming, the same keys are on each step's `StepFinishEvent::$additionalContent`, and Prism uses the completed items from `response.output_item.done`.
 
 ### Metadata
 
@@ -166,6 +254,19 @@ Available reasoning effort levels:
 - **`medium`**: Balanced approach between speed and reasoning depth (default)
 - **`high`**: More thorough reasoning for complex problems requiring deep analysis
 
+Newer models add more levels, and each family accepts a different set (checked against the API in October 2026):
+
+| Model | Accepted `effort` values |
+| --- | --- |
+| `gpt-6.1-sol`, `gpt-6-astra` | `low`, `medium`, `high`, `xhigh`, `max` |
+| `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-*` | `none`, `low`, `medium`, `high`, `xhigh`, `max` |
+| `gpt-5.5` | `none`, `low`, `medium`, `high`, `xhigh` |
+
+None of these accept `minimal`. Prism passes the value through as given, so an unsupported one comes back as a `PrismException` with OpenAI's error message.
+
+> [!WARNING]
+> `gpt-6.x`, `gpt-5.6` and `gpt-5.5` restrict sampling parameters unless reasoning effort is `none`. `temperature` is only accepted at `1`, which changes nothing, and `top_p` is rejected at any value, `1` included. Leave `usingTemperature()` and `usingTopP()` unset for these models, or pair them with `'reasoning' => ['effort' => 'none']` on a model that supports it (not `gpt-6.1-sol` or `gpt-6-astra`), where both are honoured.
+
 > [!NOTE]
 > Reasoning models generate internal "reasoning tokens" that help them think through problems. These tokens are included in your usage costs but aren't visible in the response.
 
@@ -212,6 +313,11 @@ $response = Prism::text()
     ->asText();
 ```
 
+`store` is sent on every request Prism makes, including streams and the follow-up requests of a tool loop. With `store: false` Prism still replays reasoning across turns using each reasoning item's `encrypted_content` (see [Conversation Replay and Reasoning Items](#conversation-replay-and-reasoning-items)).
+
+> [!NOTE]
+> Earlier versions didn't send `store` on streaming requests.
+
 ## Streaming
 
 OpenAI supports streaming responses in real-time. All the standard streaming methods work with OpenAI models:
@@ -229,6 +335,16 @@ return Prism::text()
     ->withPrompt(request('message'))
     ->asEventStreamResponse();
 ```
+
+### Stream Endings
+
+A stream ends with exactly one `StreamEndEvent`, whose `finishReason` reflects how OpenAI finished the response:
+
+- `response.completed` maps to `Stop`, `ToolCalls` or `Refusal`
+- `response.incomplete` maps to `Length` (or `ContentFilter`), with the usage OpenAI reported
+- `response.failed` emits an `ErrorEvent` first, then ends with `Error`
+
+`additionalContent` on the `StreamEndEvent` includes the response `status` and any `incomplete_details`. Prism only runs your tools when the turn finished with `ToolCalls`. Tool calls from a refused, truncated or failed turn are never executed. Their `ToolCallEvent`s are still emitted, but the `StepFinishEvent` reports the step's `finishReason` and its `output_items` leave them out, so the `AssistantMessage` a `StreamCollector` builds for that step has no tool calls to replay.
 
 ### Streaming Reasoning Models
 
@@ -278,6 +394,8 @@ For complete details on handling provider tool events, see [Streaming Output](/c
 ### Caching
 
 Automatic caching does not currently work with JsonMode. Please ensure you use StructuredMode if you wish to utilise automatic caching.
+
+OpenAI reports tokens read from the cache as `cacheReadInputTokens` and tokens written to it as `cacheWriteInputTokens`. OpenAI counts written tokens inside its input token total, so they're already included in `promptTokens`. Don't add the two together.
 
 ## Provider Tools
 
