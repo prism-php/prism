@@ -88,6 +88,12 @@ class Stream
             }
         }
 
+        $unfinishedBlockEvent = $this->completeUnfinishedBlock();
+
+        if ($unfinishedBlockEvent instanceof StreamEvent) {
+            yield $unfinishedBlockEvent;
+        }
+
         $this->finalizeStepUsage();
 
         $additionalContent = $this->stepAdditionalContent();
@@ -115,6 +121,28 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent($additionalContent);
+    }
+
+    /**
+     * A stream that ends inside a text or thinking block (an `error` event or a
+     * dropped connection) still closes it, so every start has its complete.
+     * The block stays out of the step's replay content.
+     */
+    protected function completeUnfinishedBlock(): TextCompleteEvent|ThinkingCompleteEvent|null
+    {
+        $event = match ($this->state->currentBlockType()) {
+            'text' => $this->handleTextComplete(),
+            'thinking' => new ThinkingCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                reasoningId: $this->state->reasoningId()
+            ),
+            default => null,
+        };
+
+        $this->state->resetBlockContext();
+
+        return $event;
     }
 
     protected function finalizeStepUsage(): void
@@ -351,7 +379,10 @@ class Stream
 
         if (is_string($stopReason)) {
             $this->state->withStopReason($stopReason, data_get($event, 'delta.stop_details'));
-            $this->state->withFinishReason(FinishReasonMap::map($stopReason));
+
+            if ($this->state->finishReason() !== FinishReason::Error) {
+                $this->state->withFinishReason(FinishReasonMap::map($stopReason));
+            }
         }
 
         $usageData = $event['usage'] ?? [];
@@ -423,10 +454,15 @@ class Stream
     }
 
     /**
+     * An `error` event ends Anthropic's stream, so the step ends with Error
+     * rather than looking like a complete response.
+     *
      * @param  array<string, mixed>  $event
      */
     protected function handleError(array $event): ErrorEvent
     {
+        $this->state->withFinishReason(FinishReason::Error);
+
         return new ErrorEvent(
             id: EventID::generate(),
             timestamp: time(),

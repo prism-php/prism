@@ -595,3 +595,66 @@ describe('usage snapshots', function (): void {
             ]);
     });
 });
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(deepSeekGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(deepSeekGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'reasoning then text' => [
+            [[
+                deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.']),
+                deepSeekGatingDeltaChunk(['content' => 'Sunny.']),
+                deepSeekGatingDeltaChunk(['content' => ' Warm.']),
+                deepSeekGatingFinishChunk('stop'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning and text before tool calls' => [
+            [
+                [
+                    deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.']),
+                    deepSeekGatingDeltaChunk(['content' => 'Let me check.']),
+                    deepSeekGatingToolChunk(),
+                    deepSeekGatingFinishChunk('tool_calls'),
+                ],
+                [deepSeekGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning before a tool call that finishes on its own chunk' => [
+            [
+                [
+                    deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.']),
+                    deepSeekGatingToolChunk('tool_calls'),
+                ],
+                [deepSeekGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text before a tool call cut off by length' => [
+            [[
+                deepSeekGatingDeltaChunk(['content' => 'Let me check.']),
+                deepSeekGatingToolChunk('length'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning when the stream closes early' => [
+            [[deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[deepSeekGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});

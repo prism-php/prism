@@ -15,7 +15,9 @@ use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -907,5 +909,67 @@ describe('usage snapshots', function (): void {
 
         expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+});
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(xaiGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'reasoning then text' => [
+            [[
+                xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.']),
+                xaiGatingDeltaChunk(['content' => 'Sunny.']),
+                xaiGatingFinishChunk('stop'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning and text before tool calls' => [
+            [
+                [
+                    xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.']),
+                    xaiGatingDeltaChunk(['content' => 'Let me check.']),
+                    xaiGatingToolChunk(),
+                    xaiGatingFinishChunk('tool_calls'),
+                ],
+                [xaiGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning that carries the finish reason' => [
+            [[xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.'], 'length')]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[xaiGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+
+    it('keeps the step message id on text that follows reasoning', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.']),
+                xaiGatingDeltaChunk(['content' => 'Sunny.']),
+                xaiGatingFinishChunk('stop'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $messageIds = $events->whereInstanceOf([TextStartEvent::class, TextDeltaEvent::class, TextCompleteEvent::class])->map->messageId->unique()->values();
+
+        expect($messageIds)->toHaveCount(1)
+            ->and($messageIds->first())->not->toBe('');
     });
 });

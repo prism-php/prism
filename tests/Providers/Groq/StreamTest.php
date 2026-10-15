@@ -13,6 +13,7 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -807,4 +808,67 @@ describe('usage', function (): void {
                 'thought_tokens' => null,
             ]);
     });
+});
+
+describe('content blocks', function (): void {
+    it('completes every text block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(groqGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(groqGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'text before tool calls' => [
+            [
+                [groqGatingDeltaChunk(['content' => 'Let me check.']), groqGatingToolChunk(), groqGatingFinishChunk('tool_calls')],
+                [groqGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text before a tool call cut off by length' => [
+            [[groqGatingDeltaChunk(['content' => 'Let me check.']), groqGatingToolChunk('length')]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[groqGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});
+
+describe('in-stream errors', function (): void {
+    it('ends the step and the stream with Error after an unrecoverable error chunk', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(groqGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+                'StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+            ])
+            ->and($events->whereInstanceOf(ErrorEvent::class)->sole()->recoverable)->toBeFalse()
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and([$events->last()->usage->promptTokens, $events->last()->usage->completionTokens])->toBe([10, 5]);
+    })->with([
+        'error then end of stream' => [[
+            groqGatingDeltaChunk(['content' => 'Sunny']),
+            ['error' => ['type' => 'server_error', 'message' => 'generation failed'], 'x_groq' => ['usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15]]],
+        ]],
+        'error then a finish reason' => [[
+            groqGatingDeltaChunk(['content' => 'Sunny']),
+            ['error' => ['type' => 'server_error', 'message' => 'generation failed']],
+            groqGatingDeltaChunk(['content' => ' and warm.']),
+            groqGatingFinishChunk('tool_calls'),
+        ]],
+    ]);
 });

@@ -18,6 +18,7 @@ use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Providers\OpenRouter\ValueObjects\OpenRouterStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -112,15 +113,24 @@ class Stream
                 );
             }
 
+            if ($this->hasError($data)) {
+                yield $this->errorEvent($data);
+
+                $stepFinishReason = FinishReason::Error;
+                $this->state->withFinishReason(FinishReason::Error);
+
+                continue;
+            }
+
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
                 if (data_get($data, 'choices.0.finish_reason') !== null) {
                     $stepFinishReason = $this->mapFinishReason($data);
 
-                    if ($stepFinishReason === FinishReason::ToolCalls) {
-                        yield from $this->completeOpenBlocks($text);
-                    } else {
+                    yield from $this->completeOpenBlocks();
+
+                    if ($stepFinishReason !== FinishReason::ToolCalls) {
                         $this->state->withFinishReason($stepFinishReason);
                     }
                 }
@@ -163,6 +173,8 @@ class Stream
 
             $content = $this->extractContentDelta($data);
             if ($content !== '') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -186,13 +198,15 @@ class Stream
             if (data_get($data, 'choices.0.finish_reason') !== null) {
                 $stepFinishReason = $this->mapFinishReason($data);
 
-                yield from $this->completeOpenBlocks($text);
+                yield from $this->completeOpenBlocks();
 
                 if ($stepFinishReason !== FinishReason::ToolCalls) {
                     $this->state->withFinishReason($stepFinishReason);
                 }
             }
         }
+
+        yield from $this->completeOpenBlocks();
 
         $stepUsage = $this->recordStepUsage($usageSnapshot);
 
@@ -215,11 +229,16 @@ class Stream
     }
 
     /**
+     * Closes the thinking and text this step started, each exactly once, before
+     * the step's tool calls or its StepFinishEvent.
+     *
      * @return Generator<StreamEvent>
      */
-    protected function completeOpenBlocks(string $text): Generator
+    protected function completeOpenBlocks(): Generator
     {
-        if ($this->state->hasTextStarted() && $text !== '') {
+        yield from $this->completeThinking();
+
+        if ($this->state->hasTextStarted()) {
             $this->state->markTextCompleted();
 
             yield new TextCompleteEvent(
@@ -228,14 +247,24 @@ class Stream
                 messageId: $this->state->messageId()
             );
         }
+    }
 
-        if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
-            yield new ThinkingCompleteEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                reasoningId: $this->state->reasoningId()
-            );
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function completeThinking(): Generator
+    {
+        if (! $this->state->hasThinkingStarted()) {
+            return;
         }
+
+        $this->state->markThinkingCompleted();
+
+        yield new ThinkingCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId()
+        );
     }
 
     /**
@@ -331,6 +360,33 @@ class Stream
         }
 
         return $toolCalls;
+    }
+
+    /**
+     * OpenRouter reports a failure after the response has started as a chunk
+     * with a top-level `error`, and the stream ends there.
+     *
+     * @link https://openrouter.ai/docs/api-reference/streaming
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasError(array $data): bool
+    {
+        return is_array($data['error'] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function errorEvent(array $data): ErrorEvent
+    {
+        return new ErrorEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            errorType: (string) data_get($data, 'error.code', 'unknown_error'),
+            message: (string) data_get($data, 'error.message', 'No error message provided'),
+            recoverable: false,
+        );
     }
 
     /**

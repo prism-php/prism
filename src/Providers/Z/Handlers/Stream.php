@@ -25,6 +25,7 @@ use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -114,15 +115,7 @@ class Stream
                 $rawFinishReason = data_get($data, 'choices.0.finish_reason');
 
                 if ($rawFinishReason === 'tool_calls') {
-                    if ($this->state->hasTextStarted() && $text !== '') {
-                        $this->state->markTextCompleted();
-
-                        yield new TextCompleteEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            messageId: $this->state->messageId(),
-                        );
-                    }
+                    yield from $this->completeText();
 
                     $stepFinishReason = FinishReason::ToolCalls;
 
@@ -165,20 +158,14 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId(),
-                    );
-                }
+                yield from $this->completeText();
 
                 $this->state->withFinishReason($finishReason);
                 $stepFinishReason = $finishReason;
             }
         }
+
+        yield from $this->completeText();
 
         $stepUsage = $this->recordStepUsage($usageSnapshot);
 
@@ -199,6 +186,27 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the text this step started, once, before its tool calls or its
+     * StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeText(): Generator
+    {
+        if (! $this->state->hasTextStarted()) {
+            return;
+        }
+
+        $this->state->markTextCompleted();
+
+        yield new TextCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            messageId: $this->state->messageId(),
+        );
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent

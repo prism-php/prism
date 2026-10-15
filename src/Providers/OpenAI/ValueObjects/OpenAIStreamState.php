@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenAI\ValueObjects;
 
 use Prism\Prism\Providers\OpenAI\Support\OutputItems;
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\ValueObjects\Usage;
 
 class OpenAIStreamState extends StreamState
 {
@@ -17,6 +18,8 @@ class OpenAIStreamState extends StreamState
 
     /** @var array<string, mixed> */
     protected array $terminalResponse = [];
+
+    protected ?Usage $stepUsage = null;
 
     /**
      * Completed output items from response.output_item.done, keyed by output index.
@@ -83,6 +86,18 @@ class OpenAIStreamState extends StreamState
         return $this->terminalResponse;
     }
 
+    public function withStepUsage(Usage $usage): self
+    {
+        $this->stepUsage = $usage;
+
+        return $this;
+    }
+
+    public function stepUsage(): ?Usage
+    {
+        return $this->stepUsage;
+    }
+
     /**
      * Completed function calls collected for this step, in output order.
      *
@@ -109,6 +124,7 @@ class OpenAIStreamState extends StreamState
         $this->outputItems = [];
         $this->refusalParts = [];
         $this->terminalResponse = [];
+        $this->stepUsage = null;
 
         return $this;
     }

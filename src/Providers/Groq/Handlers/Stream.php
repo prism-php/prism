@@ -114,8 +114,16 @@ class Stream
 
             $this->captureStepUsage($data);
 
+            // An unrecoverable error ends the response: later chunks only update usage.
+            if ($stepFinishReason === FinishReason::Error) {
+                continue;
+            }
+
             if ($this->hasError($data)) {
                 yield from $this->handleErrors($data, $request);
+
+                $stepFinishReason = FinishReason::Error;
+                $this->state->withFinishReason(FinishReason::Error);
 
                 continue;
             }
@@ -152,16 +160,7 @@ class Stream
             }
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                // Complete any ongoing text
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
+                yield from $this->completeText();
 
                 $this->drainStepUsage($response);
                 $this->recordStepUsage();
@@ -176,20 +175,14 @@ class Stream
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
+                yield from $this->completeText();
 
                 $this->state->withFinishReason($finishReason);
                 $stepFinishReason = $finishReason;
             }
         }
+
+        yield from $this->completeText();
 
         $this->recordStepUsage();
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
@@ -204,6 +197,27 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the text this step started, once, before its tool calls or its
+     * StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeText(): Generator
+    {
+        if (! $this->state->hasTextStarted()) {
+            return;
+        }
+
+        $this->state->markTextCompleted();
+
+        yield new TextCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            messageId: $this->state->messageId()
+        );
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent

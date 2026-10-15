@@ -359,7 +359,7 @@ Based on actual streaming output:
     }
 }
 
-// step_finish event (usage is included where the provider reports it; on Anthropic it covers this step only)
+// step_finish event (usage covers this step only, and is null when the provider didn't report it)
 {
     "id": "anthropic_evt_def456step",
     "timestamp": 1756412895,
@@ -394,6 +394,8 @@ Every stream ends the same way on every provider: a `step_finish` for the last s
 - If `maxSteps` runs out on a step that ended with tool calls, Prism runs those tools and stops there. That step's `step_finish` and the `stream_end` both report `ToolCalls`, just like `$response->finishReason` on a non-streaming request.
 - If the connection closes before the provider sends a finish reason, the stream still ends with `step_finish` and `stream_end`, reporting `Stop`.
 - If the provider repeats its finish reason across several chunks, you still get one `stream_end`.
+- If the provider reports an error partway through, you get an `error` event, the step stops there, and its `step_finish` and the `stream_end` both report `Error` so partial output never looks like a finished answer. Any tool calls the step streamed don't run.
+- Every `text_start` and `thinking_start` gets its matching `text_complete` or `thinking_complete` before the step's `tool_call` events and its `step_finish`, even when the stream stops early.
 
 ## Handling Artifact Events
 

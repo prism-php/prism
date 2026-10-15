@@ -831,3 +831,109 @@ it('ends with a step finish and Stop when the stream closes before a terminal ev
 
     Http::assertSentCount(1);
 });
+
+it('reports each step\'s usage on its step finish and the total on stream end', function (): void {
+    $fixture = fn (int $step): string => (string) file_get_contents(__DIR__."/../../Fixtures/openai/stream-with-tools-responses-{$step}.json");
+
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(str_replace('"cached_tokens":0', '"cached_tokens":40', $fixture(1)), 200, ['Content-Type' => 'text/event-stream'])
+            ->push($fixture(2), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withTools([
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ])
+        ->withMaxSteps(4)
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->asStream(), false));
+
+    expect($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->finishReason, $event->usage->toArray()])->values()->all())->toBe([
+        [FinishReason::ToolCalls, [
+            'prompt_tokens' => 52,
+            'completion_tokens' => 52,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 40,
+            'thought_tokens' => 0,
+        ]],
+        [FinishReason::Stop, [
+            'prompt_tokens' => 165,
+            'completion_tokens' => 55,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 0,
+            'thought_tokens' => 0,
+        ]],
+    ])
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+            'prompt_tokens' => 217,
+            'completion_tokens' => 107,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 40,
+            'thought_tokens' => 0,
+        ])
+        ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+});
+
+it('reports the tool step\'s usage when max steps ends the stream on a tool call', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/stream-with-tools-responses');
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using('openai', 'gpt-4o')
+        ->withTools([
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ])
+        ->withMaxSteps(1)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+
+    $stepUsage = $events->whereInstanceOf(StepFinishEvent::class)->sole()->usage;
+
+    expect([$stepUsage->promptTokens, $stepUsage->completionTokens])->toBe([92, 52])
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($stepUsage->toArray());
+});
+
+it('completes the reasoning and text it started when the response fails mid-output', function (): void {
+    $sse = collect([
+        ['type' => 'response.created', 'response' => ['id' => 'resp_failed', 'model' => 'gpt-5', 'status' => 'in_progress']],
+        ['type' => 'response.reasoning_summary_text.delta', 'item_id' => 'rs_1', 'delta' => 'Thinking it over.'],
+        ['type' => 'response.output_text.delta', 'item_id' => 'msg_1', 'delta' => 'Sunny'],
+        ['type' => 'response.failed', 'response' => [
+            'id' => 'resp_failed',
+            'status' => 'failed',
+            'error' => ['code' => 'server_error', 'message' => 'The model failed.'],
+            'usage' => ['input_tokens' => 20, 'output_tokens' => 4, 'output_tokens_details' => ['reasoning_tokens' => 2]],
+        ]],
+    ])->map(fn (array $event): string => 'event: '.$event['type']."\ndata: ".json_encode($event)."\n\n")->implode('');
+
+    Http::fake([
+        '*' => Http::response($sse, 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withPrompt('What is the weather?')
+        ->asStream(), false));
+
+    expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+        'StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'ThinkingCompleteEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+    ])
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->completionTokens)->toBe(4)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
+});

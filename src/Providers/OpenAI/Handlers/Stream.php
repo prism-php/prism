@@ -271,6 +271,8 @@ class Stream
             }
         }
 
+        yield from $this->completeOpenBlocks();
+
         if ($this->shouldExecuteToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
 
@@ -281,11 +283,41 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $this->state->stepUsage(),
             additionalContent: $this->stepAdditionalContent(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * A response that fails or a stream that drops before its `.done` events
+     * still closes the reasoning and text it started.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        if ($this->state->reasoningId() !== '') {
+            yield new ThinkingCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                reasoningId: $this->state->reasoningId()
+            );
+
+            $this->state->withReasoningId('');
+        }
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent
@@ -345,7 +377,10 @@ class Stream
         $this->state->withFinishReason($this->mapTerminalFinishReason($response));
 
         if (is_array(data_get($response, 'usage'))) {
-            $this->state->addUsage($this->mapUsage($response));
+            $stepUsage = $this->mapUsage($response);
+
+            $this->state->withStepUsage($stepUsage);
+            $this->state->addUsage($stepUsage);
         }
 
         if (data_get($data, 'type') === 'response.failed') {
@@ -567,6 +602,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $this->state->stepUsage(),
             additionalContent: $stepAdditionalContent,
             finishReason: FinishReason::ToolCalls,
         );

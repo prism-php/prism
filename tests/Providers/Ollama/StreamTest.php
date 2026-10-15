@@ -11,6 +11,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -611,5 +612,79 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => 64,
                 'thought_tokens' => null,
             ]);
+    });
+});
+
+/**
+ * @param  array<string, mixed>  $message
+ * @return array<string, mixed>
+ */
+function ollamaMessageChunk(array $message): array
+{
+    return [
+        'model' => 'qwen3:14b',
+        'created_at' => '2025-06-09T17:58:56.000000Z',
+        'message' => ['role' => 'assistant', 'content' => '', ...$message],
+        'done' => false,
+    ];
+}
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(ollamaGatingStreamBody(...$chunks), 200);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(ollamaGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'thinking and text before tool calls' => [
+            [
+                [
+                    ollamaMessageChunk(['thinking' => 'Thinking it over.']),
+                    ollamaMessageChunk(['content' => 'Let me check.']),
+                    ollamaGatingToolChunk(),
+                    ollamaGatingDoneChunk('stop'),
+                ],
+                [ollamaGatingDoneChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'thinking when the stream closes early' => [
+            [[ollamaMessageChunk(['thinking' => 'Thinking it over.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[ollamaMessageChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});
+
+describe('in-stream errors', function (): void {
+    it('ends the step and the stream with Error when Ollama sends an error line', function (): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(
+                ollamaMessageChunk(['content' => 'Sunny']),
+                ['error' => 'an error was encountered while running the model'],
+                ollamaGatingDoneChunk('stop'),
+            ), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+        $error = $events->whereInstanceOf(ErrorEvent::class)->sole();
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and([$error->message, $error->recoverable])->toBe(['an error was encountered while running the model', false])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
     });
 });

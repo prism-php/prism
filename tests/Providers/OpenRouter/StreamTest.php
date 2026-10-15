@@ -9,6 +9,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -813,5 +814,103 @@ describe('usage snapshots', function (): void {
         expect($usage->promptTokens)->toBe(0)
             ->and($usage->cacheReadInputTokens)->toBe(512)
             ->and($usage->completionTokens)->toBe(0);
+    });
+});
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(openRouterGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(openRouterGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'reasoning then text' => [
+            [[
+                openRouterGatingDeltaChunk(['reasoning' => 'Thinking it over.']),
+                openRouterGatingDeltaChunk(['content' => 'Sunny.']),
+                openRouterGatingFinishChunk('stop'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning and text before tool calls' => [
+            [
+                [
+                    openRouterGatingDeltaChunk(['reasoning' => 'Thinking it over.']),
+                    openRouterGatingDeltaChunk(['content' => 'Let me check.']),
+                    openRouterGatingToolChunk(),
+                    openRouterGatingFinishChunk('tool_calls'),
+                ],
+                [openRouterGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text before a tool call cut off by length' => [
+            [[openRouterGatingDeltaChunk(['content' => 'Let me check.']), openRouterGatingToolChunk('length')]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning when the stream closes early' => [
+            [[openRouterGatingDeltaChunk(['reasoning' => 'Thinking it over.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[openRouterGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});
+
+describe('in-stream errors', function (): void {
+    it('ends the step and the stream with Error after an error chunk', function (array $chunks, array $expected): void {
+        Http::fake([
+            '*' => Http::response(openRouterGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = openRouterGatingStream($calls);
+        $error = $events->whereInstanceOf(ErrorEvent::class)->sole();
+
+        expect($calls)->toBe(0)
+            ->and($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected)
+            ->and([$error->errorType, $error->message, $error->recoverable])->toBe(['server_error', 'Provider disconnected unexpectedly', false])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
+    })->with([
+        'after text' => [
+            [
+                openRouterGatingDeltaChunk(['content' => 'Sunny']),
+                [...openRouterGatingDeltaChunk(['content' => ''], 'error'), 'error' => ['code' => 'server_error', 'message' => 'Provider disconnected unexpectedly']],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'after a tool call' => [
+            [
+                openRouterGatingToolChunk(),
+                [...openRouterGatingDeltaChunk(['content' => ''], 'error'), 'error' => ['code' => 'server_error', 'message' => 'Provider disconnected unexpectedly']],
+                openRouterGatingFinishChunk('tool_calls'),
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ErrorEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+
+    it('maps an error finish reason to Error', function (): void {
+        Http::fake([
+            '*' => Http::response(openRouterGatingSse(
+                openRouterGatingDeltaChunk(['content' => 'Sunny']),
+                openRouterGatingDeltaChunk(['content' => ''], 'error'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = openRouterGatingStream($calls);
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
     });
 });

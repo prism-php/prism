@@ -18,6 +18,7 @@ use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -108,6 +109,14 @@ class Stream
 
             $this->captureStepUsage($data);
 
+            if ($this->hasError($data)) {
+                yield $this->errorEvent($data);
+
+                $stepFinishReason = FinishReason::Error;
+
+                break;
+            }
+
             // Handle thinking content first
             $thinking = data_get($data, 'message.thinking', '');
             if ($thinking !== '') {
@@ -132,16 +141,8 @@ class Stream
                 }
             }
 
-            // If we were emitting thinking and it's now stopped, mark it complete
-            if ($this->state->hasThinkingStarted()) {
-                $this->state->markThinkingCompleted();
-                yield new ThinkingCompleteEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    reasoningId: $this->state->reasoningId()
-                );
-                // Don't continue here - we want to process the rest of this data chunk
-            }
+            // Thinking has stopped; keep processing the rest of this chunk
+            yield from $this->completeThinking();
 
             // Accumulate tool calls if present (don't emit events yet)
             if ($this->hasToolCalls($data)) {
@@ -176,16 +177,7 @@ class Stream
             if ((bool) data_get($data, 'done', false)) {
                 $stepFinishReason = $this->mapFinishReason($data);
 
-                // Emit text complete if we had text content
-                if ($this->state->hasTextStarted()) {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
+                yield from $this->completeOpenBlocks();
 
                 if ($this->state->hasToolCalls() && $this->isToolCallFinish($stepFinishReason)) {
                     $this->recordStepUsage();
@@ -198,6 +190,8 @@ class Stream
                 break;
             }
         }
+
+        yield from $this->completeOpenBlocks();
 
         $this->recordStepUsage();
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
@@ -212,6 +206,72 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the thinking and text this step started, each exactly once, before
+     * the step's tool calls or its StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        yield from $this->completeThinking();
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function completeThinking(): Generator
+    {
+        if (! $this->state->hasThinkingStarted()) {
+            return;
+        }
+
+        $this->state->markThinkingCompleted();
+
+        yield new ThinkingCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId()
+        );
+    }
+
+    /**
+     * Ollama keeps the 200 status when a request fails mid-stream and sends a
+     * final line with an `error` instead.
+     *
+     * @link https://docs.ollama.com/api/errors
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasError(array $data): bool
+    {
+        return isset($data['error']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function errorEvent(array $data): ErrorEvent
+    {
+        return new ErrorEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            errorType: 'stream_error',
+            message: is_string($data['error']) ? $data['error'] : (string) data_get($data, 'error.message', 'No error message provided'),
+            recoverable: false,
+        );
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent

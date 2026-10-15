@@ -650,3 +650,35 @@ describe('usage snapshots', function (): void {
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
     });
 });
+
+describe('content blocks', function (): void {
+    it('completes every text block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(zGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(zGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'text before tool calls' => [
+            [
+                [zGatingDeltaChunk(['content' => 'Let me check.']), zGatingToolChunk(), zGatingFinishChunk('tool_calls')],
+                [zGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text before a tool call cut off by length' => [
+            [[zGatingDeltaChunk(['content' => 'Let me check.']), zGatingToolChunk('length')]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[zGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});

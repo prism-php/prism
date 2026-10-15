@@ -8,12 +8,15 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -138,5 +141,80 @@ it('ends with a step finish and Stop when the stream closes without a finish rea
         ->and($events->whereInstanceOf(TextCompleteEvent::class))->toHaveCount(1)
         ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
         ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+});
+
+it('ends the step and the stream with Length when the response hits the token limit', function (): void {
+    Http::fake([
+        '*' => Http::response(perplexityStreamSse(
+            perplexityStreamChunk('I am'),
+            perplexityStreamChunk(' Son', 'length'),
+            perplexityStreamChunk('', 'length', 'chat.completion.done'),
+        ), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $events = perplexityStream();
+
+    expect($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+        StreamStartEvent::class,
+        StepStartEvent::class,
+        TextStartEvent::class,
+        TextDeltaEvent::class,
+        TextDeltaEvent::class,
+        TextCompleteEvent::class,
+        StepFinishEvent::class,
+        StreamEndEvent::class,
+    ])
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+});
+
+it('ends the step and the stream with Error after an unrecoverable error chunk', function (): void {
+    Http::fake([
+        '*' => Http::response(perplexityStreamSse(
+            perplexityStreamChunk('I am'),
+            ['error' => ['type' => 'server_error', 'message' => 'generation failed']],
+        ), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $events = perplexityStream();
+
+    expect($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+        StreamStartEvent::class,
+        StepStartEvent::class,
+        TextStartEvent::class,
+        TextDeltaEvent::class,
+        ErrorEvent::class,
+        TextCompleteEvent::class,
+        StepFinishEvent::class,
+        StreamEndEvent::class,
+    ])
+        ->and($events->whereInstanceOf(ErrorEvent::class)->sole()->message)->toBe('generation failed')
+        ->and($events->whereInstanceOf(ErrorEvent::class)->sole()->recoverable)->toBeFalse()
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe([
+            'prompt_tokens' => 4,
+            'completion_tokens' => 9,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => null,
+        ])
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray());
+});
+
+it('keeps Error when a finish reason arrives after an unrecoverable error chunk', function (): void {
+    Http::fake([
+        '*' => Http::response(perplexityStreamSse(
+            perplexityStreamChunk('I am'),
+            ['error' => ['type' => 'server_error', 'message' => 'generation failed']],
+            perplexityStreamChunk('', 'stop', 'chat.completion.done'),
+        ), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $events = perplexityStream();
+
+    expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
         ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
 });

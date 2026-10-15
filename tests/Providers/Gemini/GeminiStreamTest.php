@@ -16,7 +16,12 @@ use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -635,6 +640,83 @@ describe('tool execution gating', function (): void {
         'STOP on the function call chunk' => [[geminiGatingFunctionCallChunk('STOP')]],
         'STOP in a separate chunk' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'STOP')]],
     ]);
+});
+
+describe('content blocks', function (): void {
+    it('completes the thinking and text a step started before its tool calls', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiGatingChunk([['text' => 'Sunny in Detroit.']], 'STOP')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+            StreamStartEvent::class,
+            StepStartEvent::class,
+            ThinkingStartEvent::class,
+            ThinkingEvent::class,
+            ThinkingCompleteEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            ToolCallEvent::class,
+            ToolResultEvent::class,
+            StepFinishEvent::class,
+            StepStartEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            StepFinishEvent::class,
+            StreamEndEvent::class,
+        ])
+            ->and($events->whereInstanceOf(ThinkingCompleteEvent::class)->sole()->reasoningId)->toBe($events->whereInstanceOf(ThinkingStartEvent::class)->sole()->reasoningId)
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->values()->all())->toBe(['Let me check.', 'Sunny in Detroit.'])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+    })->with([
+        'STOP on the function call chunk' => [[
+            geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+            geminiGatingChunk([['text' => 'Let me check.']]),
+            geminiGatingFunctionCallChunk('STOP'),
+        ]],
+        'STOP in a separate chunk' => [[
+            geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+            geminiGatingChunk([['text' => 'Let me check.']]),
+            geminiGatingFunctionCallChunk(),
+            geminiGatingChunk([['text' => '']], 'STOP'),
+        ]],
+    ]);
+
+    it('completes the thinking and text a step started when the turn stops on a function call', function (): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+                geminiGatingChunk([['text' => 'Let me check.']]),
+                geminiGatingFunctionCallChunk('MAX_TOKENS'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+                StreamStartEvent::class,
+                StepStartEvent::class,
+                ThinkingStartEvent::class,
+                ThinkingEvent::class,
+                ThinkingCompleteEvent::class,
+                TextStartEvent::class,
+                TextDeltaEvent::class,
+                TextCompleteEvent::class,
+                ToolCallEvent::class,
+                StepFinishEvent::class,
+                StreamEndEvent::class,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+    });
 });
 
 /**

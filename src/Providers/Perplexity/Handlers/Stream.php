@@ -98,15 +98,21 @@ class Stream
                 );
             }
 
+            $stepUsage = $this->extractStepUsage($data) ?? $stepUsage;
+
+            // An unrecoverable error ends the response: later chunks only update usage.
+            if ($finishReason === FinishReason::Error) {
+                continue;
+            }
+
             // Handle error chunks per Perplexity streaming guide
             if ($this->hasError($data)) {
                 yield from $this->handleErrors($data, $request);
 
-                // Do not process further content in this chunk
+                $finishReason = FinishReason::Error;
+
                 continue;
             }
-
-            $stepUsage = $this->extractStepUsage($data) ?? $stepUsage;
 
             $content = data_get($data, 'choices.0.delta.content', '') ?? '';
 

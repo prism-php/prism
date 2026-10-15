@@ -139,13 +139,8 @@ class Stream
                 }
             }
 
-            if ($this->state->hasThinkingStarted() && $thinkingContent === '') {
-                yield new ThinkingCompleteEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    reasoningId: $this->state->reasoningId()
-                );
-                $this->state->resetTextState();
+            if ($thinkingContent === '') {
+                yield from $this->completeThinking();
             }
 
             if ($this->hasToolCalls($data)) {
@@ -191,32 +186,14 @@ class Stream
             }
         }
 
+        yield from $this->completeOpenBlocks();
+
         $stepUsage = $this->recordStepUsage($usageSnapshot);
 
         if ($toolCalls !== [] && $finishReason === FinishReason::ToolCalls) {
-            if ($this->state->hasTextStarted() && $text !== '') {
-                $this->state->markTextCompleted();
-
-                yield new TextCompleteEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    messageId: $this->state->messageId()
-                );
-            }
-
             yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $stepUsage);
 
             return;
-        }
-
-        if ($this->state->hasTextStarted() && $text !== '') {
-            $this->state->markTextCompleted();
-
-            yield new TextCompleteEvent(
-                id: EventID::generate(),
-                timestamp: time(),
-                messageId: $this->state->messageId()
-            );
         }
 
         $this->state->withFinishReason($finishReason ?? FinishReason::Stop);
@@ -229,6 +206,45 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the thinking and text this step started, each exactly once, before
+     * the step's tool calls or its StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        yield from $this->completeThinking();
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function completeThinking(): Generator
+    {
+        if (! $this->state->hasThinkingStarted()) {
+            return;
+        }
+
+        $this->state->markThinkingCompleted();
+
+        yield new ThinkingCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId()
+        );
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent
