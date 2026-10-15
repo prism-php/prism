@@ -49,6 +49,19 @@ Different AI providers handle structured output in two main ways:
 1. **Structured Mode**: Some providers support strict schema validation, ensuring responses perfectly match your defined structure.
 2. **JSON Mode**: Other providers simply guarantee valid JSON output that approximately matches your schema.
 
+With OpenAI, Prism uses structured mode, sending a native `json_schema` request, for every model except a short list of legacy ones (`gpt-3.5-turbo`, `gpt-4`, `gpt-4-*` and `gpt-4o-2024-05-13`). That means new model families get schema enforcement automatically. If you point the OpenAI provider at a compatible server that can't handle `json_schema`, switch to JSON mode yourself:
+
+```php
+use Prism\Prism\Enums\StructuredMode;
+
+$response = Prism::structured()
+    ->using(Provider::OpenAI, 'my-local-model')
+    ->usingStructuredMode(StructuredMode::Json)
+    ->withSchema($schema)
+    ->withPrompt('Review the movie Inception')
+    ->asStructured();
+```
+
 > [!NOTE]
 > Check your provider's documentation to understand which mode they support. Provider support can vary by model, so always verify capabilities for your specific use case.
 
@@ -57,7 +70,7 @@ Different AI providers handle structured output in two main ways:
 Providers may offer additional options for structured output:
 
 ### OpenAI: Strict Mode
-OpenAI supports a "strict mode" for even tighter schema validation:
+OpenAI enforces your schema strictly unless you say otherwise: leaving `strict` out means `strict: true`. Set it explicitly to make that visible, or pass `false` when your schema allows additional properties:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -73,7 +86,12 @@ $response = Prism::structured()
 ```
 
 ### Anthropic
-Anthropic uses native structured outputs by default (Claude Sonnet 4.5+), providing guaranteed schema compliance through constrained decoding. For older models, you can use tool calling mode as a fallback:
+Anthropic uses native structured outputs by default (Claude Sonnet 4.5 and later, including the Claude 5 family), providing guaranteed schema compliance through constrained decoding. It works alongside adaptive thinking, `effort` and your own tools, so it's the mode to reach for on current models.
+
+> [!WARNING]
+> Tool calling mode forces the model to call Prism's output tool, and Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 reject a forced tool choice with a 400. On those models, stay with native mode, or add `->withToolChoice(ToolChoice::Auto)` to tool calling mode. With `Auto` the model is asked to use the tool, but the schema isn't enforced.
+
+For older models, you can use tool calling mode as a fallback:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -127,9 +145,17 @@ $rawResponse = $response->raw;
 ```
 
 > [!TIP]
-> Always validate the structured data before using it in your application:
+> Always check the finish reason and validate the structured data before using it in your application:
 ```php
-if ($response->structured === null) {
+use Prism\Prism\Enums\FinishReason;
+
+if ($response->finishReason === FinishReason::Refusal) {
+    // The model declined; structured is empty and nothing was thrown
+    // Anthropic: $response->additionalContent['stop_details']
+    // OpenAI: $response->additionalContent['refusal']
+}
+
+if (empty($response->structured)) {
     // Handle parsing failure
 }
 

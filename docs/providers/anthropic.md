@@ -156,7 +156,7 @@ Use the `effort` parameter to guide how much work Claude puts into the whole res
 |----------|---------------------------------------------------------------------------|
 | `max`    | Maximum capability with no constraints on thinking depth.                 |
 | `xhigh`  | Deeper than `high` for the hardest tasks.                                 |
-| `high`   | Deep reasoning on complex tasks. This is the default.                     |
+| `high`   | Deep reasoning on complex tasks. The default on most models; Opus 5.5 and Haiku 5.5 default to `medium`. |
 | `medium` | Balanced approach with moderate token savings.                            |
 | `low`    | Most efficient. Significant token savings with some capability reduction. |
 
@@ -264,7 +264,7 @@ $response->usage->thoughtTokens;    // the thinking part of it
 
 ### Replaying conversations with thinking
 
-Thinking blocks have to go back to Anthropic complete and unmodified, in their original position, when you continue a tool loop. On newer models the API also checks that everything before a thinking block (system prompt, tools and earlier messages) is unchanged. Prism handles this for you inside its own tool loops, and it keeps what you need to do the same with conversations you store:
+Thinking blocks have to go back to Anthropic complete and unmodified, in their original position, when you continue a tool loop. On the 5.x models the API can also check that everything before a thinking block (system prompt, tools and earlier messages) is unchanged. That check is on by default for accounts created on or after 2026-08-31, and you can turn it on with `thinking.block_binding`. Prism handles this for you inside its own tool loops, and it keeps what you need to do the same with conversations you store:
 
 - Every step's `additionalContent['content_blocks']` holds the response's `content` array as returned: thinking, text, tool calls, server tool blocks and fallback markers, in order. The `AssistantMessage` Prism builds for each step carries the same keys, so the stored messages replay the conversation exactly:
   - For `asText()`, persist `$response->messages`. It holds the messages you sent, every step of the tool loop and the final assistant message. `$response->steps->last()->messages` is only what Prism sent for the last step, so it stops before the final answer.

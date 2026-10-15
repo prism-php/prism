@@ -359,10 +359,17 @@ Based on actual streaming output:
     }
 }
 
-// step_finish event
+// step_finish event (usage is included where the provider reports it; on Anthropic it covers this step only)
 {
     "id": "anthropic_evt_def456step",
-    "timestamp": 1756412895
+    "timestamp": 1756412895,
+    "usage": {
+        "prompt_tokens": 1720,
+        "completion_tokens": 96,
+        "cache_write_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "thought_tokens": 41
+    }
 }
 
 // stream_end event
@@ -379,6 +386,8 @@ Based on actual streaming output:
     }
 }
 ```
+
+The `finish_reason` on `stream_end` reports why the model really stopped, so watch for `Refusal`, `Length` and `Error` as well as `Stop`. The same values are covered in [Why Generation Stopped](/core-concepts/text-generation#why-generation-stopped).
 
 ## Handling Artifact Events
 
@@ -692,6 +701,41 @@ return Prism::text()
     ->withPrompt("What's the weather in Detroit?")
     ->asEventStreamResponse();
 ```
+
+Prism only runs your tools when a step actually ends with tool calls. If the model is cut off by `maxTokens`, refuses, or the provider reports a failure partway through a step, any tool calls from that step are not executed.
+
+### Persisting Streamed Conversations
+
+The callbacks above give you the raw events. When you want to continue the conversation later, you need the messages instead: each assistant turn with its tool calls, its tool results, and the provider state that newer models expect back. `StreamCollector` builds them for you while the events pass through:
+
+```php
+use Illuminate\Support\Collection;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\StreamCollector;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\Text\Response;
+
+$pending = Prism::text()
+    ->using('anthropic', 'claude-sonnet-5-5')
+    ->withMessages($conversation->messages())
+    ->withTools([$searchTool])
+    ->withMaxSteps(5);
+
+$collector = new StreamCollector(
+    $pending->asStream(),
+    $pending,
+    function (PendingRequest $request, Collection $messages, Response $response) use ($conversation) {
+        // $messages holds only the new turns from this stream, one assistant message per step
+        $conversation->append($messages);
+    }
+);
+
+foreach ($collector->collect() as $event) {
+    // Forward each event to your client as it arrives
+}
+```
+
+Each collected `AssistantMessage` carries its step's replay data in `additionalContent`. Store that along with the text, then pass the stored messages back with `withMessages()` on the next turn. See [Continuing a Conversation](/core-concepts/text-generation#continuing-a-conversation) for why this matters.
 
 ### Data Protocol Output
 

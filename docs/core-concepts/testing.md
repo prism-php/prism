@@ -448,7 +448,6 @@ use Prism\Prism\ValueObjects\Meta;
 
 $response = new Response(
     steps: collect([]),
-    responseMessages: collect([]),
     text: 'The meaning of life is 42',
     finishReason: FinishReason::Stop,
     toolCalls: [],
