@@ -687,6 +687,23 @@ $response = Prism::audio()
 
 echo "Transcription: " . $response->text;
 ```
+
+#### Transcription Usage
+
+OpenAI bills transcription models one of two ways, and `$response->usage` follows suit:
+
+- Token-billed models (like `gpt-4o-transcribe`) report `input_tokens` and `output_tokens`, which land in `promptTokens` and `completionTokens`.
+- Duration-billed models (like `whisper-1`) only report the length of the audio. There are no token counts, so `$response->usage` is `null` and the billed seconds are in `$response->additionalContent['usage_seconds']`.
+
+```php
+if ($response->usage !== null) {
+    echo "Input tokens: {$response->usage->promptTokens}\n";
+    echo "Output tokens: {$response->usage->completionTokens}\n";
+} else {
+    echo 'Billed seconds: '.($response->additionalContent['usage_seconds'] ?? 'not reported')."\n";
+}
+```
+
 #### Language Detection
 
 Whisper can automatically detect the language or you can specify it:

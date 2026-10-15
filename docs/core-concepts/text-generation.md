@@ -293,14 +293,22 @@ if ($response->finishReason === FinishReason::Refusal) {
 
 ### Token Usage
 
-`$response->usage` adds up every step of the request. With Anthropic and OpenAI the three input counts don't overlap, so you can price each input bucket separately. `thoughtTokens` is already part of `completionTokens`, so don't charge for it again:
+`$response->usage` adds up every step of the request, and every provider fills it the same way:
 
-- `promptTokens`: input tokens that were not read from or written to the cache
-- `cacheReadInputTokens` and `cacheWriteInputTokens`: cached input
-- `completionTokens`: output tokens, including any reasoning
-- `thoughtTokens`: the part of `completionTokens` the model spent thinking
+| Field | What it counts |
+|---|---|
+| `promptTokens` | Input tokens that were neither read from nor written to a cache. Includes input a provider adds for its built-in tools |
+| `cacheReadInputTokens` | Input tokens read from a cache |
+| `cacheWriteInputTokens` | Input tokens written to a cache |
+| `completionTokens` | Every output token, reasoning included |
+| `thoughtTokens` | The part of `completionTokens` the model spent reasoning |
 
-Other providers may report these differently, so check the provider's page.
+The three input fields never overlap, so their sum is the request's total input. `thoughtTokens` is already inside `completionTokens`, so don't add the two together or price reasoning twice.
+
+A field is `null` when the provider doesn't report it, and `0` when the provider reports zero. Only some providers report cache writes, and some don't break out reasoning, so `null` there means "not reported", not "none".
+
+> [!NOTE]
+> `Usage` is normalized token accounting, not a full bill. Charges outside these counters aren't in it: per-request and search fees, Perplexity's reasoning and citation tokens, and Anthropic fallback attempts on other models (see `usage_iterations` on the [Anthropic page](/providers/anthropic#fallbacks)). Ollama only splits out cached input on servers that report it (0.33.3 and later). Check the provider's page for these details.
 
 ## Handling Completions with Callbacks
 

@@ -13,6 +13,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\MapsUsage;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
@@ -39,9 +40,11 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason;
+    use CallsTools, MapsFinishReason, MapsUsage;
 
     protected OllamaStreamState $state;
+
+    protected ?Usage $stepUsage = null;
 
     public function __construct(protected PendingRequest $client)
     {
@@ -73,6 +76,7 @@ class Stream
 
         $text = '';
         $stepFinishReason = null;
+        $this->stepUsage = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -102,9 +106,7 @@ class Stream
                 );
             }
 
-            // Accumulate token counts
-            $this->state->addPromptTokens((int) data_get($data, 'prompt_eval_count', 0));
-            $this->state->addCompletionTokens((int) data_get($data, 'eval_count', 0));
+            $this->captureStepUsage($data);
 
             // Handle thinking content first
             $thinking = data_get($data, 'message.thinking', '');
@@ -186,6 +188,8 @@ class Stream
                 }
 
                 if ($this->state->hasToolCalls() && $this->isToolCallFinish($stepFinishReason)) {
+                    $this->recordStepUsage();
+
                     yield from $this->handleToolCalls($request, $text, $depth);
 
                     return;
@@ -195,6 +199,7 @@ class Stream
             }
         }
 
+        $this->recordStepUsage();
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
 
         // Emit step finish before stream end
@@ -202,6 +207,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $this->stepUsage,
             finishReason: $this->state->finishReason(),
         );
 
@@ -214,11 +220,27 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: new Usage(
-                promptTokens: $this->state->promptTokens(),
-                completionTokens: $this->state->completionTokens()
-            )
+            usage: $this->state->usage() ?? new Usage(0, 0),
         );
+    }
+
+    /**
+     * Ollama reports a response's counters once, on the final chunk.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function captureStepUsage(array $data): void
+    {
+        if (array_key_exists('prompt_eval_count', $data) || array_key_exists('eval_count', $data)) {
+            $this->stepUsage = $this->mapUsage($data);
+        }
+    }
+
+    protected function recordStepUsage(): void
+    {
+        if ($this->stepUsage instanceof Usage) {
+            $this->state->addUsage($this->stepUsage);
+        }
     }
 
     /**
@@ -293,6 +315,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $this->stepUsage,
             finishReason: FinishReason::ToolCalls,
         );
 

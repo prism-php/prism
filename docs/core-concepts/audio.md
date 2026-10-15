@@ -173,15 +173,22 @@ $response = Prism::audio()
 $text = $response->text;
 echo "Transcription: " . $text;
 
-// Check token usage
+// Token-billed models report token usage
 if ($response->usage) {
     echo "Prompt tokens: " . $response->usage->promptTokens;
     echo "Completion tokens: " . $response->usage->completionTokens;
 }
 
+// Duration-billed models (like whisper-1) report seconds instead
+if (isset($response->additionalContent['usage_seconds'])) {
+    echo "Audio seconds: " . $response->additionalContent['usage_seconds'];
+}
+
 // Access raw response data
 print_r($response->additionalContent);
 ```
+
+`usage` is `null` when the provider bills by audio duration rather than tokens. Prism doesn't report a duration as zero tokens.
 
 ## Voice Selection
 

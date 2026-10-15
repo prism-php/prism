@@ -10,6 +10,7 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\DeepSeek\Concerns\MapsUsage;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolCallMap;
@@ -23,12 +24,12 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
     use CallsTools;
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -123,9 +124,6 @@ class Text
      */
     protected function addStep(array $data, Request $request, array $toolResults = []): void
     {
-        $totalPrompt = (int) (data_get($data, 'usage.prompt_tokens') ?? 0);
-        $cacheHit = (int) (data_get($data, 'usage.prompt_cache_hit_tokens') ?? 0);
-        $reasoning = (int) (data_get($data, 'usage.completion_tokens_details.reasoning_tokens') ?? 0);
         $reasoningContent = data_get($data, 'choices.0.message.reasoning_content');
 
         $this->responseBuilder->addStep(new Step(
@@ -134,12 +132,7 @@ class Text
             toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                promptTokens: max(0, $totalPrompt - $cacheHit),
-                completionTokens: (int) (data_get($data, 'usage.completion_tokens') ?? 0),
-                cacheReadInputTokens: $cacheHit > 0 ? $cacheHit : null,
-                thoughtTokens: $reasoning > 0 ? $reasoning : null,
-            ),
+            usage: $this->mapUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),

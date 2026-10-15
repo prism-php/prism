@@ -17,6 +17,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Z\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Z\Concerns\MapsUsage;
 use Prism\Prism\Providers\Z\Maps\MessageMap;
 use Prism\Prism\Providers\Z\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Z\Maps\ToolMap;
@@ -39,7 +40,7 @@ use Psr\Http\Message\StreamInterface;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason;
+    use CallsTools, MapsFinishReason, MapsUsage;
 
     protected StreamState $state;
 
@@ -76,6 +77,7 @@ class Stream
         $text = '';
         $toolCalls = [];
         $stepFinishReason = null;
+        $usageSnapshot = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -83,6 +85,8 @@ class Stream
             if ($data === null) {
                 continue;
             }
+
+            $usageSnapshot = $this->extractUsage($data) ?? $usageSnapshot;
 
             if ($this->state->shouldEmitStreamStart()) {
                 yield new StreamStartEvent(
@@ -120,9 +124,9 @@ class Stream
                         );
                     }
 
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+                    $stepFinishReason = FinishReason::ToolCalls;
 
-                    return;
+                    continue;
                 }
 
                 if ($rawFinishReason !== null) {
@@ -173,17 +177,13 @@ class Stream
 
                 $this->state->withFinishReason($finishReason);
                 $stepFinishReason = $finishReason;
-
-                $usage = $this->extractUsage($data);
-
-                if ($usage instanceof Usage) {
-                    $this->state->addUsage($usage);
-                }
             }
         }
 
+        $stepUsage = $this->recordStepUsage($usageSnapshot);
+
         if ($toolCalls !== [] && $stepFinishReason === FinishReason::ToolCalls) {
-            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $stepUsage);
 
             return;
         }
@@ -194,6 +194,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $stepUsage,
             finishReason: $this->state->finishReason(),
         );
 
@@ -298,20 +299,29 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
      */
-    protected function extractUsage(array $data): ?Usage
+    protected function extractUsage(array $data): ?array
     {
         $usage = data_get($data, 'usage');
 
-        if (! $usage) {
+        return is_array($usage) && $usage !== [] ? $usage : null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $usageSnapshot
+     */
+    protected function recordStepUsage(?array $usageSnapshot): ?Usage
+    {
+        if ($usageSnapshot === null) {
             return null;
         }
 
-        return new Usage(
-            promptTokens: (int) data_get($usage, 'prompt_tokens', 0),
-            completionTokens: (int) data_get($usage, 'completion_tokens', 0),
-            cacheReadInputTokens: (int) data_get($usage, 'prompt_tokens_details.cached_tokens', 0),
-        );
+        $stepUsage = $this->mapUsage($usageSnapshot);
+
+        $this->state->addUsage($stepUsage);
+
+        return $stepUsage;
     }
 
     /**
@@ -321,7 +331,7 @@ class Stream
      * @throws PrismStreamDecodeException
      * @throws ConnectionException
      */
-    protected function handleToolCalls(Request $request, string $text, array $toolCalls, int $depth): Generator
+    protected function handleToolCalls(Request $request, string $text, array $toolCalls, int $depth, ?Usage $stepUsage = null): Generator
     {
         $mappedToolCalls = $this->mapToolCalls($toolCalls);
 
@@ -343,6 +353,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $stepUsage,
             finishReason: FinishReason::ToolCalls,
         );
 

@@ -47,7 +47,14 @@ it('returns structured output', function (): void {
         ])
         ->and($response->structured['title'])->toBeString()
         ->and($response->structured['rating'])->toBeString()
-        ->and($response->structured['summary'])->toBeString();
+        ->and($response->structured['summary'])->toBeString()
+        ->and($response->usage->toArray())->toBe([
+            'prompt_tokens' => 42,
+            'completion_tokens' => 215,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 7,
+            'thought_tokens' => 183,
+        ]);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {

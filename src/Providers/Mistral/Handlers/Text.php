@@ -12,6 +12,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\Mistral\Concerns\ExtractsText;
 use Prism\Prism\Providers\Mistral\Concerns\ExtractsThinking;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Mistral\Concerns\MapsUsage;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
@@ -26,7 +27,6 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
@@ -34,6 +34,7 @@ class Text
     use ExtractsText;
     use ExtractsThinking;
     use MapsFinishReason;
+    use MapsUsage;
     use ProcessRateLimits;
     use ValidatesResponse;
 
@@ -114,10 +115,7 @@ class Text
             toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),

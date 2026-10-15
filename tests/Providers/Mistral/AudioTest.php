@@ -53,6 +53,10 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->not->toBeNull();
         expect($response->text)->not->toBeEmpty();
         expect($response->text)->toContain("So I'd love to hear about your experience here");
+
+        // total_tokens (5201) exceeds prompt (4) + completion (1072): the rest is audio input
+        expect($response->usage->promptTokens)->toBe(4129)
+            ->and($response->usage->completionTokens)->toBe(1072);
     });
 
     it('can transcribe audio', function (): void {

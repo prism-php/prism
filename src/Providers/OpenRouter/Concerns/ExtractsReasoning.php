@@ -19,14 +19,4 @@ trait ExtractsReasoning
             'reasoning_details' => data_get($data, 'choices.0.message.reasoning_details'),
         ]);
     }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function extractThoughtTokens(array $data): ?int
-    {
-        $tokens = data_get($data, 'usage.completion_tokens_details.reasoning_tokens');
-
-        return $tokens !== null ? (int) $tokens : null;
-    }
 }

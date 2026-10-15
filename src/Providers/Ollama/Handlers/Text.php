@@ -8,6 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\MapsUsage;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
@@ -20,12 +21,12 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
     use CallsTools;
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -130,10 +131,7 @@ class Text
             toolCalls: $this->mapToolCalls(data_get($data, 'message.tool_calls', []) ?? []),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                data_get($data, 'prompt_eval_count', 0),
-                data_get($data, 'eval_count', 0),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: '',
                 model: $request->model(),

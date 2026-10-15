@@ -127,6 +127,22 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
+
+    expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+        'prompt_tokens' => 381,
+        'completion_tokens' => 80,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => null,
+        'thought_tokens' => null,
+    ]);
+
+    $stepUsage = collect($events)
+        ->whereInstanceOf(StepFinishEvent::class)
+        ->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])
+        ->values()
+        ->all();
+
+    expect($stepUsage)->toBe([[164, 25], [217, 55]]);
 });
 
 it('handles maximum tool call depth exceeded', function (): void {
@@ -493,7 +509,9 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->usage->promptTokens)->toBe(164)
+        ->and($lastEvent->usage->completionTokens)->toBe(25);
 });
 
 it('can stream with reasoning models', function (): void {
@@ -563,6 +581,15 @@ it('can stream with reasoning models', function (): void {
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
     expect($lastEvent->finishReason)->toBe(FinishReason::Stop);
+
+    // The legacy num_cached_tokens (64 here, against 10 prompt tokens) is not read as a cache hit
+    expect($lastEvent->usage->toArray())->toBe([
+        'prompt_tokens' => 10,
+        'completion_tokens' => 142,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => null,
+        'thought_tokens' => null,
+    ]);
 });
 
 function mistralGatingSse(array ...$chunks): string
@@ -753,5 +780,82 @@ describe('tool execution gating with mixed chunks', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    });
+});
+
+describe('usage', function (): void {
+    it('takes cached input out of the prompt and keeps reasoning inside the completion', function (): void {
+        Http::fake([
+            '*' => Http::response(mistralGatingSse(
+                mistralGatingDeltaChunk(['role' => 'assistant', 'content' => '8']),
+                [
+                    'id' => 'chatcmpl-usage',
+                    'model' => 'mistral-small-latest',
+                    'choices' => [['index' => 0, 'delta' => ['content' => '573'], 'finish_reason' => 'stop']],
+                    'usage' => [
+                        'prompt_tokens' => 12777,
+                        'total_tokens' => 12889,
+                        'completion_tokens' => 112,
+                        'prompt_tokens_details' => ['cached_tokens' => 12752],
+                        'completion_tokens_details' => ['reasoning_tokens' => 105],
+                    ],
+                ],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Mistral, 'mistral-small-latest')
+            ->withPrompt('What is the code of Fact 17?')
+            ->asStream(), false));
+
+        $expected = [
+            'prompt_tokens' => 25,
+            'completion_tokens' => 112,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 12752,
+            'thought_tokens' => 105,
+        ];
+
+        expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+
+    it('sums each step once and reads usage that trails a tool call finish', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(mistralGatingSse(
+                    mistralGatingToolChunk('tool_calls'),
+                    [
+                        'id' => 'chatcmpl-gating',
+                        'model' => 'mistral-large-latest',
+                        'choices' => [],
+                        'usage' => ['prompt_tokens' => 200, 'completion_tokens' => 20, 'total_tokens' => 220, 'prompt_tokens_details' => ['cached_tokens' => 128]],
+                    ],
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(mistralGatingSse(
+                    [
+                        'id' => 'chatcmpl-gating',
+                        'model' => 'mistral-large-latest',
+                        'choices' => [['index' => 0, 'delta' => ['content' => 'Sunny.'], 'finish_reason' => 'stop']],
+                        'usage' => ['prompt_tokens' => 240, 'completion_tokens' => 9, 'total_tokens' => 249, 'prompt_tokens_details' => ['cached_tokens' => 0]],
+                    ],
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 312,
+                'completion_tokens' => 29,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 128,
+                'thought_tokens' => null,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 72, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 128, 'thought_tokens' => null],
+                ['prompt_tokens' => 240, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => null],
+            ]);
     });
 });

@@ -118,6 +118,22 @@ return Prism::text()
 
 For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
 
+## Token Usage
+
+Mistral's `prompt_tokens` includes the tokens it served from the cache, so Prism takes them out to keep the input buckets apart (see [Token Usage](/core-concepts/text-generation#token-usage)). Text, structured and streamed responses all report usage like this:
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `prompt_tokens` minus `prompt_tokens_details.cached_tokens` |
+| `cacheReadInputTokens` | `prompt_tokens_details.cached_tokens`, `null` when Mistral leaves it out |
+| `cacheWriteInputTokens` | Always `null`, Mistral doesn't report cache writes |
+| `completionTokens` | `completion_tokens`, reasoning included |
+| `thoughtTokens` | `completion_tokens_details.reasoning_tokens`, already part of `completionTokens` |
+
+Mistral either reports `0` or leaves `cached_tokens` out when nothing came from the cache, so a `null` cache count usually means there wasn't a hit. Prism doesn't read the older `num_cached_tokens` field: Mistral doesn't document it, and we've recorded a response where it's larger than `prompt_tokens`, so it can't simply be the cached part of the prompt.
+
+In a stream, Mistral sends usage on the last chunk of each response. The `StreamEndEvent` adds up every step of a tool loop, and each `StepFinishEvent` carries its own step's usage.
+
 ## Audio Processing
 
 Mistral provides advanced speech-to-text capabilities through their Voxtral models, offering state-of-the-art transcription accuracy with native multilingual support and audio understanding features.
@@ -250,10 +266,13 @@ echo "Full transcription: " . $response->text;
 
 // Access usage information
 if ($response->usage) {
-    echo "Audio duration: " . $response->usage->promptTokens . " tokens\n";
-    echo "Total tokens: " . $response->usage->totalTokens . "\n";
+    echo "Input tokens, audio included: " . $response->usage->promptTokens . "\n";
+    echo "Output tokens: " . $response->usage->completionTokens . "\n";
 }
 ```
+
+> [!NOTE]
+> Transcription responses can report a `total_tokens` that's larger than `prompt_tokens` plus `completion_tokens`, for example 4 + 1072 against a total of 5201. Prism treats the gap as audio input and sets `promptTokens` to the total minus the completion (4129 here). Mistral doesn't document this, and its own examples don't all agree, so treat that number as an estimate. When the total adds up, `promptTokens` is `prompt_tokens` as reported. The audio length in seconds is in `$response->additionalContent['usage']['prompt_audio_seconds']`.
 
 #### Creating Audio Objects
 

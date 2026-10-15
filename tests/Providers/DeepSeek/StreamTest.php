@@ -125,6 +125,13 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
+    expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+        'prompt_tokens' => 67,
+        'completion_tokens' => 107,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => 448,
+        'thought_tokens' => null,
+    ]);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
@@ -213,6 +220,20 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
         ->toBeEmpty()
         ->and($thinkingContent)->toContain('answer')
         ->and($regularContent)->toContain('32');
+});
+
+it('keeps the reasoning and zero cache counts DeepSeek reports in streamed usage', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-reasoning');
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-reasoner')
+        ->withPrompt('Solve this complex math problem: What is 4 * 8?')
+        ->asStream(), false));
+
+    $expected = ['prompt_tokens' => 19, 'completion_tokens' => 739, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 533];
+
+    expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
 });
 
 it('emits step start and step finish events', function (): void {
@@ -510,5 +531,45 @@ describe('tool execution gating with mixed chunks', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    });
+});
+
+describe('usage snapshots', function (): void {
+    it('reads usage from a tool-call chunk that finishes the step and counts each step once', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse([
+                    ...deepSeekGatingToolChunk('tool_calls'),
+                    'usage' => ['prompt_tokens' => 223, 'completion_tokens' => 43, 'total_tokens' => 266, 'prompt_cache_hit_tokens' => 192, 'prompt_cache_miss_tokens' => 31],
+                ]), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse([
+                    ...deepSeekGatingFinishChunk('stop'),
+                    'usage' => [
+                        'prompt_tokens' => 10505,
+                        'completion_tokens' => 52,
+                        'total_tokens' => 10557,
+                        'prompt_tokens_details' => ['cached_tokens' => 10368],
+                        'completion_tokens_details' => ['reasoning_tokens' => 49],
+                        'prompt_cache_hit_tokens' => 10368,
+                        'prompt_cache_miss_tokens' => 137,
+                    ],
+                ]), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 31, 'completion_tokens' => 43, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 192, 'thought_tokens' => null],
+                ['prompt_tokens' => 137, 'completion_tokens' => 52, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 10368, 'thought_tokens' => 49],
+            ])
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 168,
+                'completion_tokens' => 95,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 10560,
+                'thought_tokens' => 49,
+            ]);
     });
 });

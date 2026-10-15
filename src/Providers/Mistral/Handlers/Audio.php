@@ -51,12 +51,7 @@ class Audio
 
             return new TextResponse(
                 text: $data['text'] ?? '',
-                usage: isset($data['usage'])
-                    ? new Usage(
-                        promptTokens: $data['usage']['prompt_tokens'] ?? 0,
-                        completionTokens: $data['usage']['completion_tokens'] ?? 0,
-                    )
-                    : null,
+                usage: isset($data['usage']) ? $this->mapTranscriptionUsage($data['usage']) : null,
                 additionalContent: $data,
             );
         }
@@ -64,6 +59,25 @@ class Audio
         // Handle other response formats like vtt
         return new TextResponse(
             text: $response->body(),
+        );
+    }
+
+    /**
+     * Transcription responses can report a `total_tokens` larger than prompt plus
+     * completion. The difference is treated as audio input, so the prompt bucket
+     * becomes the total minus the completion.
+     *
+     * @param  array<string, mixed>  $usage
+     */
+    protected function mapTranscriptionUsage(array $usage): Usage
+    {
+        $promptTokens = (int) ($usage['prompt_tokens'] ?? 0);
+        $completionTokens = (int) ($usage['completion_tokens'] ?? 0);
+        $totalTokens = (int) ($usage['total_tokens'] ?? 0);
+
+        return new Usage(
+            promptTokens: max($promptTokens, $totalTokens - $completionTokens),
+            completionTokens: $completionTokens,
         );
     }
 }

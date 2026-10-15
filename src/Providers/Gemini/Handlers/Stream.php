@@ -12,6 +12,7 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
+use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
@@ -40,11 +41,13 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools;
+    use CallsTools, MapsUsage;
 
     protected StreamState $state;
 
     protected ?string $currentThoughtSignature = null;
+
+    protected ?Usage $stepUsage = null;
 
     public function __construct(
         protected PendingRequest $client,
@@ -76,6 +79,7 @@ class Stream
         }
 
         $stepFinishReason = null;
+        $this->stepUsage = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -113,8 +117,7 @@ class Stream
                 );
             }
 
-            // Update usage data from each chunk
-            $this->state->withUsage($this->extractUsage($data, $request));
+            $this->captureStepUsage($data);
 
             // Process tool calls
             if ($this->hasToolCalls($data)) {
@@ -142,6 +145,9 @@ class Stream
                 $chunkFinishReason = $this->mapFinishReason($data);
 
                 if ($chunkFinishReason === FinishReason::ToolCalls) {
+                    $this->drainStepUsage($response);
+                    $this->recordStepUsage();
+
                     yield from $this->handleToolCalls($request, $depth, $data);
 
                     return;
@@ -241,6 +247,8 @@ class Stream
             }
         }
 
+        $this->recordStepUsage();
+
         if ($this->state->hasToolCalls() && $stepFinishReason === FinishReason::ToolCalls) {
             yield from $this->handleToolCalls($request, $depth);
 
@@ -254,7 +262,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->state->usage(),
+            usage: $this->stepUsage,
             finishReason: $this->state->finishReason(),
         );
 
@@ -356,7 +364,7 @@ class Stream
             yield new StepFinishEvent(
                 id: EventID::generate(),
                 timestamp: time(),
-                usage: $this->state->usage(),
+                usage: $this->stepUsage,
                 finishReason: FinishReason::ToolCalls,
             );
 
@@ -366,21 +374,10 @@ class Stream
 
             $depth++;
             if ($depth < $request->maxSteps()) {
-                $previousUsage = $this->state->usage();
                 $this->state->reset()->withMessageId(EventID::generate());
                 $this->currentThoughtSignature = null;
                 $nextResponse = $this->sendRequest($request);
                 yield from $this->processStream($nextResponse, $request, $depth);
-
-                if ($previousUsage instanceof Usage && $this->state->usage() instanceof Usage) {
-                    $this->state->withUsage(new Usage(
-                        promptTokens: $previousUsage->promptTokens + $this->state->usage()->promptTokens,
-                        completionTokens: $previousUsage->completionTokens + $this->state->usage()->completionTokens,
-                        cacheWriteInputTokens: ($previousUsage->cacheWriteInputTokens ?? 0) + ($this->state->usage()->cacheWriteInputTokens ?? 0),
-                        cacheReadInputTokens: ($previousUsage->cacheReadInputTokens ?? 0) + ($this->state->usage()->cacheReadInputTokens ?? 0),
-                        thoughtTokens: ($previousUsage->thoughtTokens ?? 0) + ($this->state->usage()->thoughtTokens ?? 0)
-                    ));
-                }
             } else {
                 yield $this->emitStreamEndEvent();
             }
@@ -427,20 +424,34 @@ class Stream
     }
 
     /**
+     * Each chunk's usageMetadata is the running total for the response, so the
+     * latest one replaces the snapshot and chunks without it leave it alone.
+     *
      * @param  array<string, mixed>  $data
      */
-    protected function extractUsage(array $data, Request $request): Usage
+    protected function captureStepUsage(array $data): void
     {
-        $providerOptions = $request->providerOptions();
+        if (is_array($data['usageMetadata'] ?? null) && $data['usageMetadata'] !== []) {
+            $this->stepUsage = $this->mapUsage($data);
+        }
+    }
 
-        return new Usage(
-            promptTokens: isset($providerOptions['cachedContentName'])
-                ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
-                : data_get($data, 'usageMetadata.promptTokenCount', 0),
-            completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-            cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount'),
-            thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
-        );
+    protected function drainStepUsage(Response $response): void
+    {
+        while (! $response->getBody()->eof()) {
+            $data = $this->parseNextDataLine($response->getBody());
+
+            if ($data !== null) {
+                $this->captureStepUsage($data);
+            }
+        }
+    }
+
+    protected function recordStepUsage(): void
+    {
+        if ($this->stepUsage instanceof Usage) {
+            $this->state->addUsage($this->stepUsage);
+        }
     }
 
     /**

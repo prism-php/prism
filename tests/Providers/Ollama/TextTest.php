@@ -352,3 +352,61 @@ describe('Tool execution gating', function (): void {
         'a missing done reason does not' => [null, 0, 1],
     ]);
 });
+
+function ollamaUsageResponse(array $counters): array
+{
+    return [
+        'model' => 'qwen3:14b',
+        'created_at' => '2026-10-15T17:58:57.192416Z',
+        'message' => ['role' => 'assistant', 'content' => 'Hi'],
+        'done_reason' => 'stop',
+        'done' => true,
+        ...$counters,
+    ];
+}
+
+describe('Usage', function (): void {
+    it('takes prompt_eval_cached_count out of the prompt', function (): void {
+        Http::fake(['*' => Http::response(ollamaUsageResponse([
+            'prompt_eval_count' => 11,
+            'prompt_eval_cached_count' => 8,
+            'eval_count' => 18,
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using('ollama', 'qwen3:14b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 3,
+            'completion_tokens' => 18,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 8,
+            'thought_tokens' => null,
+        ]);
+    });
+
+    it('leaves the cache bucket null on servers that do not report it', function (): void {
+        Http::fake(['*' => Http::response(ollamaUsageResponse([
+            'prompt_eval_count' => 11,
+            'eval_count' => 18,
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using('ollama', 'qwen3:14b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->promptTokens)->toBe(11)
+            ->and($response->usage->cacheReadInputTokens)->toBeNull()
+            ->and($response->usage->completionTokens)->toBe(18);
+    });
+
+    it('never reports more cached tokens than the prompt held', function (): void {
+        Http::fake(['*' => Http::response(ollamaUsageResponse([
+            'prompt_eval_count' => 11,
+            'prompt_eval_cached_count' => 20,
+            'eval_count' => 18,
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using('ollama', 'qwen3:14b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->promptTokens)->toBe(0)
+            ->and($response->usage->cacheReadInputTokens)->toBe(11);
+    });
+});

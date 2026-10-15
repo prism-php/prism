@@ -123,6 +123,10 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
+
+    // Only the final recording reports usage
+    expect(array_values($streamEndEvents)[0]->usage->promptTokens)->toBe(65)
+        ->and(array_values($streamEndEvents)[0]->usage->completionTokens)->toBe(142);
 });
 
 it('handles maximum tool call depth exceeded', function (): void {
@@ -664,5 +668,121 @@ describe('tool execution gating with mixed chunks', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    });
+});
+
+describe('usage', function (): void {
+    it('counts usage once when Groq repeats it under x_groq and in a trailing chunk', function (): void {
+        FixtureResponse::fakeStreamResponses('openai/v1/chat/completions', 'groq/stream-gpt-oss-repeated-usage');
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Groq, 'openai/gpt-oss-120b')
+            ->withPrompt('What is the code of Fact 17?')
+            ->asStream(), false));
+
+        $expected = [
+            'prompt_tokens' => 3131,
+            'completion_tokens' => 70,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => 59,
+        ];
+
+        expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+
+    it('reads x_groq.usage when the chunk has no top-level usage', function (): void {
+        Http::fake([
+            '*' => Http::response(groqGatingSse(
+                groqGatingDeltaChunk(['role' => 'assistant', 'content' => 'Hi']),
+                [
+                    'id' => 'chatcmpl-usage',
+                    'model' => 'openai/gpt-oss-120b',
+                    'choices' => [['index' => 0, 'delta' => [], 'finish_reason' => 'stop']],
+                    'x_groq' => ['id' => 'req_usage', 'usage' => [
+                        'prompt_tokens' => 4641,
+                        'completion_tokens' => 1817,
+                        'total_tokens' => 6458,
+                        'prompt_tokens_details' => ['cached_tokens' => 4608],
+                        'completion_tokens_details' => ['reasoning_tokens' => 1200],
+                    ]],
+                ],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $usage = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Groq, 'openai/gpt-oss-120b')
+            ->withPrompt('Hi')
+            ->asStream(), false))->whereInstanceOf(StreamEndEvent::class)->sole()->usage;
+
+        expect($usage->toArray())->toBe([
+            'prompt_tokens' => 33,
+            'completion_tokens' => 1817,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 4608,
+            'thought_tokens' => 1200,
+        ]);
+    });
+
+    it('reads usage that trails a tool call finish and sums each step once', function (): void {
+        $toolFinish = groqGatingToolChunk('tool_calls');
+        $toolFinish['x_groq'] = ['usage' => ['prompt_tokens' => 300, 'completion_tokens' => 40, 'total_tokens' => 340]];
+        $toolFinish['usage'] = $toolFinish['x_groq']['usage'];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(groqGatingSse(
+                    $toolFinish,
+                    ['id' => 'chatcmpl-gating', 'model' => 'llama-3.3-70b-versatile', 'choices' => [], 'usage' => ['prompt_tokens' => 300, 'completion_tokens' => 40, 'total_tokens' => 340]],
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 310,
+                'completion_tokens' => 45,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => null,
+                'thought_tokens' => null,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])->values()->all())
+            ->toBe([[300, 40], [10, 5]]);
+    });
+
+    it('reports every step when max steps ends the stream on a tool call', function (): void {
+        $toolFinish = groqGatingToolChunk('tool_calls');
+        $toolFinish['x_groq'] = ['usage' => ['prompt_tokens' => 300, 'completion_tokens' => 40, 'total_tokens' => 340]];
+
+        $secondToolFinish = groqGatingToolChunk('tool_calls');
+        $secondToolFinish['usage'] = ['prompt_tokens' => 360, 'completion_tokens' => 30, 'total_tokens' => 390, 'prompt_tokens_details' => ['cached_tokens' => 256]];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(groqGatingSse($toolFinish), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(groqGatingSse($secondToolFinish), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('groq', 'llama-3.3-70b-versatile')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(2)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 404,
+                'completion_tokens' => 70,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 256,
+                'thought_tokens' => null,
+            ]);
     });
 });

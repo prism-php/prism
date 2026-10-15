@@ -35,6 +35,7 @@ describe('Text generation for Z', function (): void {
         expect($response->text)->toBe('Hello! How can I help you today?')
             ->and($response->finishReason)->toBe(FinishReason::Stop)
             ->and($response->usage->promptTokens)->toBe(9)
+            ->and($response->usage->cacheReadInputTokens)->toBeNull()
             ->and($response->usage->completionTokens)->toBe(12)
             ->and($response->meta->id)->toBe('chatcmpl-123')
             ->and($response->meta->model)->toBe('z-model');
@@ -50,7 +51,8 @@ describe('Text generation for Z', function (): void {
             ->asText();
 
         expect($response)->toBeInstanceOf(TextResponse::class)
-            ->and($response->usage->promptTokens)->toBe(190)
+            ->and($response->usage->promptTokens)->toBe(1)
+            ->and($response->usage->cacheReadInputTokens)->toBe(189)
             ->and($response->usage->completionTokens)->toBe(166)
             ->and($response->meta->id)->toBe('202512161952121dd7efde49d14dc9')
             ->and($response->meta->model)->toBe('z-model')
@@ -96,7 +98,8 @@ describe('Text generation for Z', function (): void {
             ->and($firstStep->toolCalls[1]->arguments())->toBe([
                 'city' => 'Detroit',
             ])
-            ->and($response->usage->promptTokens)->toBe(616)
+            ->and($response->usage->promptTokens)->toBe(72)
+            ->and($response->usage->cacheReadInputTokens)->toBe(544)
             ->and($response->usage->completionTokens)->toBe(319)
             ->and($response->meta->id)->toBe('20251216203244b8311d53051b4c17')
             ->and($response->meta->model)->toBe('z-model')

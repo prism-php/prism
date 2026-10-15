@@ -237,6 +237,20 @@ dump($response->structured);
 
 For complete structured output documentation, see [Structured Output](/core-concepts/structured-output).
 
+## Token Usage
+
+Z's `prompt_tokens` includes the tokens it served from the cache, so Prism takes them out to keep the input buckets apart (see [Token Usage](/core-concepts/text-generation#token-usage)):
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `prompt_tokens` minus `prompt_tokens_details.cached_tokens` |
+| `cacheReadInputTokens` | `prompt_tokens_details.cached_tokens`, or `null` when Z leaves it out |
+| `cacheWriteInputTokens` | Always `null`, Z doesn't report cache writes |
+| `completionTokens` | `completion_tokens`, including any thinking |
+| `thoughtTokens` | Always `null`, Z doesn't report thinking tokens separately |
+
+When streaming, Z sends usage on the last chunk alongside the finish reason and the final delta. Prism reads it from that chunk even when it also carries text or tool calls, and adds up every step of a tool loop.
+
 ## Limitations
 
 ### Media Types

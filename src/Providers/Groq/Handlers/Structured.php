@@ -5,6 +5,7 @@ namespace Prism\Prism\Providers\Groq\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
+use Prism\Prism\Providers\Groq\Concerns\MapsUsage;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
@@ -16,11 +17,10 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
-    use ProcessRateLimits, ValidateResponse;
+    use MapsUsage, ProcessRateLimits, ValidateResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -74,10 +74,7 @@ class Structured
         $step = new Step(
             text: $text,
             finishReason: FinishReasonMap::map(data_get($data, 'choices.0.finish_reason', '')),
-            usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
-            ),
+            usage: $this->mapUsage(data_get($data, 'usage') ?? []),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),

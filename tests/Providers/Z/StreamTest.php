@@ -59,7 +59,14 @@ it('can generate text with a basic stream', function (): void {
     $lastEvent = end($events);
 
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
-        ->and($lastEvent->finishReason)->toBeInstanceOf(FinishReason::class);
+        ->and($lastEvent->finishReason)->toBeInstanceOf(FinishReason::class)
+        ->and($lastEvent->usage->toArray())->toBe([
+            'prompt_tokens' => 7,
+            'completion_tokens' => 163,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => null,
+        ]);
 
     $streamStartEvent = $events[array_search(StreamStartEvent::class, $eventTypes)];
 
@@ -142,7 +149,19 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StreamEndEvent);
 
     expect($streamStartEvents)->toHaveCount(1)
-        ->and($streamEndEvents)->toHaveCount(1);
+        ->and($streamEndEvents)->toHaveCount(1)
+        ->and(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+            'prompt_tokens' => 72,
+            'completion_tokens' => 319,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 544,
+            'thought_tokens' => null,
+        ])
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [
+            $event->usage->promptTokens,
+            $event->usage->cacheReadInputTokens,
+            $event->usage->completionTokens,
+        ])->values()->all())->toBe([[1, 271, 210], [71, 273, 109]]);
 
     Http::assertSent(function (Request $request): bool {
         $body = json_decode($request->body(), true);
@@ -535,5 +554,77 @@ describe('tool execution gating with mixed chunks', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    });
+});
+
+describe('usage snapshots', function (): void {
+    it('reads usage from the last chunk when it also carries content and the finish reason', function (): void {
+        Http::fake([
+            '*' => Http::response(zGatingSse([
+                'id' => 'chatcmpl-usage',
+                'model' => 'glm-4.6',
+                'choices' => [['index' => 0, 'delta' => ['role' => 'assistant', 'content' => 'Sunny.'], 'finish_reason' => 'stop']],
+                'usage' => ['prompt_tokens' => 1200, 'completion_tokens' => 300, 'total_tokens' => 1500, 'prompt_tokens_details' => ['cached_tokens' => 800]],
+            ]), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = zGatingStream($calls);
+        $expected = ['prompt_tokens' => 400, 'completion_tokens' => 300, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 800, 'thought_tokens' => null];
+
+        expect($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe('Sunny.')
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+
+    it('reads usage from a tool-call chunk that finishes the step and counts each step once', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(zGatingSse([
+                    ...zGatingToolChunk('tool_calls'),
+                    'usage' => ['prompt_tokens' => 300, 'completion_tokens' => 40, 'total_tokens' => 340, 'prompt_tokens_details' => ['cached_tokens' => 0]],
+                ]), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(zGatingSse([
+                    ...zGatingFinishChunk('stop'),
+                    'usage' => ['prompt_tokens' => 360, 'completion_tokens' => 20, 'total_tokens' => 380, 'prompt_tokens_details' => ['cached_tokens' => 300]],
+                ]), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = zGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 300, 'completion_tokens' => 40, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => null],
+                ['prompt_tokens' => 60, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 300, 'thought_tokens' => null],
+            ])
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 360,
+                'completion_tokens' => 60,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 300,
+                'thought_tokens' => null,
+            ]);
+    });
+
+    it('counts the usage of a tool step once when max steps ends the stream on it', function (): void {
+        Http::fake([
+            '*' => Http::response(zGatingSse([
+                ...zGatingToolChunk('tool_calls'),
+                'usage' => ['prompt_tokens' => 238, 'completion_tokens' => 117, 'total_tokens' => 355, 'prompt_tokens_details' => ['cached_tokens' => 43]],
+            ]), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('z', 'glm-4.6')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(1)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        $expected = ['prompt_tokens' => 195, 'completion_tokens' => 117, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 43, 'thought_tokens' => null];
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
     });
 });

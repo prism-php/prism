@@ -125,6 +125,23 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
+
+    // These recordings predate prompt_eval_cached_count, so the cache bucket stays null
+    expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+        'prompt_tokens' => 787,
+        'completion_tokens' => 646,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => null,
+        'thought_tokens' => null,
+    ]);
+
+    $stepUsage = collect($events)
+        ->whereInstanceOf(StepFinishEvent::class)
+        ->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])
+        ->values()
+        ->all();
+
+    expect($stepUsage)->toBe([[218, 306], [263, 152], [306, 188]]);
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
@@ -521,4 +538,55 @@ describe('tool execution gating', function (): void {
         'stop on the tool call chunk' => [[ollamaGatingToolChunk('stop')]],
         'stop on a thinking chunk' => [[ollamaGatingToolChunk(), ollamaGatingThinkingDoneChunk('stop')]],
     ]);
+});
+
+describe('usage', function (): void {
+    it('takes prompt_eval_cached_count out of the prompt and sums each step once', function (): void {
+        $toolDone = [...ollamaGatingToolChunk('stop'), 'prompt_eval_count' => 120, 'prompt_eval_cached_count' => 0, 'eval_count' => 30];
+        $finalDone = [...ollamaGatingDoneChunk('stop'), 'prompt_eval_count' => 160, 'prompt_eval_cached_count' => 128, 'eval_count' => 12];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody($toolDone))
+                ->push(ollamaGatingStreamBody($finalDone)),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 152,
+                'completion_tokens' => 42,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 128,
+                'thought_tokens' => null,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->cacheReadInputTokens, $event->usage->completionTokens])->values()->all())
+            ->toBe([[120, 0, 30], [32, 128, 12]]);
+    });
+
+    it('reports every step when max steps ends the stream on a tool call', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody([...ollamaGatingToolChunk('stop'), 'prompt_eval_count' => 120, 'eval_count' => 30]))
+                ->push(ollamaGatingStreamBody([...ollamaGatingToolChunk('stop'), 'prompt_eval_count' => 170, 'prompt_eval_cached_count' => 64, 'eval_count' => 25])),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('ollama', 'qwen3:14b')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(2)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 226,
+                'completion_tokens' => 55,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 64,
+                'thought_tokens' => null,
+            ]);
+    });
 });

@@ -12,6 +12,7 @@ use Prism\Prism\Concerns\HandlesStructuredJson;
 use Prism\Prism\Concerns\ManagesStructuredSteps;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
@@ -29,13 +30,13 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
     use CallsTools;
     use HandlesStructuredJson;
     use ManagesStructuredSteps;
+    use MapsUsage;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -163,13 +164,14 @@ class Structured
 
         $finishReason = data_get($data, 'candidates.0.finishReason');
         $content = $this->extractTextContent($data);
-        $thoughtTokens = data_get($data, 'usageMetadata.thoughtsTokenCount', 0);
+        $thoughtTokens = (int) data_get($data, 'usageMetadata.thoughtsTokenCount', 0);
 
         if ($finishReason === 'MAX_TOKENS') {
-            $promptTokens = data_get($data, 'usageMetadata.promptTokenCount', 0);
-            $candidatesTokens = data_get($data, 'usageMetadata.candidatesTokenCount', 0);
-            $totalTokens = data_get($data, 'usageMetadata.totalTokenCount', 0);
-            $outputTokens = $candidatesTokens - $thoughtTokens;
+            $promptTokens = (int) data_get($data, 'usageMetadata.promptTokenCount', 0);
+            $toolUsePromptTokens = (int) data_get($data, 'usageMetadata.toolUsePromptTokenCount', 0);
+            $outputTokens = (int) data_get($data, 'usageMetadata.candidatesTokenCount', 0);
+            $totalTokens = (int) data_get($data, 'usageMetadata.totalTokenCount', 0);
+            $toolUseAccounting = $toolUsePromptTokens > 0 ? " + {$toolUsePromptTokens} tool-use prompt" : '';
 
             $isEmpty = in_array(trim($content), ['', '0'], true);
             $isInvalidJson = $content !== '' && $content !== '0' && json_decode($content) === null;
@@ -182,7 +184,7 @@ class Structured
 
                 throw PrismException::providerResponseError(
                     'Gemini hit token limit with high thinking token usage. '.
-                    "Token usage: {$promptTokens} prompt + {$thoughtTokens} thinking + {$outputTokens} output = {$totalTokens} total. ".
+                    "Token usage: {$promptTokens} prompt{$toolUseAccounting} + {$thoughtTokens} thinking + {$outputTokens} output = {$totalTokens} total. ".
                     "The {$errorDetail}. ".
                     'Try increasing maxTokens to at least '.($totalTokens + 1000).' (suggested: '.($totalTokens * 2).' for comfortable margin).'
                 );
@@ -236,12 +238,7 @@ class Structured
             new Step(
                 text: $textContent,
                 finishReason: $finishReason,
-                usage: new Usage(
-                    promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
-                    completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                    cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount'),
-                    thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
-                ),
+                usage: $this->mapUsage($data),
                 meta: new Meta(
                     id: data_get($data, 'id', ''),
                     model: data_get($data, 'modelVersion', ''),

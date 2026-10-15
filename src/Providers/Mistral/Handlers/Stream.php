@@ -14,6 +14,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Mistral\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Mistral\Concerns\MapsUsage;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Mistral\Maps\MessageMap;
@@ -43,9 +44,11 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, ProcessRateLimits, ValidatesResponse;
+    use CallsTools, MapsFinishReason, MapsUsage, ProcessRateLimits, ValidatesResponse;
 
     protected StreamState $state;
+
+    protected ?Usage $stepUsage = null;
 
     public function __construct(
         protected PendingRequest $client,
@@ -80,6 +83,7 @@ class Stream
         $text = '';
         $toolCalls = [];
         $stepFinishReason = null;
+        $this->stepUsage = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -108,10 +112,7 @@ class Stream
                 );
             }
 
-            $usage = $this->extractUsage($data);
-            if ($usage instanceof Usage) {
-                $this->state->addUsage($usage);
-            }
+            $this->captureStepUsage($data);
 
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
@@ -126,6 +127,9 @@ class Stream
                             messageId: $this->state->messageId()
                         );
                     }
+
+                    $this->drainStepUsage($response);
+                    $this->recordStepUsage();
 
                     yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
@@ -210,6 +214,9 @@ class Stream
                     );
                 }
 
+                $this->drainStepUsage($response);
+                $this->recordStepUsage();
+
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
 
                 return;
@@ -243,11 +250,13 @@ class Stream
             }
         }
 
+        $this->recordStepUsage();
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $this->stepUsage,
             finishReason: $this->state->finishReason(),
         );
 
@@ -336,6 +345,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
+            usage: $this->stepUsage,
             finishReason: FinishReason::ToolCalls,
         );
 
@@ -489,17 +499,28 @@ class Stream
     /**
      * @param  array<string, mixed>  $data
      */
-    protected function extractUsage(array $data): ?Usage
+    protected function captureStepUsage(array $data): void
     {
-        $usage = data_get($data, 'usage');
-
-        if (! $usage) {
-            return null;
+        if (is_array($data['usage'] ?? null) && $data['usage'] !== []) {
+            $this->stepUsage = $this->mapUsage($data);
         }
+    }
 
-        return new Usage(
-            promptTokens: (int) data_get($usage, 'prompt_tokens', 0),
-            completionTokens: (int) data_get($usage, 'completion_tokens', 0)
-        );
+    protected function drainStepUsage(Response $response): void
+    {
+        while (! $response->getBody()->eof()) {
+            $data = $this->parseNextDataLine($response->getBody());
+
+            if ($data !== null) {
+                $this->captureStepUsage($data);
+            }
+        }
+    }
+
+    protected function recordStepUsage(): void
+    {
+        if ($this->stepUsage instanceof Usage) {
+            $this->state->addUsage($this->stepUsage);
+        }
     }
 }

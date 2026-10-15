@@ -750,3 +750,140 @@ describe('tool execution gating with mixed chunks', function (): void {
         Http::assertSentCount(2);
     });
 });
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @param  array<string, mixed>|null  $usage
+ * @return array<string, mixed>
+ */
+function xaiUsageChunk(array $delta, ?string $finishReason, ?array $usage): array
+{
+    return [
+        'id' => 'chatcmpl-usage',
+        'model' => 'grok-4',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finishReason]],
+        'usage' => $usage,
+    ];
+}
+
+describe('usage snapshots', function (): void {
+    it('reads usage from a trailing usage-only chunk', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiUsageChunk(['content' => 'Sunny.'], null, null),
+                xaiUsageChunk([], 'stop', null),
+                [
+                    'id' => 'chatcmpl-usage',
+                    'model' => 'grok-4',
+                    'choices' => [],
+                    'usage' => [
+                        'prompt_tokens' => 49,
+                        'completion_tokens' => 32,
+                        'total_tokens' => 264,
+                        'prompt_tokens_details' => ['cached_tokens' => 7],
+                        'completion_tokens_details' => ['reasoning_tokens' => 183],
+                    ],
+                ],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $expected = ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183];
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop);
+    });
+
+    it('keeps the latest cumulative usage snapshot instead of adding them up', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiUsageChunk(['reasoning_content' => 'The'], null, ['prompt_tokens' => 41, 'completion_tokens' => 1, 'total_tokens' => 42]),
+                xaiUsageChunk(['content' => 'Ah'], null, ['prompt_tokens' => 41, 'completion_tokens' => 1, 'total_tokens' => 42]),
+                xaiUsageChunk(['content' => ','], 'stop', [
+                    'prompt_tokens' => 41,
+                    'completion_tokens' => 2,
+                    'total_tokens' => 43,
+                    'prompt_tokens_details' => ['cached_tokens' => 0],
+                    'completion_tokens_details' => ['reasoning_tokens' => 0],
+                ]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+            'prompt_tokens' => 41,
+            'completion_tokens' => 2,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 0,
+            'thought_tokens' => 0,
+        ]);
+    });
+
+    it('adds the usage of every step once across a tool loop', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(
+                    xaiGatingToolChunk(),
+                    xaiUsageChunk([], 'tool_calls', null),
+                    ['id' => 'chatcmpl-usage', 'model' => 'grok-4', 'choices' => [], 'usage' => [
+                        'prompt_tokens' => 200,
+                        'completion_tokens' => 20,
+                        'total_tokens' => 320,
+                        'prompt_tokens_details' => ['cached_tokens' => 150],
+                        'completion_tokens_details' => ['reasoning_tokens' => 100],
+                    ]],
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(
+                    xaiUsageChunk(['content' => 'Sunny in Detroit.'], 'stop', [
+                        'prompt_tokens' => 260,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 270,
+                        'prompt_tokens_details' => ['cached_tokens' => 200],
+                    ]),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 50, 'completion_tokens' => 120, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 150, 'thought_tokens' => 100],
+                ['prompt_tokens' => 60, 'completion_tokens' => 10, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 200, 'thought_tokens' => null],
+            ])
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 110,
+                'completion_tokens' => 130,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 350,
+                'thought_tokens' => 100,
+            ]);
+
+        Http::assertSentCount(2);
+    });
+
+    it('counts the usage of a tool step once when max steps ends the stream on it', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiGatingToolChunk('tool_calls'),
+                ['id' => 'chatcmpl-usage', 'model' => 'grok-4', 'choices' => [], 'usage' => ['prompt_tokens' => 200, 'completion_tokens' => 20, 'total_tokens' => 220]],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('xai', 'grok-4')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(1)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        $expected = ['prompt_tokens' => 200, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null];
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+});

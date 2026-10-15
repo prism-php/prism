@@ -21,6 +21,22 @@ return Prism::text()
 
 For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
 
+## Token Usage
+
+Groq's `prompt_tokens` includes the tokens it served from the cache, so Prism takes them out to keep the input buckets apart (see [Token Usage](/core-concepts/text-generation#token-usage)). Text, structured and streamed responses all report usage like this:
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `prompt_tokens` minus `prompt_tokens_details.cached_tokens` |
+| `cacheReadInputTokens` | `prompt_tokens_details.cached_tokens`, `null` when Groq leaves it out |
+| `cacheWriteInputTokens` | Always `null`, Groq doesn't report cache writes |
+| `completionTokens` | `completion_tokens`, reasoning included |
+| `thoughtTokens` | `completion_tokens_details.reasoning_tokens`, already part of `completionTokens` |
+
+Live responses show reasoning tokens inside `completion_tokens`. The cache split follows Groq's [prompt caching docs](https://console.groq.com/docs/prompt-caching), which describe `cached_tokens` as part of `prompt_tokens`.
+
+Streams can carry usage in more than one place: at the top level, under `x_groq.usage`, and again in a trailing chunk with no choices. They're all the same totals, so Prism reads one of them per response and counts it once. The `StreamEndEvent` adds up every step of a tool loop, and each `StepFinishEvent` carries its own step's usage.
+
 ## Audio Processing
 
 Groq provides high-performance audio processing capabilities through their ultra-fast Language Processing Unit (LPU) architecture, enabling both text-to-speech (TTS) and speech-to-text (STT) functionality with exceptional speed and quality.

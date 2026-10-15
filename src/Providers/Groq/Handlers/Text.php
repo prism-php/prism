@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\Groq\Concerns\MapsUsage;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Concerns\ValidateResponse;
 use Prism\Prism\Providers\Groq\Maps\FinishReasonMap;
@@ -24,11 +25,10 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
-    use CallsTools, ProcessRateLimits,  ValidateResponse;
+    use CallsTools, MapsUsage, ProcessRateLimits, ValidateResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -124,10 +124,7 @@ class Text
             toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
-            ),
+            usage: $this->mapUsage(data_get($data, 'usage') ?? []),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\BooleanSchema;
@@ -50,4 +51,34 @@ it('returns structured output', function (): void {
     expect($response->meta->model)->toBe('llama-3.3-70b-versatile');
     expect($response->usage->promptTokens)->toBe(172);
     expect($response->usage->completionTokens)->toBe(26);
+});
+
+it('maps cached input and reasoning on structured responses', function (): void {
+    Http::fake(['*' => Http::response([
+        'id' => 'chatcmpl-usage',
+        'object' => 'chat.completion',
+        'model' => 'openai/gpt-oss-120b',
+        'choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => '{"code":"8573"}'], 'finish_reason' => 'stop']],
+        'usage' => [
+            'prompt_tokens' => 4641,
+            'completion_tokens' => 70,
+            'total_tokens' => 4711,
+            'prompt_tokens_details' => ['cached_tokens' => 4608],
+            'completion_tokens_details' => ['reasoning_tokens' => 59],
+        ],
+    ])])->preventStrayRequests();
+
+    $response = Prism::structured()
+        ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('code', 'The code')], ['code']))
+        ->using(Provider::Groq, 'openai/gpt-oss-120b')
+        ->withPrompt('What is the code of Fact 17?')
+        ->asStructured();
+
+    expect($response->usage->toArray())->toBe([
+        'prompt_tokens' => 33,
+        'completion_tokens' => 70,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => 4608,
+        'thought_tokens' => 59,
+    ]);
 });

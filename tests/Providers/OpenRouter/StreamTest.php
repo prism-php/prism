@@ -199,8 +199,11 @@ it('can stream text with tool calls', function (): void {
 
     $lastStreamEnd = array_values($streamEndEvents)[array_key_last(array_values($streamEndEvents))];
     expect($lastStreamEnd->usage)->not->toBeNull();
-    expect($lastStreamEnd->usage->promptTokens)->toBeGreaterThan(0);
-    expect($lastStreamEnd->usage->completionTokens)->toBeGreaterThan(0);
+    expect($lastStreamEnd->usage->promptTokens)->toBe(125);
+    expect($lastStreamEnd->usage->completionTokens)->toBe(50);
+
+    $stepUsage = collect($events)->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])->values()->all();
+    expect($stepUsage)->toBe([[50, 25], [75, 25]]);
 });
 
 it('can stream text with empty parameters tool calls when using gpt-5', function (): void {
@@ -246,7 +249,19 @@ it('can stream text with empty parameters tool calls when using gpt-5', function
     expect($text)->toContain('The current time is '.$currentTime);
 
     $streamEndEvents = array_filter($events, fn (StreamEvent $e): bool => $e instanceof StreamEndEvent);
-    expect($streamEndEvents)->not->toBeEmpty();
+    expect($streamEndEvents)->toHaveCount(1);
+
+    expect(collect($events)->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+        ['prompt_tokens' => 50, 'completion_tokens' => 143, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 128],
+        ['prompt_tokens' => 75, 'completion_tokens' => 15, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0],
+    ]);
+    expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+        'prompt_tokens' => 125,
+        'completion_tokens' => 158,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => 0,
+        'thought_tokens' => 128,
+    ]);
 });
 
 it('can handle reasoning/thinking tokens in streaming', function (): void {
@@ -640,5 +655,141 @@ describe('tool execution gating with mixed chunks', function (): void {
             ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
 
         Http::assertSentCount(2);
+    });
+});
+
+/**
+ * @param  array<string, mixed>  $usage
+ * @return array<string, mixed>
+ */
+function openRouterUsageFrame(string $finishReason, array $usage): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'openai/gpt-4o',
+        'choices' => [['index' => 0, 'delta' => [], 'finish_reason' => $finishReason, 'native_finish_reason' => $finishReason]],
+        'usage' => $usage,
+    ];
+}
+
+describe('usage snapshots', function (): void {
+    it('reads the trailing usage frame of each step without finishing the step twice', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(openRouterGatingSse(
+                    openRouterGatingToolChunk('tool_calls'),
+                    openRouterUsageFrame('tool_calls', [
+                        'prompt_tokens' => 1200,
+                        'completion_tokens' => 80,
+                        'total_tokens' => 1280,
+                        'prompt_tokens_details' => ['cached_tokens' => 1000, 'cache_write_tokens' => 100],
+                        'completion_tokens_details' => ['reasoning_tokens' => 60],
+                    ]),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(openRouterGatingSse(
+                    openRouterGatingDeltaChunk(['content' => 'Sunny in Detroit.']),
+                    openRouterGatingDeltaChunk([], 'stop'),
+                    openRouterUsageFrame('stop', [
+                        'prompt_tokens' => 1300,
+                        'completion_tokens' => 20,
+                        'total_tokens' => 1320,
+                        'prompt_tokens_details' => ['cached_tokens' => 1200],
+                        'completion_tokens_details' => ['reasoning_tokens' => 0],
+                    ]),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = openRouterGatingStream($calls);
+        $stepFinishes = $events->whereInstanceOf(StepFinishEvent::class)->values();
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolCallEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(TextCompleteEvent::class))->toHaveCount(1)
+            ->and($stepFinishes->map->finishReason->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($stepFinishes->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->all())->toBe([
+                ['prompt_tokens' => 100, 'completion_tokens' => 80, 'cache_write_input_tokens' => 100, 'cache_read_input_tokens' => 1000, 'thought_tokens' => 60],
+                ['prompt_tokens' => 100, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 1200, 'thought_tokens' => 0],
+            ])
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 200,
+                'completion_tokens' => 100,
+                'cache_write_input_tokens' => 100,
+                'cache_read_input_tokens' => 2200,
+                'thought_tokens' => 60,
+            ]);
+
+        Http::assertSentCount(2);
+    });
+
+    it('counts the usage of a tool step once when max steps ends the stream on it', function (): void {
+        Http::fake([
+            '*' => Http::response(openRouterGatingSse(
+                openRouterGatingToolChunk('tool_calls'),
+                openRouterUsageFrame('tool_calls', [
+                    'prompt_tokens' => 300,
+                    'completion_tokens' => 40,
+                    'total_tokens' => 340,
+                    'prompt_tokens_details' => ['cached_tokens' => 256],
+                    'completion_tokens_details' => ['reasoning_tokens' => 30],
+                ]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('openrouter', 'openai/gpt-4o')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(1)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        $expected = ['prompt_tokens' => 44, 'completion_tokens' => 40, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 256, 'thought_tokens' => 30];
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
+
+        Http::assertSentCount(1);
+    });
+
+    it('keeps the latest usage snapshot of a step instead of adding them up', function (): void {
+        Http::fake([
+            '*' => Http::response(openRouterGatingSse(
+                [...openRouterGatingDeltaChunk(['content' => 'Hi']), 'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 1, 'total_tokens' => 11]],
+                [...openRouterGatingDeltaChunk([], 'stop'), 'usage' => null],
+                openRouterUsageFrame('stop', ['prompt_tokens' => 10, 'completion_tokens' => 2, 'total_tokens' => 12]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = openRouterGatingStream($calls);
+
+        expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+            'prompt_tokens' => 10,
+            'completion_tokens' => 2,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => null,
+        ]);
+    });
+
+    it('floors prompt tokens at zero when a response-cache replay reports more cached than prompt tokens', function (): void {
+        Http::fake([
+            '*' => Http::response(openRouterGatingSse(
+                openRouterGatingDeltaChunk(['content' => 'Cached answer.'], 'stop'),
+                openRouterUsageFrame('stop', [
+                    'prompt_tokens' => 0,
+                    'completion_tokens' => 0,
+                    'total_tokens' => 0,
+                    'prompt_tokens_details' => ['cached_tokens' => 512],
+                ]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $usage = openRouterGatingStream($calls)->whereInstanceOf(StreamEndEvent::class)->sole()->usage;
+
+        expect($usage->promptTokens)->toBe(0)
+            ->and($usage->cacheReadInputTokens)->toBe(512)
+            ->and($usage->completionTokens)->toBe(0);
     });
 });

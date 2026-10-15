@@ -130,8 +130,10 @@ it('can generate text stream using searchGrounding', function (): void {
 
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
-    expect($lastEvent->usage->promptTokens)->toBe(22);
-    expect($lastEvent->usage->completionTokens)->toBe(161);
+    expect($lastEvent->usage->promptTokens)->toBe(22)
+        ->and($lastEvent->usage->completionTokens)->toBe(229)
+        ->and($lastEvent->usage->thoughtTokens)->toBe(68)
+        ->and($lastEvent->usage->cacheReadInputTokens)->toBeNull();
 });
 
 it('can generate text stream using tools ', function (): void {
@@ -190,9 +192,22 @@ it('can generate text stream using tools ', function (): void {
         ->and($text)->toContain('The current weather in San Francisco is 75°F and sunny. You likely won\'t need a coat, but you might want to bring a light jacket just in case it gets breezy or cools down later.');
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
-    expect($lastEvent->usage->promptTokens)->toBe(278);
-    expect($lastEvent->usage->completionTokens)->toBe(44);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->usage->toArray())->toBe([
+            'prompt_tokens' => 409,
+            'completion_tokens' => 154,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => 95,
+        ]);
+
+    $stepUsage = collect($events)
+        ->whereInstanceOf(StepFinishEvent::class)
+        ->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens, $event->usage->thoughtTokens])
+        ->values()
+        ->all();
+
+    expect($stepUsage)->toBe([[131, 110, 95], [278, 44, null]]);
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
@@ -598,4 +613,132 @@ describe('tool execution gating', function (): void {
         'STOP on the function call chunk' => [[geminiGatingFunctionCallChunk('STOP')]],
         'STOP in a separate chunk' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'STOP')]],
     ]);
+});
+
+/**
+ * @param  array<int, array<string, mixed>>  $parts
+ * @param  array<string, int>|null  $usageMetadata
+ * @return array<string, mixed>
+ */
+function geminiUsageChunk(array $parts, ?string $finishReason = null, ?array $usageMetadata = null): array
+{
+    return array_filter([
+        'candidates' => [array_filter([
+            'content' => ['parts' => $parts, 'role' => 'model'],
+            'finishReason' => $finishReason,
+            'index' => 0,
+        ], fn (mixed $value): bool => $value !== null)],
+        'usageMetadata' => $usageMetadata,
+        'modelVersion' => 'gemini-2.5-flash',
+    ], fn (mixed $value): bool => $value !== null);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function geminiUsageFunctionCallChunk(?string $finishReason, ?array $usageMetadata): array
+{
+    return geminiUsageChunk([['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], $finishReason, $usageMetadata);
+}
+
+describe('usage', function (): void {
+    it('keeps the latest cumulative snapshot and ignores a trailing chunk without usage metadata', function (): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiUsageChunk([['text' => 'Sunny']], null, ['promptTokenCount' => 100, 'cachedContentTokenCount' => 40, 'candidatesTokenCount' => 5, 'totalTokenCount' => 105]),
+                geminiUsageChunk([['text' => ' in Detroit.']], null, ['promptTokenCount' => 100, 'cachedContentTokenCount' => 40, 'toolUsePromptTokenCount' => 7, 'candidatesTokenCount' => 20, 'thoughtsTokenCount' => 30, 'totalTokenCount' => 157]),
+                geminiUsageChunk([['text' => '']], 'STOP'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        $expected = [
+            'prompt_tokens' => 67,
+            'completion_tokens' => 50,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 40,
+            'thought_tokens' => 30,
+        ];
+
+        expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+
+    it('keeps reported zeros and leaves unreported fields null', function (): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiUsageChunk([['text' => 'Hi']], 'STOP', ['promptTokenCount' => 9, 'cachedContentTokenCount' => 0, 'candidatesTokenCount' => 2, 'thoughtsTokenCount' => 0, 'totalTokenCount' => 11]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $usage = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('Hi')
+            ->asStream(), false))->whereInstanceOf(StreamEndEvent::class)->sole()->usage;
+
+        expect($usage->cacheReadInputTokens)->toBe(0)
+            ->and($usage->thoughtTokens)->toBe(0)
+            ->and($usage->cacheWriteInputTokens)->toBeNull()
+            ->and($usage->promptTokens)->toBe(9)
+            ->and($usage->completionTokens)->toBe(2);
+    });
+
+    it('sums every step once and reads usage that trails a tool call finish', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(
+                    geminiUsageFunctionCallChunk('STOP', ['promptTokenCount' => 50, 'candidatesTokenCount' => 3, 'totalTokenCount' => 53]),
+                    ['usageMetadata' => ['promptTokenCount' => 50, 'candidatesTokenCount' => 6, 'thoughtsTokenCount' => 12, 'totalTokenCount' => 68], 'modelVersion' => 'gemini-2.5-flash'],
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(
+                    geminiUsageChunk([['text' => 'Sunny in Detroit.']], 'STOP', ['promptTokenCount' => 80, 'cachedContentTokenCount' => 32, 'candidatesTokenCount' => 9, 'totalTokenCount' => 89]),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 98,
+                'completion_tokens' => 27,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 32,
+                'thought_tokens' => 12,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 50, 'completion_tokens' => 18, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => 12],
+                ['prompt_tokens' => 48, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 32, 'thought_tokens' => null],
+            ]);
+    });
+
+    it('reports every step when max steps ends the stream on a tool call', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(geminiUsageFunctionCallChunk('STOP', ['promptTokenCount' => 50, 'candidatesTokenCount' => 3, 'totalTokenCount' => 53])), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiUsageFunctionCallChunk('STOP', ['promptTokenCount' => 70, 'candidatesTokenCount' => 4, 'thoughtsTokenCount' => 5, 'totalTokenCount' => 79])), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(2)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 120,
+                'completion_tokens' => 12,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => null,
+                'thought_tokens' => 5,
+            ]);
+
+        Http::assertSentCount(2);
+    });
 });
