@@ -16,14 +16,15 @@ trait ExtractsAdditionalContent
 
     /**
      * Replay state first (the ordered `content_blocks`), then the convenience
-     * keys derived from it.
+     * keys derived from it. A stream that failed after its `stop_reason` passes
+     * the finish reason it actually ended with; `stop_reason` stays as sent.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function extractAdditionalContent(array $data): array
+    protected function extractAdditionalContent(array $data, ?FinishReason $finishReason = null): array
     {
-        $data = $this->withReplaySafeContent($data);
+        $data = $this->withReplaySafeContent($data, $finishReason);
         $contentBlocks = data_get($data, 'content');
 
         return Arr::whereNotNull([
@@ -45,9 +46,9 @@ trait ExtractsAdditionalContent
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function withReplaySafeContent(array $data): array
+    protected function withReplaySafeContent(array $data, ?FinishReason $finishReason = null): array
     {
-        $finishReason = FinishReasonMap::map((string) data_get($data, 'stop_reason', ''));
+        $finishReason ??= FinishReasonMap::map((string) data_get($data, 'stop_reason', ''));
 
         if ($finishReason === FinishReason::ToolCalls || ! is_array($data['content'] ?? null)) {
             return $data;

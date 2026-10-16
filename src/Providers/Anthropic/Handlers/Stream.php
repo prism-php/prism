@@ -154,7 +154,10 @@ class Stream
 
     /**
      * The step's replay metadata, built from the streamed content blocks with
-     * the same extraction the non-streaming handlers use.
+     * the same extraction the non-streaming handlers use, filtered by the
+     * finish reason the step actually ended with: a step that ended with Error
+     * never runs its tools, whatever `stop_reason` arrived after the error, so
+     * its replay content leaves out the tool use it never answered.
      *
      * @return array<string, mixed>
      */
@@ -165,7 +168,7 @@ class Stream
             'stop_reason' => $this->state->stopReason(),
             'stop_details' => $this->state->stopDetails(),
             'usage' => ['iterations' => $this->state->usageIterations()],
-        ]);
+        ], $this->state->finishReason());
     }
 
     /**
@@ -468,7 +471,7 @@ class Stream
             timestamp: time(),
             errorType: $event['error']['type'] ?? 'unknown_error',
             message: $event['error']['message'] ?? 'Unknown error occurred',
-            recoverable: true
+            recoverable: false
         );
     }
 

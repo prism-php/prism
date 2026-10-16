@@ -331,6 +331,59 @@ describe('tool execution gating', function (): void {
         expect($messages[1])->toBe(['role' => 'assistant', 'content' => [['type' => 'text', 'text' => 'Checking both cities.']]]);
     });
 
+    it('persists a turn that errored after a tool call without the tool call it never executed', function (): void {
+        $webSearchResult = ['type' => 'web_search_tool_result', 'tool_use_id' => 'srvtoolu_01StreamErrorSearch', 'content' => [['type' => 'web_search_result', 'title' => 'Paris Weather', 'url' => 'https://www.example.com/paris', 'encrypted_content' => 'Encrypted', 'page_age' => null]]];
+        $events = [
+            ['type' => 'message_start', 'message' => ['id' => 'msg_01StreamErrorAfterTool', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-opus-5-5', 'content' => [], 'usage' => ['input_tokens' => 300, 'output_tokens' => 8]]],
+            ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'server_tool_use', 'id' => 'srvtoolu_01StreamErrorSearch', 'name' => 'web_search', 'input' => []]],
+            ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'input_json_delta', 'partial_json' => '{"query": "Paris weather"}']],
+            ['type' => 'content_block_stop', 'index' => 0],
+            ['type' => 'content_block_start', 'index' => 1, 'content_block' => $webSearchResult],
+            ['type' => 'content_block_stop', 'index' => 1],
+            ['type' => 'content_block_start', 'index' => 2, 'content_block' => ['type' => 'text', 'text' => '']],
+            ['type' => 'content_block_delta', 'index' => 2, 'delta' => ['type' => 'text_delta', 'text' => 'Let me look that up.']],
+            ['type' => 'content_block_stop', 'index' => 2],
+            ['type' => 'content_block_start', 'index' => 3, 'content_block' => ['type' => 'tool_use', 'id' => 'toolu_01StreamErrorTool0001', 'name' => 'get_weather', 'input' => []]],
+            ['type' => 'content_block_delta', 'index' => 3, 'delta' => ['type' => 'input_json_delta', 'partial_json' => '{"city": "Paris"}']],
+            ['type' => 'content_block_stop', 'index' => 3],
+            ['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']],
+            ['type' => 'message_delta', 'delta' => ['stop_reason' => 'tool_use', 'stop_details' => null], 'usage' => ['output_tokens' => 40]],
+            ['type' => 'message_stop'],
+        ];
+
+        Http::fake([
+            '*' => Http::response(
+                collect($events)->map(fn (array $event): string => "event: {$event['type']}\ndata: ".json_encode($event)."\n\n")->implode(''),
+                200,
+                ['Content-Type' => 'text/event-stream'],
+            ),
+        ])->preventStrayRequests();
+
+        $calls = [];
+        $persisted = anthropicPersistedStreamTurn('Weather in Paris?', $calls);
+
+        expect($calls)->toBe([]);
+        expect(Http::recorded())->toHaveCount(1);
+        expect($persisted)->toHaveCount(1);
+        expect($persisted[0]->toolCalls)->toBe([]);
+        expect($persisted[0]->additionalContent)
+            ->stop_reason->toBe('tool_use')
+            ->content_blocks->toEqual([
+                ['type' => 'server_tool_use', 'id' => 'srvtoolu_01StreamErrorSearch', 'name' => 'web_search', 'input' => ['query' => 'Paris weather']],
+                $webSearchResult,
+                ['type' => 'text', 'text' => 'Let me look that up.'],
+            ]);
+
+        $messages = anthropicContinuationMessages([
+            new UserMessage('Weather in Paris?'),
+            ...$persisted,
+            new UserMessage('Try again.'),
+        ]);
+
+        expect(anthropicInvalidToolUse($messages))->toBe([]);
+        expect(array_column($messages[1]['content'], 'type'))->toBe(['server_tool_use', 'web_search_tool_result', 'text']);
+    });
+
     it('keeps every tool call of a turn that ended in tool_use, each answered on replay', function (): void {
         FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-interleaved-thinking-tools');
 

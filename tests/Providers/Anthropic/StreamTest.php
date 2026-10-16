@@ -16,6 +16,7 @@ use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Streaming\Events\CitationEvent;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
@@ -1046,6 +1047,10 @@ describe('unfinished streams', function (): void {
         expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
             'StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
         ])
+            ->and($events->whereInstanceOf(ErrorEvent::class)->sole())
+            ->errorType->toBe('overloaded_error')
+            ->message->toBe('Overloaded')
+            ->recoverable->toBeFalse()
             ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
             ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->promptTokens)->toBe(11)
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
