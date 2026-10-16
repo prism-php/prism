@@ -11,6 +11,7 @@ use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Z\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Z\Concerns\MapsUsage;
 use Prism\Prism\Providers\Z\Maps\MessageMap;
 use Prism\Prism\Providers\Z\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Z\Maps\ToolMap;
@@ -23,12 +24,12 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
     use CallsTools;
     use MapsFinishReason;
+    use MapsUsage;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -146,10 +147,7 @@ class Text
             toolCalls: $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                data_get($data, 'usage.prompt_tokens', 0),
-                data_get($data, 'usage.completion_tokens', 0),
-            ),
+            usage: $this->mapUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),

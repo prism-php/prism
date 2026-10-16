@@ -458,3 +458,31 @@ test('it can configure the model using a backed enum', function (): void {
 
     expect($generated->model())->toBe('gpt-4');
 });
+
+test('it keeps a prompt of "0" as a user message', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('0')
+        ->toRequest();
+
+    expect($request->messages())->toHaveCount(1)
+        ->and($request->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($request->messages()[0]->text())->toBe('0');
+});
+
+test('it still adds no user message for an empty prompt', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withPrompt('')
+        ->toRequest();
+
+    expect($request->messages())->toBe([]);
+});
+
+test('it throws when a prompt of "0" is combined with messages', function (): void {
+    $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withMessages([new UserMessage('test')])
+        ->withPrompt('0')
+        ->toRequest();
+})->throws(PrismException::class, 'You can only use `prompt` or `messages`');

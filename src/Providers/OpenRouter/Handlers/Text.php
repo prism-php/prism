@@ -11,6 +11,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\ExtractsReasoning;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenRouter\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Providers\OpenRouter\Maps\ToolCallMap;
@@ -22,7 +23,6 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
@@ -30,6 +30,7 @@ class Text
     use CallsTools;
     use ExtractsReasoning;
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -122,13 +123,7 @@ class Text
             toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                promptTokens: (int) data_get($data, 'usage.prompt_tokens', 0),
-                completionTokens: (int) data_get($data, 'usage.completion_tokens', 0),
-                cacheWriteInputTokens: (int) data_get($data, 'usage.prompt_tokens_details.cache_write_tokens', 0) ?: null,
-                cacheReadInputTokens: (int) data_get($data, 'usage.prompt_tokens_details.cached_tokens', 0) ?: null,
-                thoughtTokens: $this->extractThoughtTokens($data),
-            ),
+            usage: $this->mapUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
                 model: data_get($data, 'model', $request->model()),

@@ -305,6 +305,24 @@ foreach ($stream as $event) {
 }
 ```
 
+### Token Usage
+
+OpenRouter's `prompt_tokens` includes the tokens it read from the cache and the tokens it wrote to it. Prism takes both out so the input buckets don't overlap, the same way it does for every other provider (see [Token Usage](/core-concepts/text-generation#token-usage)):
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `prompt_tokens` minus `cached_tokens` and `cache_write_tokens`, so only the uncached input |
+| `cacheReadInputTokens` | `prompt_tokens_details.cached_tokens` |
+| `cacheWriteInputTokens` | `prompt_tokens_details.cache_write_tokens`, only reported for models with explicit caching |
+| `completionTokens` | `completion_tokens`, reasoning tokens included |
+| `thoughtTokens` | `completion_tokens_details.reasoning_tokens`, already part of `completionTokens` |
+
+A few things worth knowing:
+
+- OpenRouter's docs show cache writes inside `prompt_tokens`. That reads and writes never overlap is our reading of those docs rather than something they spell out.
+- A replayed response-cache hit can report more cached tokens than prompt tokens, so `promptTokens` never drops below `0`.
+- Streams take usage from the accounting chunk OpenRouter sends at the end of every response, which repeats the finish reason. Prism reads it once per step, and the final `StreamEndEvent` adds up every step of a tool loop. Each `StepFinishEvent` carries its own step's usage.
+
 ### Provider Routing & Advanced Options
 
 Use `withProviderOptions()` to forward OpenRouter-specific controls such as model preferences or sampling parameters. Prism automatically forwards the native request values for `temperature`, `top_p`, and `max_tokens`, so you can continue tuning them through the usual Prism API without duplicating them in `withProviderOptions()`. For transform pipelines, OpenRouter currently documents `"middle-out"` as the primary example—consult the parameter reference for additional context.

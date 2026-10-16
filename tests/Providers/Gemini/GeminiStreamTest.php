@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\Gemini;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
@@ -15,7 +16,12 @@ use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -129,8 +135,10 @@ it('can generate text stream using searchGrounding', function (): void {
 
     $lastEvent = end($events);
     expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
-    expect($lastEvent->usage->promptTokens)->toBe(22);
-    expect($lastEvent->usage->completionTokens)->toBe(161);
+    expect($lastEvent->usage->promptTokens)->toBe(22)
+        ->and($lastEvent->usage->completionTokens)->toBe(229)
+        ->and($lastEvent->usage->thoughtTokens)->toBe(68)
+        ->and($lastEvent->usage->cacheReadInputTokens)->toBeNull();
 });
 
 it('can generate text stream using tools ', function (): void {
@@ -189,9 +197,22 @@ it('can generate text stream using tools ', function (): void {
         ->and($text)->toContain('The current weather in San Francisco is 75°F and sunny. You likely won\'t need a coat, but you might want to bring a light jacket just in case it gets breezy or cools down later.');
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
-    expect($lastEvent->usage->promptTokens)->toBe(278);
-    expect($lastEvent->usage->completionTokens)->toBe(44);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->usage->toArray())->toBe([
+            'prompt_tokens' => 409,
+            'completion_tokens' => 154,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => 95,
+        ]);
+
+    $stepUsage = collect($events)
+        ->whereInstanceOf(StepFinishEvent::class)
+        ->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens, $event->usage->thoughtTokens])
+        ->values()
+        ->all();
+
+    expect($stepUsage)->toBe([[131, 110, 95], [278, 44, null]]);
 
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
@@ -391,7 +412,10 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
 });
 
 it('can generate text stream using multiple parallel tool calls', function (): void {
@@ -493,4 +517,425 @@ it('passes service_tier in the request body for streaming', function (): void {
 
         return true;
     });
+});
+
+function geminiGatingSse(array ...$chunks): string
+{
+    return collect($chunks)
+        ->map(fn (array $chunk): string => 'data: '.json_encode($chunk)."\n\n")
+        ->implode('');
+}
+
+/**
+ * @param  array<int, array<string, mixed>>  $parts
+ * @return array<string, mixed>
+ */
+function geminiGatingChunk(array $parts, ?string $finishReason = null): array
+{
+    return [
+        'candidates' => [array_filter([
+            'content' => ['parts' => $parts, 'role' => 'model'],
+            'finishReason' => $finishReason,
+            'index' => 0,
+        ], fn (mixed $value): bool => $value !== null)],
+        'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 5, 'totalTokenCount' => 15],
+        'modelVersion' => 'gemini-2.5-flash',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function geminiGatingFunctionCallChunk(?string $finishReason = null): array
+{
+    return geminiGatingChunk([['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], $finishReason);
+}
+
+/**
+ * @return Collection<int, StreamEvent>
+ */
+function geminiGatingStream(int &$calls, int $maxSteps = 3): Collection
+{
+    return collect(iterator_to_array(Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withTools([
+            Tool::as('get_weather')
+                ->for('Get the weather for a city')
+                ->withStringParameter('city', 'The city')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "Sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps($maxSteps)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+}
+
+describe('tool execution gating', function (): void {
+    it('never runs function calls when the turn does not complete normally', function (array $chunks, FinishReason $finishReason): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe($finishReason)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe($finishReason);
+
+        Http::assertSentCount(1);
+    })->with([
+        'MAX_TOKENS after the function call' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'MAX_TOKENS')], FinishReason::Length],
+        'MAX_TOKENS on the function call chunk' => [[geminiGatingFunctionCallChunk('MAX_TOKENS')], FinishReason::Length],
+        'SAFETY after the function call' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'SAFETY')], FinishReason::ContentFilter],
+        'MALFORMED_FUNCTION_CALL on the function call chunk' => [[geminiGatingFunctionCallChunk('MALFORMED_FUNCTION_CALL')], FinishReason::ContentFilter],
+        'stream ends without a finish reason' => [[geminiGatingFunctionCallChunk()], FinishReason::Stop],
+    ]);
+
+    it('runs function calls once when the turn completes normally', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiGatingChunk([['text' => 'Sunny in Detroit.']], 'STOP')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    })->with([
+        'STOP on the function call chunk' => [[geminiGatingFunctionCallChunk('STOP')]],
+        'STOP in a separate chunk' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'STOP')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
+    })->with([
+        'STOP on the function call chunk' => [[geminiGatingFunctionCallChunk('STOP')]],
+        'STOP in a separate chunk' => [[geminiGatingFunctionCallChunk(), geminiGatingChunk([['text' => '']], 'STOP')]],
+    ]);
+});
+
+describe('content blocks', function (): void {
+    it('completes the thinking and text a step started before its tool calls', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiGatingChunk([['text' => 'Sunny in Detroit.']], 'STOP')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+            StreamStartEvent::class,
+            StepStartEvent::class,
+            ThinkingStartEvent::class,
+            ThinkingEvent::class,
+            ThinkingCompleteEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            ToolCallEvent::class,
+            ToolResultEvent::class,
+            StepFinishEvent::class,
+            StepStartEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            StepFinishEvent::class,
+            StreamEndEvent::class,
+        ])
+            ->and($events->whereInstanceOf(ThinkingCompleteEvent::class)->sole()->reasoningId)->toBe($events->whereInstanceOf(ThinkingStartEvent::class)->sole()->reasoningId)
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->values()->all())->toBe(['Let me check.', 'Sunny in Detroit.'])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+    })->with([
+        'STOP on the function call chunk' => [[
+            geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+            geminiGatingChunk([['text' => 'Let me check.']]),
+            geminiGatingFunctionCallChunk('STOP'),
+        ]],
+        'STOP in a separate chunk' => [[
+            geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+            geminiGatingChunk([['text' => 'Let me check.']]),
+            geminiGatingFunctionCallChunk(),
+            geminiGatingChunk([['text' => '']], 'STOP'),
+        ]],
+    ]);
+
+    it('completes the thinking and text a step started when the turn stops on a function call', function (): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+                geminiGatingChunk([['text' => 'Let me check.']]),
+                geminiGatingFunctionCallChunk('MAX_TOKENS'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+                StreamStartEvent::class,
+                StepStartEvent::class,
+                ThinkingStartEvent::class,
+                ThinkingEvent::class,
+                ThinkingCompleteEvent::class,
+                TextStartEvent::class,
+                TextDeltaEvent::class,
+                TextCompleteEvent::class,
+                ToolCallEvent::class,
+                StepFinishEvent::class,
+                StreamEndEvent::class,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+    });
+
+    it('completes the block a step left open when the stream closes before a finish reason', function (array $chunks, array $blockEvents): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+            StreamStartEvent::class,
+            StepStartEvent::class,
+            ...$blockEvents,
+            StepFinishEvent::class,
+            StreamEndEvent::class,
+        ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop);
+    })->with([
+        'inside text' => [
+            [
+                geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+                geminiGatingChunk([['text' => 'Sunny in']]),
+            ],
+            [ThinkingStartEvent::class, ThinkingEvent::class, ThinkingCompleteEvent::class, TextStartEvent::class, TextDeltaEvent::class, TextCompleteEvent::class],
+        ],
+        'inside thinking' => [
+            [geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]])],
+            [ThinkingStartEvent::class, ThinkingEvent::class, ThinkingCompleteEvent::class],
+        ],
+    ]);
+});
+
+/**
+ * @param  array<int, array<string, mixed>>  $parts
+ * @param  array<string, int>|null  $usageMetadata
+ * @return array<string, mixed>
+ */
+function geminiUsageChunk(array $parts, ?string $finishReason = null, ?array $usageMetadata = null): array
+{
+    return array_filter([
+        'candidates' => [array_filter([
+            'content' => ['parts' => $parts, 'role' => 'model'],
+            'finishReason' => $finishReason,
+            'index' => 0,
+        ], fn (mixed $value): bool => $value !== null)],
+        'usageMetadata' => $usageMetadata,
+        'modelVersion' => 'gemini-2.5-flash',
+    ], fn (mixed $value): bool => $value !== null);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function geminiUsageFunctionCallChunk(?string $finishReason, ?array $usageMetadata): array
+{
+    return geminiUsageChunk([['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], $finishReason, $usageMetadata);
+}
+
+describe('usage', function (): void {
+    it('keeps the latest cumulative snapshot and ignores a trailing chunk without usage metadata', function (): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiUsageChunk([['text' => 'Sunny']], null, ['promptTokenCount' => 100, 'cachedContentTokenCount' => 40, 'candidatesTokenCount' => 5, 'totalTokenCount' => 105]),
+                geminiUsageChunk([['text' => ' in Detroit.']], null, ['promptTokenCount' => 100, 'cachedContentTokenCount' => 40, 'toolUsePromptTokenCount' => 7, 'candidatesTokenCount' => 20, 'thoughtsTokenCount' => 30, 'totalTokenCount' => 157]),
+                geminiUsageChunk([['text' => '']], 'STOP'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        $expected = [
+            'prompt_tokens' => 67,
+            'completion_tokens' => 50,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 40,
+            'thought_tokens' => 30,
+        ];
+
+        expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+
+    it('keeps reported zeros and leaves unreported fields null', function (): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiUsageChunk([['text' => 'Hi']], 'STOP', ['promptTokenCount' => 9, 'cachedContentTokenCount' => 0, 'candidatesTokenCount' => 2, 'thoughtsTokenCount' => 0, 'totalTokenCount' => 11]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $usage = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withPrompt('Hi')
+            ->asStream(), false))->whereInstanceOf(StreamEndEvent::class)->sole()->usage;
+
+        expect($usage->cacheReadInputTokens)->toBe(0)
+            ->and($usage->thoughtTokens)->toBe(0)
+            ->and($usage->cacheWriteInputTokens)->toBeNull()
+            ->and($usage->promptTokens)->toBe(9)
+            ->and($usage->completionTokens)->toBe(2);
+    });
+
+    it('sums every step once and reads usage that trails a tool call finish', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(
+                    geminiUsageFunctionCallChunk('STOP', ['promptTokenCount' => 50, 'candidatesTokenCount' => 3, 'totalTokenCount' => 53]),
+                    ['usageMetadata' => ['promptTokenCount' => 50, 'candidatesTokenCount' => 6, 'thoughtsTokenCount' => 12, 'totalTokenCount' => 68], 'modelVersion' => 'gemini-2.5-flash'],
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(
+                    geminiUsageChunk([['text' => 'Sunny in Detroit.']], 'STOP', ['promptTokenCount' => 80, 'cachedContentTokenCount' => 32, 'candidatesTokenCount' => 9, 'totalTokenCount' => 89]),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 98,
+                'completion_tokens' => 27,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 32,
+                'thought_tokens' => 12,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 50, 'completion_tokens' => 18, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => 12],
+                ['prompt_tokens' => 48, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 32, 'thought_tokens' => null],
+            ]);
+    });
+
+    it('reports every step when max steps ends the stream on a tool call', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(geminiUsageFunctionCallChunk('STOP', ['promptTokenCount' => 50, 'candidatesTokenCount' => 3, 'totalTokenCount' => 53])), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiUsageFunctionCallChunk('STOP', ['promptTokenCount' => 70, 'candidatesTokenCount' => 4, 'thoughtsTokenCount' => 5, 'totalTokenCount' => 79])), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(2)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 120,
+                'completion_tokens' => 12,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => null,
+                'thought_tokens' => 5,
+            ]);
+
+        Http::assertSentCount(2);
+    });
+});
+
+dataset('gemini mixed function call chunk parts', [
+    'text' => [[['text' => 'Let me check.']], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'thought' => [[['text' => 'Weighing the forecast.', 'thought' => true]], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'thought and text' => [
+        [['text' => 'Weighing the forecast.', 'thought' => true], ['text' => 'Let me check.']],
+        ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'],
+        'Let me check.',
+    ],
+]);
+
+describe('chunks that carry text and a function call together', function (): void {
+    it('streams the text before the function call, runs the tool once and replays the text', function (array $parts, array $blocks, string $text, bool $stopOnMixedChunk): void {
+        $mixedChunk = geminiGatingChunk([...$parts, ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], $stopOnMixedChunk ? 'STOP' : null);
+        $chunks = $stopOnMixedChunk ? [$mixedChunk] : [$mixedChunk, geminiGatingChunk([['text' => '']], 'STOP')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiGatingChunk([['text' => '']], 'STOP')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+        $replayedParts = collect(collect(Http::recorded()[1][0]->data()['contents'])->firstWhere('role', 'model')['parts']);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayedParts->pluck('text')->filter()->implode(''))->toBe($text)
+            ->and($replayedParts->pluck('functionCall.name')->filter()->values()->all())->toBe(['get_weather']);
+
+        Http::assertSentCount(2);
+    })->with('gemini mixed function call chunk parts')->with([
+        'STOP on a later chunk' => [false],
+        'STOP on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $parts, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiGatingChunk([...$parts, ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], 'MAX_TOKENS'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('gemini mixed function call chunk parts');
 });

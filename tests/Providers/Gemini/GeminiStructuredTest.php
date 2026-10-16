@@ -7,6 +7,7 @@ namespace Tests\Providers\Gemini;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\AnyOfSchema;
 use Prism\Prism\Schema\ArraySchema;
@@ -15,6 +16,7 @@ use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -124,7 +126,9 @@ it('can use a cache object with a structured request', function (): void {
         'article_count',
     ]);
 
-    expect($response->usage->cacheReadInputTokens)->toBe(88759);
+    expect($response->usage->cacheReadInputTokens)->toBe(88759)
+        ->and($response->usage->promptTokens)->toBe(71)
+        ->and($response->usage->completionTokens)->toBe(38);
     expect($response->structured['article_count'])->toBe(358);
     expect($response->structured['legal_jurisdiction'])->toBe('European Union');
     expect($response->structured['legislation_type'])->toBe('Treaty');
@@ -403,6 +407,67 @@ it('filters out thought parts when includeThoughts is true', function (): void {
     expect($response->steps[0]->additionalContent)->toHaveKey('thoughtSummaries');
     expect($response->steps[0]->additionalContent['thoughtSummaries'])->toBeArray();
     expect($response->steps[0]->additionalContent['thoughtSummaries'][0])->toContain('Let me think about');
+
+    expect($response->usage->promptTokens)->toBe(50)
+        ->and($response->usage->completionTokens)->toBe(50)
+        ->and($response->usage->thoughtTokens)->toBe(20);
+});
+
+it('explains a token limit hit with output tokens that exclude thoughts', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => '{"result": "Succ']], 'role' => 'model'],
+                'finishReason' => 'MAX_TOKENS',
+                'index' => 0,
+            ]],
+            'usageMetadata' => [
+                'promptTokenCount' => 50,
+                'toolUsePromptTokenCount' => 10,
+                'candidatesTokenCount' => 40,
+                'thoughtsTokenCount' => 900,
+                'totalTokenCount' => 1000,
+            ],
+            'modelVersion' => 'gemini-2.5-flash',
+        ]),
+    ])->preventStrayRequests();
+
+    Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('result', 'The result')], ['result']))
+        ->withPrompt('Extract some information')
+        ->asStructured();
+})->throws(PrismException::class, 'Token usage: 50 prompt + 10 tool-use prompt + 900 thinking + 40 output = 1000 total.');
+
+it('suggests a maxTokens sized to thinking plus output, not the prompt', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => '{"result": "Succ']], 'role' => 'model'],
+                'finishReason' => 'MAX_TOKENS',
+                'index' => 0,
+            ]],
+            'usageMetadata' => [
+                'promptTokenCount' => 50000,
+                'candidatesTokenCount' => 40,
+                'thoughtsTokenCount' => 900,
+                'totalTokenCount' => 50940,
+            ],
+            'modelVersion' => 'gemini-2.5-flash',
+        ]),
+    ])->preventStrayRequests();
+
+    expect(fn (): StructuredResponse => Prism::structured()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('result', 'The result')], ['result']))
+        ->withMaxTokens(940)
+        ->withPrompt('Extract some information')
+        ->asStructured())
+        ->toThrow(PrismException::class, 'Gemini hit token limit with high thinking token usage. '
+            .'Token usage: 50000 prompt + 900 thinking + 40 output = 50940 total. '
+            .'The output was truncated at 16 characters resulting in invalid JSON. '
+            .'maxTokens caps thinking plus output (900 + 40 used here), not the prompt. '
+            .'Try increasing maxTokens to at least 1940 (suggested: 3880 for comfortable margin), or lower the thinking budget.');
 });
 
 it('sends topK in generationConfig for structured output', function (): void {

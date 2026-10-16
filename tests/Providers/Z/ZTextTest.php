@@ -35,6 +35,7 @@ describe('Text generation for Z', function (): void {
         expect($response->text)->toBe('Hello! How can I help you today?')
             ->and($response->finishReason)->toBe(FinishReason::Stop)
             ->and($response->usage->promptTokens)->toBe(9)
+            ->and($response->usage->cacheReadInputTokens)->toBeNull()
             ->and($response->usage->completionTokens)->toBe(12)
             ->and($response->meta->id)->toBe('chatcmpl-123')
             ->and($response->meta->model)->toBe('z-model');
@@ -50,7 +51,8 @@ describe('Text generation for Z', function (): void {
             ->asText();
 
         expect($response)->toBeInstanceOf(TextResponse::class)
-            ->and($response->usage->promptTokens)->toBe(190)
+            ->and($response->usage->promptTokens)->toBe(1)
+            ->and($response->usage->cacheReadInputTokens)->toBe(189)
             ->and($response->usage->completionTokens)->toBe(166)
             ->and($response->meta->id)->toBe('202512161952121dd7efde49d14dc9')
             ->and($response->meta->model)->toBe('z-model')
@@ -96,13 +98,56 @@ describe('Text generation for Z', function (): void {
             ->and($firstStep->toolCalls[1]->arguments())->toBe([
                 'city' => 'Detroit',
             ])
-            ->and($response->usage->promptTokens)->toBe(616)
+            ->and($response->usage->promptTokens)->toBe(72)
+            ->and($response->usage->cacheReadInputTokens)->toBe(544)
             ->and($response->usage->completionTokens)->toBe(319)
             ->and($response->meta->id)->toBe('20251216203244b8311d53051b4c17')
             ->and($response->meta->model)->toBe('z-model')
             ->and($response->text)->toBe(
                 "\nBased on the information I gathered:\n\n**Tigers Game Time:** The Tigers game today in Detroit is at 3:00 PM.\n\n**Weather and Coat Recommendation:** The weather will be 45° and cold. Yes, you should definitely wear a coat to the game! At 45 degrees, it will be quite chilly, especially if you'll be sitting outdoors for several hours. You might want to consider wearing a warm coat, and possibly dressing in layers with a hat and gloves for extra comfort during the game."
             );
+    });
+
+    it('replays the assistant tool calls alongside their results on the next step', function (): void {
+        FixtureResponse::fakeResponseSequence('chat/completions', 'z/generate-text-with-multiple-tools');
+
+        $tools = [
+            Tool::as('get_weather')
+                ->for('use this tool when you need to get wather for the city')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 45° and cold'),
+            Tool::as('search_games')
+                ->for('useful for searching curret games times in the city')
+                ->withStringParameter('city', 'The city that you want the game times for')
+                ->using(fn (string $city): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        Prism::text()
+            ->using(Provider::Z, 'z-model')
+            ->withTools($tools)
+            ->withMaxSteps(4)
+            ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat?')
+            ->asText();
+
+        $messages = collect(Http::recorded()[1][0]->data()['messages']);
+        $assistant = $messages->firstWhere('role', 'assistant');
+
+        expect($assistant['tool_calls'] ?? [])->toBe([
+            [
+                'id' => 'call_-8062812703858712887',
+                'type' => 'function',
+                'function' => ['name' => 'search_games', 'arguments' => '{"city":"Detroit"}'],
+            ],
+            [
+                'id' => 'call_-8062812703858712886',
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Detroit"}'],
+            ],
+        ])
+            ->and($messages->where('role', 'tool')->pluck('tool_call_id')->values()->all())->toBe([
+                'call_-8062812703858712887',
+                'call_-8062812703858712886',
+            ]);
     });
 });
 

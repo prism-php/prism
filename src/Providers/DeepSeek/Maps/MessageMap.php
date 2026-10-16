@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\DeepSeek\Maps;
 
 use Exception;
+use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -15,6 +16,8 @@ use Prism\Prism\ValueObjects\ToolCall;
 
 class MessageMap
 {
+    use FiltersEmptyValues;
+
     /** @var array<int, mixed> */
     protected array $mappedMessages = [];
 
@@ -99,7 +102,7 @@ class MessageMap
             ],
         ], $message->toolCalls);
 
-        $this->mappedMessages[] = array_filter(array_merge([
+        $this->mappedMessages[] = self::withoutEmptyValues(array_merge([
             'role' => 'assistant',
             'content' => $message->content,
             'tool_calls' => $toolCalls,

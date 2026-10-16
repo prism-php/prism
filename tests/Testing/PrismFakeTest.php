@@ -12,10 +12,17 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Streaming\StreamedMessages;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\EmbeddingsResponseFake;
@@ -27,6 +34,8 @@ use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\ValueObjects\Embedding;
 use Prism\Prism\ValueObjects\EmbeddingsUsage;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
@@ -384,6 +393,113 @@ describe('fake streaming responses', function (): void {
         expect($outputText)->toBe('fake response text')
             ->and($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
             ->and($lastEvent->finishReason)->toBe(FinishReason::Length);
+    });
+
+    it('ends the step with the response finish reason, usage and additional content', function (): void {
+        Prism::fake([
+            TextResponseFake::make()
+                ->withText('fake response text')
+                ->withFinishReason(FinishReason::Length)
+                ->withUsage(new Usage(100, 50))
+                ->withAdditionalContent(['response_id' => 'resp_123']),
+        ]);
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the meaning of life?')
+            ->asStream(), false));
+
+        $stepFinish = $events->whereInstanceOf(StepFinishEvent::class)->sole();
+
+        expect($events->map(fn (StreamEvent $event): string => $event::class)->all())->toBe([
+            StreamStartEvent::class,
+            StepStartEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextDeltaEvent::class,
+            TextDeltaEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            StepFinishEvent::class,
+            StreamEndEvent::class,
+        ])
+            ->and($stepFinish->finishReason)->toBe(FinishReason::Length)
+            ->and($stepFinish->usage->toArray())->toBe((new Usage(100, 50))->toArray())
+            ->and($stepFinish->additionalContent)->toBe(['response_id' => 'resp_123'])
+            ->and($events->last()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->last()->usage->toArray())->toBe((new Usage(100, 50))->toArray());
+    });
+
+    it('finishes every step with that step\'s finish reason, usage and additional content', function (): void {
+        $toolCall = new ToolCall('call_123', 'weather', ['city' => 'Paris']);
+        $toolResult = new ToolResult('call_123', 'weather', ['city' => 'Paris'], 'Sunny, 72°F');
+
+        Prism::fake([
+            (new ResponseBuilder)
+                ->addStep(
+                    TextStepFake::make()
+                        ->withText('Let me check.')
+                        ->withToolCalls([$toolCall])
+                        ->withToolResults([$toolResult])
+                        ->withFinishReason(FinishReason::ToolCalls)
+                        ->withUsage(new Usage(15, 25))
+                        ->withAdditionalContent(['step' => 1])
+                )
+                ->addStep(
+                    TextStepFake::make()
+                        ->withText('Sunny.')
+                        ->withFinishReason(FinishReason::Stop)
+                        ->withUsage(new Usage(20, 30))
+                        ->withAdditionalContent(['step' => 2])
+                )
+                ->toResponse(),
+        ])->withFakeChunkSize(100);
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('anthropic', 'claude-3-sonnet')
+            ->withPrompt('What is the weather in Paris?')
+            ->asStream(), false));
+
+        $stepFinishes = $events->whereInstanceOf(StepFinishEvent::class)->values();
+
+        expect($events->map(fn (StreamEvent $event): string => $event::class)->all())->toBe([
+            StreamStartEvent::class,
+            StepStartEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            ToolCallEvent::class,
+            ToolResultEvent::class,
+            StepFinishEvent::class,
+            StepStartEvent::class,
+            TextStartEvent::class,
+            TextDeltaEvent::class,
+            TextCompleteEvent::class,
+            StepFinishEvent::class,
+            StreamEndEvent::class,
+        ])
+            ->and($stepFinishes->map(fn (StepFinishEvent $event): array => [
+                $event->finishReason,
+                [$event->usage->promptTokens, $event->usage->completionTokens],
+                $event->additionalContent,
+            ])->all())->toBe([
+                [FinishReason::ToolCalls, [15, 25], ['step' => 1]],
+                [FinishReason::Stop, [20, 30], ['step' => 2]],
+            ])
+            ->and($events->last()->finishReason)->toBe(FinishReason::Stop)
+            ->and([$events->last()->usage->promptTokens, $events->last()->usage->completionTokens])->toBe([35, 55]);
+
+        $messages = StreamedMessages::fromEvents($events);
+
+        expect($messages)->toHaveCount(3)
+            ->and($messages[0])->toBeInstanceOf(AssistantMessage::class)
+            ->and($messages[0]->content)->toBe('Let me check.')
+            ->and($messages[0]->toolCalls)->toBe([$toolCall])
+            ->and($messages[0]->additionalContent)->toBe(['step' => 1])
+            ->and($messages[1])->toBeInstanceOf(ToolResultMessage::class)
+            ->and($messages[1]->toolResults)->toBe([$toolResult])
+            ->and($messages[2]->content)->toBe('Sunny.')
+            ->and($messages[2]->additionalContent)->toBe(['step' => 2]);
     });
 
 });

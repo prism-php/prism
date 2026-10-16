@@ -220,3 +220,28 @@ it('maps user messages with images from url', function (): void {
         ],
     ]]);
 });
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps an assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+            'content' => '0',
+        ]]);
+    });
+
+    it('still leaves the content of an empty assistant message out', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+        ]]);
+    });
+});

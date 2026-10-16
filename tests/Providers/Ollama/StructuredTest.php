@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Providers\Ollama;
 
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ArraySchema;
@@ -49,4 +50,27 @@ it('returns structured output', function (): void {
     expect($response->structured['hobbies'])->toBeArray();
     expect($response->structured['open_source'])->toBeArray();
 
+});
+
+it('maps prompt_eval_cached_count on structured responses', function (): void {
+    Http::fake(['*' => Http::response([
+        'model' => 'qwen3:14b',
+        'created_at' => '2026-10-15T17:58:57.192416Z',
+        'message' => ['role' => 'assistant', 'content' => '{"answer":"Hi"}'],
+        'done_reason' => 'stop',
+        'done' => true,
+        'prompt_eval_count' => 40,
+        'prompt_eval_cached_count' => 32,
+        'eval_count' => 9,
+    ])])->preventStrayRequests();
+
+    $response = Prism::structured()
+        ->using('ollama', 'qwen3:14b')
+        ->withSchema(new ObjectSchema('output', 'the output', [new StringSchema('answer', 'The answer')], ['answer']))
+        ->withPrompt('Hi')
+        ->asStructured();
+
+    expect($response->usage->promptTokens)->toBe(8)
+        ->and($response->usage->cacheReadInputTokens)->toBe(32)
+        ->and($response->usage->completionTokens)->toBe(9);
 });

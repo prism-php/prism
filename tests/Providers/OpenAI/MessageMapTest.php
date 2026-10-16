@@ -277,6 +277,50 @@ it('maps assistant message with multiple tool calls and different reasoning ids'
     ]);
 });
 
+it('sends an empty reasoning summary when a stored tool call has none', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('', [
+                new ToolCall('fc_1', 'search', ['query' => 'prism'], 'call_1', 'rs_1'),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap()[0])->toBe([
+        'type' => 'reasoning',
+        'id' => 'rs_1',
+        'summary' => [],
+    ]);
+});
+
+it('replays stored output items in order instead of the tool call projection', function (): void {
+    $outputItems = [
+        ['id' => 'rs_1', 'type' => 'reasoning', 'content' => [], 'encrypted_content' => 'gAAAA-one', 'summary' => null],
+        ['id' => 'msg_1', 'type' => 'message', 'status' => 'completed', 'role' => 'assistant', 'phase' => 'commentary', 'content' => [
+            ['type' => 'output_text', 'annotations' => [], 'logprobs' => [], 'text' => 'Checking.'],
+        ]],
+        ['id' => 'fc_1', 'type' => 'function_call', 'status' => 'completed', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{"query":"prism"}'],
+    ];
+
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage(
+                'Checking.',
+                [new ToolCall('fc_1', 'search', ['query' => 'prism'], 'call_1', 'rs_1', [])],
+                ['output_items' => $outputItems],
+            ),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        ['id' => 'rs_1', 'type' => 'reasoning', 'content' => [], 'encrypted_content' => 'gAAAA-one', 'summary' => []],
+        $outputItems[1],
+        $outputItems[2],
+    ]);
+});
+
 it('maps tool result messages', function (): void {
     $messageMap = new MessageMap(
         messages: [
@@ -388,5 +432,57 @@ describe('documents', function (): void {
             ->toBe('input_file')
             ->and(data_get($mappedMessage, '0.content.1.file_id'))
             ->toBe('previously-uploaded-file-id');
+    });
+});
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps a user message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new UserMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'user',
+            'content' => [['type' => 'input_text', 'text' => '0']],
+        ]]);
+    });
+
+    it('keeps an assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+            'content' => [['type' => 'output_text', 'text' => '0']],
+        ]]);
+    });
+
+    it('still maps an empty assistant message to nothing', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([]);
+    });
+
+    it('keeps a tool result of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [
+                new ToolResultMessage([
+                    new ToolResult('tool_1234', 'count', [], '0', 'call_1234'),
+                ]),
+            ],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'type' => 'function_call_output',
+            'call_id' => 'call_1234',
+            'output' => '0',
+        ]]);
     });
 });

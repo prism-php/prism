@@ -145,18 +145,28 @@ it('uses meta to define strict mode', function (): void {
     });
 });
 
-it('throws an exception when there is a refusal', function (): void {
-    $this->expectException(PrismException::class);
-    $this->expectExceptionMessage('OpenAI Refusal: Could not process your request');
-
+it('returns a refusal response instead of throwing', function (): void {
     Http::fake([
         'v1/responses' => Http::response([
+            'id' => 'resp_refusal',
+            'status' => 'completed',
+            'model' => 'gpt-4o-2024-08-06',
             'output' => [[
+                'id' => 'msg_refusal',
+                'type' => 'message',
+                'status' => 'completed',
+                'role' => 'assistant',
                 'content' => [[
                     'type' => 'refusal',
                     'refusal' => 'Could not process your request',
                 ]],
             ]],
+            'usage' => [
+                'input_tokens' => 10,
+                'input_tokens_details' => ['cached_tokens' => 0],
+                'output_tokens' => 5,
+                'output_tokens_details' => ['reasoning_tokens' => 0],
+            ],
         ]),
     ]);
 
@@ -173,19 +183,15 @@ it('throws an exception when there is a refusal', function (): void {
         ['weather', 'game_time', 'coat_required']
     );
 
-    Prism::structured()
+    $response = Prism::structured()
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withSchema($schema)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStructured();
 
-    Http::assertSent(function (Request $request): true {
-        $body = json_decode($request->body(), true);
-
-        expect(data_get($body, 'text.format.strict'))->toBeTrue();
-
-        return true;
-    });
+    expect($response->finishReason)->toBe(FinishReason::Refusal)
+        ->and($response->structured)->toBe([])
+        ->and($response->additionalContent['refusal'])->toBe('Could not process your request');
 });
 
 it('throws an exception for o1 models', function (string $model): void {

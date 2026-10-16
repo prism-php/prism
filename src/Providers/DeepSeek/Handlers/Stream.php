@@ -15,6 +15,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\DeepSeek\Concerns\MapsUsage;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolChoiceMap;
@@ -43,7 +44,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason, ValidatesResponses;
+    use CallsTools, MapsFinishReason, MapsUsage, ValidatesResponses;
 
     protected StreamState $state;
 
@@ -77,6 +78,8 @@ class Stream
 
         $text = '';
         $toolCalls = [];
+        $stepFinishReason = null;
+        $usageSnapshot = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -84,6 +87,8 @@ class Stream
             if ($data === null) {
                 continue;
             }
+
+            $usageSnapshot = $this->extractUsage($data) ?? $usageSnapshot;
 
             if ($this->state->shouldEmitStreamStart()) {
                 $this->state->withMessageId(EventID::generate())->markStreamStarted();
@@ -105,39 +110,8 @@ class Stream
                 );
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                $rawFinishReason = data_get($data, 'choices.0.finish_reason');
-                if ($rawFinishReason === 'tool_calls') {
-                    if ($this->state->hasTextStarted() && $text !== '') {
-                        $this->state->markTextCompleted();
-
-                        yield new TextCompleteEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            messageId: $this->state->messageId()
-                        );
-                    }
-
-                    if ($this->state->hasThinkingStarted()) {
-                        yield new ThinkingCompleteEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            reasoningId: $this->state->reasoningId()
-                        );
-                    }
-
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                    return;
-                }
-
-                continue;
-            }
-
             $reasoningDelta = $this->extractReasoningDelta($data);
-            if ($reasoningDelta !== '' && $reasoningDelta !== '0') {
+            if ($reasoningDelta !== '') {
                 if ($this->state->shouldEmitThinkingStart()) {
                     $this->state->withReasoningId(EventID::generate())->markThinkingStarted();
 
@@ -154,20 +128,16 @@ class Stream
                     delta: $reasoningDelta,
                     reasoningId: $this->state->reasoningId()
                 );
-
-                continue;
             }
 
-            if ($this->state->hasThinkingStarted() && $reasoningDelta === '') {
-                yield new ThinkingCompleteEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    reasoningId: $this->state->reasoningId()
-                );
+            if ($reasoningDelta === '') {
+                yield from $this->completeThinking();
             }
 
             $content = $this->extractContentDelta($data);
-            if ($content !== '' && $content !== '0') {
+            if ($content !== '') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -186,54 +156,82 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId()
                 );
+            }
 
-                continue;
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');
             if ($rawFinishReason !== null) {
                 $finishReason = $this->mapFinishReason($data);
 
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
-
-                if ($this->state->hasThinkingStarted()) {
-                    yield new ThinkingCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        reasoningId: $this->state->reasoningId()
-                    );
-                }
+                yield from $this->completeOpenBlocks();
 
                 $this->state->withFinishReason($finishReason);
-
-                $usage = $this->extractUsage($data);
-                if ($usage instanceof Usage) {
-                    $this->state->addUsage($usage);
-                }
+                $stepFinishReason = $finishReason;
             }
         }
 
-        if ($toolCalls !== []) {
-            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
+        yield from $this->completeOpenBlocks();
+
+        $stepUsage = $this->recordStepUsage($usageSnapshot);
+
+        if ($toolCalls !== [] && $stepFinishReason === FinishReason::ToolCalls) {
+            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $stepUsage);
 
             return;
         }
 
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $stepUsage,
+            finishReason: $this->state->finishReason(),
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the thinking and text this step started, each exactly once, before
+     * the step's tool calls or its StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        yield from $this->completeThinking();
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function completeThinking(): Generator
+    {
+        if (! $this->state->hasThinkingStarted()) {
+            return;
+        }
+
+        $this->state->markThinkingCompleted();
+
+        yield new ThinkingCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId()
+        );
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent
@@ -308,7 +306,9 @@ class Stream
                 $toolCalls[$index]['name'] = $name;
             }
 
-            if ($arguments = data_get($deltaToolCall, 'function.arguments')) {
+            $arguments = data_get($deltaToolCall, 'function.arguments');
+
+            if (is_string($arguments) && $arguments !== '') {
                 $toolCalls[$index]['arguments'] .= $arguments;
             }
         }
@@ -348,32 +348,36 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
      */
-    protected function extractUsage(array $data): ?Usage
+    protected function extractUsage(array $data): ?array
     {
         $usage = data_get($data, 'usage');
 
-        if (! $usage) {
+        return is_array($usage) && $usage !== [] ? $usage : null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $usageSnapshot
+     */
+    protected function recordStepUsage(?array $usageSnapshot): ?Usage
+    {
+        if ($usageSnapshot === null) {
             return null;
         }
 
-        $totalPrompt = (int) data_get($usage, 'prompt_tokens', 0);
-        $cacheHit = (int) data_get($usage, 'prompt_cache_hit_tokens', 0);
-        $reasoning = (int) data_get($usage, 'completion_tokens_details.reasoning_tokens', 0);
+        $stepUsage = $this->mapUsage($usageSnapshot);
 
-        return new Usage(
-            promptTokens: max(0, $totalPrompt - $cacheHit),
-            completionTokens: (int) data_get($usage, 'completion_tokens', 0),
-            cacheReadInputTokens: $cacheHit > 0 ? $cacheHit : null,
-            thoughtTokens: $reasoning > 0 ? $reasoning : null,
-        );
+        $this->state->addUsage($stepUsage);
+
+        return $stepUsage;
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @return Generator<StreamEvent>
      */
-    protected function handleToolCalls(Request $request, string $text, array $toolCalls, int $depth): Generator
+    protected function handleToolCalls(Request $request, string $text, array $toolCalls, int $depth, ?Usage $stepUsage = null): Generator
     {
         $mappedToolCalls = $this->mapToolCalls($toolCalls);
 
@@ -389,10 +393,13 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
+        $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $stepUsage,
+            finishReason: FinishReason::ToolCalls,
         );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls));

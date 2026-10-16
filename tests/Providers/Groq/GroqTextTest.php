@@ -367,3 +367,66 @@ describe('rate limits', function (): void {
         });
     });
 });
+
+function groqUsageCompletion(?array $usage): array
+{
+    return array_filter([
+        'id' => 'chatcmpl-usage',
+        'object' => 'chat.completion',
+        'model' => 'openai/gpt-oss-20b',
+        'choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => '8573'], 'finish_reason' => 'stop']],
+        'usage' => $usage,
+    ], fn (mixed $value): bool => $value !== null);
+}
+
+describe('Usage', function (): void {
+    it('keeps reasoning inside the completion and leaves an unreported cache null', function (): void {
+        Http::fake(['*' => Http::response(groqUsageCompletion([
+            'queue_time' => 0.2,
+            'prompt_tokens' => 3131,
+            'completion_tokens' => 60,
+            'total_tokens' => 3191,
+            'completion_tokens_details' => ['reasoning_tokens' => 49],
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using(Provider::Groq, 'openai/gpt-oss-20b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 3131,
+            'completion_tokens' => 60,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => null,
+            'thought_tokens' => 49,
+        ]);
+    });
+
+    it('takes cached input out of the prompt', function (): void {
+        Http::fake(['*' => Http::response(groqUsageCompletion([
+            'prompt_tokens' => 4641,
+            'completion_tokens' => 1817,
+            'total_tokens' => 6458,
+            'prompt_tokens_details' => ['cached_tokens' => 4608],
+            'completion_tokens_details' => ['reasoning_tokens' => 0],
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using(Provider::Groq, 'openai/gpt-oss-20b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 33,
+            'completion_tokens' => 1817,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 4608,
+            'thought_tokens' => 0,
+        ]);
+    });
+
+    it('falls back to zero counts when usage is missing', function (): void {
+        Http::fake(['*' => Http::response(groqUsageCompletion(null))])->preventStrayRequests();
+
+        $response = Prism::text()->using(Provider::Groq, 'openai/gpt-oss-20b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->promptTokens)->toBe(0)
+            ->and($response->usage->completionTokens)->toBe(0)
+            ->and($response->usage->cacheReadInputTokens)->toBeNull();
+    });
+});

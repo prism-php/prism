@@ -94,27 +94,33 @@ class ToolStructuredStrategy extends AnthropicStructuredStrategy
      */
     protected function resolveToolChoice(): string|array|null
     {
-        // Thinking mode doesn't support tool_choice (Anthropic restriction)
-        if ($this->request->providerOptions('thinking.enabled') === true
-            || $this->request->providerOptions('thinking.type') === 'adaptive') {
+        if ($this->thinkingIsActive()) {
             return null;
         }
 
         $userToolChoice = $this->request->toolChoice();
-        $hasCustomTools = $this->request->tools() !== [];
 
-        // No custom tools: force the structured output tool
-        if (! $hasCustomTools) {
-            return ['type' => 'tool', 'name' => self::STRUCTURED_OUTPUT_TOOL_NAME];
-        }
-
-        // Custom tools present with explicit user choice: map the user's choice
         if ($userToolChoice !== null) {
             return ToolChoiceMap::map($userToolChoice);
         }
 
-        // Custom tools present with no explicit choice: use auto
+        if ($this->request->tools() === []) {
+            return ['type' => 'tool', 'name' => self::STRUCTURED_OUTPUT_TOOL_NAME];
+        }
+
         return ['type' => 'auto'];
+    }
+
+    /**
+     * Manual and adaptive thinking reject a forced `tool_choice`.
+     */
+    protected function thinkingIsActive(): bool
+    {
+        if ($this->request->providerOptions('thinking.enabled') === true) {
+            return true;
+        }
+
+        return in_array($this->request->providerOptions('thinking.type'), ['adaptive', 'enabled'], true);
     }
 
     protected function checkStrategySupport(): void

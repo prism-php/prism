@@ -17,11 +17,11 @@ class StructuredModeResolver
             throw new PrismException(sprintf('Structured output is not supported for %s', $model));
         }
 
-        if (self::supportsStructuredMode($baseModel)) {
-            return StructuredMode::Structured;
+        if (self::requiresJsonMode($baseModel)) {
+            return StructuredMode::Json;
         }
 
-        return StructuredMode::Json;
+        return StructuredMode::Structured;
     }
 
     /**
@@ -40,33 +40,21 @@ class StructuredModeResolver
         return $model;
     }
 
-    protected static function supportsStructuredMode(string $model): bool
+    /**
+     * Legacy models that predate json_schema structured outputs. Every other
+     * model (including unknown and custom names) gets json_schema.
+     */
+    protected static function requiresJsonMode(string $model): bool
     {
-        // Prefix matching for model families where structured output is a
-        // baseline feature — all versions and dated snapshots qualify.
-        foreach ([
-            'gpt-4o',
-            'gpt-4.1',
-            'gpt-4.5',
-            'gpt-5',
-            'chatgpt-4o',
-            'o3-mini',
-        ] as $prefix) {
-            if (str_starts_with($model, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected static function supportsJsonMode(string $model): bool
-    {
-        if (preg_match('/^gpt-4-.*/', $model)) {
+        if (str_starts_with($model, 'gpt-3.5-turbo')) {
             return true;
         }
 
-        return $model === 'gpt-3.5-turbo';
+        if ($model === 'gpt-4' || str_starts_with($model, 'gpt-4-')) {
+            return true;
+        }
+
+        return $model === 'gpt-4o-2024-05-13';
     }
 
     protected static function unsupported(string $model): bool

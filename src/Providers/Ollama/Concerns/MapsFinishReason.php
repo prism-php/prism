@@ -16,4 +16,9 @@ trait MapsFinishReason
     {
         return FinishReasonMap::map(data_get($data, 'done_reason', ''));
     }
+
+    protected function isToolCallFinish(FinishReason $finishReason): bool
+    {
+        return in_array($finishReason, [FinishReason::Stop, FinishReason::ToolCalls], true);
+    }
 }

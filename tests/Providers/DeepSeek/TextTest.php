@@ -35,9 +35,11 @@ it('can generate text with a prompt', function (): void {
     // Assert response type
     expect($response)->toBeInstanceOf(TextResponse::class);
 
-    // Assert usage
+    // Assert usage: DeepSeek reports a cache hit count of 0, which stays 0
     expect($response->usage->promptTokens)->toBe(7);
     expect($response->usage->completionTokens)->toBe(42);
+    expect($response->usage->cacheReadInputTokens)->toBe(0);
+    expect($response->usage->thoughtTokens)->toBeNull();
 
     // Assert metadata
     expect($response->meta->id)->toBe('85edf901-7432-49c6-baab-91ffb01dbe7a');

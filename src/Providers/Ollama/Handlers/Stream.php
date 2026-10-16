@@ -13,10 +13,12 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\MapsUsage;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
 use Prism\Prism\Providers\Ollama\ValueObjects\OllamaStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -39,9 +41,11 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsFinishReason;
+    use CallsTools, MapsFinishReason, MapsUsage;
 
     protected OllamaStreamState $state;
+
+    protected ?Usage $stepUsage = null;
 
     public function __construct(protected PendingRequest $client)
     {
@@ -72,6 +76,8 @@ class Stream
         }
 
         $text = '';
+        $stepFinishReason = null;
+        $this->stepUsage = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
@@ -101,9 +107,15 @@ class Stream
                 );
             }
 
-            // Accumulate token counts
-            $this->state->addPromptTokens((int) data_get($data, 'prompt_eval_count', 0));
-            $this->state->addCompletionTokens((int) data_get($data, 'eval_count', 0));
+            $this->captureStepUsage($data);
+
+            if ($this->hasError($data)) {
+                yield $this->errorEvent($data);
+
+                $stepFinishReason = FinishReason::Error;
+
+                break;
+            }
 
             // Handle thinking content first
             $thinking = data_get($data, 'message.thinking', '');
@@ -123,19 +135,11 @@ class Stream
                     delta: $thinking,
                     reasoningId: $this->state->reasoningId()
                 );
-
-                continue;
             }
 
-            // If we were emitting thinking and it's now stopped, mark it complete
-            if ($this->state->hasThinkingStarted()) {
-                $this->state->markThinkingCompleted();
-                yield new ThinkingCompleteEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    reasoningId: $this->state->reasoningId()
-                );
-                // Don't continue here - we want to process the rest of this data chunk
+            // A chunk without thinking means thinking has stopped
+            if ($thinking === '') {
+                yield from $this->completeThinking();
             }
 
             // Accumulate tool calls if present (don't emit events yet)
@@ -149,6 +153,8 @@ class Stream
             // Handle text content
             $content = data_get($data, 'message.content', '');
             if ($content !== '') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
                     yield new TextStartEvent(
@@ -168,50 +174,104 @@ class Stream
                 );
             }
 
-            // Handle tool call completion when stream is done (like original)
-            if ((bool) data_get($data, 'done', false) && $this->state->hasToolCalls()) {
-                // Emit text complete if we had text content
-                if ($this->state->hasTextStarted()) {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
-
-                yield from $this->handleToolCalls($request, $text, $depth);
-
-                return;
-            }
-
-            // Handle regular completion (no tool calls)
             if ((bool) data_get($data, 'done', false)) {
-                // Emit text complete if we had text content
-                if ($this->state->hasTextStarted()) {
-                    $this->state->markTextCompleted();
+                $stepFinishReason = $this->mapFinishReason($data);
 
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
+                yield from $this->completeOpenBlocks();
+
+                if ($this->state->hasToolCalls() && $this->isToolCallFinish($stepFinishReason)) {
+                    $this->recordStepUsage();
+
+                    yield from $this->handleToolCalls($request, $text, $depth);
+
+                    return;
                 }
 
-                // Emit step finish before stream end
-                $this->state->markStepFinished();
-                yield new StepFinishEvent(
-                    id: EventID::generate(),
-                    timestamp: time()
-                );
-
-                // Emit stream end event with usage
-                yield $this->emitStreamEndEvent();
-
-                return;
+                break;
             }
         }
+
+        yield from $this->completeOpenBlocks();
+
+        $this->recordStepUsage();
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
+
+        // Emit step finish before stream end
+        $this->state->markStepFinished();
+        yield new StepFinishEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            usage: $this->stepUsage,
+            finishReason: $this->state->finishReason(),
+        );
+
+        yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the thinking and text this step started, each exactly once, before
+     * the step's tool calls or its StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        yield from $this->completeThinking();
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function completeThinking(): Generator
+    {
+        if (! $this->state->hasThinkingStarted()) {
+            return;
+        }
+
+        $this->state->markThinkingCompleted();
+
+        yield new ThinkingCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId()
+        );
+    }
+
+    /**
+     * Ollama keeps the 200 status when a request fails mid-stream and sends a
+     * final line with an `error` instead.
+     *
+     * @link https://docs.ollama.com/api/errors
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasError(array $data): bool
+    {
+        return isset($data['error']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function errorEvent(array $data): ErrorEvent
+    {
+        return new ErrorEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            errorType: 'stream_error',
+            message: is_string($data['error']) ? $data['error'] : (string) data_get($data, 'error.message', 'No error message provided'),
+            recoverable: false,
+        );
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent
@@ -219,12 +279,28 @@ class Stream
         return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
-            finishReason: FinishReason::Stop,
-            usage: new Usage(
-                promptTokens: $this->state->promptTokens(),
-                completionTokens: $this->state->completionTokens()
-            )
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
+            usage: $this->state->usage() ?? new Usage(0, 0),
         );
+    }
+
+    /**
+     * Ollama reports a response's counters once, on the final chunk.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function captureStepUsage(array $data): void
+    {
+        if (array_key_exists('prompt_eval_count', $data) || array_key_exists('eval_count', $data)) {
+            $this->stepUsage = $this->mapUsage($data);
+        }
+    }
+
+    protected function recordStepUsage(): void
+    {
+        if ($this->stepUsage instanceof Usage) {
+            $this->state->addUsage($this->stepUsage);
+        }
     }
 
     /**
@@ -294,10 +370,13 @@ class Stream
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         // Emit step finish after tool calls
+        $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->stepUsage,
+            finishReason: FinishReason::ToolCalls,
         );
 
         // Add messages for next turn

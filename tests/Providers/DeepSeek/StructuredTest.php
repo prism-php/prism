@@ -48,6 +48,8 @@ it('returns structured output', function (): void {
     // Assert metadata
     expect($response->meta->id)->toBe('1920de37-0bb1-4cf8-9c4e-d73ad8d73d6a');
     expect($response->meta->model)->toBe('deepseek-chat');
-    expect($response->usage->promptTokens)->toBe(187);
+    expect($response->usage->promptTokens)->toBe(59);
+    expect($response->usage->cacheReadInputTokens)->toBe(128);
     expect($response->usage->completionTokens)->toBe(26);
+    expect($response->usage->thoughtTokens)->toBeNull();
 });

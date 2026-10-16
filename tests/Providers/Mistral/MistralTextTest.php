@@ -344,3 +344,64 @@ it('sets the rate limits on meta', function (): void {
         expect($response->meta->rateLimits[0]->resetsAt->equalTo($time->addSeconds(28)))->toBeTrue();
     });
 });
+
+function mistralUsageCompletion(array $usage): array
+{
+    return [
+        'id' => 'a73ebc236883454b97884a3269e016d2',
+        'object' => 'chat.completion',
+        'created' => 1792100307,
+        'model' => 'mistral-small-latest',
+        'choices' => [['index' => 0, 'finish_reason' => 'stop', 'message' => ['role' => 'assistant', 'tool_calls' => null, 'content' => '8573']]],
+        'usage' => $usage,
+    ];
+}
+
+describe('Usage', function (): void {
+    it('takes cached input out of the prompt and keeps reasoning inside the completion', function (): void {
+        Http::fake(['*' => Http::response(mistralUsageCompletion([
+            'prompt_tokens' => 12777,
+            'total_tokens' => 12871,
+            'completion_tokens' => 94,
+            'prompt_tokens_details' => ['cached_tokens' => 12752],
+            'completion_tokens_details' => ['reasoning_tokens' => 87],
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()
+            ->using(Provider::Mistral, 'mistral-small-latest')
+            ->withPrompt('What is the code of Fact 17?')
+            ->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 25,
+            'completion_tokens' => 94,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 12752,
+            'thought_tokens' => 87,
+        ]);
+    });
+
+    it('keeps reported zeros and ignores the legacy num_cached_tokens field', function (): void {
+        Http::fake(['*' => Http::response(mistralUsageCompletion([
+            'prompt_tokens' => 10,
+            'total_tokens' => 15,
+            'completion_tokens' => 5,
+            'num_cached_tokens' => 64,
+            'prompt_tokens_details' => ['cached_tokens' => 0],
+            'completion_tokens_details' => ['reasoning_tokens' => 0],
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()
+            ->using(Provider::Mistral, 'mistral-small-latest')
+            ->withPrompt('Hi')
+            ->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 10,
+            'completion_tokens' => 5,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 0,
+            'thought_tokens' => 0,
+        ]);
+    });
+});

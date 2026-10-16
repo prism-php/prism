@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Adapters\SSEAdapter;
 use Prism\Prism\Streaming\Events\ErrorEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -16,6 +17,7 @@ use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -237,4 +239,39 @@ it('integrates with Laravel response system', function (): void {
     expect($response->headers->has('Content-Type'))->toBeTrue();
     expect($response->headers->has('Cache-Control'))->toBeTrue();
     expect($response->headers->has('Connection'))->toBeTrue();
+});
+
+it('sends the step finish reason in the step_finish payload', function (): void {
+    $events = [
+        new StepFinishEvent('evt-1', 1640995200, new Usage(10, 5), finishReason: FinishReason::ToolCalls),
+        new StreamEndEvent('evt-2', 1640995201, FinishReason::Stop),
+    ];
+
+    $response = (new SSEAdapter)(createEventGenerator($events));
+
+    $output = '';
+    ob_start(function (string $buffer) use (&$output): string {
+        $output .= $buffer;
+
+        return '';
+    });
+    $response->getCallback()();
+    ob_end_flush();
+
+    $stepFinishBlock = collect(explode("\n\n", trim($output)))
+        ->first(fn (string $block): bool => str_starts_with($block, "event: step_finish\n"));
+
+    expect($stepFinishBlock)->not->toBeNull()
+        ->and(json_decode(substr((string) $stepFinishBlock, strlen("event: step_finish\ndata: ")), true))->toBe([
+            'id' => 'evt-1',
+            'timestamp' => 1640995200,
+            'finish_reason' => 'ToolCalls',
+            'usage' => [
+                'prompt_tokens' => 10,
+                'completion_tokens' => 5,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => null,
+                'thought_tokens' => null,
+            ],
+        ]);
 });

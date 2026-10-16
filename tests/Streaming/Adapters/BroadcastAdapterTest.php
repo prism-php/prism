@@ -10,6 +10,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Events\Broadcasting\CitationBroadcast;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
 use Prism\Prism\Events\Broadcasting\ProviderToolEventBroadcast;
+use Prism\Prism\Events\Broadcasting\StepFinishBroadcast;
 use Prism\Prism\Events\Broadcasting\StreamEndBroadcast;
 use Prism\Prism\Events\Broadcasting\StreamStartBroadcast;
 use Prism\Prism\Events\Broadcasting\TextCompleteBroadcast;
@@ -25,6 +26,7 @@ use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
 use Prism\Prism\Streaming\Events\CitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -441,6 +443,25 @@ it('validates broadcast event structure for multiple event types', function (): 
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
         ]);
+
+        return true;
+    });
+});
+
+it('broadcasts the step finish reason in the step_finish payload', function (): void {
+    $channel = new Channel('test-channel');
+    $event = new StepFinishEvent('evt-123', 1640995200, finishReason: FinishReason::Length);
+
+    (new BroadcastAdapter($channel))(createBroadcastEventGenerator([$event]));
+
+    Event::assertDispatched(StepFinishBroadcast::class, function (StepFinishBroadcast $broadcastEvent): bool {
+        expect($broadcastEvent->broadcastAs())->toBe('step_finish')
+            ->and($broadcastEvent->broadcastWith())->toBe([
+                'id' => 'evt-123',
+                'timestamp' => 1640995200,
+                'finish_reason' => 'Length',
+                'usage' => null,
+            ]);
 
         return true;
     });

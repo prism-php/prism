@@ -13,10 +13,12 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenRouter\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Providers\OpenRouter\ValueObjects\OpenRouterStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -42,6 +44,7 @@ class Stream
     use BuildsRequestOptions;
     use CallsTools;
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponses;
 
     protected OpenRouterStreamState $state;
@@ -72,11 +75,19 @@ class Stream
 
         $text = '';
         $toolCalls = [];
+        $stepFinishReason = null;
+        $usageSnapshot = null;
 
         while (! $response->getBody()->eof()) {
             $data = $this->parseNextDataLine($response->getBody());
 
             if ($data === null) {
+                continue;
+            }
+
+            $usageSnapshot = $this->extractUsage($data) ?? $usageSnapshot;
+
+            if ($stepFinishReason instanceof FinishReason) {
                 continue;
             }
 
@@ -102,60 +113,13 @@ class Stream
                 );
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
+            if ($this->hasError($data)) {
+                yield $this->errorEvent($data);
 
-                $finishReason = data_get($data, 'choices.0.finish_reason');
-                if ($finishReason !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    if ($this->state->hasTextStarted() && $text !== '') {
-                        $this->state->markTextCompleted();
-
-                        yield new TextCompleteEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            messageId: $this->state->messageId()
-                        );
-                    }
-
-                    if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
-                        yield new ThinkingCompleteEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            reasoningId: $this->state->reasoningId()
-                        );
-                    }
-
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                    return;
-                }
+                $stepFinishReason = FinishReason::Error;
+                $this->state->withFinishReason(FinishReason::Error);
 
                 continue;
-            }
-
-            $finishReasonValue = data_get($data, 'choices.0.finish_reason');
-            if ($finishReasonValue !== null && $this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
-
-                if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
-                    yield new ThinkingCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        reasoningId: $this->state->reasoningId()
-                    );
-                }
-
-                yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                return;
             }
 
             if ($this->hasReasoningData($data)) {
@@ -185,12 +149,12 @@ class Stream
                 }
 
                 $this->captureReasoningDetails($data);
-
-                continue;
             }
 
             $content = $this->extractContentDelta($data);
             if ($content !== '') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -211,46 +175,96 @@ class Stream
                 );
             }
 
-            $rawFinishReason = data_get($data, 'choices.0.finish_reason');
-            if ($rawFinishReason !== null) {
-                $finishReason = $this->mapFinishReason($data);
-
-                if ($this->state->hasTextStarted() && $text !== '') {
-                    $this->state->markTextCompleted();
-
-                    yield new TextCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        messageId: $this->state->messageId()
-                    );
-                }
-
-                if ($this->state->hasThinkingStarted() && $this->state->currentThinking() !== '') {
-                    yield new ThinkingCompleteEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        reasoningId: $this->state->reasoningId()
-                    );
-                }
-
-                $this->state->withFinishReason($finishReason);
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
-            // Extract usage from any chunk that has it
-            // OpenRouter sends usage in a separate final chunk when stream_options.include_usage=true
-            $usage = $this->extractUsage($data);
-            if ($usage instanceof Usage) {
-                $this->state->addUsage($usage);
+            if (data_get($data, 'choices.0.finish_reason') !== null) {
+                $stepFinishReason = $this->mapFinishReason($data);
+
+                yield from $this->completeOpenBlocks();
+
+                if ($stepFinishReason !== FinishReason::ToolCalls) {
+                    $this->state->withFinishReason($stepFinishReason);
+                }
             }
         }
 
+        yield from $this->completeOpenBlocks();
+
+        $stepUsage = $this->recordStepUsage($usageSnapshot);
+
+        if ($stepFinishReason === FinishReason::ToolCalls) {
+            yield from $this->handleToolCalls($request, $text, $toolCalls, $depth, $stepUsage);
+
+            return;
+        }
+
+        $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $stepUsage,
+            finishReason: $this->state->finishReason(),
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Closes the thinking and text this step started, each exactly once, before
+     * the step's tool calls or its StepFinishEvent.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        yield from $this->completeThinking();
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
+    }
+
+    /**
+     * @return Generator<StreamEvent>
+     */
+    protected function completeThinking(): Generator
+    {
+        if (! $this->state->hasThinkingStarted()) {
+            return;
+        }
+
+        $this->state->markThinkingCompleted();
+
+        yield new ThinkingCompleteEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId()
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $usageSnapshot
+     */
+    protected function recordStepUsage(?array $usageSnapshot): ?Usage
+    {
+        if ($usageSnapshot === null) {
+            return null;
+        }
+
+        $stepUsage = $this->mapUsage($usageSnapshot);
+
+        $this->state->addUsage($stepUsage);
+
+        return $stepUsage;
     }
 
     protected function emitStreamEndEvent(): StreamEndEvent
@@ -333,6 +347,33 @@ class Stream
     }
 
     /**
+     * OpenRouter reports a failure after the response has started as a chunk
+     * with a top-level `error`, and the stream ends there.
+     *
+     * @link https://openrouter.ai/docs/api-reference/streaming
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasError(array $data): bool
+    {
+        return is_array($data['error'] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function errorEvent(array $data): ErrorEvent
+    {
+        return new ErrorEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            errorType: (string) data_get($data, 'error.code', 'unknown_error'),
+            message: (string) data_get($data, 'error.message', 'No error message provided'),
+            recoverable: false,
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     protected function hasReasoningData(array $data): bool
@@ -385,7 +426,7 @@ class Stream
      */
     protected function extractContentDelta(array $data): string
     {
-        return data_get($data, 'choices.0.delta.content', '');
+        return data_get($data, 'choices.0.delta.content') ?? '';
     }
 
     /**
@@ -410,7 +451,8 @@ class Stream
         Request $request,
         string $text,
         array $toolCalls,
-        int $depth
+        int $depth,
+        ?Usage $stepUsage = null,
     ): Generator {
         $mappedToolCalls = $this->mapToolCalls($toolCalls);
 
@@ -426,10 +468,13 @@ class Stream
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
+        $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $stepUsage,
+            finishReason: FinishReason::ToolCalls,
         );
 
         $request->addMessage(new AssistantMessage($text, $mappedToolCalls, $this->buildAdditionalContent()));
@@ -524,22 +569,12 @@ class Stream
 
     /**
      * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
      */
-    protected function extractUsage(array $data): ?Usage
+    protected function extractUsage(array $data): ?array
     {
         $usage = data_get($data, 'usage');
 
-        if (! $usage) {
-            return null;
-        }
-
-        return new Usage(
-            promptTokens: (int) data_get($usage, 'prompt_tokens', 0),
-            completionTokens: (int) data_get($usage, 'completion_tokens', 0),
-            // OpenRouter: usage.prompt_tokens_details.cache_write_tokens / cached_tokens
-            cacheWriteInputTokens: (int) data_get($usage, 'prompt_tokens_details.cache_write_tokens', 0) ?: null,
-            cacheReadInputTokens: (int) data_get($usage, 'prompt_tokens_details.cached_tokens', 0) ?: null,
-            thoughtTokens: (int) data_get($usage, 'completion_tokens_details.reasoning_tokens', 0) ?: null,
-        );
+        return is_array($usage) && $usage !== [] ? $usage : null;
     }
 }

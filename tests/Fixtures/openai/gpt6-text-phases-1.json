@@ -1,0 +1,129 @@
+{
+    "id": "resp_067694cf35d3bc0b006ad11f2ece0c87d1bfbd2c4a389ae8bd",
+    "object": "response",
+    "created_at": 1792089902,
+    "status": "completed",
+    "access_programs": null,
+    "background": false,
+    "billing": {
+        "payer": "developer"
+    },
+    "completed_at": 1792089904,
+    "error": null,
+    "frequency_penalty": 0.0,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": 2000,
+    "max_tool_calls": null,
+    "model": "gpt-6.1-sol",
+    "moderation": null,
+    "output": [
+        {
+            "id": "rs_067694cf35d3bc0b006ad11f3068cc87d1b28a38bd22ebc456",
+            "type": "reasoning",
+            "content": [],
+            "encrypted_content": "gAAAAABq0R8wgMSDRqH3-first",
+            "summary": []
+        },
+        {
+            "id": "rs_067694cf35d3bc0b006ad11f3070dd87d1c39b49ce33fcd567",
+            "type": "reasoning",
+            "content": [],
+            "encrypted_content": "gAAAAABq0R8wgMSDRqH3-second",
+            "summary": [
+                {
+                    "type": "summary_text",
+                    "text": "**Multiplying**"
+                }
+            ]
+        },
+        {
+            "id": "msg_067694cf35d3bc0b006ad11f30a1aa87d18bb23af05d601111",
+            "type": "message",
+            "status": "completed",
+            "content": [
+                {
+                    "type": "output_text",
+                    "annotations": [],
+                    "logprobs": [],
+                    "text": "Working through the multiplication.\n"
+                }
+            ],
+            "phase": "commentary",
+            "role": "assistant"
+        },
+        {
+            "id": "msg_067694cf35d3bc0b006ad11f30bf9c87d19ab23af05d60183b",
+            "type": "message",
+            "status": "completed",
+            "content": [
+                {
+                    "type": "output_text",
+                    "annotations": [],
+                    "logprobs": [],
+                    "text": "17 × 23 = 391."
+                }
+            ],
+            "phase": "final_answer",
+            "role": "assistant"
+        }
+    ],
+    "parallel_tool_calls": true,
+    "presence_penalty": 0.0,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "prompt_cache_retention": "24h",
+    "reasoning": {
+        "context": "all_turns",
+        "effort": "low",
+        "mode": "standard",
+        "summary": null
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": true,
+    "temperature": 1.0,
+    "text": {
+        "format": {
+            "type": "text"
+        },
+        "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tool_usage": {
+        "image_gen": {
+            "input_tokens": 0,
+            "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+            },
+            "output_tokens": 0,
+            "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+            },
+            "total_tokens": 0
+        },
+        "web_search": {
+            "num_requests": 0
+        }
+    },
+    "tools": [],
+    "top_logprobs": 0,
+    "top_p": 0.98,
+    "truncation": "disabled",
+    "usage": {
+        "input_tokens": 20,
+        "input_tokens_details": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+        },
+        "output_tokens": 64,
+        "output_tokens_details": {
+            "reasoning_tokens": 40
+        },
+        "total_tokens": 84
+    },
+    "user": null,
+    "metadata": {}
+}

@@ -129,6 +129,34 @@ $response = Prism::text()
     ->asText();
 ```
 
+### Continuing a Conversation
+
+When you continue a conversation Prism already started, pass `$response->messages` back in. Don't rebuild the assistant turns from `$response->text`:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
+    ->withPrompt('What is JSON?')
+    ->asText();
+
+$followUp = Prism::text()
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
+    ->withMessages([
+        ...$response->messages,
+        new UserMessage('Can you show me an example?'),
+    ])
+    ->asText();
+```
+
+`$response->messages` holds every turn of the exchange, including tool calls and their results. Each `AssistantMessage` also carries the provider state that newer models expect back exactly as they sent it, in `additionalContent`. That state includes Claude's signed thinking blocks and OpenAI's reasoning items, and Prism replays it in its original order on the next request.
+
+> [!IMPORTANT]
+> If you store conversations in your database, store each message's `additionalContent` along with its text. A message rebuilt from text alone still works, but the model loses the reasoning from earlier turns. Conversations that Anthropic binds to their thinking signatures can be rejected if those blocks are edited.
+
 ### Message Types
 
 - `SystemMessage`
@@ -221,12 +249,66 @@ foreach ($response->steps as $step) {
 }
 
 // Access message history
-foreach ($response->responseMessages as $message) {
+foreach ($response->messages as $message) {
     if ($message instanceof AssistantMessage) {
         echo $message->content;
     }
 }
 ```
+
+### Why Generation Stopped
+
+`$response->finishReason` tells you how the model ended its turn. Check it before you trust `$response->text`:
+
+| Finish reason | What happened |
+|---|---|
+| `Stop` | The model finished normally |
+| `ToolCalls` | The model called tools and `maxSteps` ran out before it finished |
+| `Length` | The output hit `maxTokens` (or the model's context window or message limit) |
+| `Refusal` | The model declined the request |
+| `ContentFilter` | The provider filtered the output |
+| `Pause` | The provider paused a long-running turn, such as a server-side tool that's still working. Prism resumes it for you, so you only see `Pause` when `maxSteps` runs out. Raise `maxSteps`, or continue from `$response->messages` |
+| `Error` | The provider reported a failure |
+| `Other`, `Unknown` | Anything else. The provider's raw value is usually in `additionalContent` |
+
+Refusals come back as a normal response rather than an exception, so you can decide what to do with them:
+
+```php
+use Prism\Prism\Enums\FinishReason;
+
+if ($response->finishReason === FinishReason::Refusal) {
+    // Anthropic explains why; OpenAI returns the model's refusal message
+    $details = $response->additionalContent['stop_details']
+        ?? $response->additionalContent['refusal']
+        ?? null;
+
+    logger()->warning('Model declined the request', ['details' => $details]);
+
+    return back()->with('error', 'We could not answer that one.');
+}
+```
+
+> [!TIP]
+> A refused prompt stays in the conversation if you continue from `$response->messages`, and the model will usually decline again. Remove the refused exchange before you continue, or set up [server-side fallbacks](/providers/anthropic#fallbacks) on Anthropic.
+
+### Token Usage
+
+`$response->usage` adds up every step of the request, and every provider fills it the same way:
+
+| Field | What it counts |
+|---|---|
+| `promptTokens` | Input tokens that were neither read from nor written to a cache. Includes input a provider adds for its built-in tools |
+| `cacheReadInputTokens` | Input tokens read from a cache |
+| `cacheWriteInputTokens` | Input tokens written to a cache |
+| `completionTokens` | Every output token, reasoning included |
+| `thoughtTokens` | The part of `completionTokens` the model spent reasoning |
+
+The three input fields never overlap, so their sum is the request's total input. `thoughtTokens` is already inside `completionTokens`, so don't add the two together or price reasoning twice.
+
+The optional fields (`cacheReadInputTokens`, `cacheWriteInputTokens` and `thoughtTokens`) are `null` when the provider doesn't report them and `0` when it reports zero. Only some providers report cache writes, and some don't break out reasoning, so `null` there means "not reported", not "none". `promptTokens` and `completionTokens` are always integers, so a response that carries no usage at all shows `0` for both.
+
+> [!NOTE]
+> `Usage` is normalized token accounting, not a full bill. Charges outside these counters aren't in it: per-request and search fees, Perplexity's reasoning and citation tokens, and Anthropic fallback attempts on other models (see `usage_iterations` on the [Anthropic page](/providers/anthropic#fallbacks)). Ollama only splits out cached input on servers that report it (0.33.3 and later). Check the provider's page for these details.
 
 ## Handling Completions with Callbacks
 

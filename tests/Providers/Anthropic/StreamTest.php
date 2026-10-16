@@ -16,6 +16,7 @@ use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Streaming\Events\CitationEvent;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
@@ -359,7 +360,10 @@ describe('tools', function (): void {
         expect($events)->not->toBeEmpty();
 
         $lastEvent = end($events);
-        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+            ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
     });
 });
 
@@ -962,5 +966,130 @@ describe('step events', function (): void {
 
         // Verify step start/finish pairs are balanced
         expect(count($stepStartEvents))->toBe(count($stepFinishEvents));
+    });
+});
+
+it('ends with a step finish and Stop when the stream closes before message_delta', function (): void {
+    $truncated = collect(explode("\n\n", (string) file_get_contents(__DIR__.'/../../Fixtures/anthropic/stream-with-tools-1.sse')))
+        ->reject(fn (string $event): bool => str_contains($event, '"type":"message_delta"') || str_contains($event, '"type":"message_stop"'))
+        ->implode("\n\n");
+
+    Http::fake([
+        '*' => Http::response($truncated, 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+        ->withTools([
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "The weather will be 75° and sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+
+    expect($calls)->toBe(0)
+        ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+    Http::assertSentCount(1);
+});
+
+/**
+ * @param  array<string, mixed>  ...$events
+ */
+function anthropicBlockSse(array ...$events): string
+{
+    return collect($events)
+        ->map(fn (array $event): string => "event: {$event['type']}\ndata: ".json_encode($event)."\n\n")
+        ->implode('');
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function anthropicThinkingThenTextEvents(): array
+{
+    return [
+        ['type' => 'message_start', 'message' => ['id' => 'msg_blocks', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-4-5', 'content' => [], 'usage' => ['input_tokens' => 11, 'output_tokens' => 1]]],
+        ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'thinking', 'thinking' => '', 'signature' => '']],
+        ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'thinking_delta', 'thinking' => 'Thinking it over.']],
+        ['type' => 'content_block_stop', 'index' => 0],
+        ['type' => 'content_block_start', 'index' => 1, 'content_block' => ['type' => 'text', 'text' => '']],
+        ['type' => 'content_block_delta', 'index' => 1, 'delta' => ['type' => 'text_delta', 'text' => 'Sunny']],
+    ];
+}
+
+describe('unfinished streams', function (): void {
+    it('completes the open block and ends with Error after an error event', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(
+                ...anthropicThinkingThenTextEvents(),
+                ...[['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(ErrorEvent::class)->sole())
+            ->errorType->toBe('overloaded_error')
+            ->message->toBe('Overloaded')
+            ->recoverable->toBeFalse()
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->promptTokens)->toBe(11)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
+    });
+
+    it('keeps Error when a stop reason follows the error event', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(
+                ...anthropicThinkingThenTextEvents(),
+                ...[
+                    ['type' => 'error', 'error' => ['type' => 'api_error', 'message' => 'Internal error']],
+                    ['type' => 'message_delta', 'delta' => ['stop_reason' => 'end_turn'], 'usage' => ['output_tokens' => 5]],
+                    ['type' => 'message_stop'],
+                ],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
+    });
+
+    it('completes the open block when the stream closes mid-block', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(...anthropicThinkingThenTextEvents()), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop);
     });
 });

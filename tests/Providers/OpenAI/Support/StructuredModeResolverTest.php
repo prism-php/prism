@@ -47,13 +47,53 @@ it('resolves structured mode for gpt-5 family models', function (string $model):
     'gpt-5.4',
 ]);
 
-it('resolves json mode for models without structured support', function (string $model): void {
+it('resolves structured mode for current and future model families', function (string $model): void {
+    expect(StructuredModeResolver::forModel($model))->toBe(StructuredMode::Structured);
+})->with([
+    'gpt-6.1-sol',
+    'gpt-6-sol',
+    'gpt-6-luna',
+    'gpt-6-astra',
+    'gpt-5.6-sol',
+    'gpt-5.6-luna',
+    'gpt-5.6-terra',
+    'gpt-5.5',
+    'o3',
+    'o3-pro',
+    'o4-mini',
+    'o4-mini-2025-04-16',
+    'o1',
+]);
+
+it('resolves structured mode for unknown and custom model names', function (string $model): void {
+    expect(StructuredModeResolver::forModel($model))->toBe(StructuredMode::Structured);
+})->with([
+    'some-custom-model',
+    'my-proxy/gpt-6.1-sol',
+    'gpt-7',
+]);
+
+it('resolves json mode for legacy models without json_schema support', function (string $model): void {
     expect(StructuredModeResolver::forModel($model))->toBe(StructuredMode::Json);
 })->with([
+    'gpt-4',
     'gpt-4-turbo',
+    'gpt-4-turbo-2024-04-09',
+    'gpt-4-0613',
     'gpt-4-0125-preview',
+    'gpt-4-1106-preview',
     'gpt-3.5-turbo',
-    'some-custom-model',
+    'gpt-3.5-turbo-0125',
+    'gpt-4o-2024-05-13',
+]);
+
+it('resolves fine-tuned models from their base model', function (string $model, StructuredMode $mode): void {
+    expect(StructuredModeResolver::forModel($model))->toBe($mode);
+})->with([
+    ['ft:gpt-4.1-mini-2025-04-14:acme:support:abc123', StructuredMode::Structured],
+    ['ft:gpt-6-luna:acme:support:abc123', StructuredMode::Structured],
+    ['ft:gpt-3.5-turbo-0125:acme:support:abc123', StructuredMode::Json],
+    ['ft:gpt-4-0613:acme:support:abc123', StructuredMode::Json],
 ]);
 
 it('throws for unsupported models', function (string $model): void {

@@ -292,3 +292,121 @@ describe('Finish reason handling', function (): void {
         expect($response->steps)->toHaveCount(1);
     });
 });
+
+describe('Tool execution gating', function (): void {
+    it('only runs tool calls when the turn completes normally', function (?string $doneReason, int $expectedCalls, int $expectedRequests): void {
+        $toolTurn = array_filter([
+            'model' => 'qwen2.5:14b',
+            'created_at' => '2025-06-09T18:55:26.684517Z',
+            'message' => [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [['function' => ['name' => 'get_weather', 'arguments' => ['city' => 'Detroit']]]],
+            ],
+            'done_reason' => $doneReason,
+            'done' => true,
+            'prompt_eval_count' => 10,
+            'eval_count' => 5,
+        ], fn (mixed $value): bool => $value !== null);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push($toolTurn, 200)
+                ->push([
+                    'model' => 'qwen2.5:14b',
+                    'created_at' => '2025-06-09T18:55:32.104592Z',
+                    'message' => ['role' => 'assistant', 'content' => 'Sunny in Detroit.'],
+                    'done_reason' => 'stop',
+                    'done' => true,
+                    'prompt_eval_count' => 20,
+                    'eval_count' => 5,
+                ], 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+
+        $response = Prism::text()
+            ->using('ollama', 'qwen2.5:14b')
+            ->withTools([
+                Tool::as('get_weather')
+                    ->for('Get the weather for a city')
+                    ->withStringParameter('city', 'The city')
+                    ->using(function (string $city) use (&$calls): string {
+                        $calls++;
+
+                        return "Sunny in {$city}";
+                    }),
+            ])
+            ->withMaxSteps(3)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asText();
+
+        expect($calls)->toBe($expectedCalls)
+            ->and($response->steps)->toHaveCount($expectedRequests)
+            ->and($response->steps[0]->toolResults)->toHaveCount($expectedCalls);
+
+        Http::assertSentCount($expectedRequests);
+    })->with([
+        'stop runs the tools' => ['stop', 1, 2],
+        'length does not' => ['length', 0, 1],
+        'a missing done reason does not' => [null, 0, 1],
+    ]);
+});
+
+function ollamaUsageResponse(array $counters): array
+{
+    return [
+        'model' => 'qwen3:14b',
+        'created_at' => '2026-10-15T17:58:57.192416Z',
+        'message' => ['role' => 'assistant', 'content' => 'Hi'],
+        'done_reason' => 'stop',
+        'done' => true,
+        ...$counters,
+    ];
+}
+
+describe('Usage', function (): void {
+    it('takes prompt_eval_cached_count out of the prompt', function (): void {
+        Http::fake(['*' => Http::response(ollamaUsageResponse([
+            'prompt_eval_count' => 11,
+            'prompt_eval_cached_count' => 8,
+            'eval_count' => 18,
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using('ollama', 'qwen3:14b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 3,
+            'completion_tokens' => 18,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 8,
+            'thought_tokens' => null,
+        ]);
+    });
+
+    it('leaves the cache bucket null on servers that do not report it', function (): void {
+        Http::fake(['*' => Http::response(ollamaUsageResponse([
+            'prompt_eval_count' => 11,
+            'eval_count' => 18,
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using('ollama', 'qwen3:14b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->promptTokens)->toBe(11)
+            ->and($response->usage->cacheReadInputTokens)->toBeNull()
+            ->and($response->usage->completionTokens)->toBe(18);
+    });
+
+    it('never reports more cached tokens than the prompt held', function (): void {
+        Http::fake(['*' => Http::response(ollamaUsageResponse([
+            'prompt_eval_count' => 11,
+            'prompt_eval_cached_count' => 20,
+            'eval_count' => 18,
+        ]))])->preventStrayRequests();
+
+        $response = Prism::text()->using('ollama', 'qwen3:14b')->withPrompt('Hi')->asText();
+
+        expect($response->usage->promptTokens)->toBe(0)
+            ->and($response->usage->cacheReadInputTokens)->toBe(11);
+    });
+});

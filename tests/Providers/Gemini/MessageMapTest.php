@@ -274,3 +274,51 @@ it('throws an exception of multiple system prompts are given', function (): void
 
     $messageMap();
 })->throws(PrismException::class, 'Gemini only supports one system instruction.');
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps a user message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new UserMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([
+            'contents' => [[
+                'role' => 'user',
+                'parts' => [['text' => '0']],
+            ]],
+        ]);
+    });
+
+    it('keeps an assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([
+            'contents' => [[
+                'role' => 'model',
+                'parts' => [['text' => '0']],
+            ]],
+        ]);
+    });
+
+    it('still leaves empty text out of user and assistant parts', function (): void {
+        $messageMap = new MessageMap(
+            messages: [
+                new UserMessage('', [Image::fromUrl('https://prismphp.com/storage/diamond.png', 'image/png')]),
+                new AssistantMessage('', [new ToolCall('tool_1234', 'search', ['query' => 'prism'])]),
+            ],
+            systemPrompts: []
+        );
+
+        $mapped = $messageMap();
+
+        expect(data_get($mapped, 'contents.0.parts'))->toHaveCount(1);
+        expect(data_get($mapped, 'contents.0.parts.0'))->not->toHaveKey('text');
+        expect(data_get($mapped, 'contents.1.parts'))->toBe([
+            ['functionCall' => ['name' => 'search', 'args' => ['query' => 'prism']]],
+        ]);
+    });
+});

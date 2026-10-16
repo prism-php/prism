@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
@@ -25,11 +26,10 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
-    use CallsTools, ValidatesResponse;
+    use CallsTools, MapsUsage, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -171,8 +171,6 @@ class Text
      */
     protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
     {
-        $providerOptions = $request->providerOptions();
-
         $thoughtSummaries = $this->extractThoughtSummaries($data);
 
         $this->responseBuilder->addStep(new Step(
@@ -181,14 +179,7 @@ class Text
             toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                promptTokens: isset($providerOptions['cachedContentName'])
-                    ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
-                    : data_get($data, 'usageMetadata.promptTokenCount', 0),
-                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount'),
-                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
                 model: data_get($data, 'modelVersion', ''),

@@ -262,6 +262,8 @@ it('can generate an image with gpt-image-1 returning base64', function (): void 
     expect($response->firstImage()->hasUrl())->toBeFalse();
     expect($response->firstImage()->url)->toBeNull();
     expect($response->usage->promptTokens)->toBe(50);
+    expect($response->usage->completionTokens)->toBe(50);
+    expect($response->usage->cacheReadInputTokens)->toBeNull();
     expect($response->imageCount())->toBe(1);
     expect($response->additionalContent)->toBe([
         'input_tokens_details' => [
@@ -469,3 +471,33 @@ it('throws exception when mask is not Image value object', function (): void {
         ])
         ->generate();
 })->throws(\InvalidArgumentException::class, 'Mask must be an instance of Image value object');
+
+it('splits cached input out of the prompt tokens when OpenAI reports it', function (): void {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'created' => 1713833628,
+            'data' => [['b64_json' => 'iVBORw0KGgo=']],
+            'usage' => [
+                'total_tokens' => 150,
+                'input_tokens' => 50,
+                'output_tokens' => 100,
+                'input_tokens_details' => [
+                    'text_tokens' => 10,
+                    'image_tokens' => 40,
+                    'cached_tokens' => 32,
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $response = Prism::image()
+        ->using('openai', 'gpt-image-1')
+        ->withPrompt('A cute baby sea otter')
+        ->generate();
+
+    expect($response->usage->promptTokens)->toBe(18)
+        ->and($response->usage->cacheReadInputTokens)->toBe(32)
+        ->and($response->usage->completionTokens)->toBe(100)
+        ->and($response->usage->cacheWriteInputTokens)->toBeNull()
+        ->and($response->usage->thoughtTokens)->toBeNull();
+});
