@@ -122,22 +122,6 @@ class Stream
                 continue;
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                if (data_get($data, 'choices.0.finish_reason') !== null) {
-                    $stepFinishReason = $this->mapFinishReason($data);
-
-                    yield from $this->completeOpenBlocks();
-
-                    if ($stepFinishReason !== FinishReason::ToolCalls) {
-                        $this->state->withFinishReason($stepFinishReason);
-                    }
-                }
-
-                continue;
-            }
-
             if ($this->hasReasoningData($data)) {
                 $reasoningDelta = $this->extractReasoningDelta($data);
 
@@ -165,10 +149,6 @@ class Stream
                 }
 
                 $this->captureReasoningDetails($data);
-
-                if (data_get($data, 'choices.0.finish_reason') === null) {
-                    continue;
-                }
             }
 
             $content = $this->extractContentDelta($data);
@@ -193,6 +173,10 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId()
                 );
+            }
+
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             if (data_get($data, 'choices.0.finish_reason') !== null) {

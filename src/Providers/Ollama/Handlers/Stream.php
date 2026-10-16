@@ -135,14 +135,12 @@ class Stream
                     delta: $thinking,
                     reasoningId: $this->state->reasoningId()
                 );
-
-                if (! (bool) data_get($data, 'done', false)) {
-                    continue;
-                }
             }
 
-            // Thinking has stopped; keep processing the rest of this chunk
-            yield from $this->completeThinking();
+            // A chunk without thinking means thinking has stopped
+            if ($thinking === '') {
+                yield from $this->completeThinking();
+            }
 
             // Accumulate tool calls if present (don't emit events yet)
             if ($this->hasToolCalls($data)) {
@@ -155,6 +153,8 @@ class Stream
             // Handle text content
             $content = data_get($data, 'message.content', '');
             if ($content !== '') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
                     yield new TextStartEvent(

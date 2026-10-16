@@ -128,14 +128,6 @@ class Stream
                 continue;
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                if (data_get($data, 'choices.0.finish_reason') === null) {
-                    continue;
-                }
-            }
-
             $content = data_get($data, 'choices.0.delta.content', '') ?? '';
 
             if ($content !== '') {
@@ -157,6 +149,10 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId()
                 );
+            }
+
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {

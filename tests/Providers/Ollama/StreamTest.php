@@ -688,3 +688,76 @@ describe('in-stream errors', function (): void {
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
     });
 });
+
+/**
+ * @param  array<string, mixed>  $message
+ * @return array<string, mixed>
+ */
+function ollamaMixedToolChunk(array $message, ?string $doneReason = null): array
+{
+    $chunk = ollamaGatingToolChunk($doneReason);
+    $chunk['message'] = [...$chunk['message'], ...$message];
+
+    return $chunk;
+}
+
+dataset('ollama mixed tool chunk messages', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'thinking' => [['thinking' => 'Weighing the forecast.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'thinking and text' => [
+        ['thinking' => 'Weighing the forecast.', 'content' => 'Let me check.'],
+        ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'],
+        'Let me check.',
+    ],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $message, array $blocks, string $text, bool $doneOnMixedChunk): void {
+        $chunks = $doneOnMixedChunk
+            ? [ollamaMixedToolChunk($message, 'stop')]
+            : [ollamaMixedToolChunk($message), ollamaGatingDoneChunk('stop')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody(...$chunks), 200)
+                ->push(ollamaGatingStreamBody(ollamaGatingDoneChunk('stop')), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('ollama mixed tool chunk messages')->with([
+        'done on a later chunk' => [false],
+        'done on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $message, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(ollamaMixedToolChunk($message, 'length')), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('ollama mixed tool chunk messages');
+});

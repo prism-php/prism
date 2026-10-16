@@ -973,3 +973,72 @@ describe('content blocks', function (): void {
             ->and($messageIds->first())->not->toBe('');
     });
 });
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function xaiMixedToolChunk(array $delta, ?string $finishReason = null): array
+{
+    return xaiGatingDeltaChunk([
+        ...$delta,
+        'tool_calls' => xaiGatingToolChunk()['choices'][0]['delta']['tool_calls'],
+    ], $finishReason);
+}
+
+dataset('xai mixed tool chunk deltas', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'reasoning' => [['reasoning_content' => 'Weighing the forecast.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'reasoning and text' => [['reasoning_content' => 'Weighing the forecast.', 'content' => 'Let me check.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $delta, array $blocks, string $text, bool $finishOnMixedChunk): void {
+        $chunks = $finishOnMixedChunk
+            ? [xaiMixedToolChunk($delta, 'tool_calls')]
+            : [xaiMixedToolChunk($delta), xaiGatingFinishChunk('tool_calls')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('xai mixed tool chunk deltas')->with([
+        'tool_calls finish on a later chunk' => [false],
+        'tool_calls finish on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $delta, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(xaiMixedToolChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('xai mixed tool chunk deltas');
+});

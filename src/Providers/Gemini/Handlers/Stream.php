@@ -119,8 +119,9 @@ class Stream
 
             $this->captureStepUsage($data);
 
-            // Process tool calls
+            // Process tool calls, after any text or thinking that shares their chunk
             if ($this->hasToolCalls($data)) {
+                yield from $this->processContentParts($data);
                 yield from $this->completeOpenBlocks();
 
                 // Track existing indices before extraction
@@ -163,64 +164,7 @@ class Stream
                 continue;
             }
 
-            // Handle content from all parts
-            $parts = data_get($data, 'candidates.0.content.parts', []);
-
-            foreach ($parts as $part) {
-                // Check if this part is thinking content (based on Google's documentation)
-                if (isset($part['thought']) && $part['thought'] === true) {
-                    // Handle thinking content - part has thought=true boolean field
-                    $thinkingContent = $part['text'] ?? '';
-
-                    if ($thinkingContent !== '') {
-                        // Start thinking if not already started
-                        if ($this->state->reasoningId() === '') {
-                            $this->state->withReasoningId(EventID::generate());
-
-                            yield new ThinkingStartEvent(
-                                id: EventID::generate(),
-                                timestamp: time(),
-                                reasoningId: $this->state->reasoningId()
-                            );
-                        }
-
-                        $this->state->appendThinking($thinkingContent);
-
-                        yield new ThinkingEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            delta: $thinkingContent,
-                            reasoningId: $this->state->reasoningId()
-                        );
-                    }
-                } elseif (isset($part['text']) && (! isset($part['thought']) || $part['thought'] === false)) {
-                    // Handle regular text content (only when thought is not true)
-                    $content = $part['text'];
-
-                    if ($content !== '') {
-                        yield from $this->completeThinking();
-
-                        // Emit text start event once when we first get text
-                        if ($this->state->shouldEmitTextStart()) {
-                            yield new TextStartEvent(
-                                id: EventID::generate(),
-                                timestamp: time(),
-                                messageId: $this->state->messageId()
-                            );
-                            $this->state->markTextStarted();
-                        }
-
-                        $this->state->appendText($content);
-
-                        yield new TextDeltaEvent(
-                            id: EventID::generate(),
-                            timestamp: time(),
-                            delta: $content,
-                            messageId: $this->state->messageId()
-                        );
-                    }
-                }
-            }
+            yield from $this->processContentParts($data);
 
             $finishReason = $this->mapFinishReason($data);
 
@@ -255,6 +199,74 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent();
+    }
+
+    /**
+     * Streams the text and thought parts of a chunk. Function call parts are
+     * left for the tool call handling.
+     *
+     * @param  array<string, mixed>  $data
+     * @return Generator<StreamEvent>
+     */
+    protected function processContentParts(array $data): Generator
+    {
+        $parts = data_get($data, 'candidates.0.content.parts', []);
+
+        foreach ($parts as $part) {
+            // Check if this part is thinking content (based on Google's documentation)
+            if (isset($part['thought']) && $part['thought'] === true) {
+                // Handle thinking content - part has thought=true boolean field
+                $thinkingContent = $part['text'] ?? '';
+
+                if ($thinkingContent !== '') {
+                    // Start thinking if not already started
+                    if ($this->state->reasoningId() === '') {
+                        $this->state->withReasoningId(EventID::generate());
+
+                        yield new ThinkingStartEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            reasoningId: $this->state->reasoningId()
+                        );
+                    }
+
+                    $this->state->appendThinking($thinkingContent);
+
+                    yield new ThinkingEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        delta: $thinkingContent,
+                        reasoningId: $this->state->reasoningId()
+                    );
+                }
+            } elseif (isset($part['text']) && (! isset($part['thought']) || $part['thought'] === false)) {
+                // Handle regular text content (only when thought is not true)
+                $content = $part['text'];
+
+                if ($content !== '') {
+                    yield from $this->completeThinking();
+
+                    // Emit text start event once when we first get text
+                    if ($this->state->shouldEmitTextStart()) {
+                        yield new TextStartEvent(
+                            id: EventID::generate(),
+                            timestamp: time(),
+                            messageId: $this->state->messageId()
+                        );
+                        $this->state->markTextStarted();
+                    }
+
+                    $this->state->appendText($content);
+
+                    yield new TextDeltaEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        delta: $content,
+                        messageId: $this->state->messageId()
+                    );
+                }
+            }
+        }
     }
 
     /**

@@ -929,3 +929,72 @@ describe('content blocks', function (): void {
         ],
     ]);
 });
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function mistralMixedToolChunk(array $delta, ?string $finishReason = null): array
+{
+    return mistralGatingDeltaChunk([
+        ...$delta,
+        'tool_calls' => mistralGatingToolChunk()['choices'][0]['delta']['tool_calls'],
+    ], $finishReason);
+}
+
+dataset('mistral mixed tool chunk deltas', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'thinking' => [['content' => [['type' => 'thinking', 'thinking' => [['type' => 'text', 'text' => 'Weighing the forecast.']]]]], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'thinking and text' => [['content' => [['type' => 'thinking', 'thinking' => [['type' => 'text', 'text' => 'Weighing the forecast.']]], ['type' => 'text', 'text' => 'Let me check.']]], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $delta, array $blocks, string $text, bool $finishOnMixedChunk): void {
+        $chunks = $finishOnMixedChunk
+            ? [mistralMixedToolChunk($delta, 'tool_calls')]
+            : [mistralMixedToolChunk($delta), mistralGatingFinishChunk('tool_calls')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(mistralGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(mistralGatingSse(mistralGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('mistral mixed tool chunk deltas')->with([
+        'tool_calls finish on a later chunk' => [false],
+        'tool_calls finish on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $delta, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(mistralGatingSse(mistralMixedToolChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = mistralGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('mistral mixed tool chunk deltas');
+});

@@ -133,30 +133,17 @@ class Stream
                     delta: $thinkingContent,
                     reasoningId: $this->state->reasoningId()
                 );
-
-                if (data_get($data, 'choices.0.finish_reason') === null) {
-                    continue;
-                }
             }
 
             if ($thinkingContent === '') {
                 yield from $this->completeThinking();
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-                $finishReason = $this->extractFinishReason($data) ?? $finishReason;
-
-                if ($finishReason instanceof FinishReason) {
-                    $this->state->withFinishReason($finishReason);
-                }
-
-                continue;
-            }
-
             $content = $this->extractContent($data);
 
             if ($content !== '') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -175,6 +162,10 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId()
                 );
+            }
+
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');

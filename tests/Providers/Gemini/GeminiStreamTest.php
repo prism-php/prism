@@ -846,3 +846,65 @@ describe('usage', function (): void {
         Http::assertSentCount(2);
     });
 });
+
+dataset('gemini mixed function call chunk parts', [
+    'text' => [[['text' => 'Let me check.']], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'thought' => [[['text' => 'Weighing the forecast.', 'thought' => true]], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'thought and text' => [
+        [['text' => 'Weighing the forecast.', 'thought' => true], ['text' => 'Let me check.']],
+        ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'],
+        'Let me check.',
+    ],
+]);
+
+describe('chunks that carry text and a function call together', function (): void {
+    it('streams the text before the function call, runs the tool once and replays the text', function (array $parts, array $blocks, string $text, bool $stopOnMixedChunk): void {
+        $mixedChunk = geminiGatingChunk([...$parts, ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], $stopOnMixedChunk ? 'STOP' : null);
+        $chunks = $stopOnMixedChunk ? [$mixedChunk] : [$mixedChunk, geminiGatingChunk([['text' => '']], 'STOP')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(geminiGatingSse(geminiGatingChunk([['text' => '']], 'STOP')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+        $replayedParts = collect(collect(Http::recorded()[1][0]->data()['contents'])->firstWhere('role', 'model')['parts']);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayedParts->pluck('text')->filter()->implode(''))->toBe($text)
+            ->and($replayedParts->pluck('functionCall.name')->filter()->values()->all())->toBe(['get_weather']);
+
+        Http::assertSentCount(2);
+    })->with('gemini mixed function call chunk parts')->with([
+        'STOP on a later chunk' => [false],
+        'STOP on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $parts, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(
+                geminiGatingChunk([...$parts, ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Detroit']]]], 'MAX_TOKENS'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('gemini mixed function call chunk parts');
+});

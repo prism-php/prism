@@ -114,30 +114,6 @@ class Stream
 
             $this->captureStepUsage($data);
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
-                    yield from $this->completeOpenBlocks();
-
-                    $this->drainStepUsage($response);
-                    $this->recordStepUsage();
-
-                    yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
-
-                    return;
-                }
-
-                if (data_get($data, 'choices.0.finish_reason') !== null) {
-                    yield from $this->completeOpenBlocks();
-
-                    $stepFinishReason = $this->mapFinishReason($data);
-                    $this->state->withFinishReason($stepFinishReason);
-                }
-
-                continue;
-            }
-
             $streamContent = $this->extractStreamContent($data);
             $thinkingContent = $streamContent['thinking'];
             $textContent = $streamContent['text'];
@@ -164,9 +140,10 @@ class Stream
                 );
             }
 
-            // Emit ThinkingCompleteEvent when we transition from thinking to text
-            if ($this->state->hasThinkingStarted() && $thinkingContent === '' && $textContent !== '') {
-                yield from $this->completeThinking();
+            // Emit ThinkingCompleteEvent when we transition from thinking to text,
+            // including when both arrive in the same chunk
+            if ($this->state->hasThinkingStarted() && $textContent !== '') {
+                yield from $this->completeOpenBlocks();
                 $this->state->resetTextState();
                 $this->state->withMessageId(EventID::generate());
             }
@@ -191,6 +168,10 @@ class Stream
                     delta: $textContent,
                     messageId: $this->state->messageId()
                 );
+            }
+
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {

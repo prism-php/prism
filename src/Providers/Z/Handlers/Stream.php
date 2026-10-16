@@ -109,27 +109,6 @@ class Stream
                 );
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                $rawFinishReason = data_get($data, 'choices.0.finish_reason');
-
-                if ($rawFinishReason === 'tool_calls') {
-                    yield from $this->completeText();
-
-                    $stepFinishReason = FinishReason::ToolCalls;
-
-                    continue;
-                }
-
-                if ($rawFinishReason !== null) {
-                    $stepFinishReason = $this->mapFinishReason($data);
-                    $this->state->withFinishReason($stepFinishReason);
-                }
-
-                continue;
-            }
-
             $content = $this->extractContentDelta($data);
 
             if ($content !== '') {
@@ -151,6 +130,10 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId(),
                 );
+            }
+
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');

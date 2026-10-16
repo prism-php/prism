@@ -110,28 +110,6 @@ class Stream
                 );
             }
 
-            if ($this->hasToolCalls($data)) {
-                $toolCalls = $this->extractToolCalls($data, $toolCalls);
-
-                $rawFinishReason = data_get($data, 'choices.0.finish_reason');
-                if ($rawFinishReason === 'tool_calls') {
-                    yield from $this->completeOpenBlocks();
-
-                    $stepFinishReason = FinishReason::ToolCalls;
-
-                    continue;
-                }
-
-                if ($rawFinishReason !== null) {
-                    yield from $this->completeOpenBlocks();
-
-                    $stepFinishReason = $this->mapFinishReason($data);
-                    $this->state->withFinishReason($stepFinishReason);
-                }
-
-                continue;
-            }
-
             $reasoningDelta = $this->extractReasoningDelta($data);
             if ($reasoningDelta !== '' && $reasoningDelta !== '0') {
                 if ($this->state->shouldEmitThinkingStart()) {
@@ -150,10 +128,6 @@ class Stream
                     delta: $reasoningDelta,
                     reasoningId: $this->state->reasoningId()
                 );
-
-                if (data_get($data, 'choices.0.finish_reason') === null) {
-                    continue;
-                }
             }
 
             if ($reasoningDelta === '') {
@@ -162,6 +136,8 @@ class Stream
 
             $content = $this->extractContentDelta($data);
             if ($content !== '' && $content !== '0') {
+                yield from $this->completeThinking();
+
                 if ($this->state->shouldEmitTextStart()) {
                     $this->state->markTextStarted();
 
@@ -180,6 +156,10 @@ class Stream
                     delta: $content,
                     messageId: $this->state->messageId()
                 );
+            }
+
+            if ($this->hasToolCalls($data)) {
+                $toolCalls = $this->extractToolCalls($data, $toolCalls);
             }
 
             $rawFinishReason = data_get($data, 'choices.0.finish_reason');

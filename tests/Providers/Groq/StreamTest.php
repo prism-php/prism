@@ -872,3 +872,70 @@ describe('in-stream errors', function (): void {
         ]],
     ]);
 });
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function groqMixedToolChunk(array $delta, ?string $finishReason = null): array
+{
+    return groqGatingDeltaChunk([
+        ...$delta,
+        'tool_calls' => groqGatingToolChunk()['choices'][0]['delta']['tool_calls'],
+    ], $finishReason);
+}
+
+dataset('groq mixed tool chunk deltas', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $delta, array $blocks, string $text, bool $finishOnMixedChunk): void {
+        $chunks = $finishOnMixedChunk
+            ? [groqMixedToolChunk($delta, 'tool_calls')]
+            : [groqMixedToolChunk($delta), groqGatingFinishChunk('tool_calls')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(groqGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('groq mixed tool chunk deltas')->with([
+        'tool_calls finish on a later chunk' => [false],
+        'tool_calls finish on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $delta, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(groqGatingSse(groqMixedToolChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = groqGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('groq mixed tool chunk deltas');
+});
