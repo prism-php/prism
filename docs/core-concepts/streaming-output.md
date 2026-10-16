@@ -269,7 +269,7 @@ All streaming approaches emit the same core events with consistent data structur
 - **`artifact`** - Binary artifacts produced by tools (images, audio, files)
 - **`provider_tool_event`** - Provider-specific tool events (e.g., image generation, web search)
 - **`step_finish`** - End of a generation step (emitted after tool calls or before stream end)
-- **`error`** - Error handling with recovery information
+- **`error`** - An error the provider reported mid-stream. Its `recoverable` flag is `false`, since the error ends the step
 - **`stream_end`** - Stream completion with usage statistics
 
 > [!TIP]
@@ -390,13 +390,32 @@ Based on actual streaming output:
 
 The `finish_reason` on `stream_end` reports why the model really stopped, so watch for `Refusal`, `Length` and `Error` as well as `Stop`. Each `step_finish` carries the same field for its own step, so a step that ran tools reports `ToolCalls` even when the stream as a whole ends with `Stop`. The same values are covered in [Why Generation Stopped](/core-concepts/text-generation#why-generation-stopped).
 
-Every stream ends the same way on every provider: a `step_finish` for the last step, then exactly one `stream_end`. A few cases worth knowing:
+Every stream that isn't cut short by an exception ends the same way on every provider: a `step_finish` for the last step, then exactly one `stream_end`. A few cases worth knowing:
 
 - If `maxSteps` runs out on a step that ended with tool calls, Prism runs those tools and stops there. That step's `step_finish` and the `stream_end` both report `ToolCalls`, just like `$response->finishReason` on a non-streaming request.
 - If the connection closes before the provider sends a finish reason, the stream still ends with `step_finish` and `stream_end`, reporting `Stop`.
 - If the provider repeats its finish reason across several chunks, you still get one `stream_end`.
-- If the provider reports an error partway through, you get an `error` event, the step stops there, and its `step_finish` and the `stream_end` both report `Error` so partial output never looks like a finished answer. Any tool calls the step streamed don't run.
-- Every `text_start` and `thinking_start` gets its matching `text_complete` or `thinking_complete` before the step's `tool_call` events and its `step_finish`, even when the stream stops early.
+- If Anthropic, Groq, Ollama, OpenRouter or Perplexity reports an error partway through (other than the rate limits covered below), or an OpenAI response fails (`response.failed`), you get an `error` event with `recoverable` set to `false`. The step stops there, and its `step_finish` and the `stream_end` both report `Error` so partial output never looks like a finished answer. Any tool calls the step streamed don't run.
+- Every `text_start` and `thinking_start` gets its matching `text_complete` or `thinking_complete` before any `tool_call` event that follows it and before its step's `step_finish`, even when the connection closes early.
+
+Some failures throw an exception from inside the stream instead of sending an `error` event, and an exception stops iteration right there: no `error` event, no `step_finish` and no `stream_end`. You'll see one when Groq or Perplexity sends a `rate_limit_exceeded` error mid-stream (`PrismRateLimitedException`), when OpenAI sends an `error` event (`PrismRateLimitedException` for rate limits, `PrismException` for anything else), when a chunk can't be decoded (`PrismStreamDecodeException`), or when the request for the next tool step fails. If you iterate the stream yourself, wrap the loop in a `try`/`catch` so you can close out the response:
+
+```php
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+
+try {
+    foreach ($stream as $event) {
+        // Handle each event...
+    }
+} catch (PrismRateLimitedException $e) {
+    // Back off and try again later
+} catch (PrismException $e) {
+    // The stream stopped without a stream_end, so finish the response here
+}
+```
+
+`asDataStreamResponse()` already catches these for you and sends the client an error before it closes the stream.
 
 ## Handling Artifact Events
 
