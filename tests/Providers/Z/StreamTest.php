@@ -173,6 +173,45 @@ it('can generate text using tools with streaming', function (): void {
     });
 });
 
+it('replays the streamed tool calls alongside their results on the next step', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-with-tools');
+
+    $tools = [
+        Tool::as('get_weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want weather for')
+            ->using(fn (string $city): string => "The weather in {$city} will be 75° and sunny"),
+        Tool::as('search_games')
+            ->for('useful for searching current games times in city')
+            ->withStringParameter('city', 'The city that you want game times for')
+            ->using(fn (string $city): string => "The tigers game is at 3pm in {$city}"),
+    ];
+
+    collect(Prism::text()
+        ->using(Provider::Z, 'glm-5')
+        ->withTools($tools)
+        ->withMaxSteps(4)
+        ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat?')
+        ->asStream())->all();
+
+    $messages = collect(Http::recorded()[1][0]->data()['messages']);
+    $assistant = $messages->firstWhere('role', 'assistant');
+
+    expect(collect($assistant['tool_calls'] ?? [])->map(fn (array $toolCall): array => [
+        $toolCall['id'],
+        $toolCall['type'],
+        $toolCall['function']['name'],
+        json_decode((string) $toolCall['function']['arguments'], true),
+    ])->all())->toBe([
+        ['call_-8062812703858712887', 'function', 'search_games', ['city' => 'Detroit']],
+        ['call_-8062812703858712886', 'function', 'get_weather', ['city' => 'Detroit']],
+    ])
+        ->and($messages->where('role', 'tool')->pluck('tool_call_id')->values()->all())->toBe([
+            'call_-8062812703858712887',
+            'call_-8062812703858712886',
+        ]);
+});
+
 it('handles max_tokens parameter correctly', function (): void {
     FixtureResponse::fakeStreamResponses('chat/completions', 'z/stream-max-tokens');
 
