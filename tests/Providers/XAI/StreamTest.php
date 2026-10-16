@@ -1070,3 +1070,54 @@ describe('deltas that are exactly "0"', function (): void {
             ->and($calls)->toBe(1);
     });
 });
+
+describe('repeated "Thinking..." placeholders', function (): void {
+    it('emits the first placeholder and drops the repeats in each stream independently', function (): void {
+        $placeholderStream = xaiGatingSse(
+            xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => 'Thinking... ']),
+            xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+            xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+            xaiGatingDeltaChunk(['content' => 'Done'], 'stop'),
+        );
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push($placeholderStream, 200, ['Content-Type' => 'text/event-stream'])
+                ->push($placeholderStream, 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $thinkingDeltas = fn (): array => collect(iterator_to_array(Prism::text()
+            ->using('xai', 'grok-4')
+            ->withPrompt('Who are you?')
+            ->asStream(), false))
+            ->whereInstanceOf(ThinkingEvent::class)
+            ->map->delta
+            ->values()
+            ->all();
+
+        expect($thinkingDeltas())->toBe(['Thinking... '])
+            ->and($thinkingDeltas())->toBe(['Thinking... ']);
+    });
+
+    it('emits the first placeholder again in the step after a tool call', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(
+                    xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => 'Thinking... ']),
+                    xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+                    xaiGatingToolChunk('tool_calls'),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(
+                    xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => 'Thinking... ']),
+                    xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+                    xaiGatingDeltaChunk(['content' => 'Sunny'], 'stop'),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->whereInstanceOf(ThinkingEvent::class)->map->delta->values()->all())->toBe(['Thinking... ', 'Thinking... '])
+            ->and($calls)->toBe(1);
+    });
+});
