@@ -208,7 +208,7 @@ function ChatComponent() {
         },
         
         '.step_finish': (data) => {
-            console.log('Step finished:', data);
+            console.log('Step finished:', data.finish_reason);
             // Generation cycle complete, may be followed by another step
         },
         
@@ -359,10 +359,11 @@ Based on actual streaming output:
     }
 }
 
-// step_finish event (usage covers this step only, and is null when the provider didn't report it)
+// step_finish event (finish_reason and usage cover this step only; usage is null when the provider didn't report it)
 {
     "id": "anthropic_evt_def456step",
     "timestamp": 1756412895,
+    "finish_reason": "ToolCalls",
     "usage": {
         "prompt_tokens": 1720,
         "completion_tokens": 96,
@@ -387,7 +388,7 @@ Based on actual streaming output:
 }
 ```
 
-The `finish_reason` on `stream_end` reports why the model really stopped, so watch for `Refusal`, `Length` and `Error` as well as `Stop`. The same values are covered in [Why Generation Stopped](/core-concepts/text-generation#why-generation-stopped).
+The `finish_reason` on `stream_end` reports why the model really stopped, so watch for `Refusal`, `Length` and `Error` as well as `Stop`. Each `step_finish` carries the same field for its own step, so a step that ran tools reports `ToolCalls` even when the stream as a whole ends with `Stop`. The same values are covered in [Why Generation Stopped](/core-concepts/text-generation#why-generation-stopped).
 
 Every stream ends the same way on every provider: a `step_finish` for the last step, then exactly one `stream_end`. A few cases worth knowing:
 

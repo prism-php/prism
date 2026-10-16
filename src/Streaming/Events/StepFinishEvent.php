@@ -33,6 +33,7 @@ readonly class StepFinishEvent extends StreamEvent
         return [
             'id' => $this->id,
             'timestamp' => $this->timestamp,
+            'finish_reason' => $this->finishReason?->name,
             'usage' => $this->usage instanceof Usage ? [
                 'prompt_tokens' => $this->usage->promptTokens,
                 'completion_tokens' => $this->usage->completionTokens,
