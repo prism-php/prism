@@ -114,7 +114,7 @@ class Stream
 
             $thinkingContent = $this->extractThinking($data, $request);
 
-            if ($thinkingContent !== '' && $thinkingContent !== '0') {
+            if ($thinkingContent !== '') {
                 if ($this->state->shouldEmitThinkingStart()) {
                     $this->state
                         ->withReasoningId(EventID::generate())
@@ -316,7 +316,9 @@ class Stream
                 $toolCalls[$index]['name'] = $name;
             }
 
-            if ($arguments = data_get($deltaToolCall, 'function.arguments')) {
+            $arguments = data_get($deltaToolCall, 'function.arguments');
+
+            if (is_string($arguments) && $arguments !== '') {
                 $toolCalls[$index]['arguments'] .= $arguments;
             }
         }

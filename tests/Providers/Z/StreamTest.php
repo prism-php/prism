@@ -787,3 +787,28 @@ describe('chunks that carry text and a tool call together', function (): void {
         Http::assertSentCount(1);
     })->with('z mixed tool chunk deltas');
 });
+
+describe('deltas that are exactly "0"', function (): void {
+    it('keeps "0" text and tool argument deltas', function (): void {
+        $toolCallChunk = fn (array $toolCall, ?string $finishReason = null): array => zGatingDeltaChunk(['tool_calls' => [['index' => 0, ...$toolCall]]], $finishReason);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(zGatingSse(
+                    zGatingDeltaChunk(['content' => '1']),
+                    zGatingDeltaChunk(['content' => '0']),
+                    $toolCallChunk(['id' => 'call_zero', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Area 5']]),
+                    $toolCallChunk(['function' => ['arguments' => '0']]),
+                    $toolCallChunk(['function' => ['arguments' => '"}']], 'tool_calls'),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(zGatingSse(zGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = zGatingStream($calls);
+
+        expect($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(ToolCallEvent::class)->sole()->toolCall->arguments())->toBe(['city' => 'Area 50'])
+            ->and($calls)->toBe(1);
+    });
+});

@@ -264,7 +264,9 @@ class Stream
                 $toolCalls[$index]['name'] = $name;
             }
 
-            if ($arguments = data_get($deltaToolCall, 'function.arguments')) {
+            $arguments = data_get($deltaToolCall, 'function.arguments');
+
+            if (is_string($arguments) && $arguments !== '') {
                 $toolCalls[$index]['arguments'] .= $arguments;
             }
         }

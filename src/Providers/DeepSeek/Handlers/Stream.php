@@ -111,7 +111,7 @@ class Stream
             }
 
             $reasoningDelta = $this->extractReasoningDelta($data);
-            if ($reasoningDelta !== '' && $reasoningDelta !== '0') {
+            if ($reasoningDelta !== '') {
                 if ($this->state->shouldEmitThinkingStart()) {
                     $this->state->withReasoningId(EventID::generate())->markThinkingStarted();
 
@@ -135,7 +135,7 @@ class Stream
             }
 
             $content = $this->extractContentDelta($data);
-            if ($content !== '' && $content !== '0') {
+            if ($content !== '') {
                 yield from $this->completeThinking();
 
                 if ($this->state->shouldEmitTextStart()) {
@@ -306,7 +306,9 @@ class Stream
                 $toolCalls[$index]['name'] = $name;
             }
 
-            if ($arguments = data_get($deltaToolCall, 'function.arguments')) {
+            $arguments = data_get($deltaToolCall, 'function.arguments');
+
+            if (is_string($arguments) && $arguments !== '') {
                 $toolCalls[$index]['arguments'] .= $arguments;
             }
         }

@@ -1042,3 +1042,31 @@ describe('chunks that carry text and a tool call together', function (): void {
         Http::assertSentCount(1);
     })->with('xai mixed tool chunk deltas');
 });
+
+describe('deltas that are exactly "0"', function (): void {
+    it('keeps "0" reasoning, text and tool argument deltas', function (): void {
+        $toolCallChunk = fn (array $toolCall, ?string $finishReason = null): array => xaiGatingDeltaChunk(['tool_calls' => [['index' => 0, ...$toolCall]]], $finishReason);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(
+                    xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => '1']),
+                    xaiGatingDeltaChunk(['reasoning_content' => '0']),
+                    xaiGatingDeltaChunk(['content' => '1']),
+                    xaiGatingDeltaChunk(['content' => '0']),
+                    $toolCallChunk(['id' => 'call_zero', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Area 5']]),
+                    $toolCallChunk(['function' => ['arguments' => '0']]),
+                    $toolCallChunk(['function' => ['arguments' => '"}']], 'tool_calls'),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->whereInstanceOf(ThinkingEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(ToolCallEvent::class)->sole()->toolCall->arguments())->toBe(['city' => 'Area 50'])
+            ->and($calls)->toBe(1);
+    });
+});
