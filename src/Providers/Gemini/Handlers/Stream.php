@@ -179,6 +179,8 @@ class Stream
             }
         }
 
+        yield from $this->completeOpenBlocks();
+
         $this->recordStepUsage();
 
         if ($this->state->hasToolCalls() && $stepFinishReason === FinishReason::ToolCalls) {

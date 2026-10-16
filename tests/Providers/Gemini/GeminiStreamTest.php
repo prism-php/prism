@@ -717,6 +717,37 @@ describe('content blocks', function (): void {
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
     });
+
+    it('completes the block a step left open when the stream closes before a finish reason', function (array $chunks, array $blockEvents): void {
+        Http::fake([
+            '*' => Http::response(geminiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = geminiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => $event::class)->values()->all())->toBe([
+            StreamStartEvent::class,
+            StepStartEvent::class,
+            ...$blockEvents,
+            StepFinishEvent::class,
+            StreamEndEvent::class,
+        ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop);
+    })->with([
+        'inside text' => [
+            [
+                geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]]),
+                geminiGatingChunk([['text' => 'Sunny in']]),
+            ],
+            [ThinkingStartEvent::class, ThinkingEvent::class, ThinkingCompleteEvent::class, TextStartEvent::class, TextDeltaEvent::class, TextCompleteEvent::class],
+        ],
+        'inside thinking' => [
+            [geminiGatingChunk([['text' => 'The user wants the weather.', 'thought' => true]])],
+            [ThinkingStartEvent::class, ThinkingEvent::class, ThinkingCompleteEvent::class],
+        ],
+    ]);
 });
 
 /**
