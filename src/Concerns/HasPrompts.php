@@ -73,6 +73,14 @@ trait HasPrompts
         return $this;
     }
 
+    /**
+     * @phpstan-assert-if-true non-empty-string $this->prompt
+     */
+    protected function hasPrompt(): bool
+    {
+        return $this->prompt !== null && $this->prompt !== '';
+    }
+
     protected function filterLivewireMorphMarkers(string $content): string
     {
         return $this->applyPromptFilters($content);

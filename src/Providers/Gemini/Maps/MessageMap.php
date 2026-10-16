@@ -100,7 +100,7 @@ class MessageMap
     {
         $parts = [];
 
-        if ($message->text() !== '' && $message->text() !== '0') {
+        if ($message->text() !== '') {
             $parts[] = ['text' => $message->text()];
         }
 
@@ -123,7 +123,7 @@ class MessageMap
     {
         $parts = [];
 
-        if ($message->content !== '' && $message->content !== '0') {
+        if ($message->content !== '') {
             $parts[] = ['text' => $message->content];
         }
 

@@ -153,7 +153,7 @@ class MessageMap
             }
         }
 
-        if ($message->content !== '' && $message->content !== '0') {
+        if ($message->content !== '') {
             $mappedMessage = [
                 'role' => 'assistant',
                 'content' => [

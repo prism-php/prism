@@ -252,3 +252,26 @@ test('it filters livewire morph markers from view system prompts in structured r
     expect($generated->systemPrompts()[0]->content)
         ->toBe('System instruction');
 });
+
+test('it keeps a prompt of "0" as a user message', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withPrompt('0')
+        ->toRequest();
+
+    expect($request->messages())->toHaveCount(1)
+        ->and($request->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($request->messages()[0]->text())->toBe('0');
+});
+
+test('it throws when a prompt of "0" is combined with messages', function (): void {
+    $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withMessages([new UserMessage('test')])
+        ->withPrompt('0');
+
+    expect($this->pendingRequest->toRequest(...))
+        ->toThrow(PrismException::class, 'You can only use `prompt` or `messages`');
+});

@@ -434,3 +434,55 @@ describe('documents', function (): void {
             ->toBe('previously-uploaded-file-id');
     });
 });
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps a user message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new UserMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'user',
+            'content' => [['type' => 'input_text', 'text' => '0']],
+        ]]);
+    });
+
+    it('keeps an assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+            'content' => [['type' => 'output_text', 'text' => '0']],
+        ]]);
+    });
+
+    it('still maps an empty assistant message to nothing', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([]);
+    });
+
+    it('keeps a tool result of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [
+                new ToolResultMessage([
+                    new ToolResult('tool_1234', 'count', [], '0', 'call_1234'),
+                ]),
+            ],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'type' => 'function_call_output',
+            'call_id' => 'call_1234',
+            'output' => '0',
+        ]]);
+    });
+});

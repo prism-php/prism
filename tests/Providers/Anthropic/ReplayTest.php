@@ -408,3 +408,37 @@ it('sends the tool_use caller field and empty thinking text back on the wire', f
             && $assistant['content'][3]['thinking'] === '';
     });
 });
+
+it('sends a prompt and a replayed assistant turn of "0" on the wire', function (): void {
+    $fixtures = __DIR__.'/../../Fixtures/anthropic';
+
+    Http::fake([
+        'v1/messages' => Http::sequence([
+            Http::response((string) file_get_contents("{$fixtures}/generate-text-with-a-prompt-1.json")),
+            Http::response((string) file_get_contents("{$fixtures}/generate-text-with-a-prompt-1.json")),
+        ]),
+    ])->preventStrayRequests();
+
+    Prism::text()
+        ->using('anthropic', 'claude-fable-5-1')
+        ->withPrompt('0')
+        ->asText();
+
+    Prism::text()
+        ->using('anthropic', 'claude-fable-5-1')
+        ->withMessages([
+            new UserMessage('How many?'),
+            new AssistantMessage('0'),
+            new UserMessage('Are you sure?'),
+        ])
+        ->asText();
+
+    expect(anthropicRequestBodies()[0]['messages'])->toBe([
+        ['role' => 'user', 'content' => [['type' => 'text', 'text' => '0']]],
+    ]);
+    expect(anthropicRequestBodies()[1]['messages'])->toBe([
+        ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'How many?']]],
+        ['role' => 'assistant', 'content' => [['type' => 'text', 'text' => '0']]],
+        ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'Are you sure?']]],
+    ]);
+});

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Maps;
 
 use Exception;
+use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\NormalizesCacheControl;
@@ -20,6 +21,7 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 class MessageMap
 {
+    use FiltersEmptyValues;
     use NormalizesCacheControl;
 
     /**
@@ -107,7 +109,7 @@ class MessageMap
      */
     protected static function mapSystemMessage(SystemMessage $systemMessage): array
     {
-        return array_filter([
+        return self::withoutEmptyValues([
             'type' => 'text',
             'text' => $systemMessage->content,
             'cache_control' => self::normalizeCacheControl($systemMessage),
@@ -128,7 +130,7 @@ class MessageMap
                 // Only add cache_control to the last tool result
                 $isLastResult = $index === $totalResults - 1;
 
-                return array_filter([
+                return self::withoutEmptyValues([
                     'type' => 'tool_result',
                     'tool_use_id' => $toolResult->toolCallId,
                     'content' => $toolResult->result,
@@ -149,7 +151,7 @@ class MessageMap
         return [
             'role' => 'user',
             'content' => [
-                array_filter([
+                self::withoutEmptyValues([
                     'type' => 'text',
                     'text' => $message->text(),
                     'cache_control' => $cacheControl,
@@ -178,14 +180,13 @@ class MessageMap
 
         if (isset($message->additionalContent['citations'])) {
             foreach ($message->additionalContent['citations'] as $part) {
-                $content[] = array_filter([
+                $content[] = self::withoutEmptyValues([
                     ...CitationsMapper::mapToAnthropic($part),
                     'cache_control' => $cacheControl,
                 ]);
             }
-        } elseif ($message->content !== '' && $message->content !== '0') {
-
-            $content[] = array_filter([
+        } elseif ($message->content !== '') {
+            $content[] = self::withoutEmptyValues([
                 'type' => 'text',
                 'text' => $message->content,
                 'cache_control' => $cacheControl,

@@ -412,3 +412,81 @@ it('maps user messages with documents from url', function (): void {
     expect(data_get($mappedMessage, '0.content.1.file.file_data'))
         ->toBe('https://example.com/document.pdf');
 });
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps a user message of "0"', function (?string $cacheType, array $expectedPart): void {
+        $messageMap = new MessageMap(
+            messages: [(new UserMessage('0'))->withProviderOptions(['cacheType' => $cacheType])],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'user',
+            'content' => [$expectedPart],
+        ]]);
+    })->with([
+        'without caching' => [null, ['type' => 'text', 'text' => '0']],
+        'with caching' => ['ephemeral', ['type' => 'text', 'text' => '0', 'cache_control' => ['type' => 'ephemeral']]],
+    ]);
+
+    it('keeps an assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+            'content' => '0',
+        ]]);
+    });
+
+    it('keeps a cached assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [(new AssistantMessage('0'))->withProviderOptions(['cacheType' => 'ephemeral'])],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+            'content' => [[
+                'type' => 'text',
+                'text' => '0',
+                'cache_control' => ['type' => 'ephemeral'],
+            ]],
+        ]]);
+    });
+
+    it('still leaves the content of an empty cached assistant message out', function (): void {
+        $messageMap = new MessageMap(
+            messages: [
+                (new AssistantMessage('', [new ToolCall('tool_1234', 'search', ['query' => 'prism'])]))
+                    ->withProviderOptions(['cacheType' => 'ephemeral']),
+            ],
+            systemPrompts: []
+        );
+
+        expect($messageMap()[0])->not->toHaveKey('content');
+    });
+
+    it('keeps a cached tool result of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [
+                (new ToolResultMessage([
+                    new ToolResult('tool_1234', 'count', [], '0'),
+                ]))->withProviderOptions(['cacheType' => 'ephemeral']),
+            ],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'tool',
+            'content' => [[
+                'type' => 'tool_result',
+                'tool_call_id' => 'tool_1234',
+                'content' => '0',
+                'cache_control' => ['type' => 'ephemeral'],
+            ]],
+        ]]);
+    });
+});

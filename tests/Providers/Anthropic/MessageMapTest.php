@@ -696,3 +696,69 @@ describe('Anthropic provider tool calls mapping', function (): void {
         ]);
     });
 });
+
+describe('Anthropic content that is exactly "0"', function (): void {
+    it('keeps a user message of "0"', function (): void {
+        expect(MessageMap::map([
+            new UserMessage('0'),
+        ]))->toBe([[
+            'role' => 'user',
+            'content' => [
+                ['type' => 'text', 'text' => '0'],
+            ],
+        ]]);
+    });
+
+    it('keeps an assistant message of "0"', function (): void {
+        expect(MessageMap::map([
+            new UserMessage('How many?'),
+            new AssistantMessage('0'),
+        ]))->toBe([
+            ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'How many?']]],
+            ['role' => 'assistant', 'content' => [['type' => 'text', 'text' => '0']]],
+        ]);
+    });
+
+    it('still leaves an empty assistant message out', function (): void {
+        expect(MessageMap::map([
+            new UserMessage('How many?'),
+            new AssistantMessage(''),
+        ]))->toBe([
+            ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'How many?']]],
+        ]);
+    });
+
+    it('keeps cited assistant text of "0"', function (): void {
+        $mapped = MessageMap::map([
+            new AssistantMessage(
+                content: '0',
+                additionalContent: [
+                    'citations' => [new MessagePartWithCitations(outputText: '0', citations: [])],
+                ]
+            ),
+        ]);
+
+        expect($mapped[0]['content'])->toBe([['type' => 'text', 'text' => '0']]);
+    });
+
+    it('keeps a tool result of "0"', function (): void {
+        expect(MessageMap::map([
+            new ToolResultMessage([
+                new ToolResult('tool_1234', 'count', [], '0'),
+            ]),
+        ]))->toBe([[
+            'role' => 'user',
+            'content' => [
+                ['type' => 'tool_result', 'tool_use_id' => 'tool_1234', 'content' => '0'],
+            ],
+        ]]);
+    });
+
+    it('keeps a system prompt of "0"', function (): void {
+        expect(MessageMap::mapSystemMessages([
+            new SystemMessage('0'),
+        ]))->toBe([
+            ['type' => 'text', 'text' => '0'],
+        ]);
+    });
+});
