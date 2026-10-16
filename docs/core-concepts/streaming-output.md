@@ -767,8 +767,12 @@ Each `AssistantMessage` carries its step's replay data in `additionalContent`, s
 A few details worth knowing:
 
 - Tool calls from a step that didn't end with tool calls (a refusal, a `maxTokens` cutoff, a failure) never ran, so they're left out of that step's `AssistantMessage`.
-- If the stream stops early, say because the client disconnected, you get the messages for what arrived. Tool calls that never got a result are left out, so the stored conversation still replays cleanly.
+- If the stream stops early, you get the messages for what arrived. Tool calls that never got a result are left out, so the stored conversation still replays cleanly.
+- If the client disconnects from `asEventStreamResponse()` or `asDataStreamResponse()` after a step's tools have run, Prism collects the rest of that step before calling your callback: the remaining tool results and the step's replay data, which are already computed. It doesn't send the next request, so no more tools run, and you keep the results of the tools that did.
 - Outside a callback, collect the events from `asStream()` yourself and pass them in: `StreamedMessages::fromEvents(iterator_to_array($stream, false))`.
+
+> [!IMPORTANT]
+> By default, PHP ends your script when it tries to send output to a client that has disconnected, so your callback may never run. If you persist every turn, call `ignore_user_abort(true)` before you return the response. Prism then notices the disconnect, stops streaming, and calls your callback with what it collected. That's how PHP-FPM and Apache behave. Octane servers manage the connection themselves, so check how yours handles a disconnect.
 
 ### Data Protocol Output
 
