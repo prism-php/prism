@@ -587,6 +587,42 @@ it('keeps parallel tool calls apart when their deltas arrive in separate chunks'
     Http::assertSentCount(2);
 });
 
+it('keeps tool delta identity while accumulating fragments', function (array $deltas): void {
+    $chunks = array_map(fn (array $delta): array => groqGatingDeltaChunk(['tool_calls' => $delta]), $deltas);
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(groqGatingSse(...[...$chunks, groqGatingFinishChunk('tool_calls')]), 200, ['Content-Type' => 'text/event-stream'])
+            ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $toolCalls = groqGatingStream($calls)->whereInstanceOf(ToolCallEvent::class)->map->toolCall->values();
+
+    expect($calls)->toBe(2)
+        ->and($toolCalls->map->id->all())->toBe(['call_detroit', 'call_paris'])
+        ->and($toolCalls->map(fn (ToolCall $toolCall): array => $toolCall->arguments())->all())
+        ->toBe([['city' => 'Detroit'], ['city' => 'Paris']]);
+
+    Http::assertSentCount(2);
+})->with([
+    'sparse indices with interleaved fragments' => [[
+        [['index' => 3, 'id' => 'call_detroit', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']]],
+        [['index' => 7, 'id' => 'call_paris', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']]],
+        [['index' => 3, 'function' => ['arguments' => '"Detroit"}']]],
+        [['index' => 7, 'function' => ['arguments' => '"Paris"}']]],
+    ]],
+    'legacy chunk positions without indices' => [[
+        [
+            ['id' => 'call_detroit', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']],
+            ['id' => 'call_paris', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']],
+        ],
+        [
+            ['function' => ['arguments' => '"Detroit"}']],
+            ['function' => ['arguments' => '"Paris"}']],
+        ],
+    ]],
+]);
+
 describe('tool execution gating', function (): void {
     it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
         Http::fake([
