@@ -61,6 +61,9 @@ return [
                 'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
             ],
         ],
+        'modelslab' => [
+            'api_key' => env('MODELSLAB_API_KEY', ''),
+            'url' => env('MODELSLAB_URL', 'https://modelslab.com/api/v6/'),
         'perplexity' => [
             'api_key' => env('PERPLEXITY_API_KEY', ''),
             'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
