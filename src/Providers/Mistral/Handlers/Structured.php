@@ -132,7 +132,7 @@ class Structured
      */
     protected function handleStop(array $data, Request $request, ClientResponse $clientResponse): StructuredResponse
     {
-        $text = data_get($data, 'choices.0.message.content') ?? '';
+        $text = $this->extractText(data_get($data, 'choices.0.message', []));
 
         $request->addMessage(new AssistantMessage($text));
 

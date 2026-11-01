@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {
@@ -113,3 +115,38 @@ it('maps cached input and reasoning on structured responses', function (): void 
         'cost' => null,
     ]);
 });
+
+it('keeps reasoning content separate when reading structured output', function (string|array $content, array $thinking): void {
+    Http::fake(['*' => Http::response([
+        'id' => 'structured-reasoning',
+        'object' => 'chat.completion',
+        'model' => 'mistral-small-latest',
+        'choices' => [['index' => 0, 'finish_reason' => 'stop', 'message' => ['role' => 'assistant', 'content' => $content]]],
+        'usage' => ['prompt_tokens' => 12, 'completion_tokens' => 7],
+    ])])->preventStrayRequests();
+
+    $response = Prism::structured()
+        ->withSchema(new ObjectSchema('output', 'The output', [new StringSchema('result', 'The result')], ['result']))
+        ->using(Provider::Mistral, 'mistral-small-latest')
+        ->withPrompt('Return the result as JSON.')
+        ->asStructured();
+
+    $step = $response->steps->last();
+    $assistant = array_values(array_filter($step->messages, fn (Message $message): bool => $message instanceof AssistantMessage))[0];
+
+    expect($response->structured)->toBe(['result' => 'hello'])
+        ->and($response->text)->toBe('{"result":"hello"}')
+        ->and($assistant->content)->toBe('{"result":"hello"}')
+        ->and($step->additionalContent)->toBe($thinking)
+        ->and($response->usage->promptTokens)->toBe(12)
+        ->and($response->usage->completionTokens)->toBe(7);
+
+    Http::assertSentCount(1);
+})->with([
+    'legacy string content' => ['{"result":"hello"}', []],
+    'text parts around thinking' => [[
+        ['type' => 'text', 'text' => '{"result":'],
+        ['type' => 'thinking', 'thinking' => [['type' => 'text', 'text' => 'This is reasoning, not JSON.']]],
+        ['type' => 'text', 'text' => '"hello"}'],
+    ], ['thinking' => 'This is reasoning, not JSON.']],
+]);
