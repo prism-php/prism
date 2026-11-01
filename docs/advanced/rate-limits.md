@@ -15,7 +15,7 @@ quota buckets are available.
 
 `$error->retryAfter` is an optional delay in seconds, separate from its quota buckets. Not every integration populates it, and a value of zero is not a promise of available capacity. Use a bounded queue/backoff policy when the provider supplies no usable delay.
 
-Bucket names differ: Anthropic can report `input-tokens`/`output-tokens`, while Groq and Mistral use names such as `tokens`. Do not assume one bucket name works for every provider. Mistral's parser casts absent numeric headers to zero and supplies a reset time based on that value; missing headers are not authoritative quota evidence.
+Bucket names differ: Anthropic can report `input-tokens`/`output-tokens`, while Groq and Mistral use names such as `tokens`. Do not assume one bucket name works for every provider. Mistral emits a bucket only when both its limit and remaining headers are present. It casts those reported values to integers and adds the reset header's delay to the current time; a missing reset header is treated as zero seconds.
 
 ## The ProviderRateLimit value object
 
