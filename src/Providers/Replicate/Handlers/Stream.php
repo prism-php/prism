@@ -6,18 +6,23 @@ namespace Prism\Prism\Providers\Replicate\Handlers;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Replicate\Concerns\DownloadsOutputs;
 use Prism\Prism\Providers\Replicate\Concerns\HandlesPredictions;
 use Prism\Prism\Providers\Replicate\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Replicate\Maps\MessageMap;
+use Prism\Prism\Providers\Replicate\ValueObjects\ReplicatePrediction;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Usage;
@@ -27,7 +32,10 @@ use Throwable;
 class Stream
 {
     use DownloadsOutputs;
-    use HandlesPredictions;
+    use HandlesPredictions {
+        getPrediction as protected getPredictionWithoutStreamUsage;
+    }
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -45,12 +53,14 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         // Tool calling is not supported with streaming
         if ($request->tools() !== []) {
-            throw new PrismException(
+            throw (new PrismException(
                 'Replicate: Tool calling is not supported with streaming. '
                 .'Use ->generate() instead of ->stream()'
-            );
+            ))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $this->state->reset()->withMessageId(EventID::generate());
@@ -70,6 +80,8 @@ class Stream
 
         // Create prediction
         $prediction = $this->createPrediction($this->client, $payload);
+        $this->streamFailureTracker = new StreamFailureUsageTracker('replicate');
+        $this->streamFailureTracker->record(['metrics' => $prediction->metrics]);
 
         // Emit stream start
         yield new StreamStartEvent(
@@ -87,12 +99,12 @@ class Stream
             yield from $this->processSSEStream($streamUrl, $prediction->id);
         } else {
             // Fallback to simulated streaming (poll + tokenize)
-            $completedPrediction = $this->waitForPrediction(
+            $completedPrediction = yield from $this->readStreamValue(fn (): ReplicatePrediction => $this->waitForPrediction(
                 $this->client,
                 $prediction->id,
                 $this->pollingInterval,
                 $this->maxWaitTime
-            );
+            ));
 
             yield from $this->processTokenizedOutput($completedPrediction);
         }
@@ -105,28 +117,30 @@ class Stream
      */
     protected function processSSEStream(string $streamUrl, string $predictionId): Generator
     {
+        $this->streamFailureTracker ??= new StreamFailureUsageTracker('replicate', 0);
+
         // Only the legacy SSE endpoint requires API authentication. The modern
         // endpoint is credential-free, like Replicate's current JS client.
         if (! $this->isAllowedOutputUrl($streamUrl, ['stream.replicate.com', 'streaming.api.replicate.com'], allowSubdomains: false)) {
-            throw new PrismException('Replicate stream URL refused: expected a documented HTTPS streaming host.');
+            throw (new PrismException('Replicate stream URL refused: expected a documented HTTPS streaming host.'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $client = strtolower((string) parse_url($streamUrl, PHP_URL_HOST)) === 'streaming.api.replicate.com'
             ? $this->client
             : $this->outputClient();
 
-        $response = $client
+        $response = yield from $this->readStreamValue(fn () => $client
             ->withHeaders(['Accept' => 'text/event-stream'])
             ->withOptions(['stream' => true])
             ->withoutRedirecting()
-            ->get($streamUrl);
+            ->get($streamUrl));
 
         $stream = $response->getBody();
 
         if (! $response->successful()) {
             $stream->close();
 
-            throw new PrismException('Replicate stream connection failed.');
+            throw (new PrismException('Replicate stream connection failed.'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $textStarted = false;
@@ -135,8 +149,8 @@ class Stream
         $currentEvent = null;
 
         try {
-            while (! $stream->eof()) {
-                $line = $this->readLine($stream);
+            while (! (yield from $this->readStreamValue(fn () => $stream->eof()))) {
+                $line = yield from $this->readStreamValue(fn (): string => $this->readLine($stream));
                 // Skip empty lines and comments
                 if ($line === '') {
                     continue;
@@ -188,6 +202,7 @@ class Stream
                             $doneData = json_decode($data, true, flags: JSON_THROW_ON_ERROR);
                             $finalStatus = $doneData['status'] ?? 'succeeded';
                             $metrics = $doneData['metrics'] ?? [];
+                            $this->streamFailureTracker->record($doneData);
                         } catch (Throwable) {
                             // Empty done event
                             $finalStatus = 'succeeded';
@@ -198,10 +213,11 @@ class Stream
                         try {
                             $errorData = json_decode($data, true, flags: JSON_THROW_ON_ERROR);
                             $errorMessage = $errorData['detail'] ?? $data;
+                            $this->streamFailureTracker->record($errorData);
                         } catch (Throwable) {
                             $errorMessage = $data;
                         }
-                        throw new PrismException("Replicate streaming error: {$errorMessage}");
+                        throw (new PrismException("Replicate streaming error: {$errorMessage}"))->withStreamFailureUsage($this->streamFailureUsage());
                     }
 
                     // Reset event type after processing
@@ -210,6 +226,17 @@ class Stream
             }
         } finally {
             $stream->close();
+        }
+
+        if (FinishReasonMap::map($finalStatus) === FinishReason::Error) {
+            yield new ErrorEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                errorType: 'prediction_failed',
+                message: 'The provider prediction failed.',
+                recoverable: false,
+                failureUsage: $this->streamFailureUsage(),
+            );
         }
 
         // Emit text complete if text was started
@@ -265,6 +292,19 @@ class Stream
      */
     protected function processTokenizedOutput(object $prediction): Generator
     {
+        $this->streamFailureTracker ??= new StreamFailureUsageTracker('replicate');
+        $this->streamFailureTracker->record(['metrics' => $prediction->metrics]);
+        if (FinishReasonMap::map($prediction->status) === FinishReason::Error) {
+            yield new ErrorEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                errorType: 'prediction_failed',
+                message: 'The provider prediction failed.',
+                recoverable: false,
+                failureUsage: $this->streamFailureUsage(),
+            );
+        }
+
         $output = $prediction->output ?? [];
 
         if (! is_array($output)) {
@@ -311,11 +351,15 @@ class Stream
         );
     }
 
-    /**
-     * Build input parameters from request.
-     *
-     * @return array<string, mixed>
-     */
+    protected function getPrediction(PendingRequest $client, string $predictionId): ReplicatePrediction
+    {
+        $prediction = $this->getPredictionWithoutStreamUsage($client, $predictionId);
+        $this->streamFailureTracker?->record(['metrics' => $prediction->metrics]);
+
+        return $prediction;
+    }
+
+    /** @return array<string, mixed> */
     protected function buildInputParameters(Request $request): array
     {
         $params = [];

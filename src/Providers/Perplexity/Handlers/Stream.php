@@ -7,8 +7,10 @@ namespace Prism\Prism\Providers\Perplexity\Handlers;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider as ProviderEnum;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Perplexity\Concerns\ExtractsAdditionalContent;
@@ -27,6 +29,7 @@ use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Usage;
@@ -44,6 +47,7 @@ class Stream
     use ExtractsMeta;
     use ExtractsUsage;
     use HandlesHttpRequests;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -58,6 +62,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         $response = $this->sendRequest($this->client, $request, true);
 
         yield from $this->processStream($response, $request);
@@ -68,13 +74,15 @@ class Stream
      */
     protected function processStream(Response $response, Request $request): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('perplexity', 0);
+
         $this->state->reset();
         $text = '';
         $finishReason = null;
         $stepUsage = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -117,13 +125,17 @@ class Stream
             // Rate limiting is recoverable even when attached to a terminal
             // run snapshot. Preserve the caller's existing backoff exception.
             if ($this->isRateLimitError($data) || $this->isRateLimitError($run)) {
-                throw new PrismRateLimitedException([]);
+                throw (new PrismRateLimitedException([]))->withStreamFailureUsage($this->streamFailureUsage());
             }
 
             if ($terminal && in_array($run['status'] ?? null, ['incomplete', 'failed', 'cancelled', 'run_incomplete', 'run_failed'], true)) {
                 // Earlier deltas are provisional. Throw with the full snapshot
                 // before emitting completion events or handling generic errors.
-                $this->assertRunSucceeded($run, $response->header('X-Request-ID') ?: null);
+                try {
+                    $this->assertRunSucceeded($run, $response->header('X-Request-ID') ?: null);
+                } catch (PrismException $exception) {
+                    throw $exception->withStreamFailureUsage($this->streamFailureUsage());
+                }
             }
 
             // Unknown non-progress statuses retain the historical Unknown
@@ -239,7 +251,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException(ProviderEnum::Perplexity->value, $e);
+            throw (new PrismStreamDecodeException(ProviderEnum::Perplexity->value, $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -294,7 +306,7 @@ class Stream
 
         // If rate limit, throw so caller can handle retry semantics
         if ($this->isRateLimitError($data)) {
-            throw new PrismRateLimitedException([]);
+            throw (new PrismRateLimitedException([]))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         // Non-rate-limit errors are emitted as events (not recoverable) and we stop processing further content from this chunk
@@ -306,7 +318,8 @@ class Stream
             recoverable: false,
             metadata: [
                 'model' => $request->model(),
-            ]
+            ],
+            failureUsage: $this->streamFailureUsage(),
         );
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -32,6 +33,7 @@ use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -44,6 +46,7 @@ use Throwable;
 class Stream
 {
     use CallsTools, MapsUsage, ProcessRateLimits, ValidateResponse;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -59,6 +62,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
 
         $response = $this->sendRequest($request);
@@ -71,8 +76,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('groq', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         // Only reset state on the first call (depth 0)
@@ -85,8 +92,8 @@ class Stream
         $stepFinishReason = null;
         $this->stepUsage = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -160,7 +167,7 @@ class Stream
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 yield from $this->completeText();
 
-                $this->drainStepUsage($response);
+                yield from $this->drainStepUsage($response);
                 $this->recordStepUsage();
 
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
@@ -255,7 +262,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Groq', $e);
+            throw (new PrismStreamDecodeException('Groq', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -435,10 +442,11 @@ class Stream
         }
     }
 
-    protected function drainStepUsage(Response $response): void
+    /** @return Generator<int, ErrorEvent> */
+    protected function drainStepUsage(Response $response): Generator
     {
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data !== null) {
                 $this->captureStepUsage($data);
@@ -455,6 +463,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         try {
             /** @var Response $response */
             $response = $this
@@ -478,10 +488,10 @@ class Stream
             return $response;
         } catch (RequestException $e) {
             if ($e->response->getStatusCode() === 429) {
-                throw new PrismRateLimitedException(
+                throw (new PrismRateLimitedException(
                     $this->processRateLimits($e->response),
                     (int) $e->response->header('retry-after')
-                );
+                ))->withStreamFailureUsage($this->streamFailureUsage());
             }
 
             throw PrismException::providerRequestError($request->model(), $e);
@@ -520,7 +530,7 @@ class Stream
         $message = data_get($error, 'message', 'No error message provided');
 
         if ($type === 'rate_limit_exceeded') {
-            throw new PrismRateLimitedException([]);
+            throw (new PrismRateLimitedException([]))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         yield new ErrorEvent(
@@ -528,7 +538,8 @@ class Stream
             timestamp: time(),
             errorType: $type,
             message: $message,
-            recoverable: false
+            recoverable: false,
+            failureUsage: $this->streamFailureUsage(),
         );
     }
 }

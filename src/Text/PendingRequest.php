@@ -25,6 +25,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\BroadcastAdapter;
 use Prism\Prism\Streaming\Adapters\DataProtocolAdapter;
 use Prism\Prism\Streaming\Adapters\SSEAdapter;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Support\CacheHints;
 use Prism\Prism\Telemetry\Telemetry;
@@ -92,6 +93,7 @@ class PendingRequest
      */
     public function asStream(): Generator
     {
+        $failureUsage = null;
         $request = $this->toRequest();
 
         $context = Telemetry::start(TelemetryOperation::Stream, $this->providerKey(), $request->model(), $request, $this->telemetryUserId, $this->telemetrySessionId);
@@ -99,13 +101,32 @@ class PendingRequest
         try {
             $stream = $this->provider->stream($request);
 
-            yield from $context instanceof TelemetryContext
+            $events = $context instanceof TelemetryContext
                 ? Telemetry::instrumentStream($context, $stream, $request)
                 : $stream;
+            while ($events->valid()) {
+                $key = $events->key();
+                $event = $events->current();
+                if ($event instanceof ErrorEvent && $event->errorType === 'stream_read_failed') {
+                    $failureUsage = $event->failureUsage;
+                }
+                try {
+                    $sent = yield $key => $event;
+                } catch (Throwable $consumerException) { // @phpstan-ignore catch.neverThrown (Generator::throw() injects at yield; covered by published compatibility tests.)
+                    $events->throw($consumerException);
+
+                    continue;
+                }
+                $events->send($sent);
+            }
         } catch (RequestException $e) {
             Telemetry::failed($context, $e);
 
-            $this->provider->handleRequestException($request->model(), $e);
+            try {
+                $this->provider->handleRequestException($request->model(), $e);
+            } catch (PrismException $mapped) {
+                throw $mapped->withStreamFailureUsage($failureUsage);
+            }
         } catch (Throwable $e) {
             Telemetry::failed($context, $e);
 

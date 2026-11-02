@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
@@ -19,6 +20,7 @@ use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -31,6 +33,7 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -43,6 +46,7 @@ use Throwable;
 class Stream
 {
     use CachesStablePrefix, CallsTools, MapsUsage;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -62,6 +66,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
 
         $this->state->reset();
@@ -76,16 +82,18 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('gemini', $depth);
+
         // Prevent infinite recursion with tool calls
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $stepFinishReason = null;
         $this->stepUsage = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             // Skip empty data
             if ($data === null) {
@@ -151,7 +159,7 @@ class Stream
                 $chunkFinishReason = $this->mapFinishReason($data);
 
                 if ($chunkFinishReason === FinishReason::ToolCalls) {
-                    $this->drainStepUsage($response);
+                    yield from $this->drainStepUsage($response);
                     $this->recordStepUsage();
 
                     yield from $this->handleToolCalls($request, $depth, $data);
@@ -348,7 +356,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Gemini', $e);
+            throw (new PrismStreamDecodeException('Gemini', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -490,10 +498,11 @@ class Stream
         }
     }
 
-    protected function drainStepUsage(Response $response): void
+    /** @return Generator<int, ErrorEvent> */
+    protected function drainStepUsage(Response $response): Generator
     {
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data !== null) {
                 $this->captureStepUsage($data);
@@ -539,6 +548,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         $providerOptions = $request->providerOptions();
 
         // The declared-stable prefix becomes the cached resource, exactly as

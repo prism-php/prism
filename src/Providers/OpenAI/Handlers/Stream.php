@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -35,6 +36,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -50,6 +52,7 @@ class Stream
     use MapsFinishReason;
     use MapsUsage;
     use ProcessRateLimits;
+    use TracksStreamFailureUsage;
 
     protected OpenAIStreamState $state;
 
@@ -63,6 +66,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
 
         $response = $this->sendRequest($request);
@@ -75,11 +80,13 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('openai', $depth);
+
         $this->state->reset()->withMessageId(EventID::generate());
         $reasoningItems = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -90,15 +97,15 @@ class Stream
                 $message = data_get($data, 'error.message', 'No error message provided');
 
                 if ($code === 'rate_limit_exceeded') {
-                    throw new PrismRateLimitedException([]);
+                    throw (new PrismRateLimitedException([]))->withStreamFailureUsage($this->streamFailureUsage());
                 }
 
-                throw new PrismException(sprintf(
+                throw (new PrismException(sprintf(
                     'Sending to model %s failed. Code: %s. Message: %s',
                     $request->model(),
                     $code,
                     $message
-                ));
+                )))->withStreamFailureUsage($this->streamFailureUsage());
             }
 
             if ($data['type'] === 'response.created' && $this->state->shouldEmitStreamStart()) {
@@ -405,6 +412,7 @@ class Stream
                 message: (string) data_get($response, 'error.message', 'The response failed.'),
                 recoverable: false,
                 metadata: Arr::whereNotNull(['response_id' => data_get($response, 'id')]),
+                failureUsage: $this->streamFailureUsage(),
             );
         }
     }
@@ -526,7 +534,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('OpenAI', $e);
+            throw (new PrismStreamDecodeException('OpenAI', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -784,6 +792,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this
             ->client

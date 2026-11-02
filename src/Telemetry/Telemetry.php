@@ -10,10 +10,13 @@ use Illuminate\Support\Str;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\TelemetryOperation;
 use Prism\Prism\Events\Telemetry\GenerationCompleted;
+use Prism\Prism\Events\Telemetry\GenerationErrored;
 use Prism\Prism\Events\Telemetry\GenerationFailed;
 use Prism\Prism\Events\Telemetry\GenerationStarted;
 use Prism\Prism\Events\Telemetry\StepCompleted;
 use Prism\Prism\Events\Telemetry\ToolInvoked;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
@@ -130,7 +133,7 @@ class Telemetry
             return;
         }
 
-        event(new GenerationFailed($context, $context->elapsedMs(), $exception));
+        event(new GenerationFailed($context, $context->elapsedMs(), $exception, $exception instanceof PrismException ? $exception->streamFailureUsage() : null));
     }
 
     public static function end(?TelemetryContext $context): void
@@ -200,6 +203,8 @@ class Telemetry
         $maxItems = max(0, (int) config('prism.telemetry.content_max_items', 256));
         $stepIndex = 0;
         $lastEnd = null;
+        $lastError = null;
+        $failed = false;
         $stepText = '';
         $fullText = '';
         $toolCalls = [];
@@ -213,31 +218,52 @@ class Telemetry
             ? self::contentArray(is_object($request) && method_exists($request, 'messages') ? $request->messages() : [], $maxItems, $itemsTruncated)
             : [];
 
-        foreach ($events as $event) {
-            if ($event instanceof TextDeltaEvent && $capturesContent) {
-                self::appendBounded($stepText, $event->delta, $maxLength, $stepTruncated);
-                self::appendBounded($fullText, $event->delta, $maxLength, $fullTruncated);
-            } elseif ($event instanceof ToolCallEvent && $capturesContent) {
-                self::appendItem($toolCalls, $event->toolCall->toArray(), $maxItems, $itemsTruncated);
-            } elseif ($event instanceof ToolResultEvent && $capturesContent) {
-                self::appendItem($messages, ['type' => 'tool_result', 'tool_results' => [$event->toolResult->toArray()]], $maxItems, $itemsTruncated);
-            } elseif ($event instanceof StepFinishEvent) {
-                $content = $capturesContent ? new StreamContent($stepText, $systemPrompts, $messages, $toolCalls, $stepTruncated || $itemsTruncated) : null;
-                event(new StepCompleted($context->withStep($stepIndex), null, $event->usage, $content));
+        try {
+            foreach ($events as $event) {
+                if ($event instanceof ErrorEvent) {
+                    $lastError = $event;
+                    $failed = $failed || ! $event->recoverable;
+                }
+                if ($event instanceof TextDeltaEvent && $capturesContent) {
+                    self::appendBounded($stepText, $event->delta, $maxLength, $stepTruncated);
+                    self::appendBounded($fullText, $event->delta, $maxLength, $fullTruncated);
+                } elseif ($event instanceof ToolCallEvent && $capturesContent) {
+                    self::appendItem($toolCalls, $event->toolCall->toArray(), $maxItems, $itemsTruncated);
+                } elseif ($event instanceof ToolResultEvent && $capturesContent) {
+                    self::appendItem($messages, ['type' => 'tool_result', 'tool_results' => [$event->toolResult->toArray()]], $maxItems, $itemsTruncated);
+                } elseif ($event instanceof StepFinishEvent) {
+                    $content = $capturesContent ? new StreamContent($stepText, $systemPrompts, $messages, $toolCalls, $stepTruncated || $itemsTruncated) : null;
+                    event(new StepCompleted($context->withStep($stepIndex), $event->finishReason, $event->usage, $content));
 
-                if ($capturesContent) {
-                    self::appendItem($messages, ['type' => 'assistant', 'content' => $stepText, 'tool_calls' => $toolCalls], $maxItems, $itemsTruncated);
+                    if ($capturesContent) {
+                        self::appendItem($messages, ['type' => 'assistant', 'content' => $stepText, 'tool_calls' => $toolCalls], $maxItems, $itemsTruncated);
+                    }
+
+                    $stepIndex++;
+                    $stepText = '';
+                    $toolCalls = [];
+                    $stepTruncated = false;
+                } elseif ($event instanceof StreamEndEvent) {
+                    $lastEnd = $event;
                 }
 
-                $stepIndex++;
-                $stepText = '';
-                $toolCalls = [];
-                $stepTruncated = false;
-            } elseif ($event instanceof StreamEndEvent) {
-                $lastEnd = $event;
+                yield $event;
             }
+        } catch (Throwable $exception) {
+            try {
+                if ($lastError instanceof ErrorEvent) {
+                    event(new GenerationErrored($context, $context->elapsedMs(), failureUsage: $lastError->failureUsage));
+                }
+            } finally {
+                throw $exception;
+            }
+        }
 
-            yield $event;
+        if ($lastError instanceof ErrorEvent || $lastEnd?->finishReason === FinishReason::Error) {
+            event(new GenerationErrored($context, $context->elapsedMs(), failureUsage: $lastError?->failureUsage));
+        }
+        if ($failed || $lastEnd?->finishReason === FinishReason::Error) {
+            return;
         }
 
         self::completed($context, $capturesContent ? new StreamContent($fullText, $systemPrompts, $messages, truncated: $fullTruncated || $itemsTruncated) : null, $lastEnd?->finishReason, $lastEnd?->usage);

@@ -12,6 +12,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -31,6 +32,7 @@ use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -43,6 +45,7 @@ use Throwable;
 class Stream
 {
     use CallsTools, MapsFinishReason, ValidatesResponses;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -58,6 +61,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         // Resuming after a stream stopped for approval: run what was approved
         // and deny the rest before the conversation goes back to the model.
         yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
@@ -78,8 +83,10 @@ class Stream
      */
     protected function processV1NativeStream(Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('azure', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         if ($depth === 0) {
@@ -101,7 +108,7 @@ class Stream
         ]);
 
         $url = $this->v1ChatCompletionsUrl();
-        $stream = fopen($url, 'r', false, $context);
+        $stream = yield from $this->readStreamValue(fn () => fopen($url, 'r', false, $context));
 
         if (! is_resource($stream)) {
             yield new ErrorEvent(
@@ -109,7 +116,8 @@ class Stream
                 timestamp: time(),
                 errorType: 'azure_v1_stream_open_failed',
                 message: 'Failed to open Azure v1 stream connection.',
-                recoverable: true
+                recoverable: true,
+                failureUsage: $this->streamFailureUsage(),
             );
 
             yield from $this->emitFallbackNonStreamResponse($request);
@@ -135,7 +143,7 @@ class Stream
         }
 
         while (! feof($stream)) {
-            $line = fgets($stream);
+            $line = yield from $this->readStreamValue(fn (): string|false => fgets($stream));
             if ($line === false) {
                 usleep(15_000);
 
@@ -162,6 +170,8 @@ class Stream
             if (! is_array($data)) {
                 continue;
             }
+
+            $this->streamFailureTracker->record($data);
 
             $dataChunkCount++;
 
@@ -256,8 +266,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0, int $streamAttempt = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('azure', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         if ($depth === 0) {
@@ -286,7 +298,7 @@ class Stream
         }
 
         while (true) {
-            $data = $this->parseNextDataLine($body);
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($body));
 
             if ($data === null) {
                 if ($body->eof()) {
@@ -359,7 +371,8 @@ class Stream
                         timestamp: time(),
                         errorType: 'length_exhausted',
                         message: 'Azure Error: No output text was produced before the token limit was reached. Lower reasoning effort or increase max completion tokens.',
-                        recoverable: true
+                        recoverable: true,
+                        failureUsage: $this->streamFailureUsage(),
                     );
                 }
 
@@ -431,7 +444,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Azure', $e);
+            throw (new PrismStreamDecodeException('Azure', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -524,7 +537,7 @@ class Stream
         $message = data_get($error, 'message', 'No error message provided');
 
         if ($type === 'rate_limit_exceeded' || $type === '429') {
-            throw new PrismRateLimitedException([]);
+            throw (new PrismRateLimitedException([]))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         yield new ErrorEvent(
@@ -532,7 +545,8 @@ class Stream
             timestamp: time(),
             errorType: $type,
             message: $message,
-            recoverable: false
+            recoverable: false,
+            failureUsage: $this->streamFailureUsage(),
         );
     }
 
@@ -601,6 +615,8 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this->client
             ->withOptions([
@@ -624,6 +640,8 @@ class Stream
 
     protected function sendFallbackRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this->client
             ->withOptions([
@@ -686,7 +704,8 @@ class Stream
                 timestamp: time(),
                 errorType: 'empty_fallback_response',
                 message: 'Azure returned an invalid fallback response payload.',
-                recoverable: false
+                recoverable: false,
+                failureUsage: $this->streamFailureUsage(),
             );
 
             yield new StreamEndEvent(

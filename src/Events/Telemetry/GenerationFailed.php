@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Events\Telemetry;
 
 use Prism\Prism\Telemetry\TelemetryContext;
+use Prism\Prism\ValueObjects\StreamFailureUsage;
 use Throwable;
 
 /**
@@ -16,5 +17,6 @@ readonly class GenerationFailed
         public TelemetryContext $context,
         public float $durationMs,
         public Throwable $exception,
+        public ?StreamFailureUsage $failureUsage = null,
     ) {}
 }

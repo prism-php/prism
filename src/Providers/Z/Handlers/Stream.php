@@ -12,6 +12,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use JsonException;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
@@ -31,6 +32,7 @@ use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -42,6 +44,7 @@ use Psr\Http\Message\StreamInterface;
 class Stream
 {
     use CallsTools, MapsFinishReason, MapsUsage;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -57,6 +60,8 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
         yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
 
         $response = $this->sendRequest($request);
@@ -71,8 +76,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('z', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $this->state->reset()->withMessageId(EventID::generate());
@@ -82,8 +89,8 @@ class Stream
         $stepFinishReason = null;
         $usageSnapshot = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -238,7 +245,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            throw new PrismStreamDecodeException(Provider::Z->name, $e);
+            throw (new PrismStreamDecodeException(Provider::Z->name, $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -416,6 +423,8 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         return $this
             ->client
             ->withOptions(['stream' => true])
