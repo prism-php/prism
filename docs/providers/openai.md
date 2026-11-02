@@ -550,6 +550,191 @@ $image = $response->firstImage();
 file_put_contents('landscape.png', base64_decode($image->base64));
 ```
 
+### Image examples
+
+Each example uses this prompt and the same size and quality. Model labels identify
+the requested model; these API responses did not report a model ID. Costs below
+are calculated from returned text/image token usage at the generation date's
+standard prices; they are not account invoices. Read the [generation metadata](/assets/examples/openai/metadata.json)
+for the exact options and file details.
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$prompt =
+    'An editorial illustration of the Prism AI ecosystem: a clear glass triangular prism floats ' .
+    'above a deep navy workbench. One soft white beam enters; hot pink, cyan and teal light ' .
+    'paths emerge and connect a small constellation of abstract tool, memory, search and ' .
+    'conversation shapes. Precise geometry, tactile glass, crisp soft shadows, generous ' .
+    'negative space, balanced square composition, polished technical magazine cover. Keep the ' .
+    'scene abstract and welcoming. No people, faces, lettering, labels, watermarks or ' .
+    'third-party logos.';
+```
+
+<div class="image-examples">
+
+<section class="image-example">
+
+#### gpt-image-2.5-sunburst
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-2.5-sunburst')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-2.5-sunburst.webp" alt="Glass prism on a navy workbench sends pink, cyan and teal beams toward a wrench, database, magnifying glass and chat bubble." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-2.5-sunburst</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.013700 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### gpt-image-2.5-flare
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-2.5-flare')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-2.5-flare.webp" alt="Floating glass prism sends pink and cyan light ribbons toward translucent tool, database, search and conversation icons." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-2.5-flare</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.013700 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### gpt-image-2
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-2')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-2.webp" alt="Clear prism on a dark platform connects illuminated stacked panels, blue cubes, a magnifying glass and conversation bubbles." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-2</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.053210 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### gpt-image-1.5
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1.5')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-1.5.webp" alt="Faceted glass prism splits a white beam into pink, cyan and teal paths beside database, search, wrench and conversation symbols." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-1.5</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.038082 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### gpt-image-1-mini
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1-mini')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-1-mini.webp" alt="Geometric glass prism above flat pink, blue and teal paths ending in abstract tool and conversation shapes on navy." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-1-mini</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.008660 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### chatgpt-image-latest
+
+```php
+$response = Prism::image()
+    ->using('openai', 'chatgpt-image-latest')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/chatgpt-image-latest.webp" alt="Glass prism splits light across a navy workbench toward a database, pink chat bubbles, a wrench and gear, and a search panel." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>chatgpt-image-latest</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.037842 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+</div>
+
+`gpt-image-1.5`, `gpt-image-1-mini` and `chatgpt-image-latest` are scheduled to
+shut down on December 1, 2026. Use an available current model for new requests;
+see [OpenAI’s deprecation schedule](https://developers.openai.com/api/docs/deprecations).
+
 ### GPT Image Options
 
 GPT Image offers advanced features including image editing and format control:

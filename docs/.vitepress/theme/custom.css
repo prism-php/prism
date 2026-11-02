@@ -284,3 +284,40 @@ div[class*="language-"] {
 .VPLocalNav {
   border-bottom: none !important;
 }
+
+.vp-doc .image-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  align-items: start;
+}
+
+.vp-doc .image-example {
+  min-width: 0;
+}
+
+.vp-doc .image-example figure {
+  margin: 1rem 0;
+}
+
+.vp-doc .image-example img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 0.75rem;
+}
+
+.vp-doc .image-example figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 64rem) {
+  .vp-doc .image-examples {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
