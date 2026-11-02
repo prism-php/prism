@@ -397,7 +397,7 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['text_tokens' => 32, 'cached_tokens' => 6],
                 'completion_tokens_details' => ['reasoning_tokens' => 94],
             ],
-            ['prompt_tokens' => 26, 'completion_tokens' => 103, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 6, 'thought_tokens' => 94, 'cost' => null],
+            ['prompt_tokens' => 26, 'completion_tokens' => 103, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 6, 'thought_tokens' => 94, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'total already includes reasoning in the completion tokens' => [
             [
@@ -407,7 +407,7 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['cached_tokens' => 6],
                 'completion_tokens_details' => ['reasoning_tokens' => 94],
             ],
-            ['prompt_tokens' => 26, 'completion_tokens' => 103, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 6, 'thought_tokens' => 94, 'cost' => null],
+            ['prompt_tokens' => 26, 'completion_tokens' => 103, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 6, 'thought_tokens' => 94, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'missing total falls back to separate reasoning' => [
             [
@@ -416,7 +416,7 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['cached_tokens' => 7],
                 'completion_tokens_details' => ['reasoning_tokens' => 183],
             ],
-            ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183, 'cost' => null],
+            ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'total matching neither falls back to separate reasoning' => [
             [
@@ -426,7 +426,7 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['cached_tokens' => 7],
                 'completion_tokens_details' => ['reasoning_tokens' => 183],
             ],
-            ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183, 'cost' => null],
+            ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'reported zeros stay zero' => [
             [
@@ -436,11 +436,11 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['cached_tokens' => 0],
                 'completion_tokens_details' => ['reasoning_tokens' => 0],
             ],
-            ['prompt_tokens' => 125, 'completion_tokens' => 48, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0, 'cost' => null],
+            ['prompt_tokens' => 125, 'completion_tokens' => 48, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'fields that are not reported stay null' => [
             ['prompt_tokens' => 10, 'completion_tokens' => 42, 'total_tokens' => 52],
-            ['prompt_tokens' => 10, 'completion_tokens' => 42, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => null],
+            ['prompt_tokens' => 10, 'completion_tokens' => 42, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
     ]);
 });

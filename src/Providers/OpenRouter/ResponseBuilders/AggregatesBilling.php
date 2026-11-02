@@ -32,6 +32,7 @@ trait AggregatesBilling
         $usage = parent::calculateTotalUsage();
 
         return new Usage($usage->promptTokens, $usage->completionTokens, $usage->cacheWriteInputTokens,
-            $usage->cacheReadInputTokens, $usage->thoughtTokens, Billing::totalCost($this->billingSteps()));
+            $usage->cacheReadInputTokens, $usage->thoughtTokens, Billing::totalCost($this->billingSteps()),
+            $usage->cacheWrite5mInputTokens, $usage->cacheWrite1hInputTokens);
     }
 }

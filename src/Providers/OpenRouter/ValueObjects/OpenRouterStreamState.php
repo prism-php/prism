@@ -30,7 +30,8 @@ class OpenRouterStreamState extends StreamState
 
         return $usage instanceof Usage ? new Usage($usage->promptTokens, $usage->completionTokens,
             $usage->cacheWriteInputTokens, $usage->cacheReadInputTokens, $usage->thoughtTokens,
-            Billing::totalCost($this->billingSteps)) : null;
+            Billing::totalCost($this->billingSteps), $usage->cacheWrite5mInputTokens,
+            $usage->cacheWrite1hInputTokens) : null;
     }
 
     /** @var array<int, array<string, mixed>> */

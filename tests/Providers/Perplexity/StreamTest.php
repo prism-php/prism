@@ -122,6 +122,8 @@ it('ends the stream once when more than one chunk carries a finish reason', func
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ])
         ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
         ->and($events->whereInstanceOf(TextCompleteEvent::class))->toHaveCount(1)
@@ -200,6 +202,8 @@ it('ends the step and the stream with Error after an unrecoverable error chunk',
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ])
         ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
         ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray());

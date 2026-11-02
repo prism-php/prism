@@ -238,7 +238,11 @@ class StreamState
     public function addUsage(Usage $usage): self
     {
         if (! $this->usage instanceof Usage) {
-            $this->usage = $usage;
+            $this->usage = $usage->cacheWriteInputTokens === 0
+                ? new Usage($usage->promptTokens, $usage->completionTokens, $usage->cacheWriteInputTokens,
+                    $usage->cacheReadInputTokens, $usage->thoughtTokens, $usage->cost,
+                    $usage->cacheWrite5mInputTokens ?? 0, $usage->cacheWrite1hInputTokens ?? 0)
+                : $usage;
 
             return $this;
         }
@@ -252,6 +256,8 @@ class StreamState
             cost: ($this->usage->cost !== null || $usage->cost !== null)
                 ? ($this->usage->cost ?? 0.0) + ($usage->cost ?? 0.0)
                 : null,
+            cacheWrite5mInputTokens: $this->sumCacheWrites($this->usage->cacheWriteInputTokens, $this->usage->cacheWrite5mInputTokens, $usage->cacheWriteInputTokens, $usage->cacheWrite5mInputTokens),
+            cacheWrite1hInputTokens: $this->sumCacheWrites($this->usage->cacheWriteInputTokens, $this->usage->cacheWrite1hInputTokens, $usage->cacheWriteInputTokens, $usage->cacheWrite1hInputTokens),
         );
 
         return $this;
@@ -402,6 +408,8 @@ class StreamState
             // same way; dropping it would give a step span token counts and no
             // price while the root carried both.
             cost: $total->cost === null ? null : $total->cost - ($previous->cost ?? 0.0),
+            cacheWrite5mInputTokens: self::sinceLastStep($total->cacheWrite5mInputTokens, $previous->cacheWrite5mInputTokens),
+            cacheWrite1hInputTokens: self::sinceLastStep($total->cacheWrite1hInputTokens, $previous->cacheWrite1hInputTokens),
         );
     }
 
@@ -488,5 +496,16 @@ class StreamState
         }
 
         return ($current ?? 0) + ($addition ?? 0);
+    }
+
+    protected function sumCacheWrites(?int $previousTotal, ?int $previous, ?int $nextTotal, ?int $next): ?int
+    {
+        if (($previousTotal === null && $nextTotal === null)
+            || (($previousTotal ?? 0) !== 0 && $previous === null)
+            || (($nextTotal ?? 0) !== 0 && $next === null)) {
+            return null;
+        }
+
+        return ($previous ?? 0) + ($next ?? 0);
     }
 }

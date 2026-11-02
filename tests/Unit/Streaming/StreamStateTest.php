@@ -413,6 +413,8 @@ it('addUsage sums each field and keeps optional fields null only when no step re
         'cache_read_input_tokens' => 64,
         'thought_tokens' => 4,
         'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });
 

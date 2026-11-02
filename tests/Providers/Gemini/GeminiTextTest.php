@@ -848,6 +848,8 @@ describe('Usage for Gemini', function (): void {
             'cache_read_input_tokens' => null,
             'thought_tokens' => 187,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -905,6 +907,8 @@ describe('Usage for Gemini', function (): void {
             'cache_read_input_tokens' => 0,
             'thought_tokens' => 0,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 });

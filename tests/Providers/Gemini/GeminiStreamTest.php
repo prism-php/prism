@@ -206,6 +206,8 @@ it('can generate text stream using tools ', function (): void {
             'cache_read_input_tokens' => null,
             'thought_tokens' => 95,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
 
     $stepUsage = collect($events)
@@ -837,6 +839,8 @@ describe('usage', function (): void {
             'cache_read_input_tokens' => 40,
             'thought_tokens' => 30,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ];
 
         expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
@@ -885,10 +889,12 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => 32,
                 'thought_tokens' => 12,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-                ['prompt_tokens' => 50, 'completion_tokens' => 18, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => 12, 'cost' => null],
-                ['prompt_tokens' => 48, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 32, 'thought_tokens' => null, 'cost' => null],
+                ['prompt_tokens' => 50, 'completion_tokens' => 18, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => 12, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 48, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 32, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ]);
     });
 
@@ -914,6 +920,8 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => null,
                 'thought_tokens' => 5,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
 
         Http::assertSentCount(2);

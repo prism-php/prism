@@ -300,6 +300,8 @@ class Stream
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
                 cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
                 thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens'),
+                cacheWrite5mInputTokens: data_get($usageData, 'cache_creation.ephemeral_5m_input_tokens'),
+                cacheWrite1hInputTokens: data_get($usageData, 'cache_creation.ephemeral_1h_input_tokens'),
             ));
         }
 
@@ -457,13 +459,18 @@ class Stream
         }
 
         $current = $this->state->stepUsage() ?? new Usage(0, 0);
+        $cacheWriteTotal = $usageData['cache_creation_input_tokens'] ?? $current->cacheWriteInputTokens;
+        // A changed total cannot reuse an unreported split from an earlier report.
+        $carryCacheWrites = $cacheWriteTotal === $current->cacheWriteInputTokens;
 
         $this->state->withStepUsage(new Usage(
             promptTokens: $usageData['input_tokens'] ?? $current->promptTokens,
             completionTokens: $usageData['output_tokens'] ?? $current->completionTokens,
-            cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? $current->cacheWriteInputTokens,
+            cacheWriteInputTokens: $cacheWriteTotal,
             cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? $current->cacheReadInputTokens,
             thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens') ?? $current->thoughtTokens,
+            cacheWrite5mInputTokens: data_get($usageData, 'cache_creation.ephemeral_5m_input_tokens') ?? ($carryCacheWrites ? $current->cacheWrite5mInputTokens : null),
+            cacheWrite1hInputTokens: data_get($usageData, 'cache_creation.ephemeral_1h_input_tokens') ?? ($carryCacheWrites ? $current->cacheWrite1hInputTokens : null),
         ));
     }
 

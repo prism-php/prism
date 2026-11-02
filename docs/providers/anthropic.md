@@ -110,6 +110,14 @@ use Prism\Prism\ValueObjects\Media\Document;
 - You cannot use `withPrompt()` for caching as it doesn't allow adding provider options to individual messages
 - Anthropic supports two TTL options: `5m` (default) or `1h`. You can leave the `cacheTtl` unset and Anthropic will use the default TTL of `5m`.
 
+### Cache-write usage and pricing
+
+Text, structured, batch results and completed streamed responses expose `usage->cacheWrite5mInputTokens` and `usage->cacheWrite1hInputTokens` when Anthropic reports the lifetime split. They come from `usage.cache_creation.ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens`. The existing `cacheWriteInputTokens` remains the reported total; the new fields are breakdowns of it. An unreported counter is `null`; a reported zero is `0`.
+
+Five-minute cache writes cost **1.25 times** the base input token price; one-hour writes cost **2 times** that price. Price each bucket at its own rate and don't charge the combined total again. Cache reads use a separate model-specific rate. See [token usage](/core-concepts/text-generation#token-usage) for a calculation and Anthropic's [current pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing) for modifiers and cache-read rates.
+
+Streaming deltas replace cumulative counts rather than adding repeated reports. Each API step contributes once to a multi-step response. A changed write total without a new split invalidates the earlier split. In a multi-step response, a nonzero write without a split makes that aggregate bucket unknown; zero/null-write steps contribute zero, and entirely unreported totals stay `null`. The TTL you requested doesn't establish the TTL of every write: server tool results can also create 5-minute writes. Keep unknown portions of the price unknown rather than guessing a lifetime.
+
 ### Tool result caching
 
 In addition to caching prompts and tool definitions, Prism supports caching tool results. This is particularly useful when making multiple tool calls where results might be referenced repeatedly.

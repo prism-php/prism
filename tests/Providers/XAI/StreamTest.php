@@ -813,7 +813,7 @@ describe('usage snapshots', function (): void {
 
         $calls = 0;
         $events = xaiGatingStream($calls);
-        $expected = ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183, 'cost' => null];
+        $expected = ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null];
 
         expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
@@ -845,6 +845,8 @@ describe('usage snapshots', function (): void {
             'cache_read_input_tokens' => 0,
             'thought_tokens' => 0,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -877,8 +879,8 @@ describe('usage snapshots', function (): void {
 
         expect($calls)->toBe(1)
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-                ['prompt_tokens' => 50, 'completion_tokens' => 120, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 150, 'thought_tokens' => 100, 'cost' => null],
-                ['prompt_tokens' => 60, 'completion_tokens' => 10, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 200, 'thought_tokens' => null, 'cost' => null],
+                ['prompt_tokens' => 50, 'completion_tokens' => 120, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 150, 'thought_tokens' => 100, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 60, 'completion_tokens' => 10, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 200, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ])
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
                 'prompt_tokens' => 110,
@@ -887,6 +889,8 @@ describe('usage snapshots', function (): void {
                 'cache_read_input_tokens' => 350,
                 'thought_tokens' => 100,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
 
         Http::assertSentCount(2);
@@ -907,7 +911,7 @@ describe('usage snapshots', function (): void {
             ->withPrompt('What is the weather in Detroit?')
             ->asStream(), false));
 
-        $expected = ['prompt_tokens' => 200, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => null];
+        $expected = ['prompt_tokens' => 200, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null];
 
         expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);

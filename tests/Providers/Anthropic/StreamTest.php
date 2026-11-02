@@ -106,6 +106,8 @@ it('can return usage with a basic stream', function (): void {
         'cacheReadInputTokens' => 0,
         'thoughtTokens' => null,
         'cost' => null,
+        'cacheWrite5mInputTokens' => 0,
+        'cacheWrite1hInputTokens' => 0,
     ]);
 
     // Verify the HTTP request

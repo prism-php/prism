@@ -148,6 +148,14 @@ readonly class ResponseBuilder
             cost: $this->steps->contains(fn (Step $result): bool => $result->usage->cost !== null)
                 ? (float) $this->steps->sum(fn (Step $result): float => $result->usage->cost ?? 0.0)
                 : null,
+            cacheWrite5mInputTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->cacheWriteInputTokens !== null)
+                && ! $this->steps->contains(fn (Step $result): bool => ($result->usage->cacheWriteInputTokens ?? 0) !== 0 && $result->usage->cacheWrite5mInputTokens === null)
+                ? $this->steps->sum(fn (Step $result): int => $result->usage->cacheWrite5mInputTokens ?? 0)
+                : null,
+            cacheWrite1hInputTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->cacheWriteInputTokens !== null)
+                && ! $this->steps->contains(fn (Step $result): bool => ($result->usage->cacheWriteInputTokens ?? 0) !== 0 && $result->usage->cacheWrite1hInputTokens === null)
+                ? $this->steps->sum(fn (Step $result): int => $result->usage->cacheWrite1hInputTokens ?? 0)
+                : null,
         );
     }
 }

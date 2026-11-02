@@ -781,6 +781,8 @@ describe('usage', function (): void {
             'cache_read_input_tokens' => null,
             'thought_tokens' => 59,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ];
 
         expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
@@ -820,6 +822,8 @@ describe('usage', function (): void {
             'cache_read_input_tokens' => 4608,
             'thought_tokens' => 1200,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -848,6 +852,8 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => null,
                 'thought_tokens' => null,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])->values()->all())
             ->toBe([[300, 40], [10, 5]]);
@@ -881,6 +887,8 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => 256,
                 'thought_tokens' => null,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
     });
 });

@@ -55,6 +55,8 @@ it('returns structured output', function (): void {
             'cache_read_input_tokens' => 7,
             'thought_tokens' => 183,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
 
     // Verify the HTTP request

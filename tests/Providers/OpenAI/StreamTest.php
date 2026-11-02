@@ -865,6 +865,8 @@ it('reports each step\'s usage on its step finish and the total on stream end', 
             'cache_read_input_tokens' => 40,
             'thought_tokens' => 0,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]],
         [FinishReason::Stop, [
             'prompt_tokens' => 165,
@@ -873,6 +875,8 @@ it('reports each step\'s usage on its step finish and the total on stream end', 
             'cache_read_input_tokens' => 0,
             'thought_tokens' => 0,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]],
     ])
         ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
@@ -882,6 +886,8 @@ it('reports each step\'s usage on its step finish and the total on stream end', 
             'cache_read_input_tokens' => 40,
             'thought_tokens' => 0,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ])
         ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
 });

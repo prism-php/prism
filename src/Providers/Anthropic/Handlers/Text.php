@@ -173,6 +173,8 @@ class Text
                 cacheWriteInputTokens: data_get($data, 'usage.cache_creation_input_tokens'),
                 cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens'),
                 thoughtTokens: data_get($data, 'usage.output_tokens_details.thinking_tokens'),
+                cacheWrite5mInputTokens: data_get($data, 'usage.cache_creation.ephemeral_5m_input_tokens'),
+                cacheWrite1hInputTokens: data_get($data, 'usage.cache_creation.ephemeral_1h_input_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

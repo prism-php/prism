@@ -67,6 +67,8 @@ it('can generate text with a basic stream', function (): void {
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
 
     $streamStartEvent = $events[array_search(StreamStartEvent::class, $eventTypes)];
@@ -158,6 +160,8 @@ it('can generate text using tools with streaming', function (): void {
             'cache_read_input_tokens' => 544,
             'thought_tokens' => null,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ])
         ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [
             $event->usage->promptTokens,
@@ -732,7 +736,7 @@ describe('usage snapshots', function (): void {
 
         $calls = 0;
         $events = zGatingStream($calls);
-        $expected = ['prompt_tokens' => 400, 'completion_tokens' => 300, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 800, 'thought_tokens' => null, 'cost' => null];
+        $expected = ['prompt_tokens' => 400, 'completion_tokens' => 300, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 800, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null];
 
         expect($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe('Sunny.')
             ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
@@ -757,8 +761,8 @@ describe('usage snapshots', function (): void {
 
         expect($calls)->toBe(1)
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-                ['prompt_tokens' => 300, 'completion_tokens' => 40, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => null, 'cost' => null],
-                ['prompt_tokens' => 60, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 300, 'thought_tokens' => null, 'cost' => null],
+                ['prompt_tokens' => 300, 'completion_tokens' => 40, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 60, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 300, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ])
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
                 'prompt_tokens' => 360,
@@ -767,6 +771,8 @@ describe('usage snapshots', function (): void {
                 'cache_read_input_tokens' => 300,
                 'thought_tokens' => null,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
     });
 
@@ -785,7 +791,7 @@ describe('usage snapshots', function (): void {
             ->withPrompt('What is the weather in Detroit?')
             ->asStream(), false));
 
-        $expected = ['prompt_tokens' => 195, 'completion_tokens' => 117, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 43, 'thought_tokens' => null, 'cost' => null];
+        $expected = ['prompt_tokens' => 195, 'completion_tokens' => 117, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 43, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null];
 
         expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);

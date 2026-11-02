@@ -403,12 +403,27 @@ if ($response->finishReason === FinishReason::Refusal) {
 | `promptTokens` | Input tokens that were neither read from nor written to a cache. Includes input a provider adds for its built-in tools |
 | `cacheReadInputTokens` | Input tokens read from a cache |
 | `cacheWriteInputTokens` | Input tokens written to a cache |
+| `cacheWrite5mInputTokens` | The part of `cacheWriteInputTokens` written with a 5-minute lifetime, when reported |
+| `cacheWrite1hInputTokens` | The part of `cacheWriteInputTokens` written with a 1-hour lifetime, when reported |
 | `completionTokens` | Every output token, reasoning included |
 | `thoughtTokens` | The part of `completionTokens` the model spent reasoning |
 
-The three input fields never overlap, so their sum is the request's total input. `thoughtTokens` is already inside `completionTokens`, so don't add the two together or price reasoning twice.
+`promptTokens`, `cacheReadInputTokens` and `cacheWriteInputTokens` never overlap, so their sum is the request's total input. `thoughtTokens` is already inside `completionTokens`, so don't add the two together or price reasoning twice.
 
 The optional fields (`cacheReadInputTokens`, `cacheWriteInputTokens` and `thoughtTokens`) are `null` when the provider doesn't report them and `0` when it reports zero. Only some providers report cache writes, and some don't break out reasoning, so `null` there means "not reported", not "none". `promptTokens` and `completionTokens` are always integers, so a response that carries no usage at all shows `0` for both.
+
+The cache-write lifetime counters are independently nullable. They are breakdowns of `cacheWriteInputTokens`, so don't add them to that total. When both buckets are known, their sum equals the combined write count. A nonzero write without a lifetime report leaves that aggregate bucket `null`. Steps whose write total is `0` or `null` contribute zero to the split; if every step's total is unreported, the aggregate stays `null`. Don't infer every write's lifetime from your request: provider-managed tool results can create additional cache writes.
+
+Anthropic prices 5-minute writes at **1.25 times** the model's base input rate and 1-hour writes at **2 times** that rate. Price the buckets separately, and don't charge `cacheWriteInputTokens` again. For base input rate `$inputRate` in USD per million tokens, the write portion is:
+
+```php
+$usage = $response->usage;
+$writeCost = $usage->cacheWrite5mInputTokens !== null && $usage->cacheWrite1hInputTokens !== null
+    ? ($usage->cacheWrite5mInputTokens * 1.25 + $usage->cacheWrite1hInputTokens * 2) * $inputRate / 1_000_000
+    : null; // The provider did not report enough information to price the split.
+```
+
+Apply model, batch, context-length or regional modifiers separately. Check Anthropic's [current caching prices](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing) for the rates applicable to your request.
 
 > [!NOTE]
 > `Usage` is normalized token accounting, not a full bill. Charges outside these counters aren't in it: per-request and search fees, Perplexity's reasoning and citation tokens, and Anthropic fallback attempts on other models (see `usage_iterations` on the [Anthropic page](/providers/anthropic#fallbacks)). Ollama only splits out cached input on servers that report it (0.33.3 and later). Check the provider's page for these details.

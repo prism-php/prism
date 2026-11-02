@@ -136,6 +136,8 @@ it('can generate text using tools with streaming', function (): void {
         'cache_read_input_tokens' => null,
         'thought_tokens' => null,
         'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 
     $stepUsage = collect($events)
@@ -610,6 +612,8 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => 128,
                 'thought_tokens' => null,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->cacheReadInputTokens, $event->usage->completionTokens])->values()->all())
             ->toBe([[120, 0, 30], [32, 128, 12]]);
@@ -637,6 +641,8 @@ describe('usage', function (): void {
                 'cache_read_input_tokens' => 64,
                 'thought_tokens' => null,
                 'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
     });
 });

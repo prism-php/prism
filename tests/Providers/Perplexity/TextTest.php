@@ -65,6 +65,8 @@ it('reports completion tokens as Perplexity does and leaves reasoning and citati
         'cache_read_input_tokens' => null,
         'thought_tokens' => null,
         'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });
 

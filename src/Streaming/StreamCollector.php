@@ -153,6 +153,8 @@ class StreamCollector
                     cacheWriteInputTokens: $this->sum($total->cacheWriteInputTokens, $event->usage->cacheWriteInputTokens),
                     cacheReadInputTokens: $this->sum($total->cacheReadInputTokens, $event->usage->cacheReadInputTokens),
                     thoughtTokens: $this->sum($total->thoughtTokens, $event->usage->thoughtTokens),
+                    cacheWrite5mInputTokens: $this->sumCacheWrites($total->cacheWriteInputTokens, $total->cacheWrite5mInputTokens, $event->usage->cacheWriteInputTokens, $event->usage->cacheWrite5mInputTokens),
+                    cacheWrite1hInputTokens: $this->sumCacheWrites($total->cacheWriteInputTokens, $total->cacheWrite1hInputTokens, $event->usage->cacheWriteInputTokens, $event->usage->cacheWrite1hInputTokens),
                 );
             }
         }
@@ -163,5 +165,16 @@ class StreamCollector
     protected function sum(?int $total, ?int $tokens): ?int
     {
         return $total === null && $tokens === null ? null : ($total ?? 0) + ($tokens ?? 0);
+    }
+
+    protected function sumCacheWrites(?int $previousTotal, ?int $previous, ?int $nextTotal, ?int $next): ?int
+    {
+        if (($previousTotal === null && $nextTotal === null)
+            || (($previousTotal ?? 0) !== 0 && $previous === null)
+            || (($nextTotal ?? 0) !== 0 && $next === null)) {
+            return null;
+        }
+
+        return ($previous ?? 0) + ($next ?? 0);
     }
 }

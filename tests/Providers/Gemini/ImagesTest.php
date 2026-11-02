@@ -367,5 +367,7 @@ it('maps image token usage with thoughts and cached input like text', function (
         'cache_read_input_tokens' => 256,
         'thought_tokens' => 120,
         'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });

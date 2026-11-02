@@ -84,6 +84,12 @@ trait MapsBatchResults
             thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens') !== null
                 ? (int) data_get($usageData, 'output_tokens_details.thinking_tokens')
                 : null,
+            cacheWrite5mInputTokens: data_get($usageData, 'cache_creation.ephemeral_5m_input_tokens') !== null
+                ? (int) data_get($usageData, 'cache_creation.ephemeral_5m_input_tokens')
+                : null,
+            cacheWrite1hInputTokens: data_get($usageData, 'cache_creation.ephemeral_1h_input_tokens') !== null
+                ? (int) data_get($usageData, 'cache_creation.ephemeral_1h_input_tokens')
+                : null,
         );
     }
 }

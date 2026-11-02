@@ -49,6 +49,8 @@ it('converts to array without cost', function (): void {
         'cache_read_input_tokens' => null,
         'thought_tokens' => null,
         'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });
 
@@ -69,6 +71,8 @@ it('converts to array with cost', function (): void {
         'cache_read_input_tokens' => 10,
         'thought_tokens' => 5,
         'cost' => 0.0042,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });
 

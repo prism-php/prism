@@ -30,6 +30,10 @@ readonly class Usage implements Arrayable
          */
         public ?int $thoughtTokens = null,
         public ?float $cost = null,
+        /** Cache writes with a 5-minute TTL; Anthropic bills 1.25x base input price. */
+        public ?int $cacheWrite5mInputTokens = null,
+        /** Cache writes with a 1-hour TTL; Anthropic bills 2x base input price. */
+        public ?int $cacheWrite1hInputTokens = null,
     ) {}
 
     /**
@@ -45,6 +49,8 @@ readonly class Usage implements Arrayable
             'cache_read_input_tokens' => $this->cacheReadInputTokens,
             'thought_tokens' => $this->thoughtTokens,
             'cost' => $this->cost,
+            'cache_write_5m_input_tokens' => $this->cacheWrite5mInputTokens,
+            'cache_write_1h_input_tokens' => $this->cacheWrite1hInputTokens,
         ];
     }
 }

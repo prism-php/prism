@@ -732,6 +732,8 @@ describe('usage buckets', function (): void {
             'cache_read_input_tokens' => 3000,
             'thought_tokens' => 250,
             'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     })->with([
         'text' => ['gpt6-text-cache-write-1.json', 'text'],
