@@ -91,6 +91,10 @@ class Listing
         try {
             $response = (clone $this->client)->withOptions(['allow_redirects' => false])->get($endpoint, $query);
 
+            if (in_array($response->status(), [401, 403], true)) {
+                throw ModelListingException::authenticationFailed();
+            }
+
             if (! $response->successful()) {
                 throw ModelListingException::requestFailed();
             }
@@ -102,7 +106,13 @@ class Listing
             }
 
             return $data;
-        } catch (RequestException|ConnectionException) {
+        } catch (RequestException $exception) {
+            if (in_array($exception->response->status(), [401, 403], true)) {
+                throw ModelListingException::authenticationFailed();
+            }
+
+            throw ModelListingException::requestFailed();
+        } catch (ConnectionException) {
             // No previous exception: its request/body may carry provider secrets.
             throw ModelListingException::requestFailed();
         } catch (JsonException) {
@@ -169,6 +179,14 @@ class Listing
      */
     protected function nextQuery(string $format, mixed $data, string $endpoint, array $query, array $rows, int $count): ?array
     {
+        if ($format === 'openai' && (
+            ($data instanceof stdClass && property_exists($data, 'has_more') && $data->has_more !== false) ||
+            data_get($data, 'next') !== null || data_get($data, 'links.next') !== null
+        )) {
+            // This mapping has no documented pagination contract; never return a partial list or follow a URL.
+            throw ModelListingException::invalidResponse();
+        }
+
         if ($format === 'anthropic') {
             $more = data_get($data, 'has_more');
 

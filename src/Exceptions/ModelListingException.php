@@ -21,4 +21,9 @@ class ModelListingException extends PrismException
     {
         return new self('The provider model listing request failed.');
     }
+
+    public static function authenticationFailed(): self
+    {
+        return new ModelListingAuthenticationException('The provider rejected credentials or access for model listing.');
+    }
 }

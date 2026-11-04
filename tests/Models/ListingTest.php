@@ -165,7 +165,9 @@ it('does not expose provider errors, request secrets or previous exceptions', fu
         Prism::provider(Provider::OpenAI)->listModels();
         test()->fail('Expected a typed listing failure');
     } catch (ModelListingException $exception) {
-        expect($exception->getMessage())->toBe('The provider model listing request failed.')
+        expect($exception->getMessage())->toBe(in_array($status, [401, 403], true)
+            ? 'The provider rejected credentials or access for model listing.'
+            : 'The provider model listing request failed.')
             ->and($exception->getPrevious())->toBeNull()
             ->and($exception->httpStatus)->toBeNull()
             ->and($exception->responseBody)->toBeNull();

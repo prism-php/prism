@@ -64,8 +64,17 @@ Provider configuration overrides remain available through
 Listing requests refuse HTTP redirects. Replicate pagination sends only the
 validated cursor to the original configured endpoint.
 
+HTTP 401 and 403 raise
+`Prism\Prism\Exceptions\ModelListingAuthenticationException`, a subclass of
+`ModelListingException`. Update the provider credentials or access permissions
+before retrying. This exception uses a fixed message and does not retain the
+provider's response body, request URL or underlying exception.
+
 `Prism\Prism\Exceptions\ModelListingException` reports an HTTP or connection
 failure, invalid response, duplicate model identifier, broken pagination or a
 listing exceeding 1,000 pages. It does not retain the provider's response body,
 request URL or underlying exception. A failed listing never returns earlier
 pages as a complete result. An explicitly empty successful list returns `[]`.
+OpenAI-shaped mappings with no pagination contract reject `has_more` unless it
+is `false`, and reject non-null `next` or `links.next` values. They do not follow
+those links or return the first page as a complete listing.
