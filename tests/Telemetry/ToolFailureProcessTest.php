@@ -44,7 +44,7 @@ it('handles tool failure flags in actual child processes without transporting th
                 'raw-error' => [Error::class, 'synthetic-native-secret'],
                 'promoted' => [PromotedFailure::class, 'synthetic-native-secret:0'],
                 'object-parameter' => [ObjectParameterFailure::class, '{"nested":[]}'],
-                'invalid-utf8' => [ErrorException::class, $report['nativeEncodingError']['message']],
+                'invalid-utf8' => [RuntimeException::class, 'The concurrent tool failed because its exception could not be encoded.'],
                 'unstored-parameters' => [ArgumentCountError::class, $report['error']['message']],
                 'two-failures', 'two-listener' => [RuntimeException::class, 'first-native-secret'],
                 'mixed', 'provider' => [RuntimeException::class, 'second-native-secret'],
@@ -67,7 +67,16 @@ it('handles tool failure flags in actual child processes without transporting th
                 expect($report['error']['message'])->toMatch('/\AToo few arguments to function Tests\\\\Fixtures\\\\ToolFailure\\\\UnstoredConstructorFailure::__construct\(\), 1 passed in .+ConcurrentToolFailure\.php on line [0-9]+ and exactly 2 expected\z/D');
             }
             if ($scenario === 'invalid-utf8') {
-                expect($report['error'])->toBe($report['nativeEncodingError']);
+                // Native validation messages vary by Laravel version and may include a
+                // per-worker HMAC. Prism deliberately returns a fixed private error here.
+                expect($report['nativeEncodingError'])->not->toBeNull()
+                    ->and($report['events'])->toHaveCount(1)
+                    ->and($report['events'][0]['failure'])->toBe('exception:RuntimeException');
+                $publicFailure = json_encode([$report['error'], $report['events']], JSON_THROW_ON_ERROR);
+                expect($publicFailure)->not->toContain('synthetic-');
+                expect($publicFailure)->not->toContain('LARAVEL-CONCURRENCY');
+                expect($publicFailure)->not->toContain('HMAC');
+                expect($publicFailure)->not->toMatch('/[0-9a-f]{64}/');
             }
         }
     } finally {

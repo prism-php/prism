@@ -78,9 +78,14 @@ readonly class ConcurrentToolFailure
     public function rethrow(): never
     {
         $this->validate();
-        // Use ProcessDriver's exact parameter selection, including its hard encoding-error path.
+        // Native encoding failures may include worker output and vary by Laravel version.
+        if ($this->nativePayload === false) {
+            throw new RuntimeException('The concurrent tool failed because its exception could not be encoded.');
+        }
+
+        // Preserve ProcessDriver's parameter selection for encodable exceptions.
         /** @var array{exception: class-string<Throwable>, parameters: array<string, mixed>, message: string} $result */
-        $result = json_decode((string) $this->nativePayload, true);
+        $result = json_decode($this->nativePayload, true);
         throw new $result['exception'](
             ...(array_filter($result['parameters'], fn ($parameter): bool => ! is_null($parameter)) === []
                 ? [$result['message']]
