@@ -146,6 +146,10 @@ export default defineConfig({
                 link: "/core-concepts/files",
               },
               {
+                text: "Model Listing",
+                link: "/core-concepts/models",
+              },
+              {
                 text: "Schemas",
                 link: "/core-concepts/schemas",
               },

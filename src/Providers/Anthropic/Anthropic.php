@@ -30,6 +30,9 @@ use Prism\Prism\Files\FileListResult;
 use Prism\Prism\Files\GetFileMetadataRequest;
 use Prism\Prism\Files\ListFilesRequest;
 use Prism\Prism\Files\UploadFileRequest;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Handlers\Batch\Cancel;
 use Prism\Prism\Providers\Anthropic\Handlers\Batch\Create;
@@ -68,6 +71,15 @@ class Anthropic extends Provider implements DescribesProjectedPayload
         public readonly string $url,
         public readonly ?string $betaFeatures = null,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all('anthropic');
+    }
 
     #[\Override]
     public function projectedPayloadFormat(): ?string

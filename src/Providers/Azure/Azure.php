@@ -11,11 +11,15 @@ use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Enums\Provider as ProviderName;
+use Prism\Prism\Exceptions\ModelListingException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Azure\Handlers\Embeddings;
 use Prism\Prism\Providers\Azure\Handlers\Images;
 use Prism\Prism\Providers\Azure\Handlers\Stream;
@@ -37,6 +41,19 @@ class Azure extends Provider
         public readonly string $apiVersion,
         public readonly ?string $deploymentName = null,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        if (! preg_match('#/openai/v1/?$#', $this->url)) {
+            throw ModelListingException::unsupported('Azure outside /openai/v1');
+        }
+
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all();
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

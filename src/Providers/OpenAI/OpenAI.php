@@ -38,6 +38,9 @@ use Prism\Prism\Files\ListFilesRequest;
 use Prism\Prism\Files\UploadFileRequest;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Moderation\Request as ModerationRequest;
 use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
@@ -80,6 +83,15 @@ class OpenAI extends Provider implements DescribesProjectedPayload
         public readonly ?string $project,
         public readonly string $apiFormat = 'responses',
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all();
+    }
 
     #[\Override]
     public function projectedPayloadFormat(): ?string

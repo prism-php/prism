@@ -23,6 +23,7 @@ use Prism\Prism\Batch\RetrieveBatchRequest;
 use Prism\Prism\Contracts\ProjectsRequestPayload;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
+use Prism\Prism\Exceptions\ModelListingException;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
@@ -39,6 +40,8 @@ use Prism\Prism\Fim\Request as FimRequest;
 use Prism\Prism\Fim\Response as FimResponse;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Moderation\Request as ModerationRequest;
 use Prism\Prism\Moderation\Response as ModerationResponse;
 use Prism\Prism\Streaming\Events\StreamEvent;
@@ -49,6 +52,12 @@ use Prism\Prism\Text\Response as TextResponse;
 
 abstract class Provider implements ProjectsRequestPayload
 {
+    /** @return list<Model> */
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        throw ModelListingException::unsupported(class_basename($this));
+    }
+
     /**
      * @param  'text'|'structured'|'stream'  $mode
      * @return array<string, mixed>|null

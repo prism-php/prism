@@ -21,6 +21,9 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Providers\Replicate\Handlers\Audio;
 use Prism\Prism\Providers\Replicate\Handlers\Embeddings;
@@ -45,6 +48,15 @@ class Replicate extends Provider
         public readonly int $pollingInterval = 1000,
         public readonly int $maxWaitTime = 60,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all('replicate', endpoint: rtrim($this->url, '/').'/models');
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

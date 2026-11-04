@@ -19,6 +19,9 @@ use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
 use Prism\Prism\Fim\Request as FimRequest;
 use Prism\Prism\Fim\Response as FimResponse;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Mistral\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Mistral\Handlers\Audio;
 use Prism\Prism\Providers\Mistral\Handlers\Embeddings;
@@ -43,6 +46,15 @@ class Mistral extends Provider
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $url,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all(nameKey: 'name');
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse
