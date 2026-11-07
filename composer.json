@@ -19,6 +19,7 @@
   ],
   "require": {
     "php": "^8.2",
+    "ext-filter": "*",
     "ext-fileinfo": "*",
     "laravel/framework": "^12.61.1|^13.12.0"
   },

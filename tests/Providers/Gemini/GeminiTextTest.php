@@ -261,7 +261,8 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromUrl($image),
+                        // Fetched explicitly: Prism no longer fetches a media URL implicitly.
+                        Image::fromUrl($image)->fetchUrlContent(),
                     ],
                 ),
             ])

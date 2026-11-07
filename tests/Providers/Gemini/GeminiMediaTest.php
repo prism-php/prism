@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Video;
@@ -19,6 +20,26 @@ beforeEach(function (): void {
 });
 
 describe('Media support with Gemini', function (): void {
+    it('refuses a url it cannot pass by reference, without fetching it', function (): void {
+        // Gemini takes a URL as a file reference only for YouTube links and
+        // Gemini File API URIs. Any other URL used to be fetched and inlined
+        // through an unguarded server-side request. It is now refused with the
+        // explicit alternative named, and nothing is sent: not the fetch, and
+        // not a request to Gemini carrying an empty part.
+        Http::fake(['*' => Http::response('never used')]);
+
+        expect(fn () => Prism::text()
+            ->using(Provider::Gemini, 'gemini-1.5-flash')
+            ->withMessages([
+                new UserMessage('What is in this audio', additionalContent: [
+                    Audio::fromUrl('http://169.254.169.254/latest/meta-data/'),
+                ]),
+            ])
+            ->asText())
+            ->toThrow(PrismException::class, 'fetchUrlContent()');
+
+        Http::assertSentCount(0);
+    });
 
     it('can send media from url for video files', function (): void {
         FixtureResponse::fakeResponseSequence('generateContent', 'gemini/media-detection');
@@ -39,7 +60,8 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What is in this video',
                     additionalContent: [
-                        Video::fromUrl($videoUrl),
+                        // Fetched explicitly: Prism no longer fetches a media URL implicitly.
+                        Video::fromUrl($videoUrl)->fetchUrlContent(),
                     ],
                 ),
             ])
@@ -181,7 +203,8 @@ describe('Media support with Gemini', function (): void {
                 new UserMessage(
                     'What is in this audio',
                     additionalContent: [
-                        Audio::fromUrl($audioUrl),
+                        // Fetched explicitly: Prism no longer fetches a media URL implicitly.
+                        Audio::fromUrl($audioUrl)->fetchUrlContent(),
                     ],
                 ),
             ])

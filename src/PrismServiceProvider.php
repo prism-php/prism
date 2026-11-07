@@ -4,6 +4,8 @@ namespace Prism\Prism;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Prism\Prism\Support\DnsHostResolver;
+use Prism\Prism\Support\HostResolver;
 
 class PrismServiceProvider extends ServiceProvider
 {
@@ -48,5 +50,10 @@ class PrismServiceProvider extends ServiceProvider
             'prism-server',
             fn (): PrismServer => new PrismServer
         );
+
+        // Bound as an interface so an application whose resolution differs
+        // from the host's -- a service mesh, a split-horizon resolver -- can
+        // make the guarded fetch check what its own requests would reach.
+        $this->app->singleton(HostResolver::class, DnsHostResolver::class);
     }
 }

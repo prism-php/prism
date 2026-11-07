@@ -42,12 +42,12 @@ $response = Prism::text()
     )
     ->asText();
 
-// From a URL
+// From a URL you trust, fetched explicitly (Gemini takes only YouTube and File API URLs by reference)
 $response = Prism::text()
     ->using(Provider::Gemini, 'gemini-1.5-flash')
     ->withPrompt(
         'Analyze this video:',
-        [Video::fromUrl(url: 'https://example.com/video.mp4')]
+        [Video::fromUrl(url: 'https://example.com/video.mp4')->fetchUrlContent()]
     )
     ->asText();
 

@@ -619,7 +619,8 @@ $response = Prism::text()
         new UserMessage(
             'What is happening in this video?',
             additionalContent: [
-                Video::fromUrl('https://example.com/sample-video.mp4'),
+                // Gemini takes YouTube and File API URLs by reference; any other URL is fetched explicitly.
+                Video::fromUrl('https://example.com/sample-video.mp4')->fetchUrlContent(),
             ],
         ),
     ])

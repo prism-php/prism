@@ -307,7 +307,7 @@ describe('content that is exactly "0"', function (): void {
     it('still leaves empty text out of user and assistant parts', function (): void {
         $messageMap = new MessageMap(
             messages: [
-                new UserMessage('', [Image::fromUrl('https://prismphp.com/storage/diamond.png', 'image/png')]),
+                new UserMessage('', [Image::fromLocalPath('tests/Fixtures/diamond.png')]),
                 new AssistantMessage('', [new ToolCall('tool_1234', 'search', ['query' => 'prism'])]),
             ],
             systemPrompts: []

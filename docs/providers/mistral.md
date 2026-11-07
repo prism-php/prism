@@ -282,8 +282,8 @@ use Prism\Prism\ValueObjects\Media\Audio;
 // From local file path
 $audio = Audio::fromPath('/path/to/audio.mp3');
 
-// From remote URL
-$audio = Audio::fromUrl('https://example.com/recording.wav');
+// From a URL you trust, fetched explicitly (Prism does not fetch URLs implicitly)
+$audio = Audio::fromUrl('https://example.com/recording.wav')->fetchUrlContent();
 
 // From base64 encoded data
 $audio = Audio::fromBase64($base64AudioData, 'audio/mpeg');

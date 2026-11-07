@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Media;
 
 describe('creation', function (): void {
@@ -95,10 +96,12 @@ describe('inspection', function (): void {
         expect($media->hasRawContent())->toBeTrue();
     });
 
-    test('hasRawContent returns true for url', function (): void {
+    test('hasRawContent returns false for url', function (): void {
+        // A URL on its own has no bytes this object can produce without a
+        // network request, and reading media no longer makes one.
         $media = Media::fromUrl('https://prismphp.com/storage/diamond.png');
 
-        expect($media->hasRawContent())->toBeTrue();
+        expect($media->hasRawContent())->toBeFalse();
     });
 
     test('hasBase64 returns true for local path', function (): void {
@@ -117,10 +120,13 @@ describe('inspection', function (): void {
         expect($media->hasBase64())->toBeTrue();
     });
 
-    test('hasBase64 returns true for url', function (): void {
+    test('hasBase64 returns false for url', function (): void {
+        // hasBase64() answers whether the bytes are already in hand, which a
+        // URL that was never fetched cannot claim. A guard built on it ("will
+        // sending this media make an outbound request?") relies on that.
         $media = Media::fromUrl('https://prismphp.com/storage/diamond.png');
 
-        expect($media->hasBase64())->toBeTrue();
+        expect($media->hasBase64())->toBeFalse();
     });
 });
 
@@ -141,27 +147,77 @@ describe('conversion', function (): void {
         expect($media->rawContent())->toBe(file_get_contents('tests/Fixtures/diamond.png'));
     });
 
-    it('converts url to rawContent', function (): void {
-        Http::fake([
-            'https://prismphp.com/storage/diamond.png' => Http::sequence()
-                ->push(file_get_contents('tests/Fixtures/diamond.png'))
-                ->push(file_get_contents('tests/Fixtures/diamond.png')),
-        ])->preventStrayRequests();
+    it('does not fetch a url to produce rawContent', function (): void {
+        Http::fake(['*' => Http::response(file_get_contents('tests/Fixtures/diamond.png'))]);
 
         $media = Media::fromUrl('https://prismphp.com/storage/diamond.png');
 
-        expect($media->rawContent())->toBe(file_get_contents('tests/Fixtures/diamond.png'));
+        expect($media->rawContent())->toBeNull();
+        Http::assertSentCount(0);
     });
 
-    it('converts url to a resource', function (): void {
-        Http::fake([
-            'https://prismphp.com/storage/diamond.png' => Http::response(file_get_contents('tests/Fixtures/diamond.png')),
-        ])->preventStrayRequests();
+    it('resolves a url only when fetchUrlContent() is called explicitly', function (): void {
+        // Also the positive control for every "sent 0 requests" assertion in
+        // this file: if Http::fake were not intercepting, this would not record
+        // exactly one request, and those zeros would mean nothing.
+        Http::fake(['*' => Http::response(file_get_contents('tests/Fixtures/diamond.png'))]);
+
+        $media = Media::fromUrl('https://prismphp.com/storage/diamond.png')->fetchUrlContent();
+
+        Http::assertSentCount(1);
+        expect($media->rawContent())->toBe(file_get_contents('tests/Fixtures/diamond.png'))
+            ->and($media->hasRawContent())->toBeTrue()
+            ->and($media->hasBase64())->toBeTrue();
+    });
+
+    it('makes no request when anything reads a url media pointed at cloud metadata', function (): void {
+        // Every reader is exercised: the implicit fetch had several doors
+        // (rawContent(), base64() through it, mimeType() sniffing through it,
+        // resource()), and closing some would leave the rest.
+        Http::fake(['*' => Http::response('metadata')]);
+
+        $media = Image::fromUrl('http://169.254.169.254/latest/meta-data/iam/');
+
+        $media->toArray();
+        $media->hasRawContent();
+        $media->hasBase64();
+        expect($media->rawContent())->toBeNull()
+            ->and($media->base64())->toBeNull()
+            ->and($media->mimeType())->toBeNull();
+
+        try {
+            $media->resource();
+        } catch (InvalidArgumentException) {
+            // refused, as asserted below
+        }
+
+        Http::assertSentCount(0);
+    });
+
+    it('refuses to make a resource from a url, and names the explicit fetch', function (): void {
+        // Audio handlers and image edits reach resource() on ordinary calls, so
+        // this is where an upgrade surfaces: the message says what to call.
+        Http::fake(['*' => Http::response(file_get_contents('tests/Fixtures/diamond.png'))]);
 
         $media = Media::fromUrl('https://prismphp.com/storage/diamond.png');
 
-        expect($media->resource())->toBeResource();
+        expect(fn () => $media->resource())->toThrow(InvalidArgumentException::class, 'fetchUrlContent()');
+        Http::assertSentCount(0);
     });
+
+    it('keeps credentials out of a failed fetch message', function (string $url, string $expected): void {
+        Http::fake(['*' => Http::response('')]);
+
+        expect(fn (): Media => Media::fromUrl($url)->fetchUrlContent())
+            ->toThrow(InvalidArgumentException::class, $expected.' returns no content.');
+    })->with([
+        'plain' => ['https://files.example.com/a/report.pdf', 'https://files.example.com/a/report.pdf'],
+        'userinfo' => ['https://alice:hunter2@files.example.com/a', 'https://files.example.com/a'],
+        'query' => ['https://files.example.com/a?token=SECRET123', 'https://files.example.com/a?[redacted]'],
+        'fragment' => ['https://files.example.com/a#part', 'https://files.example.com/a'],
+        'port kept' => ['http://localhost:9000/bucket/key', 'http://localhost:9000/bucket/key'],
+        'no host' => ['file:///etc/passwd', '[url without a host]'],
+    ]);
 
     it('converts base64 to rawContent', function (): void {
         $media = Media::fromBase64(base64_encode('content'), 'text/plain');
