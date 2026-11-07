@@ -60,11 +60,40 @@ class Perplexity extends Provider
      */
     protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
     {
+        $url = $baseUrl ?? $this->url;
+
         return $this->baseClient()
             ->when($this->apiKey, fn ($client) => $client->withToken($this->apiKey))
+            ->when(
+                $this->shouldSendIntegrationHeader($url, $options),
+                fn ($client) => $client->withHeaders(['X-Pplx-Integration' => 'prism'])
+            )
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
             ->acceptJson()
-            ->baseUrl($baseUrl ?? $this->url);
+            ->baseUrl($url);
+    }
+
+    /**
+     * Identify Prism to the public Perplexity API, unless the caller already
+     * set the header or points the provider at a different host.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    protected function shouldSendIntegrationHeader(string $url, array $options): bool
+    {
+        if (strtolower((string) parse_url($url, PHP_URL_HOST)) !== 'api.perplexity.ai') {
+            return false;
+        }
+
+        $headers = is_array($options['headers'] ?? null) ? $options['headers'] : [];
+
+        foreach (array_keys($headers) as $name) {
+            if (strcasecmp((string) $name, 'X-Pplx-Integration') === 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
