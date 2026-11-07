@@ -103,23 +103,21 @@ class Text
         /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
-            array_merge([
-                'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_tokens' => $request->maxTokens(),
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'tools' => ToolMap::map($request->tools()) ?: null,
-                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                // DeepSeek-specific knobs, e.g. ['thinking' => ['type' => 'disabled']]
-                // to skip reasoning on models that would otherwise think first.
-                'thinking' => $request->providerOptions('thinking'),
-                'reasoning_effort' => $request->providerOptions('reasoning_effort'),
-                'frequency_penalty' => $request->providerOptions('frequency_penalty'),
-                'presence_penalty' => $request->providerOptions('presence_penalty'),
-                'stop' => $request->providerOptions('stop'),
-            ]))
+            array_merge(
+                // Provider options go first so the request settings below always win.
+                $request->providerOptions(),
+                [
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_tokens' => $request->maxTokens(),
+                ],
+                Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'tools' => ToolMap::map($request->tools()) ?: null,
+                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                ])
+            )
         );
 
         return $response->json();

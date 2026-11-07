@@ -51,22 +51,20 @@ class Structured
         /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
-            array_merge([
-                'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_completion_tokens' => $request->maxTokens(),
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'response_format' => ['type' => 'json_object'],
-                // DeepSeek-specific knobs, e.g. ['thinking' => ['type' => 'disabled']]
-                // to skip reasoning on models that would otherwise think first.
-                'thinking' => $request->providerOptions('thinking'),
-                'reasoning_effort' => $request->providerOptions('reasoning_effort'),
-                'frequency_penalty' => $request->providerOptions('frequency_penalty'),
-                'presence_penalty' => $request->providerOptions('presence_penalty'),
-                'stop' => $request->providerOptions('stop'),
-            ]))
+            array_merge(
+                // Provider options go first so the request settings below always win.
+                $request->providerOptions(),
+                [
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_completion_tokens' => $request->maxTokens(),
+                ],
+                Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'response_format' => ['type' => 'json_object'],
+                ])
+            )
         );
 
         return $response->json();
