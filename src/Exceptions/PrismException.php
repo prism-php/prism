@@ -5,11 +5,44 @@ declare(strict_types=1);
 namespace Prism\Prism\Exceptions;
 
 use Exception;
+use JsonSerializable;
+use Prism\Prism\ValueObjects\StreamFailureUsage;
 use Prism\Prism\ValueObjects\ToolCall;
 use Throwable;
 
-class PrismException extends Exception
+class PrismException extends Exception implements JsonSerializable
 {
+    private ?StreamFailureUsage $streamFailureUsage = null;
+
+    public function streamFailureUsage(): ?StreamFailureUsage
+    {
+        return $this->streamFailureUsage;
+    }
+
+    public function withStreamFailureUsage(?StreamFailureUsage $usage): static
+    {
+        $this->streamFailureUsage = $usage;
+
+        return $this;
+    }
+
+    /**
+     * Preserve the existing public JSON fields; never expose Exception internals.
+     *
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        $public = [];
+        foreach ((array) $this as $key => $value) {
+            if (! str_contains((string) $key, "\0")) {
+                $public[$key] = $value;
+            }
+        }
+
+        return [...$public, ...($this->streamFailureUsage instanceof StreamFailureUsage ? ['failure_usage' => $this->streamFailureUsage->toArray()] : [])];
+    }
+
     public ?int $httpStatus = null;
 
     public ?string $responseBody = null;
@@ -39,6 +72,14 @@ class PrismException extends Exception
     {
         return new self(
             sprintf('Calling %s tool failed', $toolCall->name),
+            previous: $previous
+        );
+    }
+
+    public static function malformedToolCallArguments(string $toolName, Throwable $previous): self
+    {
+        return new self(
+            sprintf('Tool call arguments for tool %s are not valid JSON', $toolName),
             previous: $previous
         );
     }

@@ -134,6 +134,9 @@ it('can generate text using tools with streaming', function (): void {
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => null,
         'thought_tokens' => null,
+        'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 
     $stepUsage = collect($events)
@@ -592,6 +595,9 @@ it('can stream with reasoning models', function (): void {
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => null,
         'thought_tokens' => null,
+        'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });
 
@@ -836,6 +842,9 @@ describe('usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 12752,
             'thought_tokens' => 105,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ];
 
         expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
@@ -874,10 +883,13 @@ describe('usage', function (): void {
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => 128,
                 'thought_tokens' => null,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-                ['prompt_tokens' => 72, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 128, 'thought_tokens' => null],
-                ['prompt_tokens' => 240, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => null],
+                ['prompt_tokens' => 72, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 128, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 240, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ]);
     });
 });

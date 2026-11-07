@@ -51,7 +51,7 @@ readonly class OCRPageResponse
     {
         $images = [];
 
-        foreach (data_get($page, 'images', []) as $image) {
+        foreach (data_get($page, 'images') ?? [] as $image) {
             $images[] = [
                 'id' => data_get($image, 'id', ''),
                 'top_left_x' => data_get($image, 'top_left_x'),

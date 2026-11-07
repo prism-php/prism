@@ -1,10 +1,10 @@
 # Schemas
 
-Schemas are the blueprints that help you define the shape of your data in Prism. Whether you're building tool parameters or crafting structured outputs, schemas help you clearly communicate what your data should look like.
+Schemas define the structure and types of tool parameters and structured output.
 
 ## Quick Start
 
-Let's dive right in with a practical example:
+Define an object with named properties and required fields:
 
 > [!IMPORTANT]
 > **Structured Output Requirement**: When using schemas for structured output with providers like OpenAI (especially in strict mode), the root schema should be an `ObjectSchema`. Other schema types can only be used as properties within an ObjectSchema, not as the top-level schema. Different providers may have varying requirements.
@@ -41,7 +41,7 @@ $userSchema = new ObjectSchema(
 
 ### StringSchema
 
-For text values of any length. Perfect for names, descriptions, or any textual data.
+For text values, such as names and descriptions.
 
 ```php
 use Prism\Prism\Schema\StringSchema;
@@ -54,7 +54,7 @@ $nameSchema = new StringSchema(
 
 ### NumberSchema
 
-Handles both integers and floating-point numbers. Great for ages, quantities, or measurements.
+For numeric values, such as quantities and measurements.
 
 ```php
 use Prism\Prism\Schema\NumberSchema;
@@ -67,7 +67,7 @@ $ageSchema = new NumberSchema(
 
 ### BooleanSchema
 
-For simple true/false values. Perfect for flags and toggles.
+For boolean values.
 
 ```php
 use Prism\Prism\Schema\BooleanSchema;
@@ -109,7 +109,7 @@ $statusSchema = new EnumSchema(
 
 ### ObjectSchema
 
-For complex, nested data structures. The Swiss Army knife of schemas!
+For objects with named properties, including nested objects.
 
 > [!NOTE]
 > ObjectSchema is typically required as the root schema for structured output operations with providers like OpenAI. It's the recommended schema type to use directly with `withSchema()` in structured output requests, though different providers may have varying requirements.
@@ -135,8 +135,7 @@ $profileSchema = new ObjectSchema(
 
 For flexible data that can match one of several schemas. This is particularly useful when you need to handle different data types or structures in the same field.
 
-> [!IMPORTANT]
-> **Provider Compatibility**: The AnyOfSchema works with OpenAI's structured outputs and Gemini's enhanced JSON Schema support (as of November 2025). Each nested schema must be a valid JSON schema according to the provider's requirements. For best results, ensure each nested schema has a proper `type` field.
+Each nested schema must be valid JSON Schema for the selected provider and model. Check its supported schema keywords before using `AnyOfSchema`.
 
 ```php
 use Prism\Prism\Schema\AnyOfSchema;
@@ -184,20 +183,35 @@ $contentSchema = new AnyOfSchema(
 );
 ```
 
-**Key Features:**
-- Accepts an array of schema objects that define the possible types
-- Automatically validates nested schemas for OpenAI compatibility
-- Supports nullable values through the `nullable` parameter
-- Optional name and description parameters
-- Removes unsupported JSON schema properties automatically
+`AnyOfSchema` combines alternative schema branches. Its `toArray()` includes those alternatives; provider-specific mapping can adjust them. Support depends on the provider's schema dialect, selected structured mode and model. Check the [provider guides](/providers/openai#structured-output-mode) and validate the result in your application.
 
-**Provider Support for AnyOfSchema:**
+## Raw JSON Schema and constraints
 
-| Provider   | anyOf Support | Available Since | Notes |
-|------------|---------------|-----------------|-------|
-| OpenAI     | ✅ Full       | GPT-4 onwards   | Works with structured outputs API |
-| Gemini     | ✅ Full       | Gemini 2.5+     | Enhanced JSON Schema support (Nov 2025) |
-| Anthropic  | ❌ Not supported | -            | Use alternative schema design patterns |
+Use `RawSchema` when you already have a schema document or need keywords outside the typed constructors:
+
+```php
+use Prism\Prism\Schema\RawSchema;
+
+$schema = new RawSchema('reference', [
+    'type' => 'object',
+    'properties' => ['code' => ['type' => 'string', 'pattern' => '^[A-Z]{3}$']],
+    'required' => ['code'],
+    'additionalProperties' => false,
+]);
+```
+
+`RawSchema` sends the supplied array unchanged. It does not validate that document or make unsupported keywords available on a provider. Validate returned data for your application's requirements.
+
+The typed constructors expose these options after their required name/description and child-schema arguments:
+
+| Schema | Optional constraints |
+|---|---|
+| `StringSchema` | `nullable`, `pattern`, `format` |
+| `NumberSchema` | `nullable`, `multipleOf`, `maximum`, `exclusiveMaximum`, `minimum`, `exclusiveMinimum` |
+| `ArraySchema` | `nullable`, `minItems`, `maxItems` |
+| `ObjectSchema` | `requiredFields`, `allowAdditionalProperties` (default false), `nullable` |
+
+Use named arguments for constraints. A provider may support only a subset of JSON Schema; supplying a constraint does not guarantee that every provider enforces it.
 
 ## Nullable Fields
 
@@ -266,19 +280,19 @@ $userSchema = new ObjectSchema(
 ```php
 // Required and Non-nullable (most strict)
 new StringSchema('email', 'Primary email', nullable: false);
-// requireFields: ['email']
+// requiredFields: ['email']
 
 // Required but Nullable (must be present, can be null)
 new StringSchema('bio', 'User bio', nullable: true);
-// requireFields: ['bio']
+// requiredFields: ['bio']
 
 // Optional and Non-nullable (can be omitted, but if present cannot be null)
 new StringSchema('phone', 'Phone number', nullable: false);
-// requireFields: []
+// requiredFields: []
 
 // Optional and Nullable (most permissive)
 new StringSchema('website', 'Personal website', nullable: true);
-// requireFields: []
+// requiredFields: []
 ```
 
 ### Provider Considerations
@@ -305,7 +319,7 @@ $userSchema = new ObjectSchema(
 
 ## Best Practices
 
-1. **Clear Descriptions**: Write clear, concise descriptions for each field. Future you (and other developers) will thank you!
+1. **Clear Descriptions**: Write clear, concise descriptions for each field.
    ```php
    // ❌ Not helpful
    new StringSchema('name', 'the name');
@@ -342,4 +356,4 @@ $userSchema = new ObjectSchema(
    ```
 
 > [!NOTE]
-> Remember that while schemas help define the structure of your data, Prism doesn't currently validate the data against these schemas. Schema validation is planned for a future release!
+> Prism defines schemas for provider requests but does not validate returned data against them. Validate responses in your application.

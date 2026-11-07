@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
@@ -33,6 +34,7 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -45,6 +47,7 @@ use Throwable;
 class Stream
 {
     use CallsTools, MapsFinishReason, MapsUsage, ValidatesResponses;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -58,6 +61,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -68,8 +75,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('deepseek', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         if ($depth === 0) {
@@ -81,8 +90,8 @@ class Stream
         $stepFinishReason = null;
         $usageSnapshot = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -185,6 +194,13 @@ class Stream
 
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
+
+        // The step's own usage, null when it reported none (upstream #1043).
+        // Advancing the snapshot keeps the fork's HITL finish in CallsTools,
+        // which measures its step from the last finished one, from
+        // counting this step's usage again.
+        $this->state->takeStepUsage();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -266,7 +282,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('DeepSeek', $e);
+            throw (new PrismStreamDecodeException('DeepSeek', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -391,10 +407,27 @@ class Stream
         }
 
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
+
+        // The step's own usage, null when it reported none (upstream #1043).
+        // Advancing the snapshot keeps the fork's HITL finish in CallsTools,
+        // which measures its step from the last finished one, from
+        // counting this step's usage again.
+        $this->state->takeStepUsage();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -436,20 +469,27 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
-        $response = $this->client->post(
+        $response = $this->client->withOptions(['stream' => true])->post(
             'chat/completions',
-            array_merge([
-                'stream' => true,
-                'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_tokens' => $request->maxTokens(),
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'tools' => ToolMap::map($request->tools()) ?: null,
-                'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-            ]))
+            array_merge(
+                // See Text::sendRequest. Merging first also means a provider
+                // option can never turn 'stream' off underneath this handler.
+                $request->providerOptions(),
+                [
+                    'stream' => true,
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_tokens' => $request->maxTokens(),
+                ], Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'tools' => ToolMap::map($request->tools()) ?: null,
+                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+                ])
+            )
         );
 
         return $response;

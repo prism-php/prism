@@ -18,6 +18,9 @@ use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Images\Request as ImagesRequest;
 use Prism\Prism\Images\Response as ImagesResponse;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Gemini\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Gemini\Handlers\Audio;
 use Prism\Prism\Providers\Gemini\Handlers\Cache;
@@ -43,6 +46,15 @@ class Gemini extends Provider
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $url,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all('gemini', endpoint: rtrim($this->url, '/'));
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

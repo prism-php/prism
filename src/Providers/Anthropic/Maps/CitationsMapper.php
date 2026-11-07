@@ -199,6 +199,7 @@ class CitationsMapper
             return [];
         }
 
+        // Already correct: an explicit null-only callback, so a 0 index survives.
         return array_filter([
             "start_$indexPropertyCommonPart" => $citation->sourceStartIndex,
             "end_$indexPropertyCommonPart" => $citation->sourceEndIndex,

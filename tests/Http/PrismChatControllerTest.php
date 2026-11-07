@@ -15,10 +15,8 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
-use function Pest\Laravel\freezeTime;
-
 it('handles chat requests successfully', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
@@ -148,7 +146,7 @@ it('reports a cache read of zero but leaves out details it does not know', funct
 });
 
 it('handles streaming requests', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
@@ -234,7 +232,7 @@ it('handles missing prism', function (): void {
 });
 
 it('handles multimodal messages with image URL', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
@@ -285,7 +283,7 @@ it('handles multimodal messages with image URL', function (): void {
 });
 
 it('handles multimodal messages with base64 image', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $base64Image = base64_encode('fake-image-data');
@@ -339,7 +337,7 @@ it('handles multimodal messages with base64 image', function (): void {
 });
 
 it('handles multimodal messages with multiple images', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')
@@ -391,7 +389,7 @@ it('handles multimodal messages with multiple images', function (): void {
 });
 
 it('handles mixed simple and multimodal messages', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
 
     $generator->expects('withMessages')

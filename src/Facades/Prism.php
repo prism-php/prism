@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Facades;
 
+use Closure;
 use Illuminate\Support\Facades\Facade;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\PendingRequest as PendingAudioRequest;
@@ -25,11 +26,15 @@ use Prism\Prism\Text\Response as TextResponse;
 
 /**
  * @method static PendingTextRequest text()
+ * @method static void classifyToolResultsUsing(?Closure $classifier)
+ * @method static void handleToolErrorsUsing(?Closure $handler) Register in a service provider's boot(); runtime-only registration is not inherited by process-concurrency children, which use the next handler in precedence order.
  * @method static PendingStructuredRequest structured()
  * @method static PendingEmbeddingRequest embeddings()
  * @method static PendingImageRequest image()
  * @method static PendingAudioRequest audio()
  * @method static PendingModerationRequest moderation()
+ * @method static \Prism\Prism\Files\PendingRequest files()
+ * @method static \Prism\Prism\Batch\PendingRequest batch()
  *
  * @see \Prism\Prism\Prism
  */

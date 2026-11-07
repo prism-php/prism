@@ -12,6 +12,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use JsonException;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Exceptions\PrismException;
@@ -31,6 +32,7 @@ use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -42,6 +44,7 @@ use Psr\Http\Message\StreamInterface;
 class Stream
 {
     use CallsTools, MapsFinishReason, MapsUsage;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -57,6 +60,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -69,8 +76,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('z', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $this->state->reset()->withMessageId(EventID::generate());
@@ -80,13 +89,19 @@ class Stream
         $stepFinishReason = null;
         $usageSnapshot = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
             }
 
+            // Usage is read from WHICHEVER chunk carries it, before any branch
+            // below can skip it (fork #60): on a tool-calling turn Z.ai puts it
+            // on the `finish_reason: "tool_calls"` chunk. KEPT, NOT SUMMED: an
+            // OpenAI-compatible server behind a configurable `Z_URL` may report
+            // running totals on several chunks, so the latest report is the
+            // response's total, recorded once when the step ends.
             $usageSnapshot = $this->extractUsage($data) ?? $usageSnapshot;
 
             if ($this->state->shouldEmitStreamStart()) {
@@ -161,6 +176,12 @@ class Stream
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
 
+        // The step's own usage, null when it reported none (upstream #1043).
+        // Advancing the snapshot keeps the fork's HITL finish in CallsTools,
+        // which measures its step from the last finished one, from
+        // counting this step's usage again.
+        $this->state->takeStepUsage();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -224,7 +245,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            throw new PrismStreamDecodeException(Provider::Z->name, $e);
+            throw (new PrismStreamDecodeException(Provider::Z->name, $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -339,10 +360,26 @@ class Stream
 
         $toolResults = [];
 
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
+
+        // The step's own usage, null when it reported none (upstream #1043).
+        // Advancing the snapshot keeps the fork's HITL finish in CallsTools,
+        // which measures its step from the last finished one, from
+        // counting this step's usage again.
+        $this->state->takeStepUsage();
 
         yield new StepFinishEvent(
             id: EventID::generate(),
@@ -386,6 +423,8 @@ class Stream
      */
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         return $this
             ->client
             ->withOptions(['stream' => true])

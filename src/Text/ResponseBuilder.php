@@ -6,6 +6,7 @@ namespace Prism\Prism\Text;
 
 use Illuminate\Support\Collection;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Usage;
 
 readonly class ResponseBuilder
@@ -39,11 +40,23 @@ readonly class ResponseBuilder
             $additionalContent['provider_tool_calls'] = $finalStep->providerToolCalls;
         }
 
+        // The conversation as the request actually carried it. A run that stops
+        // on tool calls -- a tool awaiting approval, a client-executed tool, or
+        // the step budget running out -- has already added the assistant's
+        // approval requests and the results of the tools it did run. Leaving
+        // them out made the documented resume, [...$response->messages,
+        // $decisions], deny every approval ("No approval response provided")
+        // and replay tool calls with no output, which providers refuse.
         $messages->push(new AssistantMessage(
             content: $finalStep->text,
             toolCalls: $finalStep->toolCalls,
             additionalContent: $additionalContent,
+            toolApprovalRequests: $finalStep->toolApprovalRequests,
         ));
+
+        if ($finalStep->toolResults !== []) {
+            $messages->push(new ToolResultMessage($finalStep->toolResults));
+        }
 
         return new Response(
             steps: $this->steps,
@@ -54,9 +67,18 @@ readonly class ResponseBuilder
             usage: $this->calculateTotalUsage(),
             meta: $finalStep->meta,
             messages: $messages,
-            additionalContent: $finalStep->additionalContent,
+            additionalContent: $this->responseAdditionalContent(),
             raw: $finalStep->raw,
         );
+    }
+
+    /** @return array<string, mixed> */
+    protected function responseAdditionalContent(): array
+    {
+        /** @var Step $finalStep */
+        $finalStep = $this->steps->last();
+
+        return $finalStep->additionalContent;
     }
 
     protected function calculateTotalUsage(): Usage
@@ -76,6 +98,17 @@ readonly class ResponseBuilder
                 : null,
             thoughtTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->thoughtTokens !== null)
                 ? $this->steps->sum(fn (Step $result): int => $result->usage->thoughtTokens ?? 0)
+                : null,
+            cost: $this->steps->contains(fn (Step $result): bool => $result->usage->cost !== null)
+                ? (float) $this->steps->sum(fn (Step $result): float => $result->usage->cost ?? 0.0)
+                : null,
+            cacheWrite5mInputTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->cacheWriteInputTokens !== null)
+                && ! $this->steps->contains(fn (Step $result): bool => ($result->usage->cacheWriteInputTokens ?? 0) !== 0 && $result->usage->cacheWrite5mInputTokens === null)
+                ? $this->steps->sum(fn (Step $result): int => $result->usage->cacheWrite5mInputTokens ?? 0)
+                : null,
+            cacheWrite1hInputTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->cacheWriteInputTokens !== null)
+                && ! $this->steps->contains(fn (Step $result): bool => ($result->usage->cacheWriteInputTokens ?? 0) !== 0 && $result->usage->cacheWrite1hInputTokens === null)
+                ? $this->steps->sum(fn (Step $result): int => $result->usage->cacheWrite1hInputTokens ?? 0)
                 : null,
         );
     }

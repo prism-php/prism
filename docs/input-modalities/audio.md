@@ -4,7 +4,17 @@ Prism supports including audio files in your messages for advanced analysis with
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports audio files.
+Check that both the provider integration and selected model support the input type. This page covers audio inside a text request; use [audio processing](/core-concepts/audio) for transcription and speech synthesis.
+
+## Provider input forms
+
+| Integration | Audio input |
+|---|---|
+| Gemini | Local/raw/base64 bytes, or a recognized Gemini File API URI; arbitrary URLs need an explicit fetch |
+| OpenRouter | Local/raw/base64 bytes mapped to `input_audio`; the routed model must support audio |
+| Requesty | Local/raw/base64 bytes mapped to `input_audio`; the routed model must support audio |
+
+OpenRouter and Requesty map WAV, MP3, OGG and WebM MIME types to format labels; unrecognized MIME types fall back to `wav`. Supply correctly encoded audio and an accurate MIME type. An unfetched URL is refused by their audio mapper.
 
 ::: tip
 For other input modalities like videos and images, see their respective documentation pages:
@@ -23,7 +33,7 @@ use Prism\Prism\ValueObjects\Media\Audio;
 
 // From a local path
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         "What's in this audio?",
         [Audio::fromLocalPath(path: '/path/to/audio.mp3')]
@@ -32,7 +42,7 @@ $response = Prism::text()
 
 // From a path on a storage disk
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         "What's in this audio?",
         [Audio::fromStoragePath(
@@ -42,18 +52,18 @@ $response = Prism::text()
     )
     ->asText();
 
-// From a URL
+// From a URL you trust — fetched explicitly before sending
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this audio:',
-        [Audio::fromUrl(url: 'https://example.com/audio.mp3')]
+        [Audio::fromUrl(url: 'https://example.com/audio.mp3')->fetchUrlContent()]
     )
     ->asText();
 
 // From base64
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this audio:',
         [Audio::fromBase64(
@@ -65,7 +75,7 @@ $response = Prism::text()
 
 // From raw content
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt(
         'Analyze this audio:',
         [Audio::fromRawContent(
@@ -90,7 +100,7 @@ $message = new UserMessage(
 );
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([$message])
     ->asText();
 ```
@@ -110,10 +120,10 @@ The specific supported formats depend on the provider. Gemini is currently the m
 
 Providers are not consistent in their support of sending raw contents, base64 and/or URLs.
 
-Prism tries to smooth over these rough edges, but its not always possible.
+Prism converts between supported representations where possible. The following conversions and limitations apply.
 
 ### Supported conversions
-- Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.
+- A URL stays a reference. If your provider needs audio bytes, call `fetchPublicUrlContent()` explicitly for a user- or model-supplied URL. Use the unguarded `fetchUrlContent()` only for URLs your application trusts. See [Fetching remote media](/input-modalities/images#fetching-remote-media) for limits and refusals.
 - Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
 
 ### Limitations

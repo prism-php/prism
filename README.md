@@ -18,6 +18,11 @@
 
 Prism is a powerful Laravel package for integrating Large Language Models (LLMs) into your applications. It provides a fluent interface for generating text, handling multi-step conversations, and utilizing tools with various AI providers. This way, you can focus on developing outstanding AI applications for your users without getting lost in the technical intricacies.
 
+> **Working on this package?** Read **[`AGENTS.md`](AGENTS.md)** first — the boundary
+> this package has to hold, the gates that must be green, and the traps that have
+> already caught someone.
+> `@link AGENTS.md`
+
 ## Official Documentation
 
 Official documentation can be found on the [Prism website](https://prismphp.com).

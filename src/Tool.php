@@ -10,6 +10,7 @@ use Error;
 use Illuminate\Container\Container;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
+use Prism\Prism\Concerns\CopiesWithProviderOptions;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Exceptions\PrismException;
@@ -19,14 +20,18 @@ use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Support\JsonMap;
+use Prism\Prism\Support\ToolErrorHandler;
 use Prism\Prism\Tools\LaravelMcpTool;
 use Prism\Prism\ValueObjects\ToolError;
 use Prism\Prism\ValueObjects\ToolOutput;
+use stdClass;
 use Throwable;
 use TypeError;
 
 class Tool
 {
+    use CopiesWithProviderOptions;
     use HasProviderOptions;
 
     protected string $name = '';
@@ -46,6 +51,11 @@ class Tool
     protected null|false|Closure $failedHandler = null;
 
     protected bool $concurrent = false;
+
+    protected bool $clientExecuted = false;
+
+    /** @var bool|Closure(array<string,mixed>):bool */
+    protected bool|Closure $requiresApproval = false;
 
     public function __construct()
     {
@@ -73,8 +83,65 @@ class Tool
         }
 
         $this->fn = $fn;
+        $this->clientExecuted = false;
 
         return $this;
+    }
+
+    /**
+     * Mark this tool as client-executed (no server-side handler).
+     *
+     * Client-executed tools are sent to the AI model, but their execution is
+     * handled by the consuming application: the request loop stops and the
+     * pending tool calls are returned on the response instead of being run.
+     */
+    public function clientExecuted(): self
+    {
+        $this->clientExecuted = true;
+        $this->fn = null;
+
+        return $this;
+    }
+
+    public function isClientExecuted(): bool
+    {
+        return $this->clientExecuted;
+    }
+
+    /**
+     * Mark this tool as requiring approval before execution.
+     *
+     * When a closure is provided, it receives the tool call arguments and
+     * should return true if approval is required for that specific call.
+     *
+     * @param  bool|Closure(array<string,mixed>):bool  $condition
+     */
+    public function requiresApproval(bool|Closure $condition = true): self
+    {
+        $this->requiresApproval = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Whether this tool has approval configured (static true or dynamic
+     * closure) — an early-exit check that never invokes the closure.
+     */
+    public function hasApprovalConfigured(): bool
+    {
+        return $this->requiresApproval === true || $this->requiresApproval instanceof Closure;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     */
+    public function needsApproval(array $arguments = []): bool
+    {
+        if ($this->requiresApproval instanceof Closure) {
+            return (bool) ($this->requiresApproval)($arguments);
+        }
+
+        return $this->requiresApproval;
     }
 
     public function make(string|object $tool): Tool
@@ -235,6 +302,25 @@ class Tool
         ]);
     }
 
+    /**
+     * The parameters as a JSON Schema `properties` OBJECT.
+     *
+     * `properties` is a map, and a tool with no parameters made it an empty
+     * one — which PHP renders as `[]`, and which a provider validating the
+     * schema rejects. Each tool map used to carry its own
+     * `=== [] ? new \stdClass` guard, and the ones that forgot sent `[]`.
+     */
+    public function parametersAsObject(): stdClass
+    {
+        // Each VALUE is a JSON Schema, and a JSON Schema is an object by
+        // definition — including the empty one, which means "any value" and
+        // which a RawSchema built from an MCP server's `{}` would otherwise
+        // send as a list. That is evidence from the field's own declaration,
+        // not a guess about empty arrays in general: `required: []` sits
+        // inside a property and is not touched.
+        return JsonMap::ofMaps($this->parametersAsArray());
+    }
+
     public function name(): string
     {
         return $this->name;
@@ -307,25 +393,86 @@ class Tool
 
         try {
             $reflection = new \ReflectionFunction(Closure::fromCallable($callable));
+            $parameters = collect($reflection->getParameters())->keyBy(
+                fn (\ReflectionParameter $parameter): string => $parameter->getName()
+            );
         } catch (\ReflectionException) {
-            return $args;
+            $parameters = collect();
         }
-
-        $parameters = collect($reflection->getParameters())->keyBy(
-            fn (\ReflectionParameter $parameter): string => $parameter->getName()
-        );
 
         foreach ($args as $name => $value) {
             /** @var \ReflectionParameter|null $parameter */
             $parameter = $parameters->get($name);
             $type = $parameter?->getType();
 
+            $value = $this->decodeJsonArgument((string) $name, $value, $type);
+
             if ($type instanceof \ReflectionNamedType) {
-                $args[$name] = $this->coerceValue($value, $type);
+                $value = $this->coerceValue($value, $type);
             }
+
+            $args[$name] = $value;
         }
 
         return $args;
+    }
+
+    /**
+     * An object- or array-typed argument that the model sent as a string of
+     * JSON (seen from Haiku: a `schema` object argument arrived as a string)
+     * is decoded, and used only if it decodes to exactly the declared JSON
+     * type: an object for an ObjectSchema, a list for an ArraySchema.
+     * Anything else -- invalid JSON, the wrong JSON type, a parameter the
+     * schema types as anything but an object or array -- is passed through
+     * unchanged, so it fails exactly as it did before. A handler that
+     * declares the parameter as `string` gets the string: it asked for one.
+     */
+    protected function decodeJsonArgument(string $name, mixed $value, ?\ReflectionType $type): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $schema = $this->parameters[$name] ?? null;
+        $wantsObject = $schema instanceof ObjectSchema;
+        $wantsList = $schema instanceof ArraySchema;
+
+        if ((! $wantsObject && ! $wantsList) || $this->acceptsString($type)) {
+            return $value;
+        }
+
+        try {
+            $decoded = json_decode($value, false, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $value;
+        }
+
+        if ($wantsObject && ! $decoded instanceof stdClass) {
+            return $value;
+        }
+
+        if ($wantsList && (! is_array($decoded) || ! array_is_list($decoded))) {
+            return $value;
+        }
+
+        return json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    protected function acceptsString(?\ReflectionType $type): bool
+    {
+        if ($type instanceof \ReflectionNamedType) {
+            return $type->getName() === 'string';
+        }
+
+        if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $member) {
+                if ($member instanceof \ReflectionNamedType && $member->getName() === 'string') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     protected function coerceValue(mixed $value, \ReflectionNamedType $type): mixed
@@ -526,7 +673,8 @@ class Tool
         if ($this->shouldUseDefaultErrorHandling()) {
             $providedParams = $this->extractProvidedParams($args);
 
-            return new ToolError($this->getDefaultFailedMessage($e, $providedParams));
+            return new ToolError(ToolErrorHandler::message($e, $this, $providedParams)
+                ?? $this->getDefaultFailedMessage($e, $providedParams));
         }
 
         throw $e;

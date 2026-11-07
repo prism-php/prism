@@ -412,6 +412,9 @@ it('addUsage sums each field and keeps optional fields null only when no step re
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => 64,
         'thought_tokens' => 4,
+        'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });
 
@@ -626,7 +629,8 @@ it('handles complex Usage with all optional fields', function (): void {
         completionTokens: 50,
         cacheWriteInputTokens: 25,
         cacheReadInputTokens: 10,
-        thoughtTokens: 5
+        thoughtTokens: 5,
+        cost: 0.0042,
     );
 
     $state->withUsage($usage);
@@ -636,7 +640,48 @@ it('handles complex Usage with all optional fields', function (): void {
         ->and($state->usage()->completionTokens)->toBe(50)
         ->and($state->usage()->cacheWriteInputTokens)->toBe(25)
         ->and($state->usage()->cacheReadInputTokens)->toBe(10)
-        ->and($state->usage()->thoughtTokens)->toBe(5);
+        ->and($state->usage()->thoughtTokens)->toBe(5)
+        ->and($state->usage()->cost)->toBe(0.0042);
+});
+
+it('addUsage accumulates cost from multiple usages', function (): void {
+    $state = new StreamState;
+
+    $state->addUsage(new Usage(
+        promptTokens: 50,
+        completionTokens: 25,
+        cost: 0.002,
+    ));
+
+    $state->addUsage(new Usage(
+        promptTokens: 30,
+        completionTokens: 15,
+        cost: 0.001,
+    ));
+
+    expect($state->usage()->promptTokens)->toBe(80)
+        ->and($state->usage()->completionTokens)->toBe(40)
+        ->and($state->usage()->cost)->toBe(0.003);
+});
+
+it('addUsage keeps cost null when no usage has cost', function (): void {
+    $state = new StreamState;
+
+    $state->addUsage(new Usage(promptTokens: 50, completionTokens: 25));
+    $state->addUsage(new Usage(promptTokens: 30, completionTokens: 15));
+
+    expect($state->usage()->promptTokens)->toBe(80)
+        ->and($state->usage()->completionTokens)->toBe(40)
+        ->and($state->usage()->cost)->toBeNull();
+});
+
+it('addUsage treats null cost as zero when accumulating with non-null cost', function (): void {
+    $state = new StreamState;
+
+    $state->addUsage(new Usage(promptTokens: 50, completionTokens: 25, cost: 0.002));
+    $state->addUsage(new Usage(promptTokens: 30, completionTokens: 15));
+
+    expect($state->usage()->cost)->toBe(0.002);
 });
 
 it('handles MessagePartWithCitations with all fields', function (): void {

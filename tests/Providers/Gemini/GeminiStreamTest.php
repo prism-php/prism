@@ -25,6 +25,7 @@ use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
+use stdClass;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -122,7 +123,7 @@ it('can generate text stream using searchGrounding', function (): void {
         // Verify tools configuration has google_search when searchGrounding is true
         $hasGoogleSearch = isset($data['tools']) &&
             isset($data['tools'][0]['google_search']) &&
-            $data['tools'][0]['google_search'] instanceof \stdClass;
+            $data['tools'][0]['google_search'] instanceof stdClass;
 
         // Verify tools are configured as expected (google_search, not function_declarations)
         $toolsConfigCorrect = ! isset($data['tools'][0]['function_declarations']);
@@ -204,6 +205,9 @@ it('can generate text stream using tools ', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => 95,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
 
     $stepUsage = collect($events)
@@ -245,9 +249,11 @@ it('can generate text stream using file_search provider tool with options', func
         $data = $request->data();
 
         expect($data['tools'][0])->toHaveKey('file_search');
-        expect($data['tools'][0]['file_search'])->toBeArray();
-        expect($data['tools'][0]['file_search'])->toHaveKey('file_search_store_names');
-        expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/test-store-456']);
+        // A provider tool's options are a MAP, so they go out as a JSON object
+        // even when empty — see Prism\Prism\Support\JsonMap.
+        expect($data['tools'][0]['file_search'])->toBeInstanceOf(stdClass::class);
+        expect($data['tools'][0]['file_search'])->toHaveProperty('file_search_store_names');
+        expect($data['tools'][0]['file_search']->file_search_store_names)->toBe(['fileSearchStores/test-store-456']);
 
         return true;
     });
@@ -514,6 +520,41 @@ it('passes service_tier in the request body for streaming', function (): void {
 
         expect($data)->toHaveKey('service_tier')
             ->and($data['service_tier'])->toBe('flex');
+
+        return true;
+    });
+});
+
+it('keeps tools a JSON array when streaming with provider and custom tools', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-with-tools-search-grounding');
+
+    $tools = [
+        Tool::as('search_games')
+            ->for('useful for searching current games times in the city')
+            ->withStringParameter('city', 'The city that you want the game times for')
+            ->using(fn (string $city): string => 'The tigers game is at 3pm in detroit'),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withMaxSteps(1)
+        ->withTools($tools)
+        ->withProviderTools([new ProviderTool('google_search')])
+        ->withPrompt('What sport fixtures are on today?')
+        ->asStream();
+
+    foreach ($response as $event) {
+        // drain the stream so the request is actually dispatched
+    }
+
+    Http::assertSent(function (Request $request): true {
+        $tools = $request->data()['tools'];
+
+        // Grounding + custom tools together must stay Tool[] (a JSON array),
+        // not a mixed-key array json_encode would emit as an object.
+        expect(array_is_list($tools))->toBeTrue();
+        expect($tools[0])->toHaveKey('google_search');
+        expect($tools[1])->toHaveKey('function_declarations');
 
         return true;
     });
@@ -797,6 +838,9 @@ describe('usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 40,
             'thought_tokens' => 30,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ];
 
         expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
@@ -844,10 +888,13 @@ describe('usage', function (): void {
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => 32,
                 'thought_tokens' => 12,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-                ['prompt_tokens' => 50, 'completion_tokens' => 18, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => 12],
-                ['prompt_tokens' => 48, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 32, 'thought_tokens' => null],
+                ['prompt_tokens' => 50, 'completion_tokens' => 18, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => 12, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 48, 'completion_tokens' => 9, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 32, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ]);
     });
 
@@ -872,6 +919,9 @@ describe('usage', function (): void {
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => null,
                 'thought_tokens' => 5,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
 
         Http::assertSentCount(2);

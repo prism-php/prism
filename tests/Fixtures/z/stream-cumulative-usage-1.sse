@@ -1,0 +1,8 @@
+data: {"id":"chatcmpl-z-cumulative","object":"chat.completion.chunk","created":1752805596,"model":"glm-4.6","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-z-cumulative","object":"chat.completion.chunk","created":1752805596,"model":"glm-4.6","choices":[{"index":0,"delta":{"content":"It is"},"finish_reason":null}],"usage":{"prompt_tokens":238,"completion_tokens":50,"total_tokens":288,"prompt_tokens_details":{"cached_tokens":43}}}
+
+data: {"id":"chatcmpl-z-cumulative","object":"chat.completion.chunk","created":1752805596,"model":"glm-4.6","choices":[{"index":0,"delta":{"content":" sunny."},"finish_reason":"stop"}],"usage":{"prompt_tokens":238,"completion_tokens":117,"total_tokens":355,"prompt_tokens_details":{"cached_tokens":43}}}
+
+data: [DONE]
+

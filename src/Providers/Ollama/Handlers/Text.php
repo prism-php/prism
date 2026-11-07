@@ -38,6 +38,8 @@ class Text
 
     public function handle(Request $request): Response
     {
+        $this->resolveToolApprovals($request);
+
         $data = $this->sendRequest($request);
 
         $this->validateResponse($data);
@@ -66,7 +68,9 @@ class Text
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => false,
                 ...Arr::whereNotNull([
-                    'think' => $request->providerOptions('thinking'),
+                    'think' => $request->providerOptions('thinking') ?? (
+                        $request->reasoningEnabled() === false ? false : null
+                    ),
                     'keep_alive' => $request->providerOptions('keep_alive'),
                 ]),
                 'options' => Arr::whereNotNull(array_merge([
@@ -86,18 +90,21 @@ class Text
     {
         $toolCalls = $this->mapToolCalls(data_get($data, 'message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
         $this->addStep($data, $request, $toolResults);
 
         $request->addMessage(new AssistantMessage(
             data_get($data, 'message.content') ?? '',
             $toolCalls,
+            toolApprovalRequests: $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

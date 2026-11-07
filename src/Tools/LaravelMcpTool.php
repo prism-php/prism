@@ -68,4 +68,9 @@ class LaravelMcpTool extends Tool
 
         return $response->content()->__toString();
     }
+
+    public function eligibleForRegistration(): bool
+    {
+        return $this->tool->eligibleForRegistration();
+    }
 }

@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
@@ -31,6 +32,7 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -45,6 +47,7 @@ class Stream
     use CallsTools;
     use MapsFinishReason;
     use MapsUsage;
+    use TracksStreamFailureUsage;
     use ValidatesResponses;
 
     protected OpenRouterStreamState $state;
@@ -59,6 +62,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -69,6 +76,8 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('openrouter', $depth);
+
         if ($depth === 0) {
             $this->state->reset();
         }
@@ -78,8 +87,8 @@ class Stream
         $stepFinishReason = null;
         $usageSnapshot = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -202,10 +211,17 @@ class Stream
 
         $this->state->withFinishReason($stepFinishReason ?? FinishReason::Stop);
         $this->state->markStepFinished();
+        // The step's own usage, null when it reported none (upstream #1043).
+        // Advancing the snapshot keeps the fork's HITL finish in CallsTools,
+        // which measures its step from the last finished one, from
+        // counting this step's usage again.
+        $this->state->takeStepUsage();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
             usage: $stepUsage,
+            additionalContent: ['openrouter_billing' => $this->state->stepBilling()],
             finishReason: $this->state->finishReason(),
         );
 
@@ -256,6 +272,7 @@ class Stream
      */
     protected function recordStepUsage(?array $usageSnapshot): ?Usage
     {
+        $this->state->recordBilling($usageSnapshot ?? []);
         if ($usageSnapshot === null) {
             return null;
         }
@@ -298,7 +315,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('OpenRouter', $e);
+            throw (new PrismStreamDecodeException('OpenRouter', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -370,6 +387,7 @@ class Stream
             errorType: (string) data_get($data, 'error.code', 'unknown_error'),
             message: (string) data_get($data, 'error.message', 'No error message provided'),
             recoverable: false,
+            failureUsage: $this->streamFailureUsage(),
         );
     }
 
@@ -466,14 +484,34 @@ class Stream
         }
 
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->withFinishReason(FinishReason::ToolCalls)->markStepFinished();
+            $this->state->takeStepUsage();
+            yield new StepFinishEvent(id: EventID::generate(), timestamp: time(), usage: $stepUsage,
+                additionalContent: ['openrouter_billing' => $this->state->stepBilling()], finishReason: FinishReason::ToolCalls);
+            yield $this->emitStreamEndEvent();
+
+            return;
+        }
 
         $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
+        // The step's own usage, null when it reported none (upstream #1043).
+        // Advancing the snapshot keeps the fork's HITL finish in CallsTools,
+        // which measures its step from the last finished one, from
+        // counting this step's usage again.
+        $this->state->takeStepUsage();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
             usage: $stepUsage,
+            additionalContent: ['openrouter_billing' => $this->state->stepBilling()],
             finishReason: FinishReason::ToolCalls,
         );
 
@@ -510,7 +548,7 @@ class Stream
                 if (is_string($arguments) && $arguments !== '') {
                     try {
                         $parsedArguments = json_decode($arguments, true, flags: JSON_THROW_ON_ERROR);
-                        $arguments = $parsedArguments;
+                        $arguments = is_array($parsedArguments) ? $parsedArguments : ['raw' => $arguments];
                     } catch (Throwable) {
                         $arguments = ['raw' => $arguments];
                     }
@@ -527,6 +565,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this
             ->client

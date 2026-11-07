@@ -23,6 +23,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -552,6 +553,76 @@ function groqGatingStream(int &$calls, int $maxSteps = 3): Collection
         ->asStream(), false));
 }
 
+/**
+ * @param  array<string, mixed>  $toolCall
+ * @return array<string, mixed>
+ */
+function groqToolCallDeltaChunk(array $toolCall): array
+{
+    return groqGatingDeltaChunk(['tool_calls' => [$toolCall]]);
+}
+
+it('keeps parallel tool calls apart when their deltas arrive in separate chunks', function (): void {
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(groqGatingSse(
+                groqToolCallDeltaChunk(['index' => 0, 'id' => 'call_detroit', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '']]),
+                groqToolCallDeltaChunk(['index' => 0, 'function' => ['arguments' => '{"city":"Detroit"}']]),
+                groqToolCallDeltaChunk(['index' => 1, 'id' => 'call_paris', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '']]),
+                groqToolCallDeltaChunk(['index' => 1, 'function' => ['arguments' => '{"city":"Paris"}']]),
+                groqGatingFinishChunk('tool_calls'),
+            ), 200, ['Content-Type' => 'text/event-stream'])
+            ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $events = groqGatingStream($calls);
+    $toolCalls = $events->whereInstanceOf(ToolCallEvent::class)->map->toolCall->values();
+
+    expect($calls)->toBe(2)
+        ->and($toolCalls->map->id->all())->toBe(['call_detroit', 'call_paris'])
+        ->and($toolCalls->map(fn (ToolCall $toolCall): array => $toolCall->arguments())->all())
+        ->toBe([['city' => 'Detroit'], ['city' => 'Paris']]);
+
+    Http::assertSentCount(2);
+});
+
+it('keeps tool delta identity while accumulating fragments', function (array $deltas): void {
+    $chunks = array_map(fn (array $delta): array => groqGatingDeltaChunk(['tool_calls' => $delta]), $deltas);
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(groqGatingSse(...[...$chunks, groqGatingFinishChunk('tool_calls')]), 200, ['Content-Type' => 'text/event-stream'])
+            ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $toolCalls = groqGatingStream($calls)->whereInstanceOf(ToolCallEvent::class)->map->toolCall->values();
+
+    expect($calls)->toBe(2)
+        ->and($toolCalls->map->id->all())->toBe(['call_detroit', 'call_paris'])
+        ->and($toolCalls->map(fn (ToolCall $toolCall): array => $toolCall->arguments())->all())
+        ->toBe([['city' => 'Detroit'], ['city' => 'Paris']]);
+
+    Http::assertSentCount(2);
+})->with([
+    'sparse indices with interleaved fragments' => [[
+        [['index' => 3, 'id' => 'call_detroit', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']]],
+        [['index' => 7, 'id' => 'call_paris', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']]],
+        [['index' => 3, 'function' => ['arguments' => '"Detroit"}']]],
+        [['index' => 7, 'function' => ['arguments' => '"Paris"}']]],
+    ]],
+    'legacy chunk positions without indices' => [[
+        [
+            ['id' => 'call_detroit', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']],
+            ['id' => 'call_paris', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":']],
+        ],
+        [
+            ['function' => ['arguments' => '"Detroit"}']],
+            ['function' => ['arguments' => '"Paris"}']],
+        ],
+    ]],
+]);
+
 describe('tool execution gating', function (): void {
     it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
         Http::fake([
@@ -709,6 +780,9 @@ describe('usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => 59,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ];
 
         expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
@@ -747,6 +821,9 @@ describe('usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 4608,
             'thought_tokens' => 1200,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -774,6 +851,9 @@ describe('usage', function (): void {
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => null,
                 'thought_tokens' => null,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ])
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])->values()->all())
             ->toBe([[300, 40], [10, 5]]);
@@ -806,6 +886,9 @@ describe('usage', function (): void {
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => 256,
                 'thought_tokens' => null,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
     });
 });
@@ -938,4 +1021,38 @@ describe('chunks that carry text and a tool call together', function (): void {
 
         Http::assertSentCount(1);
     })->with('groq mixed tool chunk deltas');
+});
+
+it('gives a step that stops for approval only its own usage, after a step that ran a tool', function (): void {
+    $chunk = fn (array $delta, ?string $finish = null, ?array $usage = null): string => 'data: '.json_encode(array_filter([
+        'id' => 'chatcmpl-hitl', 'object' => 'chat.completion.chunk', 'model' => 'llama-3.1-70b-versatile',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finish]],
+        'usage' => $usage,
+    ], fn (array|string|null $value): bool => $value !== null))."\n\n";
+    $call = fn (string $id, string $name): array => ['tool_calls' => [[
+        'index' => 0, 'id' => $id, 'type' => 'function', 'function' => ['name' => $name, 'arguments' => '{"path":"a.txt"}'],
+    ]]];
+
+    Http::fakeSequence()
+        ->push($chunk($call('call_1', 'read_file')).$chunk([], 'tool_calls', ['prompt_tokens' => 10, 'completion_tokens' => 5]).'data: [DONE]'."\n\n")
+        ->push($chunk($call('call_2', 'delete_file')).$chunk([], 'tool_calls', ['prompt_tokens' => 30, 'completion_tokens' => 7]).'data: [DONE]'."\n\n");
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using(Provider::Groq, 'llama-3.1-70b-versatile')
+        ->withTools([
+            Tool::as('read_file')->for('Read a file')->withStringParameter('path', 'Path')->using(fn (string $path): string => 'contents'),
+            Tool::as('delete_file')->for('Delete a file')->withStringParameter('path', 'Path')->using(fn (string $path): string => 'deleted')->requiresApproval(),
+        ])
+        ->withMaxSteps(4)
+        ->withPrompt('Read a.txt, then delete it.')
+        ->asStream(), false));
+
+    $steps = $events->whereInstanceOf(StepFinishEvent::class)->values();
+
+    expect($steps)->toHaveCount(2)
+        ->and([$steps[0]->usage?->promptTokens, $steps[0]->usage?->completionTokens])->toBe([10, 5])
+        // Not 40/12: the step that stops for approval must not carry the step before it.
+        ->and([$steps[1]->usage?->promptTokens, $steps[1]->usage?->completionTokens])->toBe([30, 7])
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->promptTokens)->toBe(40)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
 });

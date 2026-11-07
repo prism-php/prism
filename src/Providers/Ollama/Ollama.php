@@ -12,6 +12,9 @@ use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Ollama\Handlers\Embeddings;
 use Prism\Prism\Providers\Ollama\Handlers\Stream;
 use Prism\Prism\Providers\Ollama\Handlers\Structured;
@@ -30,6 +33,15 @@ class Ollama extends Provider
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $url,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all('ollama', endpoint: 'api/tags');
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

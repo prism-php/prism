@@ -39,6 +39,8 @@ class Text
 
     public function handle(Request $request): TextResponse
     {
+        $this->resolveToolApprovals($request);
+
         $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
@@ -79,18 +81,21 @@ class Text
     {
         $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []) ?? []);
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
         $this->addStep($data, $request, $clientResponse, FinishReason::ToolCalls, $toolResults);
 
         $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
+            toolApprovalRequests: $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

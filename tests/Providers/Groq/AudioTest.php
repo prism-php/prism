@@ -319,6 +319,9 @@ describe('Speech-to-Text', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 16,
             'thought_tokens' => null,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 });

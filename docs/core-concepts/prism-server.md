@@ -1,23 +1,27 @@
 # Prism Server
 
-Prism Server is a powerful feature that allows you to expose your Prism-powered AI models through a standardized API. This makes it easy to integrate your custom AI solutions into various applications, including chat interfaces and other tools that support OpenAI-compatible APIs.
+Prism Server exposes registered Prism configurations through an OpenAI-compatible API for use by chat interfaces and other clients.
 
 ## How It Works
 
-Prism Server acts as a middleware, translating requests from OpenAI-compatible clients into Prism-specific operations. This means you can use tools like ChatGPT web UIs or any OpenAI SDK to interact with your custom Prism models.
+Prism Server exposes a subset of the OpenAI Chat Completions API. It provides a model list and text completions backed by application-owned Prism configuration. Client support depends on whether the client can use this request subset.
 
 ## Setting Up Prism Server
 
+::: danger Protect the endpoints before enabling them
+The default `prism_server.middleware` list is empty. Enabling the server without adding authentication and authorization exposes endpoints that spend your provider credentials. Apply your application's authentication, access policy and rate limits before making these routes reachable. The `api` middleware group alone does not authenticate callers.
+:::
+
 ### 1. Enable Prism Server
 
-First, make sure Prism Server is enabled in your `config/prism.php` file:
+Set `PRISM_SERVER_ENABLED=true` in the server environment and update the existing `prism_server` entry in `config/prism.php`. For an application already configured to authenticate API tokens with Sanctum:
 
 ```php
 'prism_server' => [
     // The middleware that will be applied to the Prism Server routes.
-    'middleware' => [],
+    'middleware' => ['auth:sanctum', 'throttle:60,1'],
     'enabled' => env('PRISM_SERVER_ENABLED', false),
-]
+],
 ```
 
 ### 2. Register Your Prisms
@@ -37,14 +41,14 @@ class AppServiceProvider extends ServiceProvider
         PrismServer::register(
             'my-custom-model',
             fn () => Prism::text()
-                ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+                ->using(Provider::Anthropic, 'claude-sonnet-5-5')
                 ->withSystemPrompt('You are a helpful assistant.')
         );
     }
 }
 ```
 
-In this example, we're registering a model named `my-custom-model` that uses the Anthropic Claude 3 Sonnet model with a custom system message.
+Clients use the registered name `my-custom-model`. Keep credentials and generation controls in the registered factory or server configuration, and authorize which callers may use it.
 
 ## Using Prism Server
 
@@ -55,7 +59,8 @@ Once set up, Prism Server exposes two main endpoints:
 To generate text using your registered Prism models:
 
 ```bash
-curl -X POST "http://your-app.com/prism/openai/v1/chat/completions" \
+curl -X POST "https://your-app.example/prism/openai/v1/chat/completions" \
+     -H "Authorization: Bearer $PRISM_SERVER_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
   "model": "my-custom-model",
@@ -65,49 +70,44 @@ curl -X POST "http://your-app.com/prism/openai/v1/chat/completions" \
 }'
 ```
 
+### Streaming
+
+Send `"stream": true` in the same JSON body and use `curl --no-buffer` to receive SSE. The endpoint forwards text deltas as `chat.completion.chunk` objects and terminates with `data: [DONE]`. It does not forward Prism tool, approval, citation, thinking, step or final usage events. The streamed model field is `unknown`. Expose `asEventStreamResponse()` from an authenticated application route when your client needs Prism's complete event stream.
+
 ### List Available Models
 
 To get a list of all registered Prism models:
 
 ```bash
-curl "http://your-app.com/prism/openai/v1/models"
+curl "https://your-app.example/prism/openai/v1/models" \
+     -H "Authorization: Bearer $PRISM_SERVER_TOKEN"
 ```
 
 ## Integration with Open WebUI
 
-Prism Server works seamlessly with OpenAI-compatible chat interfaces like [Open WebUI](https://openwebui.com). Here's an example Docker Compose configuration:
+Configure an OpenAI-compatible client with the base URL `https://your-app.example/prism/openai/v1`, its application-issued API token and a registered model name. The curl examples assume that token is stored in the client environment as `PRISM_SERVER_TOKEN`.
 
-```yaml
-services:
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
-    ports:
-      - "3000:8080"
-    environment:
-      OPENAI_API_BASE_URLS: "http://laravel:8080/prism/openai/v1"
-      WEBUI_SECRET_KEY: "your-secret-key"
+## Supported request fields
 
-  laravel:
-    image: serversideup/php:8.3-fpm-nginx
-    volumes:
-      - ".:/var/www/html"
-    environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    depends_on:
-      - open-webui
-```
+The controller reads `model`, `messages` and `stream`. Always include a message array. Client fields such as `temperature`, `max_tokens`, `top_p`, `tools`, `tool_choice` and `response_format` do not override the registered builder.
 
-With this setup, you can access your Prism models through a user-friendly chat interface at `http://localhost:3000`.
+Message roles are limited to `user`, `assistant` and `system`; a `tool` role is refused. User content can carry supported OpenAI-style text/image parts, while assistant and system content are mapped as text. Use Prism directly for client-tool continuation and approvals.
 
-By leveraging Prism Server, you can create powerful, custom AI experiences while maintaining compatibility with a wide ecosystem of tools and libraries. Whether you're building a chatbot, a content generation tool, or something entirely new, Prism Server provides the flexibility and standardization you need to succeed.
+The non-streaming endpoint always serializes `finish_reason` as `stop`; it does not preserve Prism's refusal, truncation or other finish reasons. Use Prism directly when your workflow needs those distinctions.
+
+## Errors
+
+Caught model-resolution, message-mapping and generation errors return HTTP 500 with `{"error":{"message":"..."}}`. The message is the original exception message and can contain provider diagnostics. Restrict endpoint access and handle diagnostics according to your application's data policy. Validation failures use Laravel's validation response.
+
+Streaming failures can occur after HTTP headers have been sent and are not converted by that outer error handler. A stream closing without its expected terminator is not successful completion.
 
 ## Adding Middleware
 
 You can add middleware to the Prism Server routes by setting the `middleware` option in your `config/prism.php` file:
 
 ```php
-'prism_server' => [
-    'middleware' => ['api'],
-],
+// For an application configured to authenticate API tokens with Sanctum:
+return ['prism_server' => [
+    'middleware' => ['auth:sanctum'],
+]];
 ```

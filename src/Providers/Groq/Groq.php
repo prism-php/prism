@@ -17,6 +17,9 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Groq\Concerns\ProcessRateLimits;
 use Prism\Prism\Providers\Groq\Handlers\Audio;
 use Prism\Prism\Providers\Groq\Handlers\Stream;
@@ -37,6 +40,15 @@ class Groq extends Provider
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $url,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all();
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

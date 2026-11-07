@@ -1,0 +1,23 @@
+# Analyses the documentation snippets extracted by tools/doc-fences.php.
+#
+# LEVEL 0 ON PURPOSE. The target is narrow: does this call exist on this
+# receiver, with this many arguments. Unknown classes, unknown methods, wrong
+# arity. A higher level buries those under missing-iterable-value-type findings
+# that are correct for src/ and meaningless for a four-line snippet -- and a real
+# finding nobody can see among hundreds of irrelevant ones is a finding nobody
+# fixes.
+#
+# The snippets are generated, so this never points at docs/ directly: run
+# `php tools/doc-fences.php extract build/doc-fences` first.
+parameters:
+    level: 2
+    paths:
+        - build/doc-fences
+    # Fences that are not standalone programs live here. They must be excluded
+    # rather than merely set aside: `paths` is recursive, and PHPStan stops
+    # reporting semantic findings entirely while ANY file fails to parse, so one
+    # fragment left in the tree hides every real finding in the other 400+.
+    excludePaths:
+        - build/doc-fences/fragments
+    tmpDir: build/phpstan-doc-fences
+    reportUnmatchedIgnoredErrors: false

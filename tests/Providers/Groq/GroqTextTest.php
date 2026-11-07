@@ -368,6 +368,54 @@ describe('rate limits', function (): void {
     });
 });
 
+it('splits arguments embedded in the function name by Llama models', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'groq/generate-text-with-mangled-tool-name');
+
+    $response = Prism::text()
+        ->using(Provider::Groq, 'llama-3.3-70b-versatile')
+        ->withTools([
+            Tool::as('weather')
+                ->for('weather lookup')
+                ->withStringParameter('city', 'the city')
+                ->using(fn (string $city): string => 'The weather will be 75° and sunny'),
+        ])
+        ->withMaxSteps(2)
+        ->withPrompt('Weather in Detroit?')
+        ->asText();
+
+    $firstStep = $response->steps[0];
+    expect($firstStep->toolCalls[0]->name)->toBe('weather')
+        ->and($firstStep->toolCalls[0]->arguments())->toBe(['city' => 'Detroit'])
+        ->and($firstStep->toolResults[0]->result)->toBe('The weather will be 75° and sunny');
+});
+
+it('excludes cached tokens from promptTokens', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'id' => 'cache-test-1',
+            'model' => 'llama-3.3-70b-versatile',
+            'choices' => [[
+                'index' => 0,
+                'message' => ['role' => 'assistant', 'content' => 'Hello!'],
+                'finish_reason' => 'stop',
+            ]],
+            'usage' => [
+                'prompt_tokens' => 100,
+                'completion_tokens' => 10,
+                'prompt_tokens_details' => ['cached_tokens' => 60],
+            ],
+        ]),
+    ])->preventStrayRequests();
+
+    $response = Prism::text()
+        ->using(Provider::Groq, 'llama-3.3-70b-versatile')
+        ->withPrompt('Hello')
+        ->asText();
+
+    expect($response->usage->promptTokens)->toBe(40)
+        ->and($response->usage->cacheReadInputTokens)->toBe(60);
+});
+
 function groqUsageCompletion(?array $usage): array
 {
     return array_filter([
@@ -397,6 +445,9 @@ describe('Usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => 49,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -417,6 +468,9 @@ describe('Usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 4608,
             'thought_tokens' => 0,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 

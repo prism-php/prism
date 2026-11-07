@@ -1,0 +1,26 @@
+{
+  "id": "resp_incomplete",
+  "object": "response",
+  "status": "incomplete",
+  "model": "openai/gpt-5.1",
+  "incomplete_details": {"reason": "max_output_tokens"},
+  "output": [{
+    "type": "message",
+    "content": [{
+      "type": "output_text",
+      "text": "Private partial finding",
+      "annotations": [{"type": "url_citation", "url": "https://example.test/source", "title": "Source"}]
+    }]
+  }, {
+    "type": "search_results",
+    "results": [{"url": "https://example.test/source", "title": "Source", "snippet": "Private source excerpt"}]
+  }],
+  "usage": {
+    "input_tokens": 12,
+    "output_tokens": 2048,
+    "total_tokens": 2060,
+    "cost": {"currency": "USD", "total_cost": 0.01, "tool_calls_cost": 0.004},
+    "tool_calls_details": {"web_search": 1}
+  },
+  "error": null
+}

@@ -9,16 +9,15 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
-use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\BuildsRequestBody;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenAI\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
-use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\OpenAI\Support\OutputItems;
 use Prism\Prism\Providers\OpenAI\ValueObjects\OpenAIStreamState;
 use Prism\Prism\Streaming\EventID;
@@ -37,6 +36,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -47,11 +47,12 @@ use Throwable;
 
 class Stream
 {
-    use BuildsTools;
+    use BuildsRequestBody;
     use CallsTools;
     use MapsFinishReason;
     use MapsUsage;
     use ProcessRateLimits;
+    use TracksStreamFailureUsage;
 
     protected OpenAIStreamState $state;
 
@@ -65,6 +66,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -75,11 +80,13 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('openai', $depth);
+
         $this->state->reset()->withMessageId(EventID::generate());
         $reasoningItems = [];
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -90,15 +97,15 @@ class Stream
                 $message = data_get($data, 'error.message', 'No error message provided');
 
                 if ($code === 'rate_limit_exceeded') {
-                    throw new PrismRateLimitedException([]);
+                    throw (new PrismRateLimitedException([]))->withStreamFailureUsage($this->streamFailureUsage());
                 }
 
-                throw new PrismException(sprintf(
+                throw (new PrismException(sprintf(
                     'Sending to model %s failed. Code: %s. Message: %s',
                     $request->model(),
                     $code,
                     $message
-                ));
+                )))->withStreamFailureUsage($this->streamFailureUsage());
             }
 
             if ($data['type'] === 'response.created' && $this->state->shouldEmitStreamStart()) {
@@ -283,7 +290,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->state->stepUsage(),
+            usage: $this->finishStepUsage(),
             additionalContent: $this->stepAdditionalContent(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
         );
@@ -341,6 +348,20 @@ class Stream
     }
 
     /**
+     * The usage this step's terminal event reported, for its StepFinishEvent.
+     *
+     * Also advances the state's step snapshot, so the client-executed tool path
+     * (yieldToolCallsFinishEvents, which reads takeStepUsage()) hands its step
+     * only that step's usage rather than every earlier step's as well.
+     */
+    protected function finishStepUsage(): ?Usage
+    {
+        $this->state->takeStepUsage();
+
+        return $this->state->stepUsage();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function stepAdditionalContent(): array
@@ -391,6 +412,7 @@ class Stream
                 message: (string) data_get($response, 'error.message', 'The response failed.'),
                 recoverable: false,
                 metadata: Arr::whereNotNull(['response_id' => data_get($response, 'id')]),
+                failureUsage: $this->streamFailureUsage(),
             );
         }
     }
@@ -512,7 +534,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('OpenAI', $e);
+            throw (new PrismStreamDecodeException('OpenAI', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -593,7 +615,17 @@ class Stream
     {
         $mappedToolCalls = $this->mapToolCalls($this->state->completedToolCalls());
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         // Emit step finish after tool calls
         $this->state->markStepFinished();
@@ -602,7 +634,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->state->stepUsage(),
+            usage: $this->finishStepUsage(),
             additionalContent: $stepAdditionalContent,
             finishReason: FinishReason::ToolCalls,
         );
@@ -760,33 +792,15 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this
             ->client
             ->withOptions(['stream' => true])
             ->post(
                 'responses',
-                array_merge([
-                    'stream' => true,
-                    'model' => $request->model(),
-                    'input' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                ], Arr::whereNotNull([
-                    'max_output_tokens' => $request->maxTokens(),
-                    'temperature' => $request->temperature(),
-                    'top_p' => $request->topP(),
-                    'metadata' => $request->providerOptions('metadata'),
-                    'tools' => $this->buildTools($request),
-                    'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-                    'parallel_tool_calls' => $request->providerOptions('parallel_tool_calls'),
-                    'previous_response_id' => $request->providerOptions('previous_response_id'),
-                    'service_tier' => $request->providerOptions('service_tier'),
-                    'text' => $request->providerOptions('text_verbosity') ? [
-                        'verbosity' => $request->providerOptions('text_verbosity'),
-                    ] : null,
-                    'truncation' => $request->providerOptions('truncation'),
-                    'reasoning' => $request->providerOptions('reasoning'),
-                    'store' => $request->providerOptions('store'),
-                ]))
+                array_merge(['stream' => true], $this->buildRequestBody($request)),
             );
 
         return $response;

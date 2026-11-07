@@ -1,10 +1,14 @@
 # Audio Processing
 
-Transform text into speech and speech into text using AI-powered audio models. Prism provides a unified API for audio processing across different providers, enabling both text-to-speech (TTS) and speech-to-text (STT) functionality.
+Prism provides text-to-speech (TTS) and speech-to-text (STT) requests through a shared API. Supported operations and formats depend on the provider and model.
 
 ## Getting Started
 
 ### Text-to-Speech
+
+::: warning OpenAI Speech API retirement
+OpenAI schedules `tts-1`, `tts-1-hd` and `gpt-4o-mini-tts` for removal on January 6, 2027. Prism uses the Speech API for these calls. The replacement Realtime workflow requires a separate integration; putting its model ID in this builder will not migrate the request. See [OpenAI's TTS guide](https://developers.openai.com/api/docs/guides/text-to-speech).
+:::
 
 Convert text into natural-sounding speech:
 
@@ -13,7 +17,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::audio()
-    ->using(Provider::OpenAI, 'tts-1')
+    ->using(Provider::OpenAI, 'gpt-4o-mini-tts')
     ->withInput('Hello, this is a test of text-to-speech functionality.')
     ->withVoice('alloy')
     ->asAudio();
@@ -34,7 +38,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Audio;
 
-$audioFile = Audio::fromPath('/path/to/audio.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/audio.mp3');
 
 $response = Prism::audio()
     ->using(Provider::OpenAI, 'whisper-1')
@@ -48,10 +52,16 @@ echo "Transcription: " . $response->text;
 
 Currently, Prism supports audio processing through:
 
-- **OpenAI**: TTS-1, TTS-1-HD (text-to-speech) and Whisper-1 (speech-to-text)
-- **Groq**: PlayAI TTS models (text-to-speech) and Whisper Large V3 models (speech-to-text)
+| Provider | Text-to-speech | Speech-to-text |
+|---|---|---|
+| [OpenAI](/providers/openai#audio-processing) | Yes | Yes |
+| [Groq](/providers/groq#audio-processing) | Yes | Yes |
+| [ElevenLabs](/providers/elevenlabs) | Yes | Yes |
+| [Gemini](/providers/gemini#text-to-speech) | Yes | Not through `asText()`; use audio in a text prompt for understanding |
+| [Mistral](/providers/mistral#audio-processing) | No | Yes |
+| [Replicate](/providers/replicate#supported-features) | Yes | Yes |
 
-Additional providers will be added in future releases as the ecosystem evolves.
+Select models and voices from the provider guide. Initialize TTS requests with `withVoice()` even when a provider reads its model voice from provider options. ElevenLabs TTS also requires `model_id` in provider options; Replicate's voice input must be set there too.
 
 ## Basic Usage
 
@@ -61,13 +71,13 @@ Generate speech from text input:
 
 ```php
 $response = Prism::audio()
-    ->using('openai', 'tts-1')
+    ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('Welcome to our application!')
     ->withVoice('alloy')
     ->asAudio();
 
 $audio = $response->audio;
-echo "Audio type: " . $audio->getMimeType(); // audio/mpeg
+echo "Audio type: " . $audio->mimeType(); // audio/mpeg
 echo "Has audio data: " . ($audio->hasBase64() ? 'Yes' : 'No');
 ```
 
@@ -79,10 +89,10 @@ Transcribe audio files to text:
 use Prism\Prism\ValueObjects\Media\Audio;
 
 // From file path
-$audioFile = Audio::fromPath('/path/to/recording.wav');
+$audioFile = Audio::fromLocalPath('/path/to/recording.wav');
 
-// From URL
-$audioFile = Audio::fromUrl('https://example.com/audio.mp3');
+// From a URL you trust — fetched explicitly, see below
+$audioFile = Audio::fromUrl('https://example.com/audio.mp3')->fetchUrlContent();
 
 // From base64 data
 $audioFile = Audio::fromBase64($base64AudioData, 'audio/wav');
@@ -96,6 +106,15 @@ $response = Prism::audio()
 echo $response->text;
 ```
 
+::: warning URLs are not fetched automatically
+Media built with `fromUrl()` has no bytes until you fetch them. Two calls do it:
+
+- `fetchUrlContent()` downloads the file from your server with no checks. Use it only on a URL you control.
+- `fetchPublicUrlContent()` is for a URL you did not choose, from user input or model output. It refuses non-http schemes, private, loopback and reserved addresses (including a host name that resolves to one, and any redirect that leads to one), and bodies over 32 MiB, throwing `PrismUrlRefused` with a `code()` such as `private_address_refused`.
+
+For a file a user uploads, use `fromBase64()` or `fromLocalPath()` on the stored file instead.
+:::
+
 ## Working with Audio Files
 
 ### Creating Audio Objects
@@ -106,16 +125,16 @@ The `Audio` class provides several ways to work with audio files:
 use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file
-$audio = Audio::fromPath('/path/to/audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/audio.mp3');
 
 // From remote URL
-$audio = Audio::fromUrl('https://example.com/speech.wav');
+$audio = Audio::fromUrl('https://example.com/speech.wav')->fetchUrlContent(); // a URL you trust
 
 // From base64 encoded data
 $audio = Audio::fromBase64($base64Data, 'audio/mpeg');
 
 // From raw binary content
-$audio = Audio::fromContent($binaryData, 'audio/wav');
+$audio = Audio::fromRawContent($binaryData, 'audio/wav');
 ```
 
 ### Audio Properties
@@ -123,20 +142,22 @@ $audio = Audio::fromContent($binaryData, 'audio/wav');
 Access audio file information:
 
 ```php
-$audio = Audio::fromPath('/path/to/audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/audio.mp3');
 
 echo "MIME type: " . $audio->mimeType();
-echo "Has local path: " . ($audio->hasLocalPath() ? 'Yes' : 'No');
-echo "File size: " . $audio->size() . " bytes";
+echo "Local path: " . ($audio->localPath() ?? 'No local path');
+echo "Content size: " . strlen($audio->rawContent() ?? '') . " bytes";
 ```
 
 ## Working with Responses
+
+`asAudio()` returns `AudioResponse` with a `GeneratedAudio` object and `additionalContent`. Use `rawContent()`, `base64()`, `mimeType()` and `hasBase64()` on the generated audio. It has no `getMimeType()` or `size()` method; inspect byte length with `strlen($audio->rawContent() ?? '')`. MIME detection may be unavailable for headerless audio, so preserve the selected output format separately when needed.
 
 ### Text-to-Speech Responses
 
 ```php
 $response = Prism::audio()
-    ->using('openai', 'tts-1-hd')
+    ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('This is high-quality text-to-speech.')
     ->withVoice('nova')
     ->asAudio();
@@ -150,7 +171,7 @@ if ($audio->hasBase64()) {
     file_put_contents('speech.mp3', $audioData);
     
     // Get MIME type
-    echo "Content type: " . $audio->getMimeType();
+    echo "Content type: " . $audio->mimeType();
 }
 
 // Access additional response data
@@ -162,7 +183,7 @@ foreach ($response->additionalContent as $key => $value) {
 ### Speech-to-Text Responses
 
 ```php
-$audioFile = Audio::fromPath('/path/to/speech.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/speech.mp3');
 
 $response = Prism::audio()
     ->using('openai', 'whisper-1')
@@ -192,11 +213,11 @@ print_r($response->additionalContent);
 
 ## Voice Selection
 
-Prism provides a dedicated `withVoice()` method for selecting voices in text-to-speech, making voice selection a first-class citizen in the API:
+Select a text-to-speech voice with `withVoice()`:
 
 ```php
 $response = Prism::audio()
-    ->using('openai', 'tts-1')
+    ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('Hello, how are you today?')
     ->withVoice('alloy')  // Voice options vary by provider
     ->asAudio();
@@ -212,7 +233,7 @@ Customize format, speed, and other options:
 
 ```php
 $response = Prism::audio()
-    ->using('openai', 'tts-1')
+    ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('Hello, how are you today?')
     ->withVoice('nova')
     ->withProviderOptions([
@@ -227,7 +248,7 @@ $response = Prism::audio()
 Configure transcription settings:
 
 ```php
-$audioFile = Audio::fromPath('/path/to/multilingual.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/multilingual.mp3');
 
 $response = Prism::audio()
     ->using('openai', 'whisper-1')
@@ -264,6 +285,10 @@ if (isset($metadata['segments'])) {
 }
 ```
 
+## Asynchronous transcription methods
+
+The builder also declares `asTextProviderId()` and `asTextAsync()`. The first accepts an `Audio` input and returns `ProviderIdResponse` (`id`, optional `usage`, `additionalContent`); the second accepts a string/integer provider ID and returns `TextResponse`. No built-in provider currently implements these operations: both raise an unsupported-action `PrismException`. Use `asText()` for the supported transcription path, or a provider-specific client for asynchronous jobs.
+
 ## Advanced Usage
 
 Audio can be integrated into multi-modal conversations:
@@ -273,7 +298,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Text;
 
-$audioFile = Audio::fromPath('/path/to/question.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/question.mp3');
 
 // First transcribe the audio
 $transcription = Prism::audio()
@@ -283,7 +308,7 @@ $transcription = Prism::audio()
 
 // Then use in a text conversation
 $response = Prism::text()
-    ->using('openai', 'gpt-4')
+    ->using('openai', 'gpt-4.1')
     ->withMessages([
         new UserMessage('', [
             new Text('User asked: '),
@@ -295,7 +320,7 @@ $response = Prism::text()
 
 // Convert response back to speech
 $speechResponse = Prism::audio()
-    ->using('openai', 'tts-1')
+    ->using('openai', 'gpt-4o-mini-tts')
     ->withInput($response->text)
     ->withVoice('alloy')
     ->asAudio();
@@ -309,7 +334,7 @@ Configure HTTP client options for audio processing:
 
 ```php
 $response = Prism::audio()
-    ->using('openai', 'tts-1')
+    ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('This might take a while to process.')
     ->withClientOptions([
         'timeout' => 60,           // Increase timeout for large files
@@ -346,7 +371,7 @@ use Throwable;
 
 try {
     $response = Prism::audio()
-        ->using('openai', 'tts-1')
+        ->using('openai', 'gpt-4o-mini-tts')
         ->withInput('Text to convert to speech')
         ->withVoice('alloy')
         ->asAudio();
@@ -365,7 +390,7 @@ try {
 
 ## Testing
 
-Prism provides convenient fakes for testing audio functionality:
+Use fakes to test audio functionality without external API calls:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -385,13 +410,13 @@ test('can generate text-to-speech', function () {
     Prism::fake([$fakeAudio]);
 
     $response = Prism::audio()
-        ->using('openai', 'tts-1')
+        ->using('openai', 'gpt-4o-mini-tts')
         ->withInput('Test audio generation')
         ->withVoice('alloy')
         ->asAudio();
 
     expect($response->audio->hasBase64())->toBeTrue();
-    expect($response->audio->getMimeType())->toBe('audio/mpeg');
+    expect($response->audio->mimeType())->toBe('audio/mpeg');
 });
 
 test('can transcribe speech-to-text', function () {
@@ -401,7 +426,7 @@ test('can transcribe speech-to-text', function () {
     
     Prism::fake([$fakeTranscription]);
 
-    $audioFile = Audio::fromPath('/fake/path/test.mp3');
+    $audioFile = Audio::fromRawContent('owned test audio', 'audio/mpeg');
     
     $response = Prism::audio()
         ->using('openai', 'whisper-1')
@@ -411,4 +436,3 @@ test('can transcribe speech-to-text', function () {
     expect($response->text)->toBe('This is a fake transcription');
 });
 ```
-

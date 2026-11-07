@@ -1,6 +1,6 @@
 # Structured Output
 
-Want your AI responses as neat and tidy as a Marie Kondo-approved closet? Structured output lets you define exactly how you want your data formatted, making it perfect for building APIs, processing forms, or any time you need data in a specific shape.
+Structured output returns data in a schema-defined format. Use it for extraction, classification and other tasks that require machine-readable responses.
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ echo $review['summary'];  // "A mind-bending..."
 
 Different AI providers handle structured output in two main ways:
 
-1. **Structured Mode**: Some providers support strict schema validation, ensuring responses perfectly match your defined structure.
+1. **Structured Mode**: Some providers support strict schema validation, constraining output to the supported schema.
 2. **JSON Mode**: Other providers simply guarantee valid JSON output that approximately matches your schema.
 
 With OpenAI, Prism uses structured mode, sending a native `json_schema` request, for every model except a short list of legacy ones (`gpt-3.5-turbo`, `gpt-4`, `gpt-4-*` and `gpt-4o-2024-05-13`). That means new model families get schema enforcement automatically. If you point the OpenAI provider at a compatible server that can't handle `json_schema`, switch to JSON mode yourself:
@@ -81,9 +81,33 @@ $response = Prism::structured()
         'schema' => [
             'strict' => true
         ]
-    ])
-    // ... rest of your configuration
+    ]);
+// Add the provider, schema and prompt before calling asStructured().
 ```
+
+### Qwen: JSON Schema Mode
+Qwen supports two modes for structured output through DashScope's `response_format` parameter:
+
+- **JSON Object mode** (default): Ensures valid JSON output. Supported by most Qwen models.
+- **JSON Schema mode**: Strictly enforces the schema structure. Supported by `qwen3-max`, `qwen-plus`, `qwen-flash` series and later models.
+
+To use JSON Schema mode for strict schema validation:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StructuredMode;
+
+$response = Prism::structured()
+    ->using(Provider::Qwen, 'qwen-plus')
+    ->usingStructuredMode(StructuredMode::Structured)
+    ->withSchema($schema)
+    ->withPrompt('Extract user information')
+    ->asStructured();
+```
+
+> [!NOTE]
+> JSON Schema mode is only supported by newer models. If you use a model that does not support it, use the default JSON Object mode (or `StructuredMode::Auto`) instead. Check the [Qwen structured output documentation](https://www.alibabacloud.com/help/en/model-studio/qwen-structured-output) for the full list of supported models.
 
 ### Anthropic
 Anthropic uses native structured outputs by default (Claude Sonnet 4.5 and later, including the Claude 5 family), providing guaranteed schema compliance through constrained decoding. It works alongside adaptive thinking, `effort` and your own tools, so it's the mode to reach for on current models.
@@ -91,24 +115,25 @@ Anthropic uses native structured outputs by default (Claude Sonnet 4.5 and later
 > [!WARNING]
 > Tool calling mode forces the model to call Prism's output tool, and Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 reject a forced tool choice with a 400. On those models, stay with native mode, or add `->withToolChoice(ToolChoice::Auto)` to tool calling mode. With `Auto` the model is asked to use the tool, but the schema isn't enforced.
 
-For older models, you can use tool calling mode as a fallback:
+Tool calling mode is also available. This current-model example selects `Auto` explicitly; the model can decline the output tool, so validate the result:
 
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::structured()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withSchema($schema)
     ->withPrompt('天氣怎麼樣？應該穿什麼？') // Chinese text with potential quotes
     ->withProviderOptions(['use_tool_calling' => true])
+    ->withToolChoice(\Prism\Prism\Enums\ToolChoice::Auto)
     ->asStructured();
 ```
 
 **When to use tool calling mode with Anthropic:**
 - Using older models that don't support native structured outputs
 - Working with non-English content that may contain quotes on older models
-- When you need to combine structured output with custom tools
+- When explicitly using a compatible model's tool-based output workflow; current native mode can also combine your tools
 
 > [!NOTE]
 > Tool calling mode cannot be used with Anthropic's citations feature.
@@ -124,7 +149,9 @@ When working with structured responses, you have access to both the structured d
 use Prism\Prism\Facades\Prism;
 
 $response = Prism::structured()
+    ->using('openai', 'gpt-4.1')
     ->withSchema($schema)
+    ->withPrompt('Review the movie Inception')
     ->asStructured();
 
 // Access the structured data as a PHP array
@@ -164,14 +191,20 @@ if (!isset($response->structured['required_field'])) {
 }
 ```
 
+## Request requirements and failures
+
+Set `withSchema()` before calling `asStructured()`. A missing schema raises `PrismException` while building the request. Malformed response JSON can raise `PrismStructuredDecodingException`; valid JSON still needs application validation. A refusal can return an empty `structured` result without a decoding exception, so inspect `finishReason` too. Decoding exception messages contain the response text; apply your data-retention policy before logging them.
+
+`withThread()` supplies stored history and can be combined with a new prompt, as in [Text Generation](/core-concepts/text-generation#threads). `withToolChoice()` controls selection on structured providers that support tools. To make a tool raise on failure, call `withoutErrorHandling()` on that tool before passing it to the request. The structured builder's `withoutToolErrorHandling()` flag does not alter the tools passed to its provider.
+
 ## Common Settings
 
 Structured output supports several configuration options to fine-tune your generations:
 
 ### Model Configuration
-- `maxTokens` - Set the maximum number of tokens to generate
-- `temperature` - Control output randomness (provider-dependent)
-- `topP` - Alternative to temperature for controlling randomness (provider-dependent)
+- `withMaxTokens()` - Set the maximum number of tokens to generate
+- `usingTemperature()` - Control output randomness (provider-dependent)
+- `usingTopP()` - Alternative to temperature for controlling randomness (provider-dependent)
 
 ### Input Methods
 - `withPrompt` - Single prompt for generation
@@ -198,7 +231,7 @@ Here's a simple example that uses a weather tool to gather data, then returns st
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $schema = new ObjectSchema(
     name: 'weather_analysis',
@@ -218,7 +251,7 @@ $weatherTool = Tool::as('get_weather')
     );
 
 $response = Prism::structured()
-    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withSchema($schema)
     ->withTools([$weatherTool])
     ->withMaxSteps(3)

@@ -8,6 +8,7 @@ use BackedEnum;
 use Exception;
 use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Contracts\Message;
+use Prism\Prism\Providers\Support\Payload;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -78,7 +79,7 @@ class MessageMap
                     [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => array_filter([
+                        'cache_control' => Payload::compact([
                             'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
                             'ttl' => $cacheTtl,
                         ]),
@@ -97,7 +98,7 @@ class MessageMap
     {
         $cacheType = $message->providerOptions('cacheType');
         $cacheTtl = $message->providerOptions('cacheTtl');
-        $cacheControl = $cacheType ? array_filter([
+        $cacheControl = $cacheType ? Payload::compact([
             'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
             'ttl' => $cacheTtl,
         ]) : null;
@@ -139,7 +140,7 @@ class MessageMap
     {
         $cacheType = $message->providerOptions('cacheType');
         $cacheTtl = $message->providerOptions('cacheTtl');
-        $cacheControl = $cacheType ? array_filter([
+        $cacheControl = $cacheType ? Payload::compact([
             'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
             'ttl' => $cacheTtl,
         ]) : null;
@@ -176,7 +177,7 @@ class MessageMap
             'type' => 'function',
             'function' => [
                 'name' => $toolCall->name,
-                'arguments' => json_encode($toolCall->arguments() ?: (object) []),
+                'arguments' => $toolCall->argumentsAsJson(),
             ],
         ], $message->toolCalls);
 
@@ -193,7 +194,7 @@ class MessageMap
                     [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => array_filter([
+                        'cache_control' => Payload::compact([
                             'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
                             'ttl' => $cacheTtl,
                         ]),

@@ -98,7 +98,7 @@ class MessageMap
             'tool_calls' => $message->toolCalls ? array_map(fn (ToolCall $toolCall): array => [
                 'function' => [
                     'name' => $toolCall->name,
-                    'arguments' => (object) $toolCall->arguments(),
+                    'arguments' => $toolCall->argumentsAsObject(),
                 ],
             ], $message->toolCalls) : null,
         ]);

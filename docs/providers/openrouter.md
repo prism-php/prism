@@ -39,9 +39,9 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+    ->using(Provider::OpenRouter, 'openai/gpt-4.1')
     ->withPrompt('Tell me a story about AI.')
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -60,15 +60,15 @@ use Prism\Prism\Schema\StringSchema;
 $schema = new ObjectSchema('person', 'Person information', [
     new StringSchema('name', 'The person\'s name'),
     new StringSchema('occupation', 'The person\'s occupation'),
-]);
+], requiredFields: ['name', 'occupation']);
 
 $response = Prism::structured()
-    ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+    ->using(Provider::OpenRouter, 'openai/gpt-4.1')
     ->withPrompt('Generate a person profile for John Doe.')
     ->withSchema($schema)
-    ->generate();
+    ->asStructured();
 
-echo $response->text;
+echo json_encode($response->structured);
 ```
 
 ### Tool Calling
@@ -76,7 +76,7 @@ echo $response->text;
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get the current weather for a location')
@@ -86,10 +86,11 @@ $weatherTool = Tool::as('get_weather')
     });
 
 $response = Prism::text()
-    ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+    ->using(Provider::OpenRouter, 'openai/gpt-4.1')
     ->withPrompt('What is the weather like in New York?')
     ->withTools([$weatherTool])
-    ->generate();
+    ->withMaxSteps(2)
+    ->asText();
 
 echo $response->text;
 ```
@@ -108,7 +109,7 @@ $response = Prism::text()
     ->withPrompt('Describe the key trends in this diagram.', [
         Image::fromLocalPath('storage/charts/retention.png'),
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -130,7 +131,7 @@ $response = Prism::text()
     ->withPrompt('Summarize this document.', [
         Document::fromUrl('https://example.com/report.pdf', 'report.pdf'),
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -152,7 +153,7 @@ $response = Prism::text()
     ->withPrompt('Describe what happens in this video.', [
         Video::fromLocalPath('/path/to/video.mp4'),
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -165,7 +166,7 @@ $response = Prism::text()
     ->withPrompt('Summarize this video.', [
         Video::fromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
     ])
-    ->generate();
+    ->asText();
 ```
 
 > [!NOTE]
@@ -179,7 +180,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
-    ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+    ->using(Provider::OpenRouter, 'openai/gpt-4.1')
     ->withPrompt('Tell me a long story about AI.')
     ->asStream();
 
@@ -201,7 +202,7 @@ foreach ($stream as $event) {
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get the current weather for a location')
@@ -211,18 +212,20 @@ $weatherTool = Tool::as('get_weather')
     });
 
 $stream = Prism::text()
-    ->using(Provider::OpenRouter, 'openai/gpt-4-turbo')
+    ->using(Provider::OpenRouter, 'openai/gpt-4.1')
     ->withPrompt('What is the weather like in multiple cities?')
     ->withTools([$weatherTool])
+    ->withMaxSteps(2)
     ->asStream();
 
 foreach ($stream as $event) {
-    match ($event->type()) {
-        StreamEventType::TextDelta => echo $event->delta,
-        StreamEventType::ToolCall => echo "Tool called: {$event->toolName}\n",
-        StreamEventType::ToolResult => echo "Tool result: " . json_encode($event->result) . "\n",
-        default => null,
-    };
+    if ($event->type() === \Prism\Prism\Enums\StreamEventType::TextDelta) {
+        echo $event->delta;
+    } elseif ($event->type() === \Prism\Prism\Enums\StreamEventType::ToolCall) {
+        echo "Tool called: {$event->toolCall->name}\n";
+    } elseif ($event->type() === \Prism\Prism\Enums\StreamEventType::ToolResult) {
+        echo 'Tool result: '.json_encode($event->toolResult->result)."\n";
+    }
 }
 ```
 
@@ -305,6 +308,34 @@ foreach ($stream as $event) {
 }
 ```
 
+### Caching and strict tool schemas
+
+Set `cacheType` and optional `cacheTtl` on individual system, user or assistant messages, rather than on the request:
+
+```php
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+
+$system = (new SystemMessage('Reusable application instructions'))
+    ->withProviderOptions(['cacheType' => 'ephemeral', 'cacheTtl' => '1h']);
+```
+
+Pass it to `withSystemPrompt($system)` and use a model/router that supports the selected cache controls. Set `withProviderOptions(['strict' => true])` on each tool when you need strict tool schemas.
+
+`withReasoning(false)` supplies `reasoning: {exclude: true}` unless you set an explicit `reasoning` option. It controls returned reasoning content and does not guarantee lower reasoning cost.
+
+### Embeddings
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::embeddings()
+    ->using('openrouter', 'openai/text-embedding-3-small')
+    ->fromInput('A document to index')
+    ->asEmbeddings();
+```
+
+Embedding provider options are forwarded in the payload. Read vectors from `embeddings`, token counts from `usage`, and provider metadata from `meta`. Select a model listed for embeddings in your router account.
+
 ### Token Usage
 
 OpenRouter's `prompt_tokens` includes the tokens it read from the cache and the tokens it wrote to it. Prism takes both out so the input buckets don't overlap, the same way it does for every other provider (see [Token Usage](/core-concepts/text-generation#token-usage)):
@@ -319,9 +350,46 @@ OpenRouter's `prompt_tokens` includes the tokens it read from the cache and the 
 
 A few things worth knowing:
 
-- OpenRouter's docs show cache writes inside `prompt_tokens`. That reads and writes never overlap is our reading of those docs rather than something they spell out.
+- Prism subtracts both reported cache-read and cache-write counts from `prompt_tokens` and clamps the result to zero.
 - A replayed response-cache hit can report more cached tokens than prompt tokens, so `promptTokens` never drops below `0`.
 - Streams take usage from the accounting chunk OpenRouter sends at the end of every response, which repeats the finish reason. Prism reads it once per step, and the final `StreamEndEvent` adds up every step of a tool loop. Each `StepFinishEvent` carries its own step's usage.
+
+### Reported cost and BYOK
+
+`$response->usage->cost` reports the call's cost in USD when OpenRouter provides
+the necessary billing figures. For an explicitly identified BYOK call, Prism
+adds the OpenRouter charge to OpenRouter's reported upstream inference estimate.
+This is the combined reported call cost, rather than only the credits deducted
+by OpenRouter. The upstream estimate is not an audited provider invoice.
+
+For a non-BYOK call, the OpenRouter charge already covers inference; Prism does
+not add its upstream breakdown again. Missing, negative, invalid or overflowing
+BYOK totals produce a null cost. Explicit zero totals remain zero.
+
+```php
+$response->usage->cost;
+$billing = $response->additionalContent['openrouter_billing'];
+// is_byok: bool|null, router_cost: float|null,
+// upstream_cost: float|null, complete: bool
+```
+
+These accounting facts are on each response step and streamed `StepFinishEvent`
+object. Text and structured responses aggregate them in `additionalContent`;
+they also appear in an explicit non-stream `toArray()`. They are not sent in
+serialized stream events.
+Completeness requires complete evidence for every step. StreamEnd carries total
+usage and cost, without billing metadata. StepFinish serialization excludes
+additional content, so the billing facts are absent from SSE and broadcast output.
+Mixed BYOK/non-BYOK routing produces a null aggregate `is_byok`, while each
+step retains its own identity. A missing component makes its aggregate total
+null; the normalized cost is null if any step has an unknown cost.
+
+Older responses without BYOK identity retain their scalar router cost for
+compatibility and report `complete: false`. When enforcing a spending cap, only
+trust cost with complete billing evidence. Null or incomplete evidence must not
+be treated as a free call. See OpenRouter's
+[usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting)
+and [BYOK documentation](https://openrouter.ai/docs/guides/overview/auth/byok).
 
 ### Provider Routing & Advanced Options
 
@@ -343,7 +411,7 @@ $response = Prism::text()
         'top_k' => 40,
         // Reference: https://openrouter.ai/docs/api-reference/parameters for the full parameter list.
     ])
-    ->generate();
+    ->asText();
 
 echo $response->text;
 ```
@@ -380,14 +448,16 @@ Visit [OpenRouter's models page](https://openrouter.ai/models) for a complete li
 - ✅ Image Support
 - ✅ Video Support
 - ✅ Document Support
-- ❌ Embeddings (not yet implemented)
-- ❌ Image Generation (not yet implemented)
+- Embeddings through `Prism::embeddings()`
+- Image generation is unsupported by this integration.
 
 ## API Reference
 
 For detailed API documentation, visit [OpenRouter's API documentation](https://openrouter.ai/docs/api-reference/chat-completion).
 
 ## Error Handling
+
+HTTP 400, 401, 402, 403 and 408 raise `PrismException` with bad-request, authentication, credits, moderation or timeout details respectively. HTTP 413 raises `PrismRequestTooLargeException`; 429 raises `PrismRateLimitedException`; 503 raises `PrismProviderOverloadedException`. Error details can include the upstream provider name. Treat response bodies as sensitive before logging them.
 
 The OpenRouter provider includes standard error handling for common issues:
 
@@ -396,4 +466,4 @@ The OpenRouter provider includes standard error handling for common issues:
 - Provider overload
 - Invalid API key
 
-Errors are automatically mapped to appropriate Prism exceptions for consistent error handling across all providers. 
+Errors are automatically mapped to appropriate Prism exceptions for consistent error handling across all providers.

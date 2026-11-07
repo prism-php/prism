@@ -272,6 +272,8 @@ it('sends the step finish reason in the step_finish payload', function (): void 
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => null,
                 'thought_tokens' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ],
         ]);
 });

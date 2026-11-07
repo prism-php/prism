@@ -1,36 +1,35 @@
 ---
-# https://vitepress.dev/reference/default-theme-home-page
 layout: home
 
 hero:
   name: "Prism"
   text: Laravel x LLMs
-  tagline: "Prism is a powerful Laravel package for integrating Large Language Models (LLMs) into your applications."
+  tagline: "A unified PHP interface for model APIs in Laravel."
   actions:
     - theme: brand
       text: Get Started
       link: /getting-started/introduction
     - theme: alt
-      text: Sponsor
-      link: https://github.com/sponsors/sixlive
+      text: GitHub
+      link: https://github.com/Particle-Academy/prism
     - theme: alt
-      text: Github
-      link: https://github.com/prism-php/prism
+      text: Companion Packages
+      link: /companion-packages/
   image:
     src: /assets/prism-logo.webp
     alt: Prism Logo
 
 features:
-  - title: Elegant Provider Integrations
-    details: Seamlessly switch between AI providers like OpenAI, Anthropic, and Ollama with a clean, expressive syntax you'll love.
-  - title: Fluent Text Generation API
-    details: Craft AI-powered text with an intuitive, chainable API that feels right at home in your Laravel projects.
-  - title: Seamless Tool Integration
-    details: Empower your AI with custom tools and external APIs, extending its capabilities with Laravel-like simplicity.
-  - title: Structured Output Handling
-    details: Transform AI responses into strongly-typed data with schema validation and rich object mapping - perfect for building robust APIs and applications.
-  - title: First-Class Testing Support
-    details: Write confident code with our comprehensive testing utilities, including response faking and detailed assertion helpers that make unit testing a breeze.
-  - title: Multi-Modal Capabilities
-    details: Work with text, images, and audio seamlessly using the same elegant API, enabling rich understanding and context-aware responses across all media types.
+  - title: Text and Streaming
+    details: Generate text and consume typed streaming events through a shared request API.
+  - title: Tools and Approvals
+    details: Define application tools, inspect calls and pause supported workflows for authorized human decisions.
+  - title: Structured Output
+    details: Describe output with schemas and read decoded results. Validate application requirements before acting on them.
+  - title: Multimodal Requests
+    details: Use images, documents, audio and video with providers and models that support those inputs.
+  - title: Generation and Embeddings
+    details: Generate images and speech, transcribe audio, create embeddings and moderate content on supported integrations.
+  - title: Files, Batch and Testing
+    details: Manage provider files, submit batches and test requests with response fakes and HTTP fixtures.
 ---

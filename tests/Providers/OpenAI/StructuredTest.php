@@ -669,3 +669,81 @@ it('handles unknown finish reasons gracefully', function (): void {
 
     expect($response->finishReason)->toBe(FinishReason::Unknown);
 });
+
+it('passes text_verbosity through to the responses API', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-structured-mode');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [new StringSchema('weather', 'The weather forecast')],
+        ['weather']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-5')
+        ->withPrompt('What is the weather?')
+        ->withProviderOptions(['text_verbosity' => 'low'])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'text.verbosity'))->toBe('low')
+            ->and(data_get($body, 'text.format'))->not->toBeNull();
+
+        return true;
+    });
+});
+
+it('omits text.verbosity when text_verbosity is not set', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-structured-mode');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [new StringSchema('weather', 'The weather forecast')],
+        ['weather']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::OpenAI, 'gpt-5')
+        ->withPrompt('What is the weather?')
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): true {
+        $body = json_decode($request->body(), true);
+
+        expect(data_get($body, 'text'))->not->toHaveKey('verbosity');
+
+        return true;
+    });
+});
+
+// prism#83. The default Auto mode must send a strict json_schema to the current
+// OpenAI flagships, not fall back to json_object where the schema is unenforced.
+it('sends a json_schema format under auto mode for current models', function (string $model, string $format): void {
+    FixtureResponse::fakeResponseSequence('v1/responses', 'openai/strict-schema-defaults');
+
+    Prism::structured()
+        ->using(Provider::OpenAI, $model)
+        ->withSchema(new ObjectSchema('output', 'the output object', [
+            new StringSchema('weather', 'The weather forecast'),
+        ], ['weather']))
+        ->withPrompt('What is the weather?')
+        ->asStructured();
+
+    Http::assertSent(function (Request $request) use ($format): true {
+        expect(data_get(json_decode($request->body(), true), 'text.format.type'))->toBe($format);
+
+        return true;
+    });
+})->with([
+    ['gpt-6-sol', 'json_schema'],
+    ['gpt-6.1-sol', 'json_schema'],
+    ['o3', 'json_schema'],
+    ['o4-mini', 'json_schema'],
+    ['gpt-3.5-turbo', 'json_object'],
+]);

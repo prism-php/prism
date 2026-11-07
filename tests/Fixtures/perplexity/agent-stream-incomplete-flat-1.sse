@@ -1,0 +1,8 @@
+data: {"status":"in_progress"}
+
+data: {"type":"response.output_text.delta","delta":"Private partial finding"}
+
+data: {"id":"resp_partial","status":"incomplete","incomplete_details":{"reason":"max_steps"},"output":[{"type":"message","content":[{"type":"output_text","text":"Private partial finding","annotations":[{"type":"url_citation","url":"https://example.test/source"}]}]},{"type":"search_results","results":[{"url":"https://example.test/source","snippet":"Private source"}]}],"usage":{"input_tokens":12,"output_tokens":8,"cost":{"total_cost":0.01}},"error":null}
+
+data: {"type":"response.output_text.delta","delta":"MUST NOT BE READ"}
+

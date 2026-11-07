@@ -11,6 +11,8 @@
 
 ## Search grounding
 
+The `searchGrounding` request option is a shortcut on streaming requests when no provider tools are supplied. For text and structured requests, use `withProviderTools([new ProviderTool('google_search')])` explicitly. Availability and combinations with custom tools depend on the selected model.
+
 Google Gemini offers built-in search grounding capabilities that allow your AI to search the web for real-time information. This is a provider tool that uses Google's search infrastructure. For more information about the difference between custom tools and provider tools, see [Tools & Function Calling](/core-concepts/tools-function-calling#provider-tools).
 
 You may enable Google search grounding on text requests using withProviderTools:
@@ -21,7 +23,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\ProviderTool;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-2.0-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt('What is the stock price of Google right now?')
     // Enable search grounding
     ->withProviderTools([
@@ -58,7 +60,7 @@ $footnoteId = 1;
 
 /** @var MessagePartWithCitations $part */
 foreach ($response->additionalContent['citations'] as $part) {
-    $text .= $part->outputText;
+    $text .= htmlspecialchars($part->outputText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     
     /** @var Citation $citation */
     foreach ($part->citations as $citation) {
@@ -99,7 +101,7 @@ $schema = new ObjectSchema(
 );
 
 $response = Prism::structured()
-    ->using(Provider::Gemini, 'gemini-2.0-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withSchema($schema)
     ->withPrompt('Review the movie Inception')
     ->asStructured();
@@ -310,7 +312,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $schema = new ObjectSchema(
     name: 'weather_analysis',
@@ -328,7 +330,7 @@ $weatherTool = Tool::as('get_weather')
     ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
 
 $response = Prism::structured()
-    ->using('gemini', 'gemini-2.0-flash')
+    ->using('gemini', 'gemini-2.5-flash')
     ->withSchema($schema)
     ->withTools([$weatherTool])
     ->withMaxSteps(3)
@@ -351,6 +353,8 @@ For complete documentation on combining tools with structured output, see [Struc
 
 ## Caching
 
+For text, structured and streaming requests, `cachedContentName` references an existing cached-content resource. You can also mark a stable message prefix with `withCacheHint()` and opt in through `cacheStablePrefix => true`, or an integer TTL in seconds. Opting in can create a billable cache resource. The default TTL is one hour unless the hint specifies one; integer TTLs have a minimum of 60 seconds. An explicit `cachedContentName` takes precedence. Without both a stable prefix and a remaining prompt, Prism does not create a resource.
+
 Prism supports Gemini prompt caching, though due to Gemini requiring you first upload the cached content, it works a little differently to other providers.
 
 To store content in the cache, use the Gemini provider cache method as follows:
@@ -368,7 +372,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 $provider = Prism::provider(Provider::Gemini);
 
 $object = $provider->cache(
-    model: 'gemini-1.5-flash-002',
+    model: 'gemini-2.5-flash',
     messages: [
         new UserMessage('', [
             Document::fromLocalPath('tests/Fixtures/long-document.pdf'),
@@ -385,7 +389,7 @@ Then reference that object's name in your request using withProviderOptions:
 
 ```php
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash-002')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withProviderOptions(['cachedContentName' => $object->name])
     ->withPrompt('In no more than 100 words, what is the document about?')
     ->asText();
@@ -415,9 +419,9 @@ A few things worth knowing:
 
 You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
 
-### Gemini Embedding 2 Preview
+### Gemini Embedding 2
 
-Gemini's `gemini-embedding-2-preview` model supports text, images, audio, video, and PDF documents in a unified embedding space. Use Prism's content entry API to control whether you want a single aggregated embedding or multiple embeddings in one request.
+Gemini's `gemini-embedding-2` model supports text, images, audio, video, and PDF documents in a unified embedding space. Use Prism's content entry API to control whether you want a single aggregated embedding or multiple embeddings in one request.
 
 ### Single Modality Inputs
 
@@ -430,7 +434,7 @@ use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Video;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->using(Provider::Gemini, 'gemini-embedding-2')
     ->fromImage(Image::fromLocalPath('/path/to/product.png'))
     ->fromAudio(Audio::fromLocalPath('/path/to/example.mp3'))
     ->fromVideo(Video::fromLocalPath('/path/to/example.mp4'))
@@ -448,7 +452,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->using(Provider::Gemini, 'gemini-embedding-2')
     ->fromContent([
         'An image of a dog',
         Image::fromLocalPath('/path/to/dog.png'),
@@ -466,7 +470,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'gemini-embedding-2-preview')
+    ->using(Provider::Gemini, 'gemini-embedding-2')
     ->fromContents([
         ['The dog is cute'],
         [Image::fromLocalPath('/path/to/dog.png')],
@@ -483,7 +487,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'text-embedding-004')
+    ->using(Provider::Gemini, 'gemini-embedding-001')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderOptions(['title' => 'Restaurant Review'])
     ->asEmbeddings();
@@ -498,7 +502,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'text-embedding-004')
+    ->using(Provider::Gemini, 'gemini-embedding-001')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderOptions(['taskType' => 'RETRIEVAL_QUERY'])
     ->asEmbeddings();
@@ -515,13 +519,26 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 Prism::embeddings()
-    ->using(Provider::Gemini, 'text-embedding-004')
+    ->using(Provider::Gemini, 'gemini-embedding-001')
     ->fromInput('The food was delicious and the waiter...')
     ->withProviderOptions(['outputDimensionality' => 768])
     ->asEmbeddings();
 ```
 
 ### Thinking Mode
+
+For text, structured and streaming requests:
+
+| Provider option | Mapping |
+|---|---|
+| `thinkingConfig` | Complete thinking configuration |
+| `thinkingBudget` | Replaces `thinkingConfig` with a budget-based configuration |
+| `thinkingLevel` | Replaces either earlier form with a level-based configuration |
+| `includeThoughts` | Included with budget/level for non-streaming requests; streaming shorthand always enables thoughts |
+| `safetySettings` | Top-level safety settings |
+| `serviceTier` | Top-level `service_tier` |
+
+Use one thinking form supported by the chosen model. With no explicit thinking configuration, `withReasoning(false)` sends a zero thinking budget. Use `thinkingConfig` directly when you need explicit stream thought-display controls.
 
 Gemini 2.5 series models use an internal "thinking process" during response generation. Thinking is on by default as these models have the ability to automatically decide when and how much to think based on the prompt. If you would like to customize how many tokens the model may use for thinking, or disable thinking altogether, utilize the `withProviderOptions()` method, and pass through an array with a key value pair with `thinkingBudget` and an integer representing the budget of tokens. Set this value to `0` to disable thinking.
 
@@ -530,7 +547,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-2.5-flash-preview')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withPrompt('Explain the concept of Occam\'s Razor and provide a simple, everyday example.')
     // Set thinking budget
     ->withProviderOptions(['thinkingBudget' => 300])
@@ -548,7 +565,7 @@ Gemini supports streaming responses in real-time. All the standard streaming met
 
 ```php
 return Prism::text()
-    ->using('gemini', 'gemini-2.5-flash-preview')
+    ->using('gemini', 'gemini-2.5-flash')
     ->withPrompt(request('message'))
     ->asEventStreamResponse();
 ```
@@ -561,11 +578,11 @@ Models with thinking capabilities stream their reasoning process separately:
 use Prism\Prism\Enums\StreamEventType;
 
 foreach ($stream as $event) {
-    match ($event->type()) {
-        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
-        StreamEventType::TextDelta => echo $event->delta,
-        default => null,
-    };
+    if ($event->type() === StreamEventType::ThinkingDelta) {
+        echo '[Thinking] '.$event->delta;
+    } elseif ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
 }
 ```
 
@@ -614,12 +631,13 @@ use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'What is happening in this video?',
             additionalContent: [
-                Video::fromUrl('https://example.com/sample-video.mp4'),
+                // Gemini takes YouTube and File API URLs by reference; any other URL is fetched explicitly.
+                Video::fromUrl('https://example.com/sample-video.mp4')->fetchUrlContent(),
             ],
         ),
     ])
@@ -636,7 +654,7 @@ use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'Summarize this YouTube video:',
@@ -658,7 +676,7 @@ use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Gemini, 'gemini-1.5-flash')
+    ->using(Provider::Gemini, 'gemini-2.5-flash')
     ->withMessages([
         new UserMessage(
             'Transcribe this audio file:',
@@ -670,6 +688,25 @@ $response = Prism::text()
     ->asText();
 ```
 
+## Text-to-Speech
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::audio()
+    ->using('gemini', 'gemini-3.8-flash-tts')
+    ->withVoice('Kore')
+    ->withInput('Welcome to the application.')
+    ->withProviderOptions(['responseModalities' => ['AUDIO']])
+    ->asAudio();
+
+$bytes = $response->audio->rawContent();
+```
+
+Use a [Gemini TTS model](https://ai.google.dev/gemini-api/docs/generate-content/speech-generation) and its supported voice names. The returned bytes use the provider's audio format: Gemini 3.8 unary responses default to WAV, while older preview models can return headerless PCM that needs a container before playback.
+
+For a model that accepts speaker labels in plain text, keep `withVoice('')` to initialize the request and set `multiSpeaker` to an array of `['speaker' => 'Joe', 'voiceName' => 'Kore']` entries matching those labels. A valid multi-speaker configuration takes precedence over the single voice. Gemini 3.8 multi-speaker requests require per-turn `speech_metadata`, which this mapper does not expose; use a compatible earlier model or the provider API directly for that workflow. The mapper reads `responseModalities` and `multiSpeaker`; arbitrary request options are not forwarded by this TTS handler. Failed requests or missing audio data throw a generic `\Exception`.
+
 ## Image Generation
 
 Prism supports Gemini image generation through Imagen and Gemini models. See Gemini [image generation docs](https://ai.google.dev/gemini-api/docs/image-generation) for full usage.
@@ -678,7 +715,7 @@ Prism supports Gemini image generation through Imagen and Gemini models. See Gem
 
 | Model                                       | Description                                        |
 | ------------------------------------------- | -------------------------------------------------- |
-| `gemini-2.0-flash-preview-image-generation` | Experimental gemini image generation model.        |
+| `gemini-2.5-flash-image`                    | Gemini image generation and editing.               |
 | `imagen-4.0-generate-001`                   | Latest Imagen model. Good for HD image generation. |
 | `imagen-4.0-ultra-generate-001`             | Highest quality images, only one image per request |
 | `imagen-4.0-fast-generate-001`              | Fastest Imagen 4 model                             |
@@ -688,7 +725,7 @@ Prism supports Gemini image generation through Imagen and Gemini models. See Gem
 
 ```php
 $response = Prism::image()
-    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->using(Provider::Gemini, 'gemini-2.5-flash-image')
     ->withPrompt('Generate an image of ducklings wearing rubber boots')
     ->generate();
 
@@ -702,15 +739,13 @@ echo $response->meta->id;
 ### Image Editing with Gemini
 
 ```php
-$originalImage = fopen('image/boots.png', 'r');
+use Prism\Prism\ValueObjects\Media\Image;
+
+$originalImage = Image::fromLocalPath('image/boots.png');
 
 $response = Prism::image()
-    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
-    ->withPrompt('Actually, could we make those boots red?')
-    ->withProviderOptions([
-        'image' => $originalImage,
-        'image_mime_type' => 'image/png',
-    ])
+    ->using(Provider::Gemini, 'gemini-2.5-flash-image')
+    ->withPrompt('Actually, could we make those boots red?', [$originalImage])
     ->generate();
 
 file_put_contents('new-boots.png', base64_decode($response->firstImage()->base64));

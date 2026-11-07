@@ -253,8 +253,8 @@ it('can stream text with empty parameters tool calls when using gpt-5', function
     expect($streamEndEvents)->toHaveCount(1);
 
     expect(collect($events)->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-        ['prompt_tokens' => 50, 'completion_tokens' => 143, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 128],
-        ['prompt_tokens' => 75, 'completion_tokens' => 15, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0],
+        ['prompt_tokens' => 50, 'completion_tokens' => 143, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 128, 'cost' => 0.0014925, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+        ['prompt_tokens' => 75, 'completion_tokens' => 15, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0, 'cost' => 0.00024375, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
     ]);
     expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
         'prompt_tokens' => 125,
@@ -262,7 +262,67 @@ it('can stream text with empty parameters tool calls when using gpt-5', function
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => 0,
         'thought_tokens' => 128,
+        'cost' => 0.00173625,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
+});
+
+it('sends correct tool payload when streaming with a parameterless tool', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/chat/completions', 'openrouter/stream-text-with-parameterless-tool');
+
+    $currentTime = '08:00:00';
+
+    $timeTool = Tool::as('time')
+        ->for('Get the current time')
+        ->using(fn (): string => $currentTime);
+
+    $searchTool = Tool::as('search')
+        ->for('Search the web')
+        ->withStringParameter('query', 'the search query')
+        ->using(fn (string $query): string => 'results');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-5')
+        ->withTools([$timeTool, $searchTool])
+        ->withMaxSteps(3)
+        ->withPrompt('What time is it?')
+        ->asStream();
+
+    $text = '';
+    $toolCallEvents = [];
+
+    foreach ($response as $event) {
+        if ($event instanceof TextDeltaEvent) {
+            $text .= $event->delta;
+        }
+
+        if ($event instanceof ToolCallEvent) {
+            $toolCallEvents[] = $event;
+        }
+    }
+
+    expect($toolCallEvents)->toHaveCount(1);
+    expect($toolCallEvents[0]->toolCall->name)->toBe('time');
+    expect($toolCallEvents[0]->toolCall->arguments())->toBe([]);
+    expect($text)->toContain('The current time is '.$currentTime);
+
+    Http::assertSent(function (Request $request): bool {
+        $tools = $request->data()['tools'];
+
+        // Tool without parameters: no 'parameters' key in function
+        $timeFunction = $tools[0]['function'];
+        expect($timeFunction['name'])->toBe('time');
+        expect($timeFunction)->not->toHaveKey('parameters');
+
+        // Tool with parameters keeps its 'parameters' key
+        $searchFunction = $tools[1]['function'];
+        expect($searchFunction['name'])->toBe('search');
+        expect($searchFunction)->toHaveKey('parameters');
+        expect($searchFunction['parameters']['properties'])->toHaveKey('query');
+
+        return true;
+    });
 });
 
 it('can handle reasoning/thinking tokens in streaming', function (): void {
@@ -731,8 +791,8 @@ describe('usage snapshots', function (): void {
             ->and($events->whereInstanceOf(TextCompleteEvent::class))->toHaveCount(1)
             ->and($stepFinishes->map->finishReason->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
             ->and($stepFinishes->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->all())->toBe([
-                ['prompt_tokens' => 100, 'completion_tokens' => 80, 'cache_write_input_tokens' => 100, 'cache_read_input_tokens' => 1000, 'thought_tokens' => 60],
-                ['prompt_tokens' => 100, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 1200, 'thought_tokens' => 0],
+                ['prompt_tokens' => 100, 'completion_tokens' => 80, 'cache_write_input_tokens' => 100, 'cache_read_input_tokens' => 1000, 'thought_tokens' => 60, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 100, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 1200, 'thought_tokens' => 0, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ])
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
                 'prompt_tokens' => 200,
@@ -740,6 +800,9 @@ describe('usage snapshots', function (): void {
                 'cache_write_input_tokens' => 100,
                 'cache_read_input_tokens' => 2200,
                 'thought_tokens' => 60,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
 
         Http::assertSentCount(2);
@@ -766,7 +829,7 @@ describe('usage snapshots', function (): void {
             ->withPrompt('What is the weather in Detroit?')
             ->asStream(), false));
 
-        $expected = ['prompt_tokens' => 44, 'completion_tokens' => 40, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 256, 'thought_tokens' => 30];
+        $expected = ['prompt_tokens' => 44, 'completion_tokens' => 40, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 256, 'thought_tokens' => 30, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null];
 
         expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
@@ -792,6 +855,9 @@ describe('usage snapshots', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 

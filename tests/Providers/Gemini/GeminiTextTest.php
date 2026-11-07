@@ -25,6 +25,7 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
+use stdClass;
 use Tests\Fixtures\FixtureResponse;
 
 beforeEach(function (): void {
@@ -261,7 +262,10 @@ describe('Image support with Gemini', function (): void {
                 new UserMessage(
                     'What is this image',
                     additionalContent: [
-                        Image::fromUrl($image),
+                        // EXPLICIT. Prism fetched this URL implicitly before G-44, through an
+                        // unguarded request; the test's intent — send media that lives at a
+                        // URL — is kept, by the call a caller now has to write.
+                        Image::fromUrl($image)->fetchUrlContent(),
                     ],
                 ),
             ])
@@ -465,6 +469,42 @@ describe('provider tools', function (): void {
         });
     });
 
+    it('keeps tools a JSON array when only custom tools are present', function (): void {
+        FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-multiple-tools');
+
+        $tools = [
+            (new Tool)
+                ->as('get_weather')
+                ->for('use this tool when you need to get weather for the city')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => 'The weather will be 45° and cold'),
+            (new Tool)
+                ->as('search_games')
+                ->for('useful for searching current games times in the city')
+                ->withStringParameter('city', 'The city that you want the game times for')
+                ->using(fn (string $city): string => 'The tigers game is at 3pm in detroit'),
+        ];
+
+        Prism::text()
+            ->using(Provider::Gemini, 'gemini-2.5-flash')
+            ->withMaxSteps(1)
+            ->withTools($tools)
+            ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat?')
+            ->asText();
+
+        Http::assertSent(function (Request $request): true {
+            $tools = $request->data()['tools'];
+
+            // Custom-tools-only must still serialize as Tool[]: a bare
+            // ['function_declarations' => …] emits a JSON object Gemini rejects.
+            expect(array_is_list($tools))->toBeTrue();
+            expect($tools)->toHaveCount(1);
+            expect($tools[0])->toHaveKey('function_declarations');
+
+            return true;
+        });
+    });
+
     it('adds file_search provider tool with options to the request', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-file-search');
 
@@ -486,9 +526,11 @@ describe('provider tools', function (): void {
             $data = $request->data();
 
             expect($data['tools'][0])->toHaveKey('file_search');
-            expect($data['tools'][0]['file_search'])->toBeArray();
-            expect($data['tools'][0]['file_search'])->toHaveKey('file_search_store_names');
-            expect($data['tools'][0]['file_search']['file_search_store_names'])->toBe(['fileSearchStores/prism-test-store-k48zypdei7oj']);
+            // A provider tool's options are a MAP, so they go out as a JSON
+            // object even when empty — see Prism\Prism\Support\JsonMap.
+            expect($data['tools'][0]['file_search'])->toBeInstanceOf(stdClass::class);
+            expect($data['tools'][0]['file_search'])->toHaveProperty('file_search_store_names');
+            expect($data['tools'][0]['file_search']->file_search_store_names)->toBe(['fileSearchStores/prism-test-store-k48zypdei7oj']);
 
             return true;
         });
@@ -767,6 +809,28 @@ describe('Flex Inference for Gemini', function (): void {
     });
 });
 
+// prism#82. CONTINUATION means the per-request token limit was reached and the
+// answer is NOT finished. Reported as Other, a cut-off answer looked complete to
+// a caller checking for Length.
+it('reports a CONTINUATION finish as Length so truncation is visible', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'The first half of']], 'role' => 'model'],
+                'finishReason' => 'CONTINUATION',
+            ]],
+            'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 5],
+        ]),
+    ])->preventStrayRequests();
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withPrompt('Write a long essay')
+        ->asText();
+
+    expect($response->finishReason)->toBe(FinishReason::Length);
+});
+
 describe('Usage for Gemini', function (): void {
     it('adds tool-use input to the prompt and thoughts to the completion', function (): void {
         FixtureResponse::fakeResponseSequence('*', 'gemini/generate-text-with-file-search');
@@ -783,6 +847,9 @@ describe('Usage for Gemini', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => 187,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -839,6 +906,9 @@ describe('Usage for Gemini', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 0,
             'thought_tokens' => 0,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 });

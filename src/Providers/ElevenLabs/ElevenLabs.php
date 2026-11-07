@@ -13,6 +13,9 @@ use Prism\Prism\Audio\TextToSpeechRequest;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\ElevenLabs\Handlers\Audio;
 use Prism\Prism\Providers\Provider;
 
@@ -24,6 +27,15 @@ class ElevenLabs extends Provider
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $url = 'https://api.elevenlabs.io/v1/',
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all('elevenlabs');
+    }
 
     #[\Override]
     public function textToSpeech(TextToSpeechRequest $request): TextToSpeechResponse

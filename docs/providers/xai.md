@@ -12,9 +12,9 @@
 
 ### Extended Thinking/Reasoning
 
-xAI's Grok models support an optional extended thinking mode, where the model will reason through problems before returning its answer. This is particularly useful for complex mathematical problems, logical reasoning, and detailed analysis tasks.
+When the selected model returns reasoning content, Prism can expose it as thinking events during streaming.
 
-#### Enabling thinking mode
+#### Controlling thinking events
 
 ```php
 use Prism\Prism\Enums\Provider;
@@ -23,14 +23,11 @@ use Prism\Prism\Facades\Prism;
 $response = Prism::text()
     ->using(Provider::XAI, 'grok-4')
     ->withPrompt('Solve this complex equation: 3x² + 5x - 2 = 0')
-    ->withProviderOptions([
-        'thinking' => ['enabled' => true]
-    ])
-    ->asText();
+    ->withProviderOptions(['thinking' => ['enabled' => false]])
+    ->asStream();
 ```
 
-Thinking content is automatically extracted when present in the response and can be accessed through streaming events.
-If you prefer not to process thinking content, you can disable it. Set the `thinking` option to `false`.
+`withProviderOptions(['thinking' => ['enabled' => false]])` suppresses thinking events from the stream. It does not disable the model's internal reasoning or reduce provider billing. The integration does not send this option to xAI. A scalar `thinking => false` does not disable these events.
 
 #### Streaming thinking content
 
@@ -114,9 +111,10 @@ use Prism\Prism\Facades\Tool;
 
 $tools = [
     Tool::as('calculator')
-        ->for('Perform mathematical calculations')
-        ->withStringParameter('expression', 'Mathematical expression to calculate')
-        ->using(fn (string $expression): string => "Result: " . eval("return $expression;")),
+        ->for('Multiply two numbers')
+        ->withNumberParameter('left', 'First factor')
+        ->withNumberParameter('right', 'Second factor')
+        ->using(fn (float $left, float $right): string => 'Result: '.($left * $right)),
         
     Tool::as('weather')
         ->for('Get current weather information')
@@ -141,7 +139,7 @@ Control the randomness of responses:
 ```php
 $response = Prism::text()
     ->using(Provider::XAI, 'grok-4')
-    ->withTemperature(0.7) // 0.0 = deterministic, 1.0 = very creative
+    ->usingTemperature(0.7)
     ->withPrompt('Write a creative story')
     ->asText();
 ```
@@ -153,7 +151,7 @@ Control nucleus sampling:
 ```php
 $response = Prism::text()
     ->using(Provider::XAI, 'grok-4')
-    ->withTopP(0.9) // Consider top 90% probability mass
+    ->usingTopP(0.9)
     ->withPrompt('Generate diverse responses')
     ->asText();
 ```
@@ -186,12 +184,12 @@ $response = Prism::text()
 $analysis = '';
 $reasoning = '';
 
-foreach ($response as $chunk) {
-    if ($chunk->chunkType === ChunkType::Thinking) {
-        $reasoning .= $chunk->text;
-    } else {
-        $analysis .= $chunk->text;
-        echo $chunk->text; // Stream to user
+foreach ($response as $event) {
+    if ($event->type() === \Prism\Prism\Enums\StreamEventType::ThinkingDelta) {
+        $reasoning .= $event->delta;
+    } elseif ($event->type() === \Prism\Prism\Enums\StreamEventType::TextDelta) {
+        $analysis .= $event->delta;
+        echo $event->delta;
     }
 }
 
@@ -203,7 +201,6 @@ file_put_contents('analysis_reasoning.txt', $reasoning);
 
 ```php
 use Prism\Prism\Schema\ArraySchema;
-use Prism\Prism\Schema\IntegerSchema;
 use Prism\Prism\Schema\NumberSchema;
 
 $schema = new ObjectSchema(
@@ -218,7 +215,7 @@ $schema = new ObjectSchema(
         ),
         new ObjectSchema('risk_assessment', 'Risk analysis', [
             new StringSchema('level', 'Risk level (low/medium/high)'),
-            new IntegerSchema('score', 'Risk score from 1-10'),
+            new NumberSchema('score', 'Risk score from 1-10'),
         ], ['level', 'score']),
     ],
     ['summary', 'total_revenue', 'profit_margin', 'recommendations', 'risk_assessment']
@@ -242,7 +239,7 @@ echo "Risk Level: " . $analysis['risk_assessment']['level'];
 
 ### Model Validation
 
-Structured output is only supported on specific models. Prism will throw an exception for unsupported models:
+Prism does not validate xAI model names locally. An unavailable model or unsupported capability is rejected by the provider API. Handle the resulting request failure:
 
 ```php
 use Prism\Prism\Exceptions\PrismException;
@@ -257,6 +254,26 @@ try {
     echo "Error: " . $e->getMessage();
 }
 ```
+
+## Image generation
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::image()
+    ->using('xai', 'grok-imagine-image-2.0')
+    ->withPrompt('A blue notebook on a wooden desk')
+    ->withProviderOptions([
+        'n' => 1,
+        'response_format' => 'b64_json',
+        'aspect_ratio' => '1:1',
+    ])
+    ->generate();
+
+$image = $response->firstImage();
+```
+
+Image options include `n`, `response_format`, `aspect_ratio` and `resolution`; additional provider options are also forwarded. Use values supported by the selected [xAI image model](https://docs.x.ai/developers/model-capabilities/imagine). The response exposes `images`, `usage`, `meta` and `raw`. See [Image Generation](/core-concepts/image-generation) for saving results.
 
 ## Considerations
 

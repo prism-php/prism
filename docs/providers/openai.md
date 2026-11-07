@@ -6,10 +6,81 @@
     'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
     'api_key' => env('OPENAI_API_KEY', ''),
     'organization' => env('OPENAI_ORGANIZATION', null),
+    'project' => env('OPENAI_PROJECT', null),
+    'api_format' => env('OPENAI_API_FORMAT', 'responses'),
 ]
 ```
 
+### OpenAI-compatible endpoints
+
+`url` is not fixed to OpenAI. Point it at anything that speaks the OpenAI API
+and the provider works unchanged — a self-hosted runtime such as vLLM, LM Studio
+or llama.cpp, an Azure OpenAI deployment, or a gateway or proxy your team runs in
+front of several model vendors to centralise keys, quotas, and audit logging.
+
+Set the base URL and the key that endpoint expects:
+
+```env
+OPENAI_URL=https://your-endpoint.example.com/v1
+OPENAI_API_KEY=your-endpoint-key
+```
+
+Then use whichever model name that endpoint publishes. Nothing else in your
+application changes:
+
+```php
+$response = Prism::text()
+    ->using(Provider::OpenAI, 'the-model-name-your-endpoint-exposes')
+    ->withPrompt('Summarise the release risk for this change.')
+    ->asText();
+```
+
+Two things to expect when you do this:
+
+- **Feature parity varies.** "OpenAI-compatible" usually means chat completions.
+  Structured outputs, tool calling, streaming, embeddings, audio, and the
+  Responses API are each supported only if that endpoint implements them.
+  Prism sends the same request either way, so an unsupported feature surfaces as
+  an error from the endpoint rather than from Prism.
+- **Structured mode depends on the model name.** Legacy `gpt-3.5-turbo`, `gpt-4`
+  and `gpt-4-*` names, plus `gpt-4o-2024-05-13`, use JSON mode. The `o1-mini`
+  and `o1-preview` names and their `2024-09-12` snapshots are rejected. Other
+  names, including custom model names, use JSON Schema structured output by
+  default. Your endpoint must support the selected mode.
+
+If the endpoint you are targeting already has a dedicated Prism provider —
+Groq, Mistral, DeepSeek, xAI, OpenRouter, Requesty, Qwen, Ollama, Azure — prefer
+that provider. Each one maps the quirks its API actually has, which the generic
+OpenAI provider will not do for you.
+
+## Chat Completions refusals
+
+With `api_format` set to `chat_completions`, text, structured and streaming
+requests throw `Prism\Prism\Exceptions\PrismRefusalException` when the model
+returns a non-empty refusal. It extends `PrismException`; `code()` returns
+`response_refused` and `refusal()` returns the provider's refusal text. Treat that
+text as potentially sensitive. It is excluded from the exception message and
+public `responseBody`.
+
+Streaming collects refusal fragments and throws at the finish event, before
+text completion, tool execution or successful stream completion. Previously
+yielded text remains provisional. If the stream closes without a finish event,
+an observed refusal still throws. Empty content without a refusal remains an
+empty answer; structured output still requires valid JSON. A non-empty refusal
+takes precedence even when the response also contains text.
+
 ## Provider-specific options
+### Embedding encoding
+
+Use `withProviderOptions(['encoding_format' => 'base64'])` on an embeddings
+request to request base64 output. Prism decodes each string as little-endian
+float32 and returns the usual numeric embedding vector; `raw` retains the
+provider payload. Numeric array responses remain supported.
+
+Malformed or noncanonical base64, empty encodings, incomplete float32 values
+and non-finite numbers throw `PrismException`. Invalid payloads are not included
+in the exception message.
+
 ### Strict Tool Schemas
 
 Prism supports OpenAI's [function calling with Structured Outputs](https://platform.openai.com/docs/guides/function-calling#function-calling-with-structured-outputs) via provider-specific meta.
@@ -32,7 +103,7 @@ $response = Prism::structured()
         'schema' => [ // [!code focus]
             'strict' => true // [!code focus]
         ] // [!code focus]
-    ]) // [!code focus]
+    ]); // [!code focus]
 ```
 
 > [!WARNING]
@@ -86,7 +157,7 @@ Asking for `StructuredMode::Structured` explicitly always sends `json_schema`, w
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $schema = new ObjectSchema(
     name: 'weather_analysis',
@@ -192,7 +263,7 @@ $response = Prism::structured()
         'metadata' => [ // [!code focus]
             'project_id' => 23 // [!code focus]
         ] // [!code focus]
-    ]) // [!code focus]
+    ]); // [!code focus]
 ```
 
 ### Previous Responses
@@ -203,7 +274,7 @@ Prism supports OpenAI's [conversation state](https://platform.openai.com/docs/gu
 $response = Prism::structured()
     ->withProviderOptions([ // [!code focus]
         'previous_response_id' => 'response_id' // [!code focus]
-    ]) // [!code focus]
+    ]); // [!code focus]
 ```
 
 ### Truncation
@@ -212,7 +283,7 @@ $response = Prism::structured()
 $response = Prism::structured()
     ->withProviderOptions([ // [!code focus]
         'truncation' => 'auto' // [!code focus]
-    ]) // [!code focus]
+    ]); // [!code focus]
 ```
 
 ### Service Tiers
@@ -223,7 +294,7 @@ Prism supports OpenAI's [Service Tier Configuration](https://platform.openai.com
 $response = Prism::text()
     ->withProviderOptions([ // [!code focus]
         'service_tier' => 'priority' // [!code focus]
-    ]) // [!code focus]
+    ]); // [!code focus]
 ```
 
 > [!WARNING]
@@ -231,6 +302,8 @@ $response = Prism::text()
 >
 > 
 ### Reasoning Models
+
+On the Responses API, `withReasoning(false)` sends `reasoning: {effort: minimal}` unless an explicit `reasoning` provider option is supplied. It does not guarantee that the model performs no reasoning or incurs no reasoning-token cost. Model support for an effort value is determined by OpenAI.
 
 OpenAI's reasoning models like `gpt-5`, `gpt-5-mini`, and `gpt-5-nano` use advanced reasoning capabilities to think through complex problems before responding. These models excel at multi-step problem solving, coding, scientific reasoning, and complex analysis tasks.
 
@@ -354,11 +427,11 @@ Reasoning models like `gpt-5` stream their thinking process separately from the 
 use Prism\Prism\Enums\StreamEventType;
 
 foreach ($stream as $event) {
-    match ($event->type()) {
-        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
-        StreamEventType::TextDelta => echo $event->delta,
-        default => null,
-    };
+    if ($event->type() === StreamEventType::ThinkingDelta) {
+        echo '[Thinking] '.$event->delta;
+    } elseif ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
 }
 ```
 
@@ -443,104 +516,253 @@ Prism::text()
     ->withMessages([
         new UserMessage('Who are you?', additionalAttributes: ['name' => 'TJ']),
     ])
-    ->asText()
+    ->asText();
 ```
 
 ## Image Generation
 
-OpenAI provides powerful image generation capabilities through multiple models. Prism supports all of OpenAI's image generation models with their full feature sets.
+For image understanding in text requests, set resolution detail on the image itself:
+
+```php
+use Prism\Prism\ValueObjects\Media\Image;
+
+$image = Image::fromUrl('https://example.com/diagram.png')
+    ->withProviderOptions(['detail' => 'high']);
+```
+
+Pass this image through `withPrompt($prompt, [$image])`. Request-level `detail` is not the per-image setting. Choose the detail value supported by your model.
+
+Use the image generation API with a supported OpenAI model. Available options depend on the model.
 
 ### Supported Models
 
-| Model | Description |
-|-------|-------------|
-| `dall-e-3` | Latest DALL-E model |
-| `dall-e-2` | Previous generation |
-| `gpt-image-1` | GPT-based image model |
+Use an available GPT Image model, such as `gpt-image-2.5-sunburst`. DALL-E models and `gpt-image-1` have been removed from the API; see [OpenAI's deprecations](https://developers.openai.com/api/docs/deprecations) and [current image guide](https://developers.openai.com/api/docs/guides/image-generation).
 
 ### Basic Usage
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-2.5-sunburst')
     ->withPrompt('A serene mountain landscape at sunset')
     ->generate();
 
 $image = $response->firstImage();
-echo $image->url; // Generated image URL
+file_put_contents('landscape.png', base64_decode($image->base64));
 ```
 
-### DALL-E 3 Options
+### Image examples
 
-DALL-E 3 is the most advanced model with the highest quality output:
+Each example uses this prompt and the same size and quality. Model labels identify
+the requested model; these API responses did not report a model ID. Costs below
+are calculated from returned text/image token usage at the generation date's
+standard prices; they are not account invoices. Read the [generation metadata](/assets/examples/openai/metadata.json)
+for the exact options and file details.
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$prompt =
+    'An editorial illustration of the Prism AI ecosystem: a clear glass triangular prism floats ' .
+    'above a deep navy workbench. One soft white beam enters; hot pink, cyan and teal light ' .
+    'paths emerge and connect a small constellation of abstract tool, memory, search and ' .
+    'conversation shapes. Precise geometry, tactile glass, crisp soft shadows, generous ' .
+    'negative space, balanced square composition, polished technical magazine cover. Keep the ' .
+    'scene abstract and welcoming. No people, faces, lettering, labels, watermarks or ' .
+    'third-party logos.';
+```
+
+<div class="image-examples">
+
+<section class="image-example">
+
+#### gpt-image-2.5-sunburst
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
-    ->withPrompt('A futuristic cityscape with flying cars')
+    ->using('openai', 'gpt-image-2.5-sunburst')
+    ->withPrompt($prompt)
     ->withProviderOptions([
-        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
-        'quality' => 'hd',              // standard, hd
-        'style' => 'vivid',             // vivid, natural
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
     ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
     ->generate();
-
-// DALL-E 3 automatically revises prompts for better results
-if ($response->firstImage()->hasRevisedPrompt()) {
-    echo "Revised prompt: " . $response->firstImage()->revisedPrompt;
-}
 ```
 
-### DALL-E 2 Options
+<figure>
+<img src="/assets/examples/openai/gpt-image-2.5-sunburst.webp" alt="Glass prism on a navy workbench sends pink, cyan and teal beams toward a wrench, database, magnifying glass and chat bubble." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-2.5-sunburst</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.013700 calculated from returned token usage.</figcaption>
+</figure>
 
-DALL-E 2 supports generating multiple images and is more cost-effective:
+</section>
+
+<section class="image-example">
+
+#### gpt-image-2.5-flare
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-2')
-    ->withPrompt('Abstract geometric patterns')
+    ->using('openai', 'gpt-image-2.5-flare')
+    ->withPrompt($prompt)
     ->withProviderOptions([
-        'n' => 4,                       // Number of images (1-10)
-        'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
-        'response_format' => 'url',     // url only
-        'user' => 'user-123',           // Optional user identifier
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
     ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
     ->generate();
-
-// Process multiple images
-foreach ($response->images as $image) {
-    echo "Image: {$image->url}\n";
-}
 ```
 
-### GPT-Image-1 Options
+<figure>
+<img src="/assets/examples/openai/gpt-image-2.5-flare.webp" alt="Floating glass prism sends pink and cyan light ribbons toward translucent tool, database, search and conversation icons." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-2.5-flare</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.013700 calculated from returned token usage.</figcaption>
+</figure>
 
-GPT-Image-1 offers advanced features including image editing and format control:
+</section>
+
+<section class="image-example">
+
+#### gpt-image-2
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-2.webp" alt="Clear prism on a dark platform connects illuminated stacked panels, blue cubes, a magnifying glass and conversation bubbles." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-2</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.053210 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### gpt-image-1.5
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1.5')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-1.5.webp" alt="Faceted glass prism splits a white beam into pink, cyan and teal paths beside database, search, wrench and conversation symbols." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-1.5</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.038082 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### gpt-image-1-mini
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-1-mini')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/gpt-image-1-mini.webp" alt="Geometric glass prism above flat pink, blue and teal paths ending in abstract tool and conversation shapes on navy." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>gpt-image-1-mini</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.008660 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+<section class="image-example">
+
+#### chatgpt-image-latest
+
+```php
+$response = Prism::image()
+    ->using('openai', 'chatgpt-image-latest')
+    ->withPrompt($prompt)
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'n' => 1,
+        'background' => 'opaque',
+        'output_format' => 'png',
+    ])
+    ->withClientOptions(['timeout' => 300, 'connect_timeout' => 15, 'allow_redirects' => false])
+    ->generate();
+```
+
+<figure>
+<img src="/assets/examples/openai/chatgpt-image-latest.webp" alt="Glass prism splits light across a navy workbench toward a database, pink chat bubbles, a wrench and gear, and a search panel." width="1024" height="1024" loading="lazy" decoding="async">
+<figcaption>Generated with the snippet above. Requested model: <code>chatgpt-image-latest</code>. 1024×1024 · 2026-11-01 · Prism 0.144.1 · $0.037842 calculated from returned token usage.</figcaption>
+</figure>
+
+</section>
+
+</div>
+
+`gpt-image-1.5`, `gpt-image-1-mini` and `chatgpt-image-latest` are scheduled to
+shut down on December 1, 2026. Use an available current model for new requests;
+see [OpenAI’s deprecation schedule](https://developers.openai.com/api/docs/deprecations).
+
+### GPT Image Options
+
+GPT Image offers advanced features including image editing and format control:
+
+```php
+$response = Prism::image()
+    ->using('openai', 'gpt-image-2.5-sunburst')
     ->withPrompt('A detailed architectural rendering of a modern house')
     ->withProviderOptions([
         'size' => '1536x1024',              // Various sizes supported
-        'quality' => 'high',                // standard, high
+        'quality' => 'high',                // low, medium, high, xhigh, max, auto
         'output_format' => 'webp',          // png, webp, jpeg
         'output_compression' => 85,         // Compression level (0-100)
-        'background' => 'transparent',      // transparent, white, black
-        'moderation' => true,               // Enable content moderation
+        'background' => 'transparent',      // transparent, opaque, auto
+        'moderation' => 'auto',             // auto or low
     ])
     ->generate();
 ```
 
-### Image Editing with GPT-Image-1
+### Image Editing with GPT Image
 
-GPT-Image-1 supports sophisticated image editing operations using the `withPrompt` method with Image value objects:
+GPT Image supports sophisticated image editing operations using the `withPrompt` method with Image value objects:
 
 ```php
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.5-sunburst')
     ->withPrompt('Add a vaporwave sunset to the background', [
         Image::fromLocalPath('tests/Fixtures/diamond.png'),
     ])
@@ -549,7 +771,7 @@ $response = Prism::image()
         'output_format' => 'png',
         'quality' => 'high',
     ])
-    ->withClientOptions(['timeout' => 9999])
+    ->withClientOptions(['timeout' => 180])
     ->generate();
 
 file_put_contents('edited-image.png', base64_decode($response->firstImage()->base64));
@@ -561,7 +783,7 @@ For precise control over which parts of the image to edit, use a mask image:
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.5-sunburst')
     ->withPrompt('Add a vaporwave sunset to the background', [
         Image::fromLocalPath('tests/Fixtures/diamond.png'),
     ])
@@ -580,7 +802,7 @@ You can also edit with multiple images for more complex operations. Use the `as(
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.5-sunburst')
     ->withPrompt('Combine these images with a futuristic theme', [
         Image::fromLocalPath('tests/Fixtures/diamond.png')->as('diamond.png'),
         Image::fromLocalPath('tests/Fixtures/sunset.png')->as('sunset-background.png'),
@@ -595,26 +817,33 @@ $response = Prism::image()
 
 ### Response Format
 
-Generated images are returned as URLs:
+GPT Image returns base64 data. Omit `response_format`; select PNG, JPEG or WebP with `output_format`. Inspect returned data before saving it:
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-2.5-sunburst')
     ->withPrompt('Digital artwork')
     ->generate();
 
 $image = $response->firstImage();
+
+if ($image->hasBase64()) {
+    file_put_contents('artwork.png', base64_decode($image->base64));
+}
+
 if ($image->hasUrl()) {
-    echo "<img src='{$image->url}' alt='Generated image'>";
+    echo htmlspecialchars($image->url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 ```
 
 ## Audio Processing
 
-OpenAI provides comprehensive audio processing capabilities through their TTS (Text-to-Speech) and Whisper (Speech-to-Text) models. Prism supports all of OpenAI's audio models with their full feature sets.
+Use OpenAI's text-to-speech and speech-to-text APIs through Prism's audio builder.
 
 
 ### Text-to-Speech
+
+OpenAI's Speech API models are scheduled for removal on January 6, 2027. Its replacement uses the Realtime API, which this audio builder does not implement; changing the model ID alone will not migrate a request. See the [audio retirement notice](/core-concepts/audio#text-to-speech) and [OpenAI's guide](https://developers.openai.com/api/docs/guides/text-to-speech).
 
 Convert text into natural-sounding speech with various voice options:
 
@@ -642,8 +871,8 @@ For higher quality audio output, use the model:
 $response = Prism::audio()
     ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('This is high-quality audio generation.')
+    ->withVoice('nova')
     ->withProviderOptions([
-        'voice' => 'nova',
         'response_format' => 'wav',    // Higher quality format
     ])
     ->asAudio();
@@ -657,14 +886,14 @@ Control the output format and quality:
 $response = Prism::audio()
     ->using('openai', 'gpt-4o-mini-tts')
     ->withInput('Testing different audio formats.')
+    ->withVoice('echo')
     ->withProviderOptions([
-        'voice' => 'echo',
         'response_format' => 'opus',   // mp3, opus, aac, flac, wav, pcm
         'speed' => 1.25,              // Speed: 0.25 to 4.0
     ])
     ->asAudio();
 
-echo "Audio type: " . $response->audio->getMimeType();
+echo "Audio type: " . ($response->audio->mimeType() ?? 'unknown');
 ```
 
 For more information on the available options, please refer to the [OpenAI API documentation](https://platform.openai.com/docs/guides/text-to-speech).
@@ -678,7 +907,7 @@ Convert audio files into accurate text transcriptions using Whisper:
 ```php
 use Prism\Prism\ValueObjects\Media\Audio;
 
-$audioFile = Audio::fromPath('/path/to/recording.mp3');
+$audioFile = Audio::fromLocalPath('/path/to/recording.mp3');
 
 $response = Prism::audio()
     ->using('openai', 'whisper-1')
@@ -705,6 +934,8 @@ if ($response->usage !== null) {
 ```
 
 #### Language Detection
+
+For transcription models that require automatic chunking, set `chunking_strategy => 'auto'` in provider options. The audio handler also forwards `language`, `prompt`, `response_format`, `service_tier` and `temperature`.
 
 Whisper can automatically detect the language or you can specify it:
 
@@ -806,17 +1037,17 @@ Load audio from various sources:
 use Prism\Prism\ValueObjects\Media\Audio;
 
 // From local file path
-$audio = Audio::fromPath('/path/to/audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/audio.mp3');
 
 // From remote URL
-$audio = Audio::fromUrl('https://example.com/recording.wav');
+$audio = Audio::fromUrl('https://example.com/recording.wav')->fetchUrlContent(); // a URL you trust
 
 // From base64 encoded data
 $audio = Audio::fromBase64($base64AudioData, 'audio/mpeg');
 
 // From binary content
 $audioContent = file_get_contents('/path/to/audio.wav');
-$audio = Audio::fromContent($audioContent, 'audio/wav');
+$audio = Audio::fromRawContent($audioContent, 'audio/wav');
 ```
 
 #### File Size Considerations
@@ -825,9 +1056,9 @@ Whisper has a file size limit of 25 MB. For larger files, consider:
 
 ```php
 // Check file size before processing
-$audio = Audio::fromPath('/path/to/large-audio.mp3');
+$audio = Audio::fromLocalPath('/path/to/large-audio.mp3');
 
-if ($audio->size() > 25 * 1024 * 1024) { // 25 MB
+if (strlen($audio->rawContent() ?? '') > 25 * 1024 * 1024) { // 25 MiB
     echo "File too large for processing";
 } else {
     $response = Prism::audio()
@@ -839,9 +1070,13 @@ if ($audio->size() > 25 * 1024 * 1024) { // 25 MB
 
 For more information on the available options, please refer to the [OpenAI API documentation](https://platform.openai.com/docs/guides/speech-to-text).
 
+## Files and batches
+
+Use [Files](/core-concepts/files) to upload media or batch-input files, and [Batch Processing](/core-concepts/batch) to submit and retrieve asynchronous jobs. These operations use `Prism::files()->using('openai')` and `Prism::batch()->using('openai')`; the model belongs on each batch request item, rather than on the batch client.
+
 ## Moderation
 
-OpenAI provides powerful content moderation capabilities through their moderation API. Prism supports both text and image moderation with OpenAI.
+The OpenAI integration supports text and image moderation.
 
 ### Supported Models
 

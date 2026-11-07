@@ -3,7 +3,7 @@
 
 ```php
 'ollama' => [
-    'url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
+    'url' => env('OLLAMA_URL', 'http://localhost:11434'),
 ],
 ```
 
@@ -19,11 +19,37 @@ Prism::text() // [!code focus]
   ->withProviderOptions([ // [!code focus]
       'top_p' => 0.9, // [!code focus]
       'num_ctx' => 4096, // [!code focus]
-  ]) // [!code focus]
+  ]); // [!code focus]
 ```
 
 > [!NOTE]
 > Using `withProviderOptions` will override settings like `topP` and `temperature`
+
+## Thinking, model lifetime and generation length
+
+For text, structured and streaming requests, `withProviderOptions(['thinking' => false])` sets Ollama's top-level `think` value. `withReasoning(false)` also sets `think: false` unless `thinking` is explicitly provided. Select a model and Ollama version that support the chosen value.
+
+`keep_alive` sets the top-level model lifetime. The integration also merges provider options into Ollama's `options` object. The default `num_predict` is 2048 when `withMaxTokens()` is absent; a provider option with the same name overrides it. The option named `thinking`, rather than `think`, controls the top-level field.
+
+## Tools
+
+Use `withTools([$tool])` and `withMaxSteps()` on a text request with a tool-capable model. Prism executes server tools, returns tool results to the model and supports the [approval controls](/core-concepts/human-in-the-loop). Explicit tool choice is unsupported.
+
+## Embeddings
+
+```php
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::embeddings()
+    ->using('ollama', 'nomic-embed-text')
+    ->fromArray(['First document', 'Second document'])
+    ->withProviderOptions(['keep_alive' => '5m'])
+    ->asEmbeddings();
+
+$vectors = $response->embeddings;
+```
+
+Pull the embedding model into your Ollama server before requesting it. `dimensions` and `keep_alive` are sent as top-level embedding fields; remaining provider options are sent in `options`. The model must support the requested dimensions. The response includes `usage`, `meta` and `raw`.
 
 ## Streaming
 
@@ -65,15 +91,12 @@ Depending on your configuration, responses tend to time out. You may need to ext
 Prism::text() // [!code focus]
   ->using(Provider::Ollama, 'gemma3:1b')
   ->withPrompt('Who are you?')
-  ->withClientOptions(['timeout' => 60]) // [!code focus]
+  ->withClientOptions(['timeout' => 60]); // [!code focus]
 ```
 
 ### Structured Output
 
-Ollama doesn't have native JSON mode or structured output like some providers, Prism implements a robust workaround for structured output:
-
-- We automatically append instructions to your prompt that guide the model to output valid JSON matching your schema
-- If the response isn't valid JSON, Prism will raise a PrismException
+`Prism::structured()` sends your schema in Ollama's `format` field. The response is decoded into `$response->structured`; malformed JSON raises a structured-decoding exception. Use a model that supports structured output.
 
 ## Limitations
 ### Image URL

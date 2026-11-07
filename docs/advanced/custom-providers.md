@@ -1,126 +1,147 @@
 # Custom Providers
 
-Want to add support for a new AI provider in Prism? This guide will walk you through creating and registering your own custom provider implementation.
+Extend `Prism\Prism\Providers\Provider` and register it with the Prism manager. Override the capabilities your service implements; inherited capability methods raise an unsupported-action `PrismException`.
 
-## Building Your Provider
+## Building your provider
 
-All providers must extend the `Prism\Prism\Providers\Provider` abstract class. This base class provides default implementations for all required methods, throwing exceptions for unsupported actions.
-
-When creating your provider, you'll only need to override the methods for the features you want to support:
-- `text()` - For text generation
-- `structured()` - For structured output generation
-- `embeddings()` - For creating embeddings
-- `images()` - For image generation
-- `stream()` - For streaming text responses
-
-Here's what that looks like in practice:
+This complete local example returns the prompt as text. It demonstrates the required response shape without making an HTTP request. It supports a single plain-text prompt; it refuses other inputs and controls rather than silently ignoring them.
 
 ```php
 namespace App\Prism\Providers;
 
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\ValueObjects\Media\Text;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 
-class MyCustomProvider extends Provider
+class LocalTextProvider extends Provider
 {
-    public function __construct(
-        protected string $apiKey,
-    ) {}
-
     public function text(TextRequest $request): TextResponse
     {
-        // Your text generation logic here
-        // Make API calls, process the response, and return a TextResponse
-    }
+        $messages = $request->messages();
+        if ($request->prompt() === null || count($messages) !== 1
+            || ! $messages[0] instanceof UserMessage || count($messages[0]->additionalContent) !== 1
+            || ! $messages[0]->additionalContent[0] instanceof Text
+            || $request->systemPrompts() !== [] || $request->tools() !== []
+            || $request->providerTools() !== [] || $request->providerOptions() !== []
+            || $request->toolChoice() !== null || $request->maxTokens() !== null
+            || $request->temperature() !== null || $request->topP() !== null
+            || $request->topK() !== null || $request->reasoningEnabled() !== null) {
+            throw new PrismException('LocalTextProvider accepts one plain-text prompt only.');
+        }
 
-    // Only override the methods you need!
+        $text = $request->prompt();
+
+        return new TextResponse(
+            steps: collect([]),
+            text: $text,
+            finishReason: FinishReason::Stop,
+            toolCalls: [],
+            toolResults: [],
+            usage: new Usage(0, 0),
+            meta: new Meta('local-response', $request->model()),
+            messages: collect([...$messages, new AssistantMessage($text)]),
+            additionalContent: [],
+            raw: null,
+        );
+    }
 }
 ```
 
-## Registration Process
+A network-backed implementation must map supported messages and controls, validate the provider response, map usage and finish reasons, and preserve provider state needed for continuation. Implement tools or streaming only when those paths honor the same input and authorization requirements. Use application-controlled credentials and endpoints; do not allow model output to choose them.
 
-Once you've created your provider, you'll need to register it with Prism. Let's add it to a service provider:
+## Registration process
+
+Register a lower-case key in a Laravel service provider:
 
 ```php
 namespace App\Providers;
 
-use App\Prism\Providers\MyCustomProvider;
+use App\Prism\Providers\LocalTextProvider;
 use Illuminate\Support\ServiceProvider;
+use Prism\Prism\PrismManager;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        $this->app['prism-manager']->extend('my-custom-provider', function ($app, $config) {
-            return new MyCustomProvider(
-                apiKey: $config['api_key'] ?? '',
-            );
-        });
+        $this->app->make(PrismManager::class)->extend(
+            'local-text',
+            fn ($app, array $config) => new LocalTextProvider,
+        );
     }
 }
 ```
 
-Next, add your provider configuration to `config/prism.php`:
+The callback receives the Laravel application and the provider configuration. Add network credentials under `providers.<your-key>` in the existing `config/prism.php` when your implementation needs them.
 
-```php
-return [
-    'providers' => [
-        // ... other providers ...
-        'my-custom-provider' => [
-            'api_key' => env('MY_CUSTOM_PROVIDER_API_KEY'),
-        ],
-    ],
-];
-```
-
-That's it! You're ready to use your custom provider:
+`resolve()` lowercases provider names, while `extend()` stores the key exactly as supplied. Register lower-case keys so the custom creator can be found.
 
 ```php
 use Prism\Prism\Facades\Prism;
 
 $response = Prism::text()
-    ->using('my-custom-provider', 'model-name')
-    ->withPrompt('Hello, custom AI!')
+    ->using('local-text', 'local-echo')
+    ->withPrompt('Hello, custom provider!')
     ->asText();
+
+echo $response->text;
 ```
 
-## Custom Error Handling
+## Capability methods
 
-Your provider inherits a default `handleRequestException` method that handles common HTTP status codes. You can override this method to handle provider-specific errors or add custom logic:
+The base class exposes these 21 capability methods. Use its parameter and return types when overriding them:
+
+| Capability | Methods |
+|---|---|
+| Text and structured output | `text()`, `structured()`, `stream()` |
+| Embeddings, images and moderation | `embeddings()`, `images()`, `moderation()` |
+| Audio | `textToSpeech()`, `speechToText()`, `speechToTextProviderId()`, `speechToTextAsync()` |
+| Fill-in-the-middle | `fim()` |
+| Batch | `batch()`, `retrieveBatch()`, `listBatches()`, `getBatchResults()`, `cancelBatch()` |
+| Files | `uploadFile()`, `listFiles()`, `getFileMetadata()`, `deleteFile()`, `downloadFile()` |
+
+For example, `stream(TextRequest $request): Generator` yields `StreamEvent` objects, and `downloadFile(DownloadFileRequest $request): string` returns bytes. A method being declared does not mean it is implemented by an existing built-in provider.
+
+## Request payload projection
+
+The base provider returns `null` from `projectPayload()`. You can override it
+with a side-effect-free mapping consistent with your sender. See
+[Request payload projection](./payload-projection) for the supported modes,
+approval-resolution behavior, and data handling requirements.
+
+## Custom error handling
+
+The separate `handleRequestException(string $model, RequestException $e): never` hook maps HTTP failures. Its default implementation maps 413 to `PrismRequestTooLargeException`, 429 to `PrismRateLimitedException`, 529 to `PrismProviderOverloadedException`, and other statuses to `PrismException`.
+
+Add provider-specific mapping in your subclass when needed:
 
 ```php
 use Illuminate\Http\Client\RequestException;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+use Prism\Prism\Providers\Provider;
 
-class MyCustomProvider extends Provider
+class RateAwareProvider extends Provider
 {
-    // ... other methods ...
-
     public function handleRequestException(string $model, RequestException $e): never
     {
-        // Handle provider-specific error codes
-        match ($e->response->getStatusCode()) {
-            429 => throw PrismRateLimitedException::make(
-                rateLimits: $this->processRateLimits($e->response),
-                retryAfter: $e->response->header('retry-after') === ''
-                    ? null
-                    : (int) $e->response->header('retry-after'),
-            ),
-            default => parent::handleRequestException($model, $e),
-        };
+        if ($e->response->status() === 429) {
+            $retry = $e->response->header('retry-after');
+            throw PrismRateLimitedException::make(
+                rateLimits: [],
+                retryAfter: ctype_digit($retry) ? (int) $retry : null,
+            );
+        }
+
+        parent::handleRequestException($model, $e);
     }
 }
 ```
 
-The method must throw an exception (return type `never`). If you don't handle a specific status code, make sure to call the parent method to maintain the default error handling.
-
-## Best Practices
-
-- **Start small**: Begin by implementing just the methods you need. You don't have to support every feature right away.
-- **Handle errors gracefully**: Leverage the inherited error handling or override `handleRequestException()` for provider-specific errors (see Custom Error Handling section above).
-- **Test thoroughly**: Make sure to test your provider with various inputs and edge cases.
-- **Document your models**: Let users know which models your provider supports and any special parameters they can use.
-
-> [!TIP]
-> Looking at existing provider implementations in Prism's source code can give you great insights into best practices and patterns to follow.
+`processRateLimits()` is not a base-class method. Parse your service's headers yourself or use a compatible provider-specific trait. Exception messages and response bodies can contain provider content; expose them only according to your application's data policy. Test the implementation with `Http::fake()` and `Http::preventStrayRequests()` when it uses Laravel's HTTP client.

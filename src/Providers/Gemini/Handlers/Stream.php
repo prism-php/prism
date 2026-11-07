@@ -9,15 +9,18 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
+use Prism\Prism\Providers\Gemini\Concerns\CachesStablePrefix;
 use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -30,6 +33,7 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -41,7 +45,8 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools, MapsUsage;
+    use CachesStablePrefix, CallsTools, MapsUsage;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -61,6 +66,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $this->state->reset();
         $this->currentThoughtSignature = null;
         $response = $this->sendRequest($request);
@@ -73,16 +82,18 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('gemini', $depth);
+
         // Prevent infinite recursion with tool calls
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         $stepFinishReason = null;
         $this->stepUsage = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             // Skip empty data
             if ($data === null) {
@@ -148,7 +159,7 @@ class Stream
                 $chunkFinishReason = $this->mapFinishReason($data);
 
                 if ($chunkFinishReason === FinishReason::ToolCalls) {
-                    $this->drainStepUsage($response);
+                    yield from $this->drainStepUsage($response);
                     $this->recordStepUsage();
 
                     yield from $this->handleToolCalls($request, $depth, $data);
@@ -193,6 +204,7 @@ class Stream
 
         // Emit step finish before stream end
         $this->state->markStepFinished();
+        $this->advanceStepUsageSnapshot();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -344,7 +356,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Gemini', $e);
+            throw (new PrismStreamDecodeException('Gemini', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -397,10 +409,21 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
+        $this->advanceStepUsageSnapshot();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -475,10 +498,11 @@ class Stream
         }
     }
 
-    protected function drainStepUsage(Response $response): void
+    /** @return Generator<int, ErrorEvent> */
+    protected function drainStepUsage(Response $response): Generator
     {
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data !== null) {
                 $this->captureStepUsage($data);
@@ -491,6 +515,19 @@ class Stream
         if ($this->stepUsage instanceof Usage) {
             $this->state->addUsage($this->stepUsage);
         }
+    }
+
+    /**
+     * This handler reports the step's own usage from `$stepUsage`, but a step
+     * paused for client-executed or approval-gated tools finishes through
+     * CallsTools::yieldToolCallsFinishEvents(), which reports
+     * `StreamState::takeStepUsage()`: the running total minus the snapshot at
+     * the previous step. Advancing the snapshot at every step finish here keeps
+     * that paused step from being charged for every step before it.
+     */
+    protected function advanceStepUsageSnapshot(): void
+    {
+        $this->state->takeStepUsage();
     }
 
     /**
@@ -511,7 +548,17 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         $providerOptions = $request->providerOptions();
+
+        // The declared-stable prefix becomes the cached resource, exactly as
+        // it does for a plain text generation. See the trait: opt-in.
+        [$messages, $cachedContentName] = $this->resolveStablePrefix(
+            $request->messages(),
+            $providerOptions,
+            $request->model(),
+        );
 
         $hasSearchGrounding = (bool) ($providerOptions['searchGrounding'] ?? false);
         $hasBothToolTypes = $request->tools() !== [] && ($request->providerTools() !== [] || $hasSearchGrounding);
@@ -521,7 +568,7 @@ class Stream
         if ($request->providerTools() !== []) {
             $tools = array_map(
                 fn ($providerTool): array => [
-                    $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                    $providerTool->type => $providerTool->optionsAsObject(),
                 ],
                 $request->providerTools()
             );
@@ -553,6 +600,10 @@ class Stream
             ];
         }
 
+        if ($request->reasoningEnabled() === false && $thinkingConfig === null) {
+            $thinkingConfig = ['thinkingBudget' => 0];
+        }
+
         $toolConfig = ToolConfigMap::map($request->toolChoice(), $hasBothToolTypes);
 
         /** @var Response $response */
@@ -561,8 +612,8 @@ class Stream
             ->post(
                 "{$request->model()}:streamGenerateContent?alt=sse",
                 Arr::whereNotNull([
-                    ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                    'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                    ...(new MessageMap($messages, $request->systemPrompts()))(),
+                    'cachedContent' => $cachedContentName,
                     'generationConfig' => Arr::whereNotNull([
                         'temperature' => $request->temperature(),
                         'topP' => $request->topP(),
