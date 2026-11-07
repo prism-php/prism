@@ -257,7 +257,11 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'choices.0.delta.tool_calls', []) as $index => $toolCall) {
+        foreach (data_get($data, 'choices.0.delta.tool_calls', []) as $position => $toolCall) {
+            // Each chunk carries only the deltas that changed, so the position in this chunk
+            // is not the call's identity: Groq sends the call's own index in the delta.
+            $index = data_get($toolCall, 'index', $position);
+
             if ($name = data_get($toolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';

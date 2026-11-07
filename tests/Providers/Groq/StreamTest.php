@@ -552,6 +552,38 @@ function groqGatingStream(int &$calls, int $maxSteps = 3): Collection
         ->asStream(), false));
 }
 
+/**
+ * @param  array<string, mixed>  $toolCall
+ * @return array<string, mixed>
+ */
+function groqToolCallDeltaChunk(array $toolCall): array
+{
+    return groqGatingDeltaChunk(['tool_calls' => [$toolCall]]);
+}
+
+it('keeps parallel tool calls apart when their deltas arrive in separate chunks', function (): void {
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(groqGatingSse(
+                groqToolCallDeltaChunk(['index' => 0, 'id' => 'call_detroit', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '']]),
+                groqToolCallDeltaChunk(['index' => 0, 'function' => ['arguments' => '{"city":"Detroit"}']]),
+                groqToolCallDeltaChunk(['index' => 1, 'id' => 'call_paris', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '']]),
+                groqToolCallDeltaChunk(['index' => 1, 'function' => ['arguments' => '{"city":"Paris"}']]),
+                groqGatingFinishChunk('tool_calls'),
+            ), 200, ['Content-Type' => 'text/event-stream'])
+            ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $events = groqGatingStream($calls);
+    $toolCalls = $events->whereInstanceOf(ToolCallEvent::class)->map->toolCall->values();
+
+    expect($calls)->toBe(2)
+        ->and($toolCalls->map->id->all())->toBe(['call_detroit', 'call_paris'])
+        ->and($toolCalls->map(fn ($toolCall): array => $toolCall->arguments())->all())
+        ->toBe([['city' => 'Detroit'], ['city' => 'Paris']]);
+});
+
 describe('tool execution gating', function (): void {
     it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
         Http::fake([
