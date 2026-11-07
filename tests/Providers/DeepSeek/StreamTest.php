@@ -755,3 +755,25 @@ describe('deltas that are exactly "0"', function (): void {
             ->and($calls)->toBe(1);
     });
 });
+
+it('forwards deepseek provider options when streaming without turning streaming off', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-basic-text');
+
+    $response = Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withPrompt('Who are you?')
+        ->withProviderOptions([
+            'thinking' => ['type' => 'disabled'],
+            'stream' => false,
+        ])
+        ->asStream();
+
+    iterator_to_array($response);
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->data()['thinking'])->toBe(['type' => 'disabled']);
+        expect($request->data()['stream'])->toBeTrue();
+
+        return true;
+    });
+});
