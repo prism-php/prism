@@ -22,6 +22,7 @@ use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tools\LaravelMcpTool;
 use Prism\Prism\ValueObjects\ToolError;
 use Prism\Prism\ValueObjects\ToolOutput;
+use stdClass;
 use Throwable;
 use TypeError;
 
@@ -307,25 +308,86 @@ class Tool
 
         try {
             $reflection = new \ReflectionFunction(Closure::fromCallable($callable));
+            $parameters = collect($reflection->getParameters())->keyBy(
+                fn (\ReflectionParameter $parameter): string => $parameter->getName()
+            );
         } catch (\ReflectionException) {
-            return $args;
+            $parameters = collect();
         }
-
-        $parameters = collect($reflection->getParameters())->keyBy(
-            fn (\ReflectionParameter $parameter): string => $parameter->getName()
-        );
 
         foreach ($args as $name => $value) {
             /** @var \ReflectionParameter|null $parameter */
             $parameter = $parameters->get($name);
             $type = $parameter?->getType();
 
+            $value = $this->decodeJsonArgument((string) $name, $value, $type);
+
             if ($type instanceof \ReflectionNamedType) {
-                $args[$name] = $this->coerceValue($value, $type);
+                $value = $this->coerceValue($value, $type);
             }
+
+            $args[$name] = $value;
         }
 
         return $args;
+    }
+
+    /**
+     * An object- or array-typed argument that the model sent as a string of
+     * JSON (seen from Haiku: a `schema` object argument arrived as a string)
+     * is decoded, and used only if it decodes to exactly the declared JSON
+     * type: an object for an ObjectSchema, a list for an ArraySchema.
+     * Anything else -- invalid JSON, the wrong JSON type, a parameter the
+     * schema types as anything but an object or array -- is passed through
+     * unchanged, so it fails exactly as it did before. A handler that
+     * declares the parameter as `string` gets the string: it asked for one.
+     */
+    protected function decodeJsonArgument(string $name, mixed $value, ?\ReflectionType $type): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $schema = $this->parameters[$name] ?? null;
+        $wantsObject = $schema instanceof ObjectSchema;
+        $wantsList = $schema instanceof ArraySchema;
+
+        if ((! $wantsObject && ! $wantsList) || $this->acceptsString($type)) {
+            return $value;
+        }
+
+        try {
+            $decoded = json_decode($value, false, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $value;
+        }
+
+        if ($wantsObject && ! $decoded instanceof stdClass) {
+            return $value;
+        }
+
+        if ($wantsList && (! is_array($decoded) || ! array_is_list($decoded))) {
+            return $value;
+        }
+
+        return json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    protected function acceptsString(?\ReflectionType $type): bool
+    {
+        if ($type instanceof \ReflectionNamedType) {
+            return $type->getName() === 'string';
+        }
+
+        if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $member) {
+                if ($member instanceof \ReflectionNamedType && $member->getName() === 'string') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     protected function coerceValue(mixed $value, \ReflectionNamedType $type): mixed
