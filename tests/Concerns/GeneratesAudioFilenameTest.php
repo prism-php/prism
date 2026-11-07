@@ -85,3 +85,12 @@ it('defaults to mp3 for unknown mime type', function (): void {
 it('defaults to mp3 for non-audio mime type', function (): void {
     expect($this->instance->generate('application/json'))->toBe('audio.mp3');
 });
+
+it('ignores codec parameters and case on the mime type', function (string $mimeType, string $expected): void {
+    expect($this->instance->generate($mimeType))->toBe($expected);
+})->with([
+    ['audio/webm;codecs=opus', 'audio.webm'],
+    ['video/webm; codecs="vp8,opus"', 'audio.webm'],
+    ['audio/ogg; codecs=vorbis', 'audio.ogg'],
+    ['AUDIO/WEBM', 'audio.webm'],
+]);

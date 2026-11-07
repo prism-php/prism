@@ -8,6 +8,12 @@ trait GeneratesAudioFilename
 {
     protected function generateFilename(?string $mimeType): string
     {
+        // MediaRecorder attaches codec parameters ("audio/webm;codecs=opus"),
+        // so match on the bare, lowercased type.
+        $mimeType = $mimeType === null
+            ? null
+            : strtolower(trim(explode(';', $mimeType)[0]));
+
         $extension = match ($mimeType) {
             'audio/flac' => 'flac',
             'audio/mpeg', 'audio/mp3' => 'mp3',
