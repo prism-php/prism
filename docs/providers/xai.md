@@ -280,3 +280,19 @@ xAI uses an OpenAI-compatible API structure, which means:
 - Thinking tokens count toward your total token usage
 - Set appropriate `maxTokens` limits when expecting long thinking sequences
 - Monitor usage through the response objects for cost tracking
+
+### Token Usage
+
+xAI reports reasoning tokens next to `completion_tokens` rather than inside it: its own example has `prompt_tokens` 32, `completion_tokens` 9, `reasoning_tokens` 94 and `total_tokens` 135. Prism adds the reasoning back in so `completionTokens` covers every output token, like it does for every other provider (see [Token Usage](/core-concepts/text-generation#token-usage)):
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `prompt_tokens` minus `prompt_tokens_details.cached_tokens` |
+| `cacheReadInputTokens` | `prompt_tokens_details.cached_tokens` |
+| `cacheWriteInputTokens` | Always `null`, xAI doesn't report cache writes |
+| `completionTokens` | `completion_tokens` plus `reasoning_tokens` |
+| `thoughtTokens` | `completion_tokens_details.reasoning_tokens`, already part of `completionTokens` |
+
+Prism checks each response's own counters first. When `total_tokens` equals `prompt_tokens` plus `completion_tokens`, the reasoning is already inside `completion_tokens` and isn't added again. Any other total, or no total at all, gets xAI's documented behavior above.
+
+Streams use the last usage xAI sends for each step, whether it comes on every chunk as a running total or in a final usage-only chunk, and the final `StreamEndEvent` adds up every step of a tool loop.

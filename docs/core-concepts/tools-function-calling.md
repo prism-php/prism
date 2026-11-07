@@ -253,8 +253,7 @@ class SearchTool extends Tool
         $this
             ->as('search')
             ->for('useful when you need to search for current events')
-            ->withStringParameter('query', 'Detailed search query. Best to search one topic at a time.')
-            ->using($this);
+            ->withStringParameter('query', 'Detailed search query. Best to search one topic at a time.');
     }
 
     public function __invoke(string $query): string
@@ -387,6 +386,8 @@ use Prism\Prism\Facades\Tool;
 
 $tool = Tool::make(CurrentWeatherTool::class);
 ```
+
+Tools that define a [`shouldRegister`](https://laravel.com/docs/13.x/mcp#conditional-tool-registration) method are honored: when it returns `false`, the tool is excluded by `withTools()` and is never sent to the provider.
 
 ## Tool Choice Options
 

@@ -42,6 +42,20 @@ return Prism::text()
 
 For complete streaming documentation, see [Streaming Output](/core-concepts/streaming-output).
 
+## Token Usage
+
+Ollama's `prompt_eval_count` is the whole prompt, cached tokens included. From Ollama 0.33.3, responses also report `prompt_eval_cached_count`, and Prism uses it to split the cached part out (see [Token Usage](/core-concepts/text-generation#token-usage)):
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `prompt_eval_count` minus `prompt_eval_cached_count` |
+| `cacheReadInputTokens` | `prompt_eval_cached_count`, `null` on servers older than 0.33.3 |
+| `cacheWriteInputTokens` | Always `null`, Ollama doesn't report cache writes |
+| `completionTokens` | `eval_count` |
+| `thoughtTokens` | Always `null`, Ollama doesn't break out thinking tokens |
+
+On older servers `promptTokens` is the whole prompt, since there's nothing to split out. Ollama's docs don't say whether `eval_count` includes thinking, but its maintainers have said it does, so treat `completionTokens` as covering both. In a stream, the counts arrive on the final chunk of each response. The `StreamEndEvent` adds up every step of a tool loop, and each `StepFinishEvent` carries its own step's usage.
+
 ## Considerations
 ### Timeouts
 

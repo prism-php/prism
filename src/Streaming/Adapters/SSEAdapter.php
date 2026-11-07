@@ -6,12 +6,15 @@ namespace Prism\Prism\Streaming\Adapters;
 
 use Generator;
 use Illuminate\Support\Collection;
+use Prism\Prism\Streaming\Adapters\Concerns\HandlesClientDisconnects;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Text\PendingRequest;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SSEAdapter
 {
+    use HandlesClientDisconnects;
+
     /**
      * @param  callable(PendingRequest, Collection<int, StreamEvent>): void|null  $callback
      */
@@ -24,7 +27,9 @@ class SSEAdapter
             foreach ($events as $event) {
                 $collectedEvents->push($event);
 
-                if (connection_aborted() !== 0) {
+                if ($this->connectionAborted()) {
+                    $this->collectRanToolStep($events, $collectedEvents);
+
                     break;
                 }
 

@@ -140,6 +140,8 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->not->toBeNull();
         expect($response->text)->not->toBeEmpty();
         expect($response->text)->toContain("So I'd love to hear about your experience here");
+        expect($response->usage)->toBeNull();
+        expect($response->additionalContent['usage_seconds'])->toBe(317);
     });
 
     it('can transcribe audio with whisper-1 model - from path - json', function (): void {
@@ -278,7 +280,10 @@ describe('Speech-to-Text', function (): void {
             'api.openai.com/v1/audio/transcriptions' => Http::response([
                 'text' => 'Usage tracking test.',
                 'usage' => [
+                    'type' => 'tokens',
                     'input_tokens' => 5,
+                    'input_token_details' => ['text_tokens' => 0, 'audio_tokens' => 5],
+                    'output_tokens' => 8,
                     'total_tokens' => 13,
                 ],
             ], 200),
@@ -293,7 +298,29 @@ describe('Speech-to-Text', function (): void {
 
         expect($response->usage)->not->toBeNull();
         expect($response->usage->promptTokens)->toBe(5);
-        expect($response->usage->completionTokens)->toBe(13);
+        expect($response->usage->completionTokens)->toBe(8);
+        expect($response->additionalContent)->not->toHaveKey('usage_seconds');
+    });
+
+    it('reports duration-billed transcriptions without token usage', function (): void {
+        Http::fake([
+            'api.openai.com/v1/audio/transcriptions' => Http::response([
+                'text' => 'Billed by the second.',
+                'usage' => [
+                    'type' => 'duration',
+                    'seconds' => 27,
+                ],
+            ], 200),
+        ]);
+
+        $response = Prism::audio()
+            ->using('openai', 'whisper-1')
+            ->withInput(Audio::fromBase64(base64_encode('duration-audio'), 'audio/mpeg'))
+            ->asText();
+
+        expect($response->usage)->toBeNull()
+            ->and($response->additionalContent['usage_seconds'])->toBe(27)
+            ->and($response->additionalContent['usage'])->toBe(['type' => 'duration', 'seconds' => 27]);
     });
 
     it('handles transcription without usage information', function (): void {

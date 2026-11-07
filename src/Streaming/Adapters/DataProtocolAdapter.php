@@ -6,6 +6,7 @@ namespace Prism\Prism\Streaming\Adapters;
 
 use Generator;
 use Illuminate\Support\Collection;
+use Prism\Prism\Streaming\Adapters\Concerns\HandlesClientDisconnects;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent;
@@ -31,6 +32,8 @@ use Throwable;
 
 class DataProtocolAdapter
 {
+    use HandlesClientDisconnects;
+
     /**
      * Track tool call IDs that have sent tool-input-available.
      * This prevents "tool-output-error must be preceded by a tool-input-available"
@@ -55,7 +58,9 @@ class DataProtocolAdapter
                 foreach ($events as $event) {
                     $collectedEvents->push($event);
 
-                    if (connection_aborted() !== 0) {
+                    if ($this->connectionAborted()) {
+                        $this->collectRanToolStep($events, $collectedEvents);
+
                         break;
                     }
 

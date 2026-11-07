@@ -16,7 +16,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 
 $response = Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withSystemPrompt('You are an expert mathematician.')
     ->withPrompt('Explain the Pythagorean theorem.')
     ->asText();
@@ -44,7 +44,7 @@ $schema = new ObjectSchema(
 );
 
 $response = Prism::structured()
-    ->using(Provider::OpenAI, 'gpt-4o')
+    ->using(Provider::OpenAI, 'gpt-6.1-sol')
     ->withSchema($schema)
     ->withPrompt('Review the movie Inception')
     ->asStructured();
@@ -58,7 +58,7 @@ echo $review['title'];
 ```php
 Route::get('/chat', function () {
     return Prism::text()
-        ->using('anthropic', 'claude-3-7-sonnet')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt(request('message'))
         ->asEventStreamResponse();
 });
@@ -68,7 +68,7 @@ Route::get('/chat', function () {
 
 ```php
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get current weather for a location')
@@ -78,7 +78,7 @@ $weatherTool = Tool::as('get_weather')
     );
 
 $response = Prism::text()
-    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withTools([$weatherTool])
     ->withMaxSteps(3)
     ->withPrompt('What is the weather in San Francisco?')
@@ -92,7 +92,7 @@ use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withPrompt(
         'What objects do you see in this image?',
         [Image::fromLocalPath('/path/to/image.jpg')]
@@ -164,9 +164,12 @@ Use `->withProviderOptions([...])` to pass provider-specific features:
 
 ```php
 $response = Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-opus-5-5')
     ->withPrompt('Your prompt')
-    ->withProviderOptions(['thinking' => ['enabled' => true]])  // Anthropic-specific
+    ->withProviderOptions([  // Anthropic-specific
+        'thinking' => ['type' => 'adaptive'],
+        'effort' => 'high',
+    ])
     ->asText();
 ```
 
@@ -176,6 +179,20 @@ $response = Prism::text()
 - `docs/providers/gemini.md`, `docs/providers/mistral.md`, etc.
 
 ## Common Pitfalls
+
+### Continuing Conversations
+
+Pass `$response->messages` back with `withMessages()` to continue a conversation, and persist each message's `additionalContent` when storing it. Rebuilding `AssistantMessage`s from `$response->text` drops the thinking blocks and reasoning items that current Claude and OpenAI models expect back. For streamed responses, build the messages with `StreamedMessages::fromEvents($events)` inside the streaming callback. See `docs/core-concepts/text-generation.md` and `docs/core-concepts/streaming-output.md`.
+
+### Check the Finish Reason
+
+Refusals return a normal response with `FinishReason::Refusal` rather than throwing, and structured output is empty in that case. Check `$response->finishReason` before using `$response->text` or `$response->structured`.
+
+### Current Model Parameters
+
+- Claude 5.x models reject `['thinking' => ['enabled' => true, 'budgetTokens' => ...]]`. Use `['thinking' => ['type' => 'adaptive']]` with `effort`.
+- Claude 5.x and GPT-6.x / GPT-5.5+ reject non-default `temperature` and `top_p` (OpenAI accepts them only with reasoning effort `none`). Don't call `usingTemperature()` / `usingTopP()` for these models.
+- For Anthropic structured output on Claude Opus 5.5, Sonnet 5.5 and Fable 5.1, keep the default native mode; `use_tool_calling` forces a tool choice those models reject.
 
 ### Wrong Package Name
 

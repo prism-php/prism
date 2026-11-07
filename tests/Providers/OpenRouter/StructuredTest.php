@@ -205,3 +205,37 @@ it('includes raw response context in decoding exception', function (): void {
             ->toContain('"content": null');
     }
 });
+
+it('normalizes cached input and reasoning in structured usage', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'id' => 'gen-structured-usage',
+            'model' => 'openai/gpt-5',
+            'choices' => [[
+                'index' => 0,
+                'message' => ['role' => 'assistant', 'content' => '{"bullet":"Ship it"}'],
+                'finish_reason' => 'stop',
+            ]],
+            'usage' => [
+                'prompt_tokens' => 10339,
+                'completion_tokens' => 60,
+                'total_tokens' => 10399,
+                'prompt_tokens_details' => ['cached_tokens' => 10318, 'cache_write_tokens' => 0],
+                'completion_tokens_details' => ['reasoning_tokens' => 40],
+            ],
+        ]),
+    ])->preventStrayRequests();
+
+    $response = Prism::structured()
+        ->withSchema(new ObjectSchema('summary', 'Structured summary', [new StringSchema('bullet', 'Key takeaway')], ['bullet']))
+        ->using(Provider::OpenRouter, 'openai/gpt-5')
+        ->withPrompt('Summarize the update.')
+        ->asStructured();
+
+    expect($response->structured)->toBe(['bullet' => 'Ship it'])
+        ->and($response->usage->promptTokens)->toBe(21)
+        ->and($response->usage->cacheReadInputTokens)->toBe(10318)
+        ->and($response->usage->cacheWriteInputTokens)->toBe(0)
+        ->and($response->usage->completionTokens)->toBe(60)
+        ->and($response->usage->thoughtTokens)->toBe(40);
+});

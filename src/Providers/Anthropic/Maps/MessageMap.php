@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Maps;
 
 use Exception;
+use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\NormalizesCacheControl;
+use Prism\Prism\Providers\Anthropic\Support\ContentBlocks;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -19,6 +21,7 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 class MessageMap
 {
+    use FiltersEmptyValues;
     use NormalizesCacheControl;
 
     /**
@@ -32,10 +35,10 @@ class MessageMap
             throw new PrismException('Anthropic does not support SystemMessages in the messages array. Use withSystemPrompt or withSystemPrompts instead.');
         }
 
-        $mappedMessages = array_map(
+        $mappedMessages = self::withoutEmptyAssistantMessages(array_map(
             fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
-        );
+        ));
 
         if (isset($requestProviderOptions['tool_result_cache_type'])) {
             $lastToolResultIndex = null;
@@ -73,6 +76,21 @@ class MessageMap
     }
 
     /**
+     * An assistant turn with nothing to replay (a refusal before any output)
+     * reads to the model as a reply it skipped, so it is left out.
+     *
+     * @param  array<int, array<string, mixed>>  $mappedMessages
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function withoutEmptyAssistantMessages(array $mappedMessages): array
+    {
+        return array_values(array_filter(
+            $mappedMessages,
+            fn (array $message): bool => $message['role'] !== 'assistant' || $message['content'] !== []
+        ));
+    }
+
+    /**
      * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
@@ -91,7 +109,7 @@ class MessageMap
      */
     protected static function mapSystemMessage(SystemMessage $systemMessage): array
     {
-        return array_filter([
+        return self::withoutEmptyValues([
             'type' => 'text',
             'text' => $systemMessage->content,
             'cache_control' => self::normalizeCacheControl($systemMessage),
@@ -112,7 +130,7 @@ class MessageMap
                 // Only add cache_control to the last tool result
                 $isLastResult = $index === $totalResults - 1;
 
-                return array_filter([
+                return self::withoutEmptyValues([
                     'type' => 'tool_result',
                     'tool_use_id' => $toolResult->toolCallId,
                     'content' => $toolResult->result,
@@ -133,7 +151,7 @@ class MessageMap
         return [
             'role' => 'user',
             'content' => [
-                array_filter([
+                self::withoutEmptyValues([
                     'type' => 'text',
                     'text' => $message->text(),
                     'cache_control' => $cacheControl,
@@ -145,32 +163,30 @@ class MessageMap
     }
 
     /**
+     * Replay precedence: `content_blocks` (the ordered response content) >
+     * `thinking_blocks` > the legacy `thinking`/`thinking_signature` pair.
+     *
      * @return array<string, mixed>
      */
     protected static function mapAssistantMessage(AssistantMessage $message): array
     {
         $cacheControl = self::normalizeCacheControl($message);
 
-        $content = [];
-
-        if (isset($message->additionalContent['thinking']) && isset($message->additionalContent['thinking_signature'])) {
-            $content[] = [
-                'type' => 'thinking',
-                'thinking' => $message->additionalContent['thinking'],
-                'signature' => $message->additionalContent['thinking_signature'],
-            ];
+        if (is_array($message->additionalContent['content_blocks'] ?? null)) {
+            return self::mapAssistantContentBlocks($message->additionalContent['content_blocks'], $cacheControl);
         }
+
+        $content = self::mapAssistantThinking($message);
 
         if (isset($message->additionalContent['citations'])) {
             foreach ($message->additionalContent['citations'] as $part) {
-                $content[] = array_filter([
+                $content[] = self::withoutEmptyValues([
                     ...CitationsMapper::mapToAnthropic($part),
                     'cache_control' => $cacheControl,
                 ]);
             }
-        } elseif ($message->content !== '' && $message->content !== '0') {
-
-            $content[] = array_filter([
+        } elseif ($message->content !== '') {
+            $content[] = self::withoutEmptyValues([
                 'type' => 'text',
                 'text' => $message->content,
                 'cache_control' => $cacheControl,
@@ -211,6 +227,41 @@ class MessageMap
             'role' => 'assistant',
             'content' => array_merge($content, $toolCalls),
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $contentBlocks
+     * @param  array<string, mixed>|null  $cacheControl
+     * @return array<string, mixed>
+     */
+    protected static function mapAssistantContentBlocks(array $contentBlocks, ?array $cacheControl): array
+    {
+        $content = ContentBlocks::forReplay($contentBlocks);
+
+        return [
+            'role' => 'assistant',
+            'content' => $cacheControl === null ? $content : ContentBlocks::withCacheControl($content, $cacheControl),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function mapAssistantThinking(AssistantMessage $message): array
+    {
+        if (is_array($message->additionalContent['thinking_blocks'] ?? null)) {
+            return array_values($message->additionalContent['thinking_blocks']);
+        }
+
+        if (isset($message->additionalContent['thinking']) && isset($message->additionalContent['thinking_signature'])) {
+            return [[
+                'type' => 'thinking',
+                'thinking' => $message->additionalContent['thinking'],
+                'signature' => $message->additionalContent['thinking_signature'],
+            ]];
+        }
+
+        return [];
     }
 
     /**

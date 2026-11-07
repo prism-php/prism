@@ -8,18 +8,21 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\OpenAI\Concerns\BuildsTools;
+use Prism\Prism\Providers\OpenAI\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenAI\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenAI\Concerns\ProcessRateLimits;
-use Prism\Prism\Providers\OpenAI\Maps\FinishReasonMap;
 use Prism\Prism\Providers\OpenAI\Maps\MessageMap;
 use Prism\Prism\Providers\OpenAI\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\OpenAI\Support\OutputItems;
+use Prism\Prism\Providers\OpenAI\ValueObjects\OpenAIStreamState;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\ProviderToolEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
@@ -34,7 +37,6 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
-use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -47,13 +49,15 @@ class Stream
 {
     use BuildsTools;
     use CallsTools;
+    use MapsFinishReason;
+    use MapsUsage;
     use ProcessRateLimits;
 
-    protected StreamState $state;
+    protected OpenAIStreamState $state;
 
     public function __construct(protected PendingRequest $client)
     {
-        $this->state = new StreamState;
+        $this->state = new OpenAIStreamState;
     }
 
     /**
@@ -117,6 +121,14 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time()
                 );
+            }
+
+            $this->captureOutputItem($data);
+
+            if ($this->isRefusalEvent($data)) {
+                $this->captureRefusal($data);
+
+                continue;
             }
 
             if ($this->hasReasoningSummaryDelta($data)) {
@@ -254,19 +266,14 @@ class Stream
                 );
             }
 
-            if (data_get($data, 'type') === 'response.completed') {
-                $this->state->withFinishReason($this->mapFinishReason($data));
-                $this->state->addUsage(new Usage(
-                    promptTokens: data_get($data, 'response.usage.input_tokens'),
-                    completionTokens: data_get($data, 'response.usage.output_tokens'),
-                    cacheReadInputTokens: data_get($data, 'response.usage.input_tokens_details.cached_tokens'),
-                    thoughtTokens: data_get($data, 'response.usage.output_tokens_details.reasoning_tokens')
-                ));
-                $this->state->withMetadata(['response_id' => data_get($data, 'response.id')]);
+            if ($this->isTerminalEvent($data)) {
+                yield from $this->handleTerminalEvent($data);
             }
         }
 
-        if ($this->state->hasToolCalls()) {
+        yield from $this->completeOpenBlocks();
+
+        if ($this->shouldExecuteToolCalls()) {
             yield from $this->handleToolCalls($request, $depth);
 
             return;
@@ -275,14 +282,48 @@ class Stream
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->state->stepUsage(),
+            additionalContent: $this->stepAdditionalContent(),
+            finishReason: $this->state->finishReason() ?? FinishReason::Stop,
         );
 
         yield $this->emitStreamEndEvent();
     }
 
+    /**
+     * A response that fails or a stream that drops before its `.done` events
+     * still closes the reasoning and text it started.
+     *
+     * @return Generator<StreamEvent>
+     */
+    protected function completeOpenBlocks(): Generator
+    {
+        if ($this->state->reasoningId() !== '') {
+            yield new ThinkingCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                reasoningId: $this->state->reasoningId()
+            );
+
+            $this->state->withReasoningId('');
+        }
+
+        if ($this->state->hasTextStarted()) {
+            $this->state->markTextCompleted();
+
+            yield new TextCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                messageId: $this->state->messageId()
+            );
+        }
+    }
+
     protected function emitStreamEndEvent(): StreamEndEvent
     {
+        $terminalResponse = $this->state->terminalResponse();
+
         return new StreamEndEvent(
             id: EventID::generate(),
             timestamp: time(),
@@ -291,8 +332,164 @@ class Stream
             additionalContent: Arr::whereNotNull([
                 'response_id' => $this->state->metadata()['response_id'] ?? null,
                 'reasoningSummaries' => $this->state->thinkingSummaries() === [] ? null : $this->state->thinkingSummaries(),
+                'phase' => OutputItems::phase($this->state->outputItems()),
+                'refusal' => $this->state->refusal(),
+                'status' => $terminalResponse['status'] ?? null,
+                'incomplete_details' => $terminalResponse['incomplete_details'] ?? null,
             ])
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function stepAdditionalContent(): array
+    {
+        return [
+            ...OutputItems::replayContent($this->state->outputItems(), $this->state->finishReason() ?? FinishReason::Stop),
+            ...Arr::whereNotNull(['refusal' => $this->state->refusal()]),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function isTerminalEvent(array $data): bool
+    {
+        return in_array(data_get($data, 'type'), [
+            'response.completed',
+            'response.incomplete',
+            'response.failed',
+        ], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return Generator<StreamEvent>
+     */
+    protected function handleTerminalEvent(array $data): Generator
+    {
+        /** @var array<string, mixed> $response */
+        $response = data_get($data, 'response') ?? [];
+
+        $this->state->withTerminalResponse($response);
+        $this->state->withMetadata(['response_id' => data_get($response, 'id')]);
+        $this->state->withFinishReason($this->mapTerminalFinishReason($response));
+
+        if (is_array(data_get($response, 'usage'))) {
+            $stepUsage = $this->mapUsage($response);
+
+            $this->state->withStepUsage($stepUsage);
+            $this->state->addUsage($stepUsage);
+        }
+
+        if (data_get($data, 'type') === 'response.failed') {
+            yield new ErrorEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                errorType: (string) data_get($response, 'error.code', 'response_failed'),
+                message: (string) data_get($response, 'error.message', 'The response failed.'),
+                recoverable: false,
+                metadata: Arr::whereNotNull(['response_id' => data_get($response, 'id')]),
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    protected function mapTerminalFinishReason(array $response): FinishReason
+    {
+        $finishReason = $this->mapFinishReason($response);
+
+        if (data_get($response, 'status') === 'completed' && $this->state->refusal() !== null) {
+            return FinishReason::Refusal;
+        }
+
+        return $finishReason;
+    }
+
+    protected function shouldExecuteToolCalls(): bool
+    {
+        return $this->state->finishReason() === FinishReason::ToolCalls
+            && $this->state->completedToolCalls() !== [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function captureOutputItem(array $data): void
+    {
+        if (data_get($data, 'type') !== 'response.output_item.done') {
+            return;
+        }
+
+        $item = data_get($data, 'item');
+
+        if (! OutputItems::isReplayable($item)) {
+            return;
+        }
+
+        /** @var array<string, mixed> $item */
+        $this->state->addOutputItem(
+            (int) data_get($data, 'output_index', count($this->state->outputItems())),
+            OutputItems::normalize($item),
+        );
+
+        if ($item['type'] === 'function_call') {
+            $this->markToolCallComplete($item);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    protected function markToolCallComplete(array $item): void
+    {
+        if (($item['status'] ?? 'completed') !== 'completed') {
+            return;
+        }
+
+        foreach ($this->state->toolCalls() as $index => $call) {
+            if (($call['id'] ?? null) === ($item['id'] ?? null)) {
+                $this->state->updateToolCall($index, Arr::whereNotNull([
+                    'arguments' => $item['arguments'] ?? null,
+                    'complete' => true,
+                ]));
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function isRefusalEvent(array $data): bool
+    {
+        return in_array(data_get($data, 'type'), [
+            'response.refusal.delta',
+            'response.refusal.done',
+        ], true);
+    }
+
+    /**
+     * Deltas accumulate per content part; the done event replaces them, so the
+     * final refusal text is never counted twice.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function captureRefusal(array $data): void
+    {
+        $partKey = sprintf('%s:%s', data_get($data, 'item_id', ''), data_get($data, 'content_index', 0));
+
+        if (data_get($data, 'type') === 'response.refusal.done') {
+            $this->state->withRefusal($partKey, (string) data_get($data, 'refusal', ''));
+
+            return;
+        }
+
+        $this->state->appendRefusal($partKey, (string) data_get($data, 'delta', ''));
     }
 
     /**
@@ -308,7 +505,7 @@ class Stream
 
         $line = trim(substr($line, strlen('data: ')));
 
-        if (Str::contains($line, 'DONE')) {
+        if ($line === '[DONE]') {
             return null;
         }
 
@@ -394,18 +591,27 @@ class Stream
      */
     protected function handleToolCalls(Request $request, int $depth): Generator
     {
-        $mappedToolCalls = $this->mapToolCalls($this->state->toolCalls());
+        $mappedToolCalls = $this->mapToolCalls($this->state->completedToolCalls());
         $toolResults = [];
         yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
 
         // Emit step finish after tool calls
         $this->state->markStepFinished();
+        $stepAdditionalContent = $this->stepAdditionalContent();
+
         yield new StepFinishEvent(
             id: EventID::generate(),
-            timestamp: time()
+            timestamp: time(),
+            usage: $this->state->stepUsage(),
+            additionalContent: $stepAdditionalContent,
+            finishReason: FinishReason::ToolCalls,
         );
 
-        $request->addMessage(new AssistantMessage($this->state->currentText(), $mappedToolCalls));
+        $request->addMessage(new AssistantMessage(
+            content: $this->state->currentText(),
+            toolCalls: $mappedToolCalls,
+            additionalContent: $stepAdditionalContent,
+        ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
@@ -435,8 +641,9 @@ class Stream
                 arguments: data_get($toolCall, 'arguments'),
                 resultId: data_get($toolCall, 'call_id'),
                 reasoningId: data_get($toolCall, 'reasoning_id'),
-                reasoningSummary: data_get($toolCall, 'reasoning_summary', []),
+                reasoningSummary: data_get($toolCall, 'reasoning_summary') ?? [],
             ))
+            ->values()
             ->all();
     }
 
@@ -484,17 +691,6 @@ class Stream
         }
 
         return $reasoningItems;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function mapFinishReason(array $data): FinishReason
-    {
-        $eventType = Str::after(data_get($data, 'type'), 'response.');
-        $lastOutputType = data_get($data, 'response.output.{last}.type');
-
-        return FinishReasonMap::map($eventType, $lastOutputType);
     }
 
     /**
@@ -589,6 +785,7 @@ class Stream
                     ] : null,
                     'truncation' => $request->providerOptions('truncation'),
                     'reasoning' => $request->providerOptions('reasoning'),
+                    'store' => $request->providerOptions('store'),
                 ]))
             );
 

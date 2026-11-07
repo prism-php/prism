@@ -208,7 +208,7 @@ function ChatComponent() {
         },
         
         '.step_finish': (data) => {
-            console.log('Step finished:', data);
+            console.log('Step finished:', data.finish_reason);
             // Generation cycle complete, may be followed by another step
         },
         
@@ -269,7 +269,7 @@ All streaming approaches emit the same core events with consistent data structur
 - **`artifact`** - Binary artifacts produced by tools (images, audio, files)
 - **`provider_tool_event`** - Provider-specific tool events (e.g., image generation, web search)
 - **`step_finish`** - End of a generation step (emitted after tool calls or before stream end)
-- **`error`** - Error handling with recovery information
+- **`error`** - An error the provider reported mid-stream. Its `recoverable` flag is `false`, since the error ends the step
 - **`stream_end`** - Stream completion with usage statistics
 
 > [!TIP]
@@ -359,10 +359,18 @@ Based on actual streaming output:
     }
 }
 
-// step_finish event
+// step_finish event (finish_reason and usage cover this step only; usage is null when the provider didn't report it)
 {
     "id": "anthropic_evt_def456step",
-    "timestamp": 1756412895
+    "timestamp": 1756412895,
+    "finish_reason": "ToolCalls",
+    "usage": {
+        "prompt_tokens": 1720,
+        "completion_tokens": 96,
+        "cache_write_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "thought_tokens": 41
+    }
 }
 
 // stream_end event
@@ -379,6 +387,35 @@ Based on actual streaming output:
     }
 }
 ```
+
+The `finish_reason` on `stream_end` reports why the model really stopped, so watch for `Refusal`, `Length` and `Error` as well as `Stop`. Each `step_finish` carries the same field for its own step, so a step that ran tools reports `ToolCalls` even when the stream as a whole ends with `Stop`. The same values are covered in [Why Generation Stopped](/core-concepts/text-generation#why-generation-stopped).
+
+Every stream that isn't cut short by an exception ends the same way on every provider: a `step_finish` for the last step, then exactly one `stream_end`. A few cases worth knowing:
+
+- If `maxSteps` runs out on a step that ended with tool calls, Prism runs those tools and stops there. That step's `step_finish` and the `stream_end` both report `ToolCalls`, just like `$response->finishReason` on a non-streaming request.
+- If the connection closes before the provider sends a finish reason, the stream still ends with `step_finish` and `stream_end`, reporting `Stop`.
+- If the provider repeats its finish reason across several chunks, you still get one `stream_end`.
+- If Anthropic, Groq, Ollama, OpenRouter or Perplexity reports an error partway through (other than the rate limits covered below), or an OpenAI response fails (`response.failed`), you get an `error` event with `recoverable` set to `false`. The step stops there, and its `step_finish` and the `stream_end` both report `Error` so partial output never looks like a finished answer. Any tool calls the step streamed don't run.
+- Every `text_start` and `thinking_start` gets its matching `text_complete` or `thinking_complete` before any `tool_call` event that follows it and before its step's `step_finish`, even when the connection closes early.
+
+Some failures throw an exception from inside the stream instead of sending an `error` event, and an exception stops iteration right there: no `error` event, no `step_finish` and no `stream_end`. You'll see one when Groq or Perplexity sends a `rate_limit_exceeded` error mid-stream (`PrismRateLimitedException`), when OpenAI sends an `error` event (`PrismRateLimitedException` for rate limits, `PrismException` for anything else), when a chunk can't be decoded (`PrismStreamDecodeException`), or when the request for the next tool step fails. If you iterate the stream yourself, wrap the loop in a `try`/`catch` so you can close out the response:
+
+```php
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitedException;
+
+try {
+    foreach ($stream as $event) {
+        // Handle each event...
+    }
+} catch (PrismRateLimitedException $e) {
+    // Back off and try again later
+} catch (PrismException $e) {
+    // The stream stopped without a stream_end, so finish the response here
+}
+```
+
+`asDataStreamResponse()` already catches these for you and sends the client an error before it closes the stream.
 
 ## Handling Artifact Events
 
@@ -692,6 +729,50 @@ return Prism::text()
     ->withPrompt("What's the weather in Detroit?")
     ->asEventStreamResponse();
 ```
+
+Prism only runs your tools when a step actually ends with tool calls. If the model is cut off by `maxTokens`, refuses, or the provider reports a failure partway through a step, any tool calls from that step are not executed.
+
+### Persisting Streamed Conversations
+
+The callbacks above hand you the raw events. When you want to continue the conversation later, you need messages instead: each assistant turn with its tool calls, its tool results, and the provider state that newer models expect back. `StreamedMessages::fromEvents()` rebuilds them from the events your callback already receives:
+
+```php
+use Illuminate\Support\Collection;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\StreamedMessages;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+
+$userMessage = new UserMessage(request('message'));
+
+return Prism::text()
+    ->using('anthropic', 'claude-sonnet-5-5')
+    ->withMessages([...$conversation->messages(), $userMessage])
+    ->withTools([$searchTool])
+    ->withMaxSteps(5)
+    ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use ($conversation, $userMessage) {
+        // One assistant message per step, followed by that step's tool results
+        $messages = StreamedMessages::fromEvents($events);
+
+        $conversation->append([$userMessage, ...$messages]);
+    });
+```
+
+The same callback works with `asDataStreamResponse()` and `asBroadcast()`.
+
+You only get back the messages the stream produced. The messages you sent aren't included, so store your own user message (or whatever input you passed) ahead of them, like `$userMessage` above.
+
+Each `AssistantMessage` carries its step's replay data in `additionalContent`, such as Claude's thinking signatures or OpenAI's reasoning items. Store that along with the text, then pass the stored messages back with `withMessages()` on the next turn. See [Continuing a Conversation](/core-concepts/text-generation#continuing-a-conversation) for why this matters.
+
+A few details worth knowing:
+
+- Tool calls from a step that didn't end with tool calls (a refusal, a `maxTokens` cutoff, a failure) never ran, so they're left out of that step's `AssistantMessage`.
+- If the stream stops early, you get the messages for what arrived. Tool calls that never got a result are left out, so the stored conversation still replays cleanly.
+- If the client disconnects from `asEventStreamResponse()` or `asDataStreamResponse()` after a step's tools have run, Prism collects the rest of that step before calling your callback: the remaining tool results and the step's replay data, which are already computed. It doesn't send the next request, so no more tools run, and you keep the results of the tools that did.
+- Outside a callback, collect the events from `asStream()` yourself and pass them in: `StreamedMessages::fromEvents(iterator_to_array($stream, false))`.
+
+> [!IMPORTANT]
+> By default, PHP ends your script when it tries to send output to a client that has disconnected, so your callback may never run. If you persist every turn, call `ignore_user_abort(true)` before you return the response. Prism then notices the disconnect, stops streaming, and calls your callback with what it collected. That's how PHP-FPM and Apache behave. Octane servers manage the connection themselves, so check how yours handles a disconnect.
 
 ### Data Protocol Output
 

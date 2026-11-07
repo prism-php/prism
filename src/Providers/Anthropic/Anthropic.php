@@ -28,6 +28,12 @@ class Anthropic extends Provider
 {
     use InitializesClient, ProcessesRateLimits;
 
+    public const FALLBACKS_BETA = 'server-side-fallback-2026-07-01';
+
+    public const THINKING_DISPLAY_UPDATES_BETA = 'thinking-display-updates-2026-08-18';
+
+    public const THINKING_BINDING_CONTROLS_BETA = 'thinking-binding-controls-2026-08-01';
+
     public function __construct(
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $apiVersion,
@@ -41,7 +47,8 @@ class Anthropic extends Provider
         $handler = new Text(
             $this->client(
                 $request->clientOptions(),
-                $request->clientRetry()
+                $request->clientRetry(),
+                betaFeatures: $this->betaFeaturesFor($request),
             ),
             $request
         );
@@ -55,7 +62,8 @@ class Anthropic extends Provider
         $handler = new Structured(
             $this->client(
                 $request->clientOptions(),
-                $request->clientRetry()
+                $request->clientRetry(),
+                betaFeatures: $this->betaFeaturesFor($request),
             ),
             $request
         );
@@ -71,7 +79,8 @@ class Anthropic extends Provider
     {
         $handler = new Stream($this->client(
             $request->clientOptions(),
-            $request->clientRetry()
+            $request->clientRetry(),
+            betaFeatures: $this->betaFeaturesFor($request),
         ));
 
         return $handler->handle($request);
@@ -92,6 +101,31 @@ class Anthropic extends Provider
         };
     }
 
+    /**
+     * The configured `anthropic_beta` list plus the betas a request's provider
+     * options require, comma separated and de-duplicated in a stable order.
+     */
+    public function betaFeaturesFor(TextRequest|StructuredRequest $request): ?string
+    {
+        $betas = array_map(trim(...), explode(',', (string) $this->betaFeatures));
+
+        if ($request->providerOptions('fallbacks') !== null) {
+            $betas[] = self::FALLBACKS_BETA;
+        }
+
+        if ($request->providerOptions('thinking.display') === 'updates') {
+            $betas[] = self::THINKING_DISPLAY_UPDATES_BETA;
+        }
+
+        if ($request->providerOptions('thinking.block_binding') !== null) {
+            $betas[] = self::THINKING_BINDING_CONTROLS_BETA;
+        }
+
+        $betas = array_values(array_unique(array_filter($betas, fn (string $beta): bool => $beta !== '')));
+
+        return $betas === [] ? null : implode(',', $betas);
+    }
+
     protected function handleResponseErrors(RequestException $e): never
     {
         $data = $e->response->json() ?? [];
@@ -109,13 +143,13 @@ class Anthropic extends Provider
      * @param  array<string, mixed>  $options
      * @param  array<mixed>  $retry
      */
-    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null): PendingRequest
+    protected function client(array $options = [], array $retry = [], ?string $baseUrl = null, ?string $betaFeatures = null): PendingRequest
     {
         return $this->baseClient()
             ->withHeaders(array_filter([
                 'x-api-key' => $this->apiKey,
                 'anthropic-version' => $this->apiVersion,
-                'anthropic-beta' => $this->betaFeatures,
+                'anthropic-beta' => $betaFeatures ?? $this->betaFeatures,
             ]))
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))

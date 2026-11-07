@@ -214,27 +214,40 @@ it('can use weather tool', function () {
 
 ## Testing Streamed Responses
 
-To test streamed responses, you can use any text response for a fake. The fake Provider will turn the text response into a fake stream of text chunks.
-It will always finish with an empty chunk including your given finish reason.
+To test streamed responses, you can use any text response for a fake. The fake provider turns it into the same events a real provider streams: `StreamStartEvent`, `StepStartEvent`, your text as `TextStartEvent`, `TextDeltaEvent`s and `TextCompleteEvent`, then a `StepFinishEvent` and a `StreamEndEvent`. Both finish events carry your response's finish reason and usage.
 
 ```php
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Testing\TextResponseFake;
+
 Prism::fake([
     TextResponseFake::make()
         ->withText('fake response text') // text to be streamed
-        ->withFinishReason(FinishReason::Stop), // finish reason for final chunk
+        ->withFinishReason(FinishReason::Stop), // reported by StepFinishEvent and StreamEndEvent
 ]);
 
-$text = Prism::text()
+$stream = Prism::text()
     ->using('anthropic', 'claude-3-sonnet')
     ->withPrompt('What is the meaning of life?')
     ->asStream();
 
 $outputText = '';
-foreach ($text as $chunk) {
-    $outputText .= $chunk->text; // will be ['fake ', 'respo', 'nse t', 'ext', '']; 
+$lastEvent = null;
+
+foreach ($stream as $event) {
+    if ($event instanceof TextDeltaEvent) {
+        $outputText .= $event->delta; // 'fake ', 'respo', 'nse t', 'ext'
+    }
+
+    $lastEvent = $event;
 }
 
-expect($outputText)->toBe('fake response text');
+expect($outputText)->toBe('fake response text')
+    ->and($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+    ->and($lastEvent->finishReason)->toBe(FinishReason::Stop);
 ```
 
 You can adjust the chunk size by using `withFakeChunkSize` on the fake.
@@ -249,36 +262,46 @@ Now, the text will be streamed in chunks of one character (`['f', 'a', 'k', ...]
 
 ### Testing Tool Calling while Streaming
 
-When testing streamed responses with tool calls, you can use the `ResponseBuilder` to create a more complex response.
-Given a text response with steps, the fake provider will not only generate text chunks, but also include chunks for tool calls and results.
+When testing streamed responses with tool calls, use the `ResponseBuilder` to build a response with steps. The fake streams each step the way a provider does: its text, a `ToolCallEvent` for each tool call, a `ToolResultEvent` for each tool result, then a `StepFinishEvent` with that step's `finishReason`, `usage` and `additionalContent`. Every step after the first starts with its own `StepStartEvent`, and the `StreamEndEvent` reports the response's finish reason and total usage.
+
+Give a tool step `FinishReason::ToolCalls`, just like a real provider would. `StreamedMessages::fromEvents()` leaves tool calls out of the assistant message for a step that finished any other way, because a real provider never ran them.
 
 ```php
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\StepFinishEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent;
+use Prism\Prism\Testing\TextStepFake;
+use Prism\Prism\Text\ResponseBuilder;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
+use Prism\Prism\ValueObjects\Usage;
+
 Prism::fake([
     (new ResponseBuilder)
         ->addStep(
             TextStepFake::make()
-                ->withToolCalls(
-                    [
-                        new ToolCall('id-123', 'tool', ['input' => 'value']),
-                    ]
-                )
-        )
-        ->addStep(
-            TextStepFake::make()
-                ->withToolResults(
-                    [
-                        new ToolResult('id-123', 'tool', ['input' => 'value'], 'result'),
-                    ]
-                )
+                ->withToolCalls([
+                    new ToolCall('id-123', 'tool', ['input' => 'value']),
+                ])
+                ->withToolResults([
+                    new ToolResult('id-123', 'tool', ['input' => 'value'], 'result'),
+                ])
+                ->withFinishReason(FinishReason::ToolCalls)
+                ->withUsage(new Usage(15, 25))
         )
         ->addStep(
             TextStepFake::make()
                 ->withText('fake response text')
+                ->withFinishReason(FinishReason::Stop)
+                ->withUsage(new Usage(20, 30))
         )
         ->toResponse(),
 ]);
 
-$text = Prism::text()
+$stream = Prism::text()
     ->using('anthropic', 'claude-3-sonnet')
     ->withPrompt('What is the meaning of life?')
     ->asStream();
@@ -286,37 +309,28 @@ $text = Prism::text()
 $outputText = '';
 $toolCalls = [];
 $toolResults = [];
+$stepFinishes = [];
 
-foreach ($text as $chunk) {
-    $outputText .= $chunk->text;
-
-    // Accumulate tool calls
-    if ($chunk->toolCalls) {
-        foreach ($chunk->toolCalls as $call) {
-            $toolCalls[] = $call;
-        }
-    }
-
-    // Accumulate tool results
-    if ($chunk->toolResults) {
-        foreach ($chunk->toolResults as $result) {
-            $toolResults[] = $result;
-        }
-    }
+foreach ($stream as $event) {
+    match (true) {
+        $event instanceof TextDeltaEvent => $outputText .= $event->delta,
+        $event instanceof ToolCallEvent => $toolCalls[] = $event->toolCall,
+        $event instanceof ToolResultEvent => $toolResults[] = $event->toolResult,
+        $event instanceof StepFinishEvent => $stepFinishes[] = $event,
+        default => null,
+    };
 }
 
 expect($outputText)->toBe('fake response text')
     ->and($toolCalls)->toHaveCount(1)
-    ->and($toolCalls[0])->toBeInstanceOf(ToolCall::class)
-    ->and($toolCalls[0]->id)->toBe('id-123')
     ->and($toolCalls[0]->name)->toBe('tool')
     ->and($toolCalls[0]->arguments())->toBe(['input' => 'value'])
     ->and($toolResults)->toHaveCount(1)
-    ->and($toolResults[0])->toBeInstanceOf(ToolResult::class)
-    ->and($toolResults[0]->toolCallId)->toBe('id-123')
-    ->and($toolResults[0]->toolName)->toBe('tool')
-    ->and($toolResults[0]->args)->toBe(['input' => 'value'])
-    ->and($toolResults[0]->result)->toBe('result');
+    ->and($toolResults[0]->result)->toBe('result')
+    ->and($stepFinishes)->toHaveCount(2)
+    ->and($stepFinishes[0]->finishReason)->toBe(FinishReason::ToolCalls)
+    ->and($stepFinishes[0]->usage->promptTokens)->toBe(15)
+    ->and($stepFinishes[1]->finishReason)->toBe(FinishReason::Stop);
 ```
 
 ## Testing Structured Output
@@ -448,7 +462,6 @@ use Prism\Prism\ValueObjects\Meta;
 
 $response = new Response(
     steps: collect([]),
-    responseMessages: collect([]),
     text: 'The meaning of life is 42',
     finishReason: FinishReason::Stop,
     toolCalls: [],

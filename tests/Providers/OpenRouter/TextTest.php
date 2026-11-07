@@ -169,6 +169,30 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
+it('extracts reasoning from non-streaming response', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-reasoning');
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'anthropic/claude-3.7-sonnet')
+        ->withPrompt('What is 2 + 2?')
+        ->asText();
+
+    expect($response)->toBeInstanceOf(TextResponse::class);
+    expect($response->text)->toBe('The answer to 2 + 2 is 4.');
+
+    expect($response->additionalContent['reasoning'])
+        ->toBe('Let me think about this simple math problem. 2 + 2 equals 4. This is basic arithmetic.');
+
+    expect($response->additionalContent['reasoning_details'])
+        ->toBeArray()
+        ->toHaveCount(1);
+    expect($response->additionalContent['reasoning_details'][0]['type'])->toBe('reasoning.text');
+    expect($response->additionalContent['reasoning_details'][0]['text'])
+        ->toBe('Let me think about this simple math problem. 2 + 2 equals 4. This is basic arithmetic.');
+
+    expect($response->usage->thoughtTokens)->toBe(18);
+});
+
 it('forwards advanced provider options to openrouter', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'openrouter/generate-text-with-a-prompt');
 
@@ -229,4 +253,62 @@ it('forwards advanced provider options to openrouter', function (): void {
             && $payload['parallel_tool_calls'] === false
             && $payload['verbosity'] === 'medium';
     });
+});
+
+describe('usage normalization', function (): void {
+    it('splits cache reads and writes out of prompt tokens and keeps reasoning inside completion tokens', function (array $usage, array $expected): void {
+        Http::fake([
+            '*' => Http::response([
+                'id' => 'gen-usage',
+                'model' => 'anthropic/claude-sonnet-4.5',
+                'choices' => [[
+                    'index' => 0,
+                    'message' => ['role' => 'assistant', 'content' => 'Hello!'],
+                    'finish_reason' => 'stop',
+                ]],
+                'usage' => $usage,
+            ]),
+        ])->preventStrayRequests();
+
+        $response = Prism::text()
+            ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4.5')
+            ->withPrompt('Hello!')
+            ->asText();
+
+        expect($response->usage->toArray())->toBe($expected);
+    })->with([
+        'cache reads, cache writes and reasoning' => [
+            [
+                'prompt_tokens' => 1000,
+                'completion_tokens' => 50,
+                'total_tokens' => 1050,
+                'prompt_tokens_details' => ['cached_tokens' => 300, 'cache_write_tokens' => 100],
+                'completion_tokens_details' => ['reasoning_tokens' => 20],
+            ],
+            ['prompt_tokens' => 600, 'completion_tokens' => 50, 'cache_write_input_tokens' => 100, 'cache_read_input_tokens' => 300, 'thought_tokens' => 20],
+        ],
+        'reported zeros stay zero' => [
+            [
+                'prompt_tokens' => 10,
+                'completion_tokens' => 5,
+                'total_tokens' => 15,
+                'prompt_tokens_details' => ['cached_tokens' => 0, 'cache_write_tokens' => 0],
+                'completion_tokens_details' => ['reasoning_tokens' => 0],
+            ],
+            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => 0, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0],
+        ],
+        'fields that are not reported stay null' => [
+            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null],
+        ],
+        'response-cache replay reporting more cached than prompt tokens' => [
+            [
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'total_tokens' => 0,
+                'prompt_tokens_details' => ['cached_tokens' => 512],
+            ],
+            ['prompt_tokens' => 0, 'completion_tokens' => 0, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 512, 'thought_tokens' => null],
+        ],
+    ]);
 });

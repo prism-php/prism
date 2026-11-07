@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\MapsUsage;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
@@ -15,11 +16,11 @@ use Prism\Prism\Structured\ResponseBuilder;
 use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -54,10 +55,7 @@ class Structured
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
-            usage: new Usage(
-                data_get($data, 'prompt_eval_count', 0),
-                data_get($data, 'eval_count', 0),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: '',
                 model: $request->model(),

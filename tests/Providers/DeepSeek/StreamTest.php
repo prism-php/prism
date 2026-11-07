@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\tests\Providers\DeepSeek;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
@@ -124,6 +125,13 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
+    expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+        'prompt_tokens' => 67,
+        'completion_tokens' => 107,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => 448,
+        'thought_tokens' => null,
+    ]);
 
     // Verify the HTTP request
     Http::assertSent(function (Request $request): bool {
@@ -212,6 +220,20 @@ it('can handle reasoning/thinking tokens in streaming', function (): void {
         ->toBeEmpty()
         ->and($thinkingContent)->toContain('answer')
         ->and($regularContent)->toContain('32');
+});
+
+it('keeps the reasoning and zero cache counts DeepSeek reports in streamed usage', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-reasoning');
+
+    $events = collect(iterator_to_array(Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-reasoner')
+        ->withPrompt('Solve this complex math problem: What is 4 * 8?')
+        ->asStream(), false));
+
+    $expected = ['prompt_tokens' => 19, 'completion_tokens' => 739, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 533];
+
+    expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
 });
 
 it('emits step start and step finish events', function (): void {
@@ -318,5 +340,418 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
+});
+
+function deepSeekGatingSse(array ...$chunks): string
+{
+    return collect($chunks)
+        ->map(fn (array $chunk): string => 'data: '.json_encode($chunk)."\n\n")
+        ->implode('')."data: [DONE]\n\n";
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function deepSeekGatingToolChunk(?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'deepseek-chat',
+        'choices' => [[
+            'index' => 0,
+            'delta' => [
+                'role' => 'assistant',
+                'tool_calls' => [[
+                    'index' => 0,
+                    'id' => 'call_gating',
+                    'type' => 'function',
+                    'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Detroit"}'],
+                ]],
+            ],
+            'finish_reason' => $finishReason,
+        ]],
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function deepSeekGatingFinishChunk(string $finishReason): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'deepseek-chat',
+        'choices' => [['index' => 0, 'delta' => ['content' => ''], 'finish_reason' => $finishReason]],
+        'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+    ];
+}
+
+/**
+ * @return Collection<int, StreamEvent>
+ */
+function deepSeekGatingStream(int &$calls, int $maxSteps = 3): Collection
+{
+    return collect(iterator_to_array(Prism::text()
+        ->using('deepseek', 'deepseek-chat')
+        ->withTools([
+            Tool::as('get_weather')
+                ->for('Get the weather for a city')
+                ->withStringParameter('city', 'The city')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "Sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps($maxSteps)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+}
+
+describe('tool execution gating', function (): void {
+    it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
+        Http::fake([
+            '*' => Http::response(deepSeekGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe($finishReason)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe($finishReason);
+
+        Http::assertSentCount(1);
+    })->with([
+        'length after the tool call' => [[deepSeekGatingToolChunk(), deepSeekGatingFinishChunk('length')], FinishReason::Length],
+        'length on the tool call chunk' => [[deepSeekGatingToolChunk('length')], FinishReason::Length],
+        'content filter after the tool call' => [[deepSeekGatingToolChunk(), deepSeekGatingFinishChunk('content_filter')], FinishReason::ContentFilter],
+        'stream ends without a finish reason' => [[deepSeekGatingToolChunk()], FinishReason::Stop],
+    ]);
+
+    it('runs tool calls once when the step finishes with tool calls', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse(deepSeekGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    })->with([
+        'tool_calls in a separate chunk' => [[deepSeekGatingToolChunk(), deepSeekGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[deepSeekGatingToolChunk('tool_calls')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(deepSeekGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
+    })->with([
+        'tool_calls in a separate chunk' => [[deepSeekGatingToolChunk(), deepSeekGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[deepSeekGatingToolChunk('tool_calls')]],
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function deepSeekGatingDeltaChunk(array $delta, ?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'deepseek-chat',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finishReason]],
+    ];
+}
+
+describe('tool execution gating with mixed chunks', function (): void {
+    it('runs tool calls once when the tool-call finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse(deepSeekGatingToolChunk(), deepSeekGatingDeltaChunk($delta, 'tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse(deepSeekGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($events->whereInstanceOf([TextDeltaEvent::class, ThinkingEvent::class])->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(2);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+        'reasoning' => [['reasoning_content' => 'Thinking it over.'], 'Thinking it over.'],
+    ]);
+
+    it('never runs tool calls when a non-tool finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::response(deepSeekGatingSse(deepSeekGatingToolChunk(), deepSeekGatingDeltaChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf([TextDeltaEvent::class, ThinkingEvent::class])->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(1);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+        'reasoning' => [['reasoning_content' => 'Thinking it over.'], 'Thinking it over.'],
+    ]);
+
+    it('ends with Stop when the step after a tool call has no finish reason', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse(deepSeekGatingToolChunk(), deepSeekGatingFinishChunk('tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse(deepSeekGatingDeltaChunk(['content' => 'Sunny in Detroit.'])), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    });
+});
+
+describe('usage snapshots', function (): void {
+    it('reads usage from a tool-call chunk that finishes the step and counts each step once', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse([
+                    ...deepSeekGatingToolChunk('tool_calls'),
+                    'usage' => ['prompt_tokens' => 223, 'completion_tokens' => 43, 'total_tokens' => 266, 'prompt_cache_hit_tokens' => 192, 'prompt_cache_miss_tokens' => 31],
+                ]), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse([
+                    ...deepSeekGatingFinishChunk('stop'),
+                    'usage' => [
+                        'prompt_tokens' => 10505,
+                        'completion_tokens' => 52,
+                        'total_tokens' => 10557,
+                        'prompt_tokens_details' => ['cached_tokens' => 10368],
+                        'completion_tokens_details' => ['reasoning_tokens' => 49],
+                        'prompt_cache_hit_tokens' => 10368,
+                        'prompt_cache_miss_tokens' => 137,
+                    ],
+                ]), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 31, 'completion_tokens' => 43, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 192, 'thought_tokens' => null],
+                ['prompt_tokens' => 137, 'completion_tokens' => 52, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 10368, 'thought_tokens' => 49],
+            ])
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 168,
+                'completion_tokens' => 95,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 10560,
+                'thought_tokens' => 49,
+            ]);
+    });
+});
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(deepSeekGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(deepSeekGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'reasoning then text' => [
+            [[
+                deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.']),
+                deepSeekGatingDeltaChunk(['content' => 'Sunny.']),
+                deepSeekGatingDeltaChunk(['content' => ' Warm.']),
+                deepSeekGatingFinishChunk('stop'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning and text before tool calls' => [
+            [
+                [
+                    deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.']),
+                    deepSeekGatingDeltaChunk(['content' => 'Let me check.']),
+                    deepSeekGatingToolChunk(),
+                    deepSeekGatingFinishChunk('tool_calls'),
+                ],
+                [deepSeekGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning before a tool call that finishes on its own chunk' => [
+            [
+                [
+                    deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.']),
+                    deepSeekGatingToolChunk('tool_calls'),
+                ],
+                [deepSeekGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text before a tool call cut off by length' => [
+            [[
+                deepSeekGatingDeltaChunk(['content' => 'Let me check.']),
+                deepSeekGatingToolChunk('length'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning when the stream closes early' => [
+            [[deepSeekGatingDeltaChunk(['reasoning_content' => 'Thinking it over.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[deepSeekGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function deepSeekMixedToolChunk(array $delta, ?string $finishReason = null): array
+{
+    return deepSeekGatingDeltaChunk([
+        ...$delta,
+        'tool_calls' => deepSeekGatingToolChunk()['choices'][0]['delta']['tool_calls'],
+    ], $finishReason);
+}
+
+dataset('deepSeek mixed tool chunk deltas', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'reasoning' => [['reasoning_content' => 'Weighing the forecast.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'reasoning and text' => [['reasoning_content' => 'Weighing the forecast.', 'content' => 'Let me check.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $delta, array $blocks, string $text, bool $finishOnMixedChunk): void {
+        $chunks = $finishOnMixedChunk
+            ? [deepSeekMixedToolChunk($delta, 'tool_calls')]
+            : [deepSeekMixedToolChunk($delta), deepSeekGatingFinishChunk('tool_calls')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse(deepSeekGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('deepSeek mixed tool chunk deltas')->with([
+        'tool_calls finish on a later chunk' => [false],
+        'tool_calls finish on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $delta, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(deepSeekGatingSse(deepSeekMixedToolChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('deepSeek mixed tool chunk deltas');
+});
+
+describe('deltas that are exactly "0"', function (): void {
+    it('keeps "0" reasoning, text and tool argument deltas', function (): void {
+        $toolCallChunk = fn (array $toolCall, ?string $finishReason = null): array => deepSeekGatingDeltaChunk(['tool_calls' => [['index' => 0, ...$toolCall]]], $finishReason);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(deepSeekGatingSse(
+                    deepSeekGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => '1']),
+                    deepSeekGatingDeltaChunk(['reasoning_content' => '0']),
+                    deepSeekGatingDeltaChunk(['content' => '1']),
+                    deepSeekGatingDeltaChunk(['content' => '0']),
+                    $toolCallChunk(['id' => 'call_zero', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Area 5']]),
+                    $toolCallChunk(['function' => ['arguments' => '0']]),
+                    $toolCallChunk(['function' => ['arguments' => '"}']], 'tool_calls'),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(deepSeekGatingSse(deepSeekGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = deepSeekGatingStream($calls);
+
+        expect($events->whereInstanceOf(ThinkingEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(ToolCallEvent::class)->sole()->toolCall->arguments())->toBe(['city' => 'Area 50'])
+            ->and($calls)->toBe(1);
+    });
 });

@@ -37,10 +37,7 @@ class Images
         $images = $this->extractImages($data);
 
         $responseBuilder = new ResponseBuilder(
-            usage: new Usage(
-                promptTokens: data_get($data, 'usage.input_tokens', data_get($data, 'usage.prompt_tokens', 0)),
-                completionTokens: data_get($data, 'usage.output_tokens', data_get($data, 'usage.completion_tokens', 0)),
-            ),
+            usage: $this->mapImageUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id', 'img_'.bin2hex(random_bytes(8))),
                 model: data_get($data, 'model', $request->model()),
@@ -58,6 +55,25 @@ class Images
         );
 
         return $responseBuilder->toResponse();
+    }
+
+    /**
+     * `input_tokens` includes any cached input, so the prompt bucket is what
+     * remains once `input_tokens_details.cached_tokens` is taken out.
+     *
+     * @param  array<array-key, mixed>  $usage
+     */
+    protected function mapImageUsage(array $usage): Usage
+    {
+        $cacheReadTokens = data_get($usage, 'input_tokens_details.cached_tokens');
+        $cacheReadTokens = $cacheReadTokens === null ? null : (int) $cacheReadTokens;
+        $inputTokens = (int) ($usage['input_tokens'] ?? $usage['prompt_tokens'] ?? 0);
+
+        return new Usage(
+            promptTokens: max(0, $inputTokens - (int) $cacheReadTokens),
+            completionTokens: (int) ($usage['output_tokens'] ?? $usage['completion_tokens'] ?? 0),
+            cacheReadInputTokens: $cacheReadTokens,
+        );
     }
 
     protected function sendRequest(Request $request): ClientResponse

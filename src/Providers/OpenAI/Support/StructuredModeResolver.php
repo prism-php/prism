@@ -11,48 +11,50 @@ class StructuredModeResolver
 {
     public static function forModel(string $model): StructuredMode
     {
-        if (self::unsupported($model)) {
+        $baseModel = self::resolveBaseModel($model);
+
+        if (self::unsupported($baseModel)) {
             throw new PrismException(sprintf('Structured output is not supported for %s', $model));
         }
 
-        if (self::supportsStructuredMode($model)) {
-            return StructuredMode::Structured;
+        if (self::requiresJsonMode($baseModel)) {
+            return StructuredMode::Json;
         }
 
-        return StructuredMode::Json;
+        return StructuredMode::Structured;
     }
 
-    protected static function supportsStructuredMode(string $model): bool
+    /**
+     * Resolve the base model name, stripping the ft: prefix for fine-tuned models.
+     *
+     * Fine-tuned models use the format: ft:<base-model>:<org>:<name>:<hash>
+     */
+    protected static function resolveBaseModel(string $model): string
     {
-        return in_array($model, [
-            'gpt-4o-mini',
-            'gpt-4o-mini-2024-07-18',
-            'gpt-4o-2024-08-06',
-            'gpt-4o',
-            'chatgpt-4o-latest',
-            'o3-mini',
-            'o3-mini-2025-01-31',
-            'gpt-4.1',
-            'gpt-4.1-nano',
-            'gpt-4.1-mini',
-            'gpt-4.5-preview',
-            'gpt-4.5-preview-2025-02-27',
-            'gpt-5',
-            'gpt-5-mini',
-            'gpt-5-nano',
-            'gpt-5.1',
-            'gpt-5.2',
-            'gpt-5.4',
-        ]);
+        if (str_starts_with($model, 'ft:')) {
+            $parts = explode(':', $model, 3);
+
+            return $parts[1] ?? $model;
+        }
+
+        return $model;
     }
 
-    protected static function supportsJsonMode(string $model): bool
+    /**
+     * Legacy models that predate json_schema structured outputs. Every other
+     * model (including unknown and custom names) gets json_schema.
+     */
+    protected static function requiresJsonMode(string $model): bool
     {
-        if (preg_match('/^gpt-4-.*/', $model)) {
+        if (str_starts_with($model, 'gpt-3.5-turbo')) {
             return true;
         }
 
-        return $model === 'gpt-3.5-turbo';
+        if ($model === 'gpt-4' || str_starts_with($model, 'gpt-4-')) {
+            return true;
+        }
+
+        return $model === 'gpt-4o-2024-05-13';
     }
 
     protected static function unsupported(string $model): bool

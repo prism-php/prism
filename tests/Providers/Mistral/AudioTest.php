@@ -53,6 +53,10 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->not->toBeNull();
         expect($response->text)->not->toBeEmpty();
         expect($response->text)->toContain("So I'd love to hear about your experience here");
+
+        // total_tokens (5201) exceeds prompt (4) + completion (1072): the rest is audio input
+        expect($response->usage->promptTokens)->toBe(4129)
+            ->and($response->usage->completionTokens)->toBe(1072);
     });
 
     it('can transcribe audio', function (): void {
@@ -137,6 +141,31 @@ describe('Speech-to-Text', function (): void {
         expect($response->additionalContent['language'])->toBe('en');
         expect($response->additionalContent['duration'])->toBe(5.2);
         expect($response->additionalContent['segments'])->toHaveCount(2);
+    });
+
+    it('can transcribe with diarize parameter', function (): void {
+        FixtureResponse::fakeResponseSequence('audio/transcriptions', 'mistral/speech-to-text-basic');
+
+        $audioFile = Audio::fromBase64(base64_encode('usage-test-audio'), 'audio/flac');
+
+        $response = Prism::audio()
+            ->using('mistral', 'voxtral-mini-latest')
+            ->withInput($audioFile)
+            ->withProviderOptions([
+                'diarize' => true,
+            ])
+            ->asText();
+
+        expect($response->text)->toBe('Hello, this is a test transcription.');
+
+        Http::assertSent(function (Request $request): bool {
+            $data = $request->data();
+
+            $diarizeField = collect($data)->firstWhere('name', 'diarize');
+
+            return str_contains($request->url(), 'audio/transcriptions') &&
+                   $diarizeField && $diarizeField['contents'] === true;
+        });
     });
 
     it('can transcribe with language parameter', function (): void {

@@ -886,12 +886,14 @@ it('throws Length when top-level status is incomplete even if last output is com
     }
 });
 
-it('includes status details for unknown finish reasons', function (): void {
+it('handles unknown finish reasons gracefully', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/text-unknown-finish-reason');
 
-    expect(fn () => Prism::text()
+    $response = Prism::text()
         ->using('openai', 'gpt-4o')
         ->withPrompt('Hello')
-        ->asText()
-    )->toThrow(PrismException::class, 'some_future_type');
+        ->asText();
+
+    expect($response->text)->toBe('Some response');
+    expect($response->finishReason)->toBe(FinishReason::Unknown);
 });

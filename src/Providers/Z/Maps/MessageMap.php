@@ -12,6 +12,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 
 class MessageMap
 {
@@ -94,9 +95,18 @@ class MessageMap
 
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
-        $this->mappedMessages[] = [
+        $toolCalls = array_map(fn (ToolCall $toolCall): array => [
+            'id' => $toolCall->id,
+            'type' => 'function',
+            'function' => [
+                'name' => $toolCall->name,
+                'arguments' => json_encode($toolCall->arguments() ?: (object) []),
+            ],
+        ], $message->toolCalls);
+
+        $this->mappedMessages[] = array_merge([
             'role' => 'assistant',
             'content' => $message->content,
-        ];
+        ], $toolCalls === [] ? [] : ['tool_calls' => $toolCalls]);
     }
 }

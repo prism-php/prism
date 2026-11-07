@@ -257,6 +257,70 @@ describe('Speech-to-Text', function (): void {
         expect($response->text)->toBe('Simple transcription without usage data.');
         expect($response->usage)->toBeNull();
     });
+
+    it('reports null usage for a recorded Groq transcription, which carries no usage', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/audio/transcriptions', 'groq/audio-from-path');
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput(Audio::fromBase64(base64_encode('recorded-audio'), 'audio/mpeg'))
+            ->asText();
+
+        expect($response->usage)->toBeNull()
+            ->and($response->additionalContent)->toHaveKey('x_groq')
+            ->and($response->additionalContent)->not->toHaveKey('usage_seconds');
+    });
+
+    it('reports duration-based usage as usage_seconds instead of zero tokens', function (): void {
+        Http::fake([
+            '*' => Http::response(['text' => 'Billed by the second.', 'usage' => ['type' => 'duration', 'seconds' => 12]]),
+        ])->preventStrayRequests();
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput(Audio::fromBase64(base64_encode('duration-audio'), 'audio/mpeg'))
+            ->asText();
+
+        expect($response->usage)->toBeNull()
+            ->and($response->additionalContent['usage_seconds'])->toBe(12);
+    });
+
+    it('reports null usage when the usage object has no token counts', function (): void {
+        Http::fake([
+            '*' => Http::response(['text' => 'Totals only.', 'usage' => ['total_tokens' => 13]]),
+        ])->preventStrayRequests();
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput(Audio::fromBase64(base64_encode('totals-audio'), 'audio/mpeg'))
+            ->asText();
+
+        expect($response->usage)->toBeNull();
+    });
+
+    it('maps token usage with cached input taken out of promptTokens', function (): void {
+        Http::fake([
+            '*' => Http::response(['text' => 'Token billed.', 'usage' => [
+                'prompt_tokens' => 40,
+                'completion_tokens' => 8,
+                'total_tokens' => 48,
+                'prompt_tokens_details' => ['cached_tokens' => 16],
+            ]]),
+        ])->preventStrayRequests();
+
+        $response = Prism::audio()
+            ->using('groq', 'whisper-large-v3-turbo')
+            ->withInput(Audio::fromBase64(base64_encode('token-audio'), 'audio/mpeg'))
+            ->asText();
+
+        expect($response->usage->toArray())->toBe([
+            'prompt_tokens' => 24,
+            'completion_tokens' => 8,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 16,
+            'thought_tokens' => null,
+        ]);
+    });
 });
 
 describe('Speech-to-Text Response', function (): void {
