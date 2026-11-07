@@ -842,3 +842,25 @@ describe('Usage for Gemini', function (): void {
         ]);
     });
 });
+
+// Particle-Academy/prism#82. CONTINUATION means the per-request token limit was reached and the
+// answer is NOT finished. Reported as Other, a cut-off answer looked complete to
+// a caller checking for Length.
+it('reports a CONTINUATION finish as Length so truncation is visible', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'The first half of']], 'role' => 'model'],
+                'finishReason' => 'CONTINUATION',
+            ]],
+            'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 5],
+        ]),
+    ])->preventStrayRequests();
+
+    $response = Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withPrompt('Write a long essay')
+        ->asText();
+
+    expect($response->finishReason)->toBe(FinishReason::Length);
+});
