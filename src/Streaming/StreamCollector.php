@@ -92,6 +92,7 @@ class StreamCollector
         $assistant = $messages->filter(fn (Message $message): bool => $message instanceof AssistantMessage);
         $text = $assistant->map(fn (Message $message): string => $message instanceof AssistantMessage ? $message->content : '')->join('');
         $toolCalls = $assistant->flatMap(fn (Message $message): array => $message instanceof AssistantMessage ? $message->toolCalls : [])->values()->all();
+        $toolApprovalRequests = $assistant->flatMap(fn (Message $message): array => $message instanceof AssistantMessage ? $message->toolApprovalRequests : [])->values()->all();
         $toolResults = $messages
             ->filter(fn (Message $message): bool => $message instanceof ToolResultMessage)
             ->flatMap(fn (Message $message): array => $message instanceof ToolResultMessage ? $message->toolResults : [])
@@ -115,6 +116,7 @@ class StreamCollector
                 messages: $messages->all(),
                 systemPrompts: [],
                 additionalContent: $end->additionalContent,
+                toolApprovalRequests: $toolApprovalRequests,
             ));
         }
 
