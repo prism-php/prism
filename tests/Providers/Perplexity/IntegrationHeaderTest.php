@@ -30,7 +30,7 @@ it('sends the integration header to the Perplexity API', function (): void {
         ->withPrompt('Hi')
         ->asText();
 
-    Http::assertSent(fn (Request $request): bool => $request->header('X-Pplx-Integration') === ['prism']);
+    Http::assertSent(fn (Request $request): bool => $request->toPsrRequest()->getHeader('X-Pplx-Integration') === ['prism']);
 });
 
 it('keeps a caller supplied integration header regardless of case', function (string $name): void {
@@ -40,7 +40,7 @@ it('keeps a caller supplied integration header regardless of case', function (st
         ->withPrompt('Hi')
         ->asText();
 
-    Http::assertSent(fn (Request $request): bool => $request->header('X-Pplx-Integration') === ['my-app']
+    Http::assertSent(fn (Request $request): bool => $request->toPsrRequest()->getHeader('X-Pplx-Integration') === ['my-app']
         && count(array_filter(
             array_keys($request->headers()),
             fn (string $key): bool => strcasecmp($key, 'X-Pplx-Integration') === 0
@@ -55,5 +55,5 @@ it('does not send the integration header to a custom host', function (): void {
         ->withPrompt('Hi')
         ->asText();
 
-    Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('X-Pplx-Integration'));
+    Http::assertSent(fn (Request $request): bool => ! $request->toPsrRequest()->hasHeader('X-Pplx-Integration'));
 });
