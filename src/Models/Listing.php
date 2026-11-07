@@ -165,7 +165,8 @@ class Listing
 
     protected function identifier(mixed $value): string
     {
-        if (! is_string($value) || trim($value) === '' || preg_match('/[\x00-\x1f\x7f]/', $value)) {
+        if (! is_string($value) || ! mb_check_encoding($value, 'UTF-8') ||
+            trim($value) === '' || preg_match('/[\x00-\x1f\x7f]/', $value)) {
             throw ModelListingException::invalidResponse();
         }
 
