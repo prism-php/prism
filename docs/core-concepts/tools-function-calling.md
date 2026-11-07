@@ -387,6 +387,8 @@ use Prism\Prism\Facades\Tool;
 $tool = Tool::make(CurrentWeatherTool::class);
 ```
 
+Tools that define a [`shouldRegister`](https://laravel.com/docs/13.x/mcp#conditional-tool-registration) method are honored: when it returns `false`, the tool is excluded by `withTools()` and is never sent to the provider.
+
 ## Tool Choice Options
 
 You can control how the AI uses tools with the `withToolChoice` method:
