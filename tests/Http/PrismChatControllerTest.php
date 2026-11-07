@@ -80,6 +80,73 @@ it('handles chat requests successfully', function (): void {
     ]);
 });
 
+it('reports cached input inside prompt_tokens like the OpenAI API', function (): void {
+    $generator = Mockery::mock(PendingRequest::class);
+    $generator->expects('withMessages')->andReturnSelf();
+    $generator->expects('asText')->andReturn(new Response(
+        steps: collect(),
+        text: "I'm Nyx!",
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(
+            promptTokens: 25,
+            completionTokens: 94,
+            cacheWriteInputTokens: 300,
+            cacheReadInputTokens: 12752,
+            thoughtTokens: 87,
+        ),
+        meta: new Meta('cmp_asdf123', 'gpt-4'),
+        messages: collect(),
+    ));
+
+    PrismServer::register('nyx', fn () => $generator);
+
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'user', 'content' => 'Who are you?']],
+    ]);
+
+    $response->assertOk();
+
+    expect($response->json('usage'))->toBe([
+        'prompt_tokens' => 13077,
+        'completion_tokens' => 94,
+        'total_tokens' => 13171,
+        'prompt_tokens_details' => ['cached_tokens' => 12752],
+        'completion_tokens_details' => ['reasoning_tokens' => 87],
+    ]);
+});
+
+it('reports a cache read of zero but leaves out details it does not know', function (): void {
+    $generator = Mockery::mock(PendingRequest::class);
+    $generator->expects('withMessages')->andReturnSelf();
+    $generator->expects('asText')->andReturn(new Response(
+        steps: collect(),
+        text: "I'm Nyx!",
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(promptTokens: 12, completionTokens: 8, cacheReadInputTokens: 0),
+        meta: new Meta('cmp_asdf123', 'gpt-4'),
+        messages: collect(),
+    ));
+
+    PrismServer::register('nyx', fn () => $generator);
+
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'user', 'content' => 'Who are you?']],
+    ]);
+
+    expect($response->json('usage'))->toBe([
+        'prompt_tokens' => 12,
+        'completion_tokens' => 8,
+        'total_tokens' => 20,
+        'prompt_tokens_details' => ['cached_tokens' => 0],
+    ]);
+});
+
 it('handles streaming requests', function (): void {
     freezeTime();
     $generator = Mockery::mock(PendingRequest::class);

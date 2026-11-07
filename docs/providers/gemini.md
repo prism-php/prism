@@ -391,6 +391,26 @@ $response = Prism::text()
     ->asText();
 ```
 
+Cached tokens show up in `$response->usage->cacheReadInputTokens` and are left out of `promptTokens`. That goes for Gemini's implicit cache hits too, even when you never created a cache yourself.
+
+## Token Usage
+
+Gemini counts cached input inside `promptTokenCount` and reports thinking and tool-use tokens next to it. Prism moves each count into its own bucket so they don't overlap (see [Token Usage](/core-concepts/text-generation#token-usage)). Text, structured, streamed and image responses all report usage like this:
+
+| Usage field | What it holds |
+|-------------|---------------|
+| `promptTokens` | `promptTokenCount` minus `cachedContentTokenCount`, plus `toolUsePromptTokenCount` |
+| `cacheReadInputTokens` | `cachedContentTokenCount`, `null` when Gemini leaves it out |
+| `cacheWriteInputTokens` | Always `null`, Gemini doesn't report cache writes |
+| `completionTokens` | `candidatesTokenCount` plus `thoughtsTokenCount` |
+| `thoughtTokens` | `thoughtsTokenCount`, already part of `completionTokens` |
+
+A few things worth knowing:
+
+- `toolUsePromptTokenCount` is what Gemini reports for tool results it feeds back to the model, like file search or URL context. Prism counts it as input because that's what it is, but it isn't necessarily billed: Google doesn't charge for the context Search grounding retrieves, for example. Check [Gemini's pricing](https://ai.google.dev/gemini-api/docs/pricing) for each tool.
+- In a stream, every chunk's `usageMetadata` is the running total for that response, so Prism keeps the latest one and ignores chunks without it. The `StreamEndEvent` adds up every step of a tool loop, and each `StepFinishEvent` carries its own step's usage.
+- Imagen responses don't report token usage, so their counts stay at `0`.
+
 ## Embeddings
 
 You can customize your Gemini embeddings request with additional parameters using `->withProviderOptions()`.
@@ -516,6 +536,8 @@ $response = Prism::text()
     ->withProviderOptions(['thinkingBudget' => 300])
     ->asText();
 ```
+
+Thinking tokens show up in `$response->usage->thoughtTokens`, and they're already counted in `completionTokens`.
 
 > [!NOTE]
 > Do not specify a `thinkingBudget` on 2.0 or prior series Gemini models as your request will fail.

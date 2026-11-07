@@ -1,0 +1,78 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_0b3543181d883d0b016ad120dc6aa487d1b37a37e83c6e0b1a","object":"response","created_at":1792089902,"status":"in_progress","access_programs":null,"background":false,"billing":{"payer":"developer"},"completed_at":null,"error":null,"frequency_penalty":0.0,"incomplete_details":null,"instructions":null,"max_output_tokens":2000,"max_tool_calls":null,"model":"gpt-6.1-sol","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"low","mode":"standard","summary":null},"safety_identifier":null,"service_tier":"default","store":false,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"function","description":"Get weather for a city","name":"get_weather","output_schema":null,"parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_0b3543181d883d0b016ad120dc6aa487d1b37a37e83c6e0b1a","object":"response","created_at":1792089902,"status":"in_progress","access_programs":null,"background":false,"billing":{"payer":"developer"},"completed_at":null,"error":null,"frequency_penalty":0.0,"incomplete_details":null,"instructions":null,"max_output_tokens":2000,"max_tool_calls":null,"model":"gpt-6.1-sol","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"low","mode":"standard","summary":null},"safety_identifier":null,"service_tier":"default","store":false,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"function","description":"Get weather for a city","name":"get_weather","output_schema":null,"parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"rs_0b3543181d883d0b016ad120dc11aa87d1a6c673200d2627b4","type":"reasoning","content":[],"encrypted_content":"gAAAAABq0SErpvhKPjj6-ADDED-partial","summary":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":3,"output_index":0,"item":{"id":"rs_0b3543181d883d0b016ad120dc11aa87d1a6c673200d2627b4","type":"reasoning","content":[],"encrypted_content":"gAAAAABq0SEttkngvqISYuHm-DONE-complete","summary":[]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":4,"output_index":1,"item":{"id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","type":"message","status":"in_progress","content":[],"phase":"commentary","role":"assistant"}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":5,"content_index":0,"item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","output_index":1,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"content_index":0,"delta":"I’ll check t","item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"obfuscation":"x","output_index":1}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"content_index":0,"delta":"he weather i","item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"obfuscation":"x","output_index":1}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"content_index":0,"delta":"n Detroit an","item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"obfuscation":"x","output_index":1}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"content_index":0,"delta":"d Chicago, t","item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"obfuscation":"x","output_index":1}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"content_index":0,"delta":"hen compare ","item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"obfuscation":"x","output_index":1}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"content_index":0,"delta":"them.\n","item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"obfuscation":"x","output_index":1}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":12,"content_index":0,"item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","logprobs":[],"output_index":1,"text":"I’ll check the weather in Detroit and Chicago, then compare them.\n"}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":13,"content_index":0,"item_id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","output_index":1,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"I’ll check the weather in Detroit and Chicago, then compare them.\n"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":14,"output_index":1,"item":{"id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"I’ll check the weather in Detroit and Chicago, then compare them.\n"}],"phase":"commentary","role":"assistant"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":15,"output_index":2,"item":{"id":"fc_0b3543181d883d0b016ad120dda4ac87d1a2d719a9c8df03ef","type":"function_call","status":"in_progress","arguments":"","call_id":"call_9XZrHVWeYdSdyLpGJczIok1d","name":"get_weather"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":16,"delta":"{\"city\":\"Det","item_id":"fc_0b3543181d883d0b016ad120dda4ac87d1a2d719a9c8df03ef","obfuscation":"x","output_index":2}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":17,"delta":"roit\"}","item_id":"fc_0b3543181d883d0b016ad120dda4ac87d1a2d719a9c8df03ef","obfuscation":"x","output_index":2}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":18,"arguments":"{\"city\":\"Detroit\"}","item_id":"fc_0b3543181d883d0b016ad120dda4ac87d1a2d719a9c8df03ef","output_index":2}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":19,"output_index":2,"item":{"id":"fc_0b3543181d883d0b016ad120dda4ac87d1a2d719a9c8df03ef","type":"function_call","status":"completed","arguments":"{\"city\":\"Detroit\"}","call_id":"call_9XZrHVWeYdSdyLpGJczIok1d","name":"get_weather"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":20,"output_index":3,"item":{"id":"fc_0b3543181d883d0b016ad120dda4c087d1a3b750b07e508b32","type":"function_call","status":"in_progress","arguments":"","call_id":"call_LELisaCXtPpRoKvbM4434ouZ","name":"get_weather"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":21,"delta":"{\"city\":\"Chi","item_id":"fc_0b3543181d883d0b016ad120dda4c087d1a3b750b07e508b32","obfuscation":"x","output_index":3}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":22,"delta":"cago\"}","item_id":"fc_0b3543181d883d0b016ad120dda4c087d1a3b750b07e508b32","obfuscation":"x","output_index":3}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":23,"arguments":"{\"city\":\"Chicago\"}","item_id":"fc_0b3543181d883d0b016ad120dda4c087d1a3b750b07e508b32","output_index":3}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":24,"output_index":3,"item":{"id":"fc_0b3543181d883d0b016ad120dda4c087d1a3b750b07e508b32","type":"function_call","status":"completed","arguments":"{\"city\":\"Chicago\"}","call_id":"call_LELisaCXtPpRoKvbM4434ouZ","name":"get_weather"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":25,"response":{"id":"resp_0b3543181d883d0b016ad120dc6aa487d1b37a37e83c6e0b1a","object":"response","created_at":1792089902,"status":"completed","access_programs":null,"background":false,"billing":{"payer":"developer"},"completed_at":1792089904,"error":null,"frequency_penalty":0.0,"incomplete_details":null,"instructions":null,"max_output_tokens":2000,"max_tool_calls":null,"model":"gpt-6.1-sol","moderation":null,"output":[{"id":"rs_0b3543181d883d0b016ad120dc11aa87d1a6c673200d2627b4","type":"reasoning","content":[],"encrypted_content":"gAAAAABq0SEttkngvqISYuHm-DONE-complete","summary":[]},{"id":"msg_0b3543181d883d0b016ad120dcc40887d1a6c673200d2627b4","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"I’ll check the weather in Detroit and Chicago, then compare them.\n"}],"phase":"commentary","role":"assistant"},{"id":"fc_0b3543181d883d0b016ad120dda4ac87d1a2d719a9c8df03ef","type":"function_call","status":"completed","arguments":"{\"city\":\"Detroit\"}","call_id":"call_9XZrHVWeYdSdyLpGJczIok1d","name":"get_weather"},{"id":"fc_0b3543181d883d0b016ad120dda4c087d1a3b750b07e508b32","type":"function_call","status":"completed","arguments":"{\"city\":\"Chicago\"}","call_id":"call_LELisaCXtPpRoKvbM4434ouZ","name":"get_weather"}],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"low","mode":"standard","summary":null},"safety_identifier":null,"service_tier":"default","store":false,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"function","description":"Get weather for a city","name":"get_weather","output_schema":null,"parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":{"input_tokens":1400,"input_tokens_details":{"cache_write_tokens":192,"cached_tokens":1152},"output_tokens":72,"output_tokens_details":{"reasoning_tokens":20},"total_tokens":1472},"user":null,"metadata":{}}}
+

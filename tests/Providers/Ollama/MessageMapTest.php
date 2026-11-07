@@ -175,3 +175,32 @@ it('throws exception for unknown message type', function (): void {
     expect($messageMap->map(...))
         ->toThrow(Exception::class, 'Could not map message type '.$invalidMessage::class);
 });
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps an assistant message of "0"', function (): void {
+        expect((new MessageMap([new AssistantMessage('0')]))->map())->toBe([[
+            'role' => 'assistant',
+            'content' => '0',
+        ]]);
+    });
+
+    it('still leaves the content of an empty assistant message out', function (): void {
+        expect((new MessageMap([new AssistantMessage('')]))->map())->toBe([[
+            'role' => 'assistant',
+        ]]);
+    });
+
+    it('keeps a numeric tool result of 0', function (): void {
+        $messageMap = new MessageMap([
+            new ToolResultMessage([
+                new ToolResult(toolCallId: 'tool-1', toolName: 'count', args: [], result: 0),
+            ]),
+        ]);
+
+        expect($messageMap->map())->toBe([[
+            'role' => 'tool',
+            'tool_name' => 'count',
+            'content' => '0',
+        ]]);
+    });
+});

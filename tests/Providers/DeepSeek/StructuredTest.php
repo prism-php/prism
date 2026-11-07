@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\BooleanSchema;
@@ -48,6 +50,29 @@ it('returns structured output', function (): void {
     // Assert metadata
     expect($response->meta->id)->toBe('1920de37-0bb1-4cf8-9c4e-d73ad8d73d6a');
     expect($response->meta->model)->toBe('deepseek-chat');
-    expect($response->usage->promptTokens)->toBe(187);
+    expect($response->usage->promptTokens)->toBe(59);
+    expect($response->usage->cacheReadInputTokens)->toBe(128);
     expect($response->usage->completionTokens)->toBe(26);
+    expect($response->usage->thoughtTokens)->toBeNull();
+});
+
+it('forwards deepseek provider options in structured requests without overriding the response format', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/structured');
+
+    Prism::structured()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('weather', 'The weather forecast')], ['weather']))
+        ->withPrompt('What is the weather?')
+        ->withProviderOptions([
+            'thinking' => ['type' => 'disabled'],
+            'response_format' => ['type' => 'text'],
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->data()['thinking'])->toBe(['type' => 'disabled']);
+        expect($request->data()['response_format'])->toBe(['type' => 'json_object']);
+
+        return true;
+    });
 });

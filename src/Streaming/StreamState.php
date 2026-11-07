@@ -243,9 +243,9 @@ class StreamState
         $this->usage = new Usage(
             promptTokens: $this->usage->promptTokens + $usage->promptTokens,
             completionTokens: $this->usage->completionTokens + $usage->completionTokens,
-            cacheWriteInputTokens: ($this->usage->cacheWriteInputTokens ?? 0) + ($usage->cacheWriteInputTokens ?? 0),
-            cacheReadInputTokens: ($this->usage->cacheReadInputTokens ?? 0) + ($usage->cacheReadInputTokens ?? 0),
-            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0)
+            cacheWriteInputTokens: $this->sumNullableTokens($this->usage->cacheWriteInputTokens, $usage->cacheWriteInputTokens),
+            cacheReadInputTokens: $this->sumNullableTokens($this->usage->cacheReadInputTokens, $usage->cacheReadInputTokens),
+            thoughtTokens: $this->sumNullableTokens($this->usage->thoughtTokens, $usage->thoughtTokens),
         );
 
         return $this;
@@ -419,5 +419,14 @@ class StreamState
         $this->currentBlockType = null;
 
         return $this;
+    }
+
+    protected function sumNullableTokens(?int $current, ?int $addition): ?int
+    {
+        if ($current === null && $addition === null) {
+            return null;
+        }
+
+        return ($current ?? 0) + ($addition ?? 0);
     }
 }

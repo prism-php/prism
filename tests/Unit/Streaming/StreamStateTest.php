@@ -398,6 +398,35 @@ it('withUsage returns self', function (): void {
     expect($result)->toBe($state);
 });
 
+it('addUsage sums each field and keeps optional fields null only when no step reported them', function (): void {
+    $state = new StreamState;
+
+    $state
+        ->addUsage(new Usage(promptTokens: 100, completionTokens: 50))
+        ->addUsage(new Usage(promptTokens: 20, completionTokens: 10, cacheReadInputTokens: 0, thoughtTokens: 4))
+        ->addUsage(new Usage(promptTokens: 3, completionTokens: 2, cacheReadInputTokens: 64));
+
+    expect($state->usage()->toArray())->toBe([
+        'prompt_tokens' => 123,
+        'completion_tokens' => 62,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => 64,
+        'thought_tokens' => 4,
+    ]);
+});
+
+it('addUsage keeps a reported zero', function (): void {
+    $state = new StreamState;
+
+    $state
+        ->addUsage(new Usage(promptTokens: 1, completionTokens: 1))
+        ->addUsage(new Usage(promptTokens: 1, completionTokens: 1, cacheWriteInputTokens: 0));
+
+    expect($state->usage()->cacheWriteInputTokens)->toBe(0)
+        ->and($state->usage()->cacheReadInputTokens)->toBeNull()
+        ->and($state->usage()->thoughtTokens)->toBeNull();
+});
+
 it('withFinishReason stores FinishReason enum', function (): void {
     $state = new StreamState;
 

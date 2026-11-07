@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\BooleanSchema;
@@ -50,4 +52,63 @@ it('returns structured output', function (): void {
     expect($response->meta->model)->toBe('mistral-large-latest');
     expect($response->usage->promptTokens)->toBe(45);
     expect($response->usage->completionTokens)->toBe(34);
+});
+
+it('forwards reasoning_effort provider option for structured requests', function (): void {
+    FixtureResponse::fakeResponseSequence('chat/completions', 'mistral/structured');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Mistral, 'mistral-large-latest')
+        ->withPrompt('What is the weather?')
+        ->withProviderOptions([
+            'reasoning_effort' => 'high',
+        ])
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return isset($payload['reasoning_effort'])
+            && $payload['reasoning_effort'] === 'high';
+    });
+});
+
+it('maps cached input and reasoning on structured responses', function (): void {
+    Http::fake(['*' => Http::response([
+        'id' => 'structured-usage',
+        'object' => 'chat.completion',
+        'model' => 'mistral-small-latest',
+        'choices' => [['index' => 0, 'finish_reason' => 'stop', 'message' => ['role' => 'assistant', 'content' => '{"code":"8573"}']]],
+        'usage' => [
+            'prompt_tokens' => 12777,
+            'total_tokens' => 12871,
+            'completion_tokens' => 94,
+            'prompt_tokens_details' => ['cached_tokens' => 12752],
+            'completion_tokens_details' => ['reasoning_tokens' => 87],
+        ],
+    ])])->preventStrayRequests();
+
+    $response = Prism::structured()
+        ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('code', 'The code')], ['code']))
+        ->using(Provider::Mistral, 'mistral-small-latest')
+        ->withPrompt('What is the code of Fact 17?')
+        ->asStructured();
+
+    expect($response->usage->toArray())->toBe([
+        'prompt_tokens' => 25,
+        'completion_tokens' => 94,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => 12752,
+        'thought_tokens' => 87,
+    ]);
 });

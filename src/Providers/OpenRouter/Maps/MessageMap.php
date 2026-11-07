@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\OpenRouter\Maps;
 
 use BackedEnum;
 use Exception;
+use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
@@ -20,6 +21,8 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 class MessageMap
 {
+    use FiltersEmptyValues;
+
     /** @var array<int, mixed> */
     protected array $mappedMessages = [];
 
@@ -64,6 +67,8 @@ class MessageMap
     protected function mapSystemMessage(SystemMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
+        // OpenRouter supports extended cache TTL (e.g. '1h') via cacheTtl provider option
+        $cacheTtl = $message->providerOptions('cacheTtl');
 
         // OpenRouter supports cache_control in content array format (same as Anthropic)
         if ($cacheType) {
@@ -73,7 +78,10 @@ class MessageMap
                     [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType],
+                        'cache_control' => array_filter([
+                            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+                            'ttl' => $cacheTtl,
+                        ]),
                     ],
                 ],
             ];
@@ -88,7 +96,11 @@ class MessageMap
     protected function mapToolResultMessage(ToolResultMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
-        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheTtl = $message->providerOptions('cacheTtl');
+        $cacheControl = $cacheType ? array_filter([
+            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+            'ttl' => $cacheTtl,
+        ]) : null;
 
         $toolResults = $message->toolResults;
         $totalResults = count($toolResults);
@@ -99,7 +111,7 @@ class MessageMap
                 // Only add cache_control to the last tool result
                 $isLastResult = $index === $totalResults - 1;
 
-                return array_filter([
+                return self::withoutEmptyValues([
                     'type' => 'tool_result',
                     'tool_call_id' => $toolResult->toolCallId,
                     'content' => $toolResult->result,
@@ -126,7 +138,11 @@ class MessageMap
     protected function mapUserMessage(UserMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
-        $cacheControl = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
+        $cacheTtl = $message->providerOptions('cacheTtl');
+        $cacheControl = $cacheType ? array_filter([
+            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+            'ttl' => $cacheTtl,
+        ]) : null;
 
         $imageParts = array_map(fn (Image $image): array => (new ImageMapper($image))->toPayload(), $message->images());
         // NOTE: mirrored from Gemini's multimodal mapper so we stay consistent across providers.
@@ -137,7 +153,7 @@ class MessageMap
         $this->mappedMessages[] = [
             'role' => 'user',
             'content' => [
-                array_filter([
+                self::withoutEmptyValues([
                     'type' => 'text',
                     'text' => $message->text(),
                     'cache_control' => $cacheControl,
@@ -153,6 +169,7 @@ class MessageMap
     protected function mapAssistantMessage(AssistantMessage $message): void
     {
         $cacheType = $message->providerOptions('cacheType');
+        $cacheTtl = $message->providerOptions('cacheTtl');
 
         $toolCalls = array_map(fn (ToolCall $toolCall): array => [
             'id' => $toolCall->id,
@@ -163,24 +180,36 @@ class MessageMap
             ],
         ], $message->toolCalls);
 
+        $reasoning = $message->additionalContent['reasoning'] ?? null;
+        $reasoningDetails = empty($message->additionalContent['reasoning_details'])
+            ? null
+            : $message->additionalContent['reasoning_details'];
+
         // OpenRouter supports cache_control on assistant messages
-        if ($cacheType && $message->content !== '' && $message->content !== '0') {
-            $this->mappedMessages[] = array_filter([
+        if ($cacheType && $message->content !== '') {
+            $this->mappedMessages[] = self::withoutEmptyValues([
                 'role' => 'assistant',
                 'content' => [
                     [
                         'type' => 'text',
                         'text' => $message->content,
-                        'cache_control' => ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType],
+                        'cache_control' => array_filter([
+                            'type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType,
+                            'ttl' => $cacheTtl,
+                        ]),
                     ],
                 ],
                 'tool_calls' => $toolCalls,
+                'reasoning' => $reasoning,
+                'reasoning_details' => $reasoningDetails,
             ]);
         } else {
-            $this->mappedMessages[] = array_filter([
+            $this->mappedMessages[] = self::withoutEmptyValues([
                 'role' => 'assistant',
                 'content' => $message->content,
                 'tool_calls' => $toolCalls,
+                'reasoning' => $reasoning,
+                'reasoning_details' => $reasoningDetails,
             ]);
         }
     }

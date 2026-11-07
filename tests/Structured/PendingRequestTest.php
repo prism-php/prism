@@ -92,6 +92,19 @@ test('it generates a proper request object', function (): void {
         ->and($request->providerOptions())->toBe($providerOptions);
 });
 
+test('it sets top k', function (): void {
+    $schema = new StringSchema('test', 'test description');
+
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema($schema)
+        ->withPrompt('Test prompt')
+        ->usingTopK(40)
+        ->toRequest();
+
+    expect($request->topK())->toBe(40);
+});
+
 test('you can run toRequest multiple times', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
@@ -238,4 +251,27 @@ test('it filters livewire morph markers from view system prompts in structured r
 
     expect($generated->systemPrompts()[0]->content)
         ->toBe('System instruction');
+});
+
+test('it keeps a prompt of "0" as a user message', function (): void {
+    $request = $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withPrompt('0')
+        ->toRequest();
+
+    expect($request->messages())->toHaveCount(1)
+        ->and($request->messages()[0])->toBeInstanceOf(UserMessage::class)
+        ->and($request->messages()[0]->text())->toBe('0');
+});
+
+test('it throws when a prompt of "0" is combined with messages', function (): void {
+    $this->pendingRequest
+        ->using(Provider::OpenAI, 'gpt-4')
+        ->withSchema(new StringSchema('test', 'test description'))
+        ->withMessages([new UserMessage('test')])
+        ->withPrompt('0');
+
+    expect($this->pendingRequest->toRequest(...))
+        ->toThrow(PrismException::class, 'You can only use `prompt` or `messages`');
 });

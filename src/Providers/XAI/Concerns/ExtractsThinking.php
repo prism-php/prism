@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\XAI\Concerns;
 
+use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\Text\Request;
 
+/**
+ * @property StreamState $state
+ */
 trait ExtractsThinking
 {
     /**
@@ -20,13 +24,13 @@ trait ExtractsThinking
         $reasoning = data_get($data, 'choices.0.delta.reasoning_content', '');
 
         if ($reasoning !== '') {
-            static $lastThinkingContent = ''; // preserve state across calls
+            $stepThinking = $this->state->currentThinking();
 
-            if (str_contains((string) $lastThinkingContent, 'Thinking') && trim((string) $reasoning) === 'Thinking...') {
+            if (str_contains((string) $stepThinking, 'Thinking') && trim((string) $reasoning) === 'Thinking...') {
                 return '';
             }
 
-            $lastThinkingContent .= $reasoning;
+            $this->state->withThinking($stepThinking.$reasoning);
 
             return $reasoning;
         }

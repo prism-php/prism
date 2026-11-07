@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Providers\XAI;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
@@ -14,7 +15,9 @@ use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -556,5 +559,565 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
+});
+
+function xaiGatingSse(array ...$chunks): string
+{
+    return collect($chunks)
+        ->map(fn (array $chunk): string => 'data: '.json_encode($chunk)."\n\n")
+        ->implode('')."data: [DONE]\n\n";
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function xaiGatingToolChunk(?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'grok-4',
+        'choices' => [[
+            'index' => 0,
+            'delta' => [
+                'role' => 'assistant',
+                'tool_calls' => [[
+                    'index' => 0,
+                    'id' => 'call_gating',
+                    'type' => 'function',
+                    'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Detroit"}'],
+                ]],
+            ],
+            'finish_reason' => $finishReason,
+        ]],
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function xaiGatingFinishChunk(string $finishReason): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'grok-4',
+        'choices' => [['index' => 0, 'delta' => ['content' => ''], 'finish_reason' => $finishReason]],
+        'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+    ];
+}
+
+/**
+ * @return Collection<int, StreamEvent>
+ */
+function xaiGatingStream(int &$calls, int $maxSteps = 3): Collection
+{
+    return collect(iterator_to_array(Prism::text()
+        ->using('xai', 'grok-4')
+        ->withTools([
+            Tool::as('get_weather')
+                ->for('Get the weather for a city')
+                ->withStringParameter('city', 'The city')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "Sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps($maxSteps)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+}
+
+describe('tool execution gating', function (): void {
+    it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe($finishReason)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe($finishReason);
+
+        Http::assertSentCount(1);
+    })->with([
+        'length after the tool call' => [[xaiGatingToolChunk(), xaiGatingFinishChunk('length')], FinishReason::Length],
+        'length on the tool call chunk' => [[xaiGatingToolChunk('length')], FinishReason::Length],
+        'content filter after the tool call' => [[xaiGatingToolChunk(), xaiGatingFinishChunk('content_filter')], FinishReason::ContentFilter],
+        'stream ends without a finish reason' => [[xaiGatingToolChunk()], FinishReason::Stop],
+    ]);
+
+    it('runs tool calls once when the step finishes with tool calls', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    })->with([
+        'tool_calls in a separate chunk' => [[xaiGatingToolChunk(), xaiGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[xaiGatingToolChunk('tool_calls')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
+    })->with([
+        'tool_calls in a separate chunk' => [[xaiGatingToolChunk(), xaiGatingFinishChunk('tool_calls')]],
+        'tool_calls on the tool call chunk' => [[xaiGatingToolChunk('tool_calls')]],
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function xaiGatingDeltaChunk(array $delta, ?string $finishReason = null): array
+{
+    return [
+        'id' => 'chatcmpl-gating',
+        'model' => 'grok-4',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finishReason]],
+    ];
+}
+
+describe('tool execution gating with mixed chunks', function (): void {
+    it('runs tool calls once when the tool-call finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(xaiGatingToolChunk(), xaiGatingDeltaChunk($delta, 'tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($events->whereInstanceOf([TextDeltaEvent::class, ThinkingEvent::class])->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(2);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+        'reasoning' => [['reasoning_content' => 'Thinking it over.'], 'Thinking it over.'],
+    ]);
+
+    it('never runs tool calls when a non-tool finish arrives on a chunk with other deltas', function (array $delta, string $streamedDelta): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(xaiGatingToolChunk(), xaiGatingDeltaChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf([TextDeltaEvent::class, ThinkingEvent::class])->map->delta->implode(''))->toBe($streamedDelta);
+
+        Http::assertSentCount(1);
+    })->with([
+        'content' => [['content' => 'Checking the weather.'], 'Checking the weather.'],
+        'reasoning' => [['reasoning_content' => 'Thinking it over.'], 'Thinking it over.'],
+    ]);
+
+    it('ends with Stop when the step after a tool call has no finish reason', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(xaiGatingToolChunk(), xaiGatingFinishChunk('tool_calls')), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingDeltaChunk(['content' => 'Sunny in Detroit.'])), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    });
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @param  array<string, mixed>|null  $usage
+ * @return array<string, mixed>
+ */
+function xaiUsageChunk(array $delta, ?string $finishReason, ?array $usage): array
+{
+    return [
+        'id' => 'chatcmpl-usage',
+        'model' => 'grok-4',
+        'choices' => [['index' => 0, 'delta' => $delta, 'finish_reason' => $finishReason]],
+        'usage' => $usage,
+    ];
+}
+
+describe('usage snapshots', function (): void {
+    it('reads usage from a trailing usage-only chunk', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiUsageChunk(['content' => 'Sunny.'], null, null),
+                xaiUsageChunk([], 'stop', null),
+                [
+                    'id' => 'chatcmpl-usage',
+                    'model' => 'grok-4',
+                    'choices' => [],
+                    'usage' => [
+                        'prompt_tokens' => 49,
+                        'completion_tokens' => 32,
+                        'total_tokens' => 264,
+                        'prompt_tokens_details' => ['cached_tokens' => 7],
+                        'completion_tokens_details' => ['reasoning_tokens' => 183],
+                    ],
+                ],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $expected = ['prompt_tokens' => 42, 'completion_tokens' => 215, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 7, 'thought_tokens' => 183];
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop);
+    });
+
+    it('keeps the latest cumulative usage snapshot instead of adding them up', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiUsageChunk(['reasoning_content' => 'The'], null, ['prompt_tokens' => 41, 'completion_tokens' => 1, 'total_tokens' => 42]),
+                xaiUsageChunk(['content' => 'Ah'], null, ['prompt_tokens' => 41, 'completion_tokens' => 1, 'total_tokens' => 42]),
+                xaiUsageChunk(['content' => ','], 'stop', [
+                    'prompt_tokens' => 41,
+                    'completion_tokens' => 2,
+                    'total_tokens' => 43,
+                    'prompt_tokens_details' => ['cached_tokens' => 0],
+                    'completion_tokens_details' => ['reasoning_tokens' => 0],
+                ]),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+            'prompt_tokens' => 41,
+            'completion_tokens' => 2,
+            'cache_write_input_tokens' => null,
+            'cache_read_input_tokens' => 0,
+            'thought_tokens' => 0,
+        ]);
+    });
+
+    it('adds the usage of every step once across a tool loop', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(
+                    xaiGatingToolChunk(),
+                    xaiUsageChunk([], 'tool_calls', null),
+                    ['id' => 'chatcmpl-usage', 'model' => 'grok-4', 'choices' => [], 'usage' => [
+                        'prompt_tokens' => 200,
+                        'completion_tokens' => 20,
+                        'total_tokens' => 320,
+                        'prompt_tokens_details' => ['cached_tokens' => 150],
+                        'completion_tokens_details' => ['reasoning_tokens' => 100],
+                    ]],
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(
+                    xaiUsageChunk(['content' => 'Sunny in Detroit.'], 'stop', [
+                        'prompt_tokens' => 260,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 270,
+                        'prompt_tokens_details' => ['cached_tokens' => 200],
+                    ]),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
+                ['prompt_tokens' => 50, 'completion_tokens' => 120, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 150, 'thought_tokens' => 100],
+                ['prompt_tokens' => 60, 'completion_tokens' => 10, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 200, 'thought_tokens' => null],
+            ])
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 110,
+                'completion_tokens' => 130,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 350,
+                'thought_tokens' => 100,
+            ]);
+
+        Http::assertSentCount(2);
+    });
+
+    it('counts the usage of a tool step once when max steps ends the stream on it', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiGatingToolChunk('tool_calls'),
+                ['id' => 'chatcmpl-usage', 'model' => 'grok-4', 'choices' => [], 'usage' => ['prompt_tokens' => 200, 'completion_tokens' => 20, 'total_tokens' => 220]],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('xai', 'grok-4')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(1)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        $expected = ['prompt_tokens' => 200, 'completion_tokens' => 20, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null];
+
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
+    });
+});
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream']);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(xaiGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'reasoning then text' => [
+            [[
+                xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.']),
+                xaiGatingDeltaChunk(['content' => 'Sunny.']),
+                xaiGatingFinishChunk('stop'),
+            ]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning and text before tool calls' => [
+            [
+                [
+                    xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.']),
+                    xaiGatingDeltaChunk(['content' => 'Let me check.']),
+                    xaiGatingToolChunk(),
+                    xaiGatingFinishChunk('tool_calls'),
+                ],
+                [xaiGatingFinishChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'reasoning that carries the finish reason' => [
+            [[xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.'], 'length')]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[xaiGatingDeltaChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+
+    it('keeps the step message id on text that follows reasoning', function (): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(
+                xaiGatingDeltaChunk(['reasoning_content' => 'Weighing the forecast.']),
+                xaiGatingDeltaChunk(['content' => 'Sunny.']),
+                xaiGatingFinishChunk('stop'),
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $messageIds = $events->whereInstanceOf([TextStartEvent::class, TextDeltaEvent::class, TextCompleteEvent::class])->map->messageId->unique()->values();
+
+        expect($messageIds)->toHaveCount(1)
+            ->and($messageIds->first())->not->toBe('');
+    });
+});
+
+/**
+ * @param  array<string, mixed>  $delta
+ * @return array<string, mixed>
+ */
+function xaiMixedToolChunk(array $delta, ?string $finishReason = null): array
+{
+    return xaiGatingDeltaChunk([
+        ...$delta,
+        'tool_calls' => xaiGatingToolChunk()['choices'][0]['delta']['tool_calls'],
+    ], $finishReason);
+}
+
+dataset('xai mixed tool chunk deltas', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'reasoning' => [['reasoning_content' => 'Weighing the forecast.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'reasoning and text' => [['reasoning_content' => 'Weighing the forecast.', 'content' => 'Let me check.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $delta, array $blocks, string $text, bool $finishOnMixedChunk): void {
+        $chunks = $finishOnMixedChunk
+            ? [xaiMixedToolChunk($delta, 'tool_calls')]
+            : [xaiMixedToolChunk($delta), xaiGatingFinishChunk('tool_calls')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(...$chunks), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('xai mixed tool chunk deltas')->with([
+        'tool_calls finish on a later chunk' => [false],
+        'tool_calls finish on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $delta, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(xaiGatingSse(xaiMixedToolChunk($delta, 'length')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('xai mixed tool chunk deltas');
+});
+
+describe('deltas that are exactly "0"', function (): void {
+    it('keeps "0" reasoning, text and tool argument deltas', function (): void {
+        $toolCallChunk = fn (array $toolCall, ?string $finishReason = null): array => xaiGatingDeltaChunk(['tool_calls' => [['index' => 0, ...$toolCall]]], $finishReason);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(
+                    xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => '1']),
+                    xaiGatingDeltaChunk(['reasoning_content' => '0']),
+                    xaiGatingDeltaChunk(['content' => '1']),
+                    xaiGatingDeltaChunk(['content' => '0']),
+                    $toolCallChunk(['id' => 'call_zero', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Area 5']]),
+                    $toolCallChunk(['function' => ['arguments' => '0']]),
+                    $toolCallChunk(['function' => ['arguments' => '"}']], 'tool_calls'),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(xaiGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->whereInstanceOf(ThinkingEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe('10')
+            ->and($events->whereInstanceOf(ToolCallEvent::class)->sole()->toolCall->arguments())->toBe(['city' => 'Area 50'])
+            ->and($calls)->toBe(1);
+    });
+});
+
+describe('repeated "Thinking..." placeholders', function (): void {
+    it('emits the first placeholder and drops the repeats in each stream independently', function (): void {
+        $placeholderStream = xaiGatingSse(
+            xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => 'Thinking... ']),
+            xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+            xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+            xaiGatingDeltaChunk(['content' => 'Done'], 'stop'),
+        );
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push($placeholderStream, 200, ['Content-Type' => 'text/event-stream'])
+                ->push($placeholderStream, 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $thinkingDeltas = fn (): array => collect(iterator_to_array(Prism::text()
+            ->using('xai', 'grok-4')
+            ->withPrompt('Who are you?')
+            ->asStream(), false))
+            ->whereInstanceOf(ThinkingEvent::class)
+            ->map->delta
+            ->values()
+            ->all();
+
+        expect($thinkingDeltas())->toBe(['Thinking... '])
+            ->and($thinkingDeltas())->toBe(['Thinking... ']);
+    });
+
+    it('emits the first placeholder again in the step after a tool call', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(xaiGatingSse(
+                    xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => 'Thinking... ']),
+                    xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+                    xaiGatingToolChunk('tool_calls'),
+                ), 200, ['Content-Type' => 'text/event-stream'])
+                ->push(xaiGatingSse(
+                    xaiGatingDeltaChunk(['role' => 'assistant', 'reasoning_content' => 'Thinking... ']),
+                    xaiGatingDeltaChunk(['reasoning_content' => 'Thinking... ']),
+                    xaiGatingDeltaChunk(['content' => 'Sunny'], 'stop'),
+                ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = xaiGatingStream($calls);
+
+        expect($events->whereInstanceOf(ThinkingEvent::class)->map->delta->values()->all())->toBe(['Thinking... ', 'Thinking... '])
+            ->and($calls)->toBe(1);
+    });
 });

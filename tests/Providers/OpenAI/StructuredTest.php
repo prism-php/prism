@@ -6,6 +6,7 @@ namespace Tests\Providers\OpenAI;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Exceptions\PrismException;
@@ -144,18 +145,28 @@ it('uses meta to define strict mode', function (): void {
     });
 });
 
-it('throws an exception when there is a refusal', function (): void {
-    $this->expectException(PrismException::class);
-    $this->expectExceptionMessage('OpenAI Refusal: Could not process your request');
-
+it('returns a refusal response instead of throwing', function (): void {
     Http::fake([
         'v1/responses' => Http::response([
+            'id' => 'resp_refusal',
+            'status' => 'completed',
+            'model' => 'gpt-4o-2024-08-06',
             'output' => [[
+                'id' => 'msg_refusal',
+                'type' => 'message',
+                'status' => 'completed',
+                'role' => 'assistant',
                 'content' => [[
                     'type' => 'refusal',
                     'refusal' => 'Could not process your request',
                 ]],
             ]],
+            'usage' => [
+                'input_tokens' => 10,
+                'input_tokens_details' => ['cached_tokens' => 0],
+                'output_tokens' => 5,
+                'output_tokens_details' => ['reasoning_tokens' => 0],
+            ],
         ]),
     ]);
 
@@ -172,19 +183,15 @@ it('throws an exception when there is a refusal', function (): void {
         ['weather', 'game_time', 'coat_required']
     );
 
-    Prism::structured()
+    $response = Prism::structured()
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withSchema($schema)
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStructured();
 
-    Http::assertSent(function (Request $request): true {
-        $body = json_decode($request->body(), true);
-
-        expect(data_get($body, 'text.format.strict'))->toBeTrue();
-
-        return true;
-    });
+    expect($response->finishReason)->toBe(FinishReason::Refusal)
+        ->and($response->structured)->toBe([])
+        ->and($response->additionalContent['refusal'])->toBe('Could not process your request');
 });
 
 it('throws an exception for o1 models', function (string $model): void {
@@ -642,7 +649,7 @@ it('includes status details when max tokens exceeded', function (): void {
     }
 });
 
-it('includes status details for unknown finish reasons', function (): void {
+it('handles unknown finish reasons gracefully', function (): void {
     FixtureResponse::fakeResponseSequence('v1/responses', 'openai/structured-unknown-finish-reason');
 
     $schema = new ObjectSchema(
@@ -654,10 +661,11 @@ it('includes status details for unknown finish reasons', function (): void {
         ['weather']
     );
 
-    expect(fn () => Prism::structured()
+    $response = Prism::structured()
         ->withSchema($schema)
         ->using(Provider::OpenAI, 'gpt-4o')
         ->withPrompt('What is the weather?')
-        ->asStructured()
-    )->toThrow(PrismException::class, 'some_future_type');
+        ->asStructured();
+
+    expect($response->finishReason)->toBe(FinishReason::Unknown);
 });

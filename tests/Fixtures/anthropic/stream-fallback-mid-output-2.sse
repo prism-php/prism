@@ -1,0 +1,21 @@
+event: message_start
+data: {"type": "message_start", "message": {"model": "claude-opus-4-8", "id": "msg_011StreamFallbackMid02", "type": "message", "role": "assistant", "content": [], "container": null, "stop_reason": null, "stop_sequence": null, "stop_details": null, "usage": {"input_tokens": 700, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0}, "output_tokens": 8, "service_tier": "standard", "inference_geo": "global"}, "diagnostics": null}}
+
+event: content_block_start
+data: {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "It is 20°C in Paris."}}
+
+event: content_block_stop
+data: {"type": "content_block_stop", "index": 0}
+
+event: message_delta
+data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": null, "stop_details": null, "container": null}, "usage": {"input_tokens": 700, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 15, "output_tokens_details": {"thinking_tokens": 0}, "iterations": [{"input_tokens": 700, "output_tokens": 15, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0}, "type": "fallback_message", "model": "claude-opus-4-8"}]}}
+
+event: message_stop
+data: {"type": "message_stop"}
+

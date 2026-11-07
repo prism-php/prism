@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Anthropic\Maps;
 
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
+use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Enums\Citations\CitationSourcePositionType;
 use Prism\Prism\Enums\Citations\CitationSourceType;
 use Prism\Prism\ValueObjects\Citation;
@@ -13,6 +14,8 @@ use Prism\Prism\ValueObjects\MessagePartWithCitations;
 
 class CitationsMapper
 {
+    use FiltersEmptyValues;
+
     /**
      * @param  array<string, mixed>  $contentBlock
      */
@@ -45,7 +48,7 @@ class CitationsMapper
             $messagePartWithCitations->citations
         );
 
-        return array_filter([
+        return self::withoutEmptyValues([
             'type' => 'text',
             'text' => $messagePartWithCitations->outputText,
             'citations' => $citations ?: null,

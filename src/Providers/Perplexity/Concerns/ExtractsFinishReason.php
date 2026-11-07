@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Prism\Prism\Providers\Perplexity\Concerns;
 
 use Prism\Prism\Enums\FinishReason;
@@ -15,6 +17,10 @@ trait ExtractsFinishReason
     }
 
     /**
+     * Perplexity documents `stop` and `length` as the only finish reasons.
+     *
+     * @link https://docs.perplexity.ai/api-reference/sonar-post
+     *
      * @param  array<string, mixed>  $data
      */
     protected function extractsFinishReason(array $data): FinishReason
@@ -23,6 +29,7 @@ trait ExtractsFinishReason
 
         return match ($rawFinishReason) {
             'stop' => FinishReason::Stop,
+            'length' => FinishReason::Length,
             default => FinishReason::Unknown,
         };
     }

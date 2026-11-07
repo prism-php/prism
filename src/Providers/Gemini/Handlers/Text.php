@@ -9,13 +9,13 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
 use Prism\Prism\Providers\Gemini\Maps\FinishReasonMap;
 use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolCallMap;
-use Prism\Prism\Providers\Gemini\Maps\ToolChoiceMap;
+use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
@@ -26,11 +26,10 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
-    use CallsTools, ValidatesResponse;
+    use CallsTools, MapsUsage, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -58,8 +57,7 @@ class Text
 
         return match ($finishReason) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request, $finishReason),
-            default => throw new PrismException('Gemini: unhandled finish reason'),
+            default => $this->handleStop($data, $request, $finishReason),
         };
     }
 
@@ -86,13 +84,12 @@ class Text
         $generationConfig = Arr::whereNotNull([
             'temperature' => $request->temperature(),
             'topP' => $request->topP(),
+            'topK' => $request->topK(),
             'maxOutputTokens' => $request->maxTokens(),
             'thinkingConfig' => $thinkingConfig,
         ]);
 
-        if ($request->tools() !== [] && $request->providerTools() != []) {
-            throw new PrismException('Use of provider tools with custom tools is not currently supported by Gemini.');
-        }
+        $hasBothToolTypes = $request->tools() !== [] && $request->providerTools() !== [];
 
         $tools = [];
 
@@ -106,8 +103,10 @@ class Text
         }
 
         if ($request->tools() !== []) {
-            $tools['function_declarations'] = ToolMap::map($request->tools());
+            $tools[] = ['function_declarations' => ToolMap::map($request->tools())];
         }
+
+        $toolConfig = ToolConfigMap::map($request->toolChoice(), $hasBothToolTypes);
 
         /** @var ClientResponse $response */
         $response = $this->client->post(
@@ -117,8 +116,9 @@ class Text
                 'cachedContent' => $providerOptions['cachedContentName'] ?? null,
                 'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
                 'tools' => $tools !== [] ? $tools : null,
-                'tool_config' => $request->toolChoice() ? ToolChoiceMap::map($request->toolChoice()) : null,
+                'tool_config' => $toolConfig,
                 'safetySettings' => $providerOptions['safetySettings'] ?? null,
+                'service_tier' => $providerOptions['serviceTier'] ?? null,
             ])
         );
 
@@ -171,8 +171,6 @@ class Text
      */
     protected function addStep(array $data, Request $request, FinishReason $finishReason, array $toolResults = []): void
     {
-        $providerOptions = $request->providerOptions();
-
         $thoughtSummaries = $this->extractThoughtSummaries($data);
 
         $this->responseBuilder->addStep(new Step(
@@ -181,14 +179,7 @@ class Text
             toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                promptTokens: isset($providerOptions['cachedContentName'])
-                    ? (data_get($data, 'usageMetadata.promptTokenCount', 0) - data_get($data, 'usageMetadata.cachedContentTokenCount', 0))
-                    : data_get($data, 'usageMetadata.promptTokenCount', 0),
-                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-                cacheReadInputTokens: data_get($data, 'usageMetadata.cachedContentTokenCount'),
-                thoughtTokens: data_get($data, 'usageMetadata.thoughtsTokenCount'),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
                 model: data_get($data, 'modelVersion', ''),

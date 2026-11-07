@@ -169,15 +169,6 @@ it('maps assistant message with tool calls', function (): void {
 
     expect($messageMap())->toBe([
         [
-            'role' => 'assistant',
-            'content' => [
-                [
-                    'type' => 'output_text',
-                    'text' => 'I am Nyx',
-                ],
-            ],
-        ],
-        [
             'id' => 'tool_1234',
             'call_id' => 'call_1234',
             'type' => 'function_call',
@@ -185,6 +176,15 @@ it('maps assistant message with tool calls', function (): void {
             'arguments' => json_encode([
                 'query' => 'Laravel collection methods',
             ]),
+        ],
+        [
+            'role' => 'assistant',
+            'content' => [
+                [
+                    'type' => 'output_text',
+                    'text' => 'I am Nyx',
+                ],
+            ],
         ],
     ]);
 });
@@ -212,6 +212,112 @@ it('maps assistant message with tool calls with empty arguments as json object',
             'name' => 'get_schema',
             'arguments' => '{}',
         ],
+    ]);
+});
+
+it('maps assistant message with multiple tool calls and different reasoning ids', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('I am Nyx', [
+                new ToolCall(
+                    'tool_1',
+                    'search',
+                    ['query' => 'Laravel collection methods'],
+                    'call_1',
+                    'rs_1',
+                    [],
+                ),
+                new ToolCall(
+                    'tool_2',
+                    'search',
+                    ['query' => 'Laravel query builder'],
+                    'call_2',
+                    'rs_2',
+                    [],
+                ),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        [
+            'type' => 'reasoning',
+            'id' => 'rs_1',
+            'summary' => [],
+        ],
+        [
+            'id' => 'tool_1',
+            'call_id' => 'call_1',
+            'type' => 'function_call',
+            'name' => 'search',
+            'arguments' => json_encode(['query' => 'Laravel collection methods']),
+        ],
+        [
+            'type' => 'reasoning',
+            'id' => 'rs_2',
+            'summary' => [],
+        ],
+        [
+            'id' => 'tool_2',
+            'call_id' => 'call_2',
+            'type' => 'function_call',
+            'name' => 'search',
+            'arguments' => json_encode(['query' => 'Laravel query builder']),
+        ],
+        [
+            'role' => 'assistant',
+            'content' => [
+                [
+                    'type' => 'output_text',
+                    'text' => 'I am Nyx',
+                ],
+            ],
+        ],
+    ]);
+});
+
+it('sends an empty reasoning summary when a stored tool call has none', function (): void {
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage('', [
+                new ToolCall('fc_1', 'search', ['query' => 'prism'], 'call_1', 'rs_1'),
+            ]),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap()[0])->toBe([
+        'type' => 'reasoning',
+        'id' => 'rs_1',
+        'summary' => [],
+    ]);
+});
+
+it('replays stored output items in order instead of the tool call projection', function (): void {
+    $outputItems = [
+        ['id' => 'rs_1', 'type' => 'reasoning', 'content' => [], 'encrypted_content' => 'gAAAA-one', 'summary' => null],
+        ['id' => 'msg_1', 'type' => 'message', 'status' => 'completed', 'role' => 'assistant', 'phase' => 'commentary', 'content' => [
+            ['type' => 'output_text', 'annotations' => [], 'logprobs' => [], 'text' => 'Checking.'],
+        ]],
+        ['id' => 'fc_1', 'type' => 'function_call', 'status' => 'completed', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{"query":"prism"}'],
+    ];
+
+    $messageMap = new MessageMap(
+        messages: [
+            new AssistantMessage(
+                'Checking.',
+                [new ToolCall('fc_1', 'search', ['query' => 'prism'], 'call_1', 'rs_1', [])],
+                ['output_items' => $outputItems],
+            ),
+        ],
+        systemPrompts: []
+    );
+
+    expect($messageMap())->toBe([
+        ['id' => 'rs_1', 'type' => 'reasoning', 'content' => [], 'encrypted_content' => 'gAAAA-one', 'summary' => []],
+        $outputItems[1],
+        $outputItems[2],
     ]);
 });
 
@@ -326,5 +432,57 @@ describe('documents', function (): void {
             ->toBe('input_file')
             ->and(data_get($mappedMessage, '0.content.1.file_id'))
             ->toBe('previously-uploaded-file-id');
+    });
+});
+
+describe('content that is exactly "0"', function (): void {
+    it('keeps a user message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new UserMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'user',
+            'content' => [['type' => 'input_text', 'text' => '0']],
+        ]]);
+    });
+
+    it('keeps an assistant message of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('0')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'role' => 'assistant',
+            'content' => [['type' => 'output_text', 'text' => '0']],
+        ]]);
+    });
+
+    it('still maps an empty assistant message to nothing', function (): void {
+        $messageMap = new MessageMap(
+            messages: [new AssistantMessage('')],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([]);
+    });
+
+    it('keeps a tool result of "0"', function (): void {
+        $messageMap = new MessageMap(
+            messages: [
+                new ToolResultMessage([
+                    new ToolResult('tool_1234', 'count', [], '0', 'call_1234'),
+                ]),
+            ],
+            systemPrompts: []
+        );
+
+        expect($messageMap())->toBe([[
+            'type' => 'function_call_output',
+            'call_id' => 'call_1234',
+            'output' => '0',
+        ]]);
     });
 });

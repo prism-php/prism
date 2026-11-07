@@ -12,7 +12,9 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStructuredDecodingException;
 use Prism\Prism\Providers\DeepSeek\Maps\ToolCallMap;
 use Prism\Prism\Providers\OpenRouter\Concerns\BuildsRequestOptions;
+use Prism\Prism\Providers\OpenRouter\Concerns\ExtractsReasoning;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\OpenRouter\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
@@ -23,13 +25,14 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
     use BuildsRequestOptions;
     use CallsTools;
+    use ExtractsReasoning;
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -47,8 +50,7 @@ class Structured
 
         return match ($this->mapFinishReason($data)) {
             FinishReason::ToolCalls => $this->handleToolCalls($data, $request),
-            FinishReason::Stop, FinishReason::Length => $this->handleStop($data, $request),
-            default => throw new PrismException('OpenRouter: unknown finish reason'),
+            default => $this->handleStop($data, $request),
         };
     }
 
@@ -106,7 +108,7 @@ class Structured
         $request = $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
-            []
+            $this->extractReasoning($data),
         ));
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
@@ -153,17 +155,14 @@ class Structured
         $this->responseBuilder->addStep(new Step(
             text: data_get($data, 'choices.0.message.content') ?? '',
             finishReason: $this->mapFinishReason($data),
-            usage: new Usage(
-                (int) data_get($data, 'usage.prompt_tokens', 0),
-                (int) data_get($data, 'usage.completion_tokens', 0),
-            ),
+            usage: $this->mapUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id', ''),
                 model: data_get($data, 'model', $request->model()),
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
-            additionalContent: [],
+            additionalContent: $this->extractReasoning($data),
             toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             providerToolCalls: [],
             toolResults: $toolResults,

@@ -7,6 +7,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\DeepSeek\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\DeepSeek\Concerns\MapsUsage;
 use Prism\Prism\Providers\DeepSeek\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\DeepSeek\Maps\FinishReasonMap;
 use Prism\Prism\Providers\DeepSeek\Maps\MessageMap;
@@ -17,11 +18,11 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -50,15 +51,20 @@ class Structured
         /** @var Response $response */
         $response = $this->client->post(
             'chat/completions',
-            array_merge([
-                'model' => $request->model(),
-                'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'max_completion_tokens' => $request->maxTokens(),
-            ], Arr::whereNotNull([
-                'temperature' => $request->temperature(),
-                'top_p' => $request->topP(),
-                'response_format' => ['type' => 'json_object'],
-            ]))
+            array_merge(
+                // Provider options go first so the request settings below always win.
+                $request->providerOptions(),
+                [
+                    'model' => $request->model(),
+                    'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
+                    'max_completion_tokens' => $request->maxTokens(),
+                ],
+                Arr::whereNotNull([
+                    'temperature' => $request->temperature(),
+                    'top_p' => $request->topP(),
+                    'response_format' => ['type' => 'json_object'],
+                ])
+            )
         );
 
         return $response->json();
@@ -87,10 +93,7 @@ class Structured
         $step = new Step(
             text: $text,
             finishReason: FinishReasonMap::map(data_get($data, 'choices.0.finish_reason', '')),
-            usage: new Usage(
-                data_get($data, 'usage.prompt_tokens'),
-                data_get($data, 'usage.completion_tokens'),
-            ),
+            usage: $this->mapUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),

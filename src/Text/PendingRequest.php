@@ -111,13 +111,13 @@ class PendingRequest
 
     public function toRequest(): Request
     {
-        if ($this->messages && $this->prompt) {
+        if ($this->messages && $this->hasPrompt()) {
             throw PrismException::promptOrMessages();
         }
 
         $messages = $this->messages;
 
-        if ($this->prompt) {
+        if ($this->hasPrompt()) {
             $messages[] = new UserMessage($this->prompt, $this->additionalContent);
         }
 
@@ -140,6 +140,7 @@ class PendingRequest
             maxTokens: $this->maxTokens,
             temperature: $this->temperature,
             topP: $this->topP,
+            topK: $this->topK,
             tools: $tools,
             clientOptions: $this->clientOptions,
             clientRetry: $this->clientRetry,

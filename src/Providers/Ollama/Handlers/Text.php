@@ -7,9 +7,8 @@ namespace Prism\Prism\Providers\Ollama\Handlers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Ollama\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\Ollama\Concerns\MapsUsage;
 use Prism\Prism\Providers\Ollama\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Ollama\Maps\MessageMap;
 use Prism\Prism\Providers\Ollama\Maps\ToolMap;
@@ -22,12 +21,12 @@ use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
-use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
     use CallsTools;
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
@@ -43,21 +42,11 @@ class Text
 
         $this->validateResponse($data);
 
-        // Check for tool calls first, regardless of finish reason
-        if (! empty(data_get($data, 'message.tool_calls'))) {
+        if (! empty(data_get($data, 'message.tool_calls')) && $this->isToolCallFinish($this->mapFinishReason($data))) {
             return $this->handleToolCalls($data, $request);
         }
 
-        $finishReason = $this->mapFinishReason($data);
-
-        return match ($finishReason) {
-            FinishReason::Stop,
-            FinishReason::Length,
-            FinishReason::Unknown,
-            FinishReason::ContentFilter,
-            FinishReason::Other => $this->handleStop($data, $request),
-            default => throw new PrismException('Ollama: unknown finish reason'),
-        };
+        return $this->handleStop($data, $request);
     }
 
     /**
@@ -142,10 +131,7 @@ class Text
             toolCalls: $this->mapToolCalls(data_get($data, 'message.tool_calls', []) ?? []),
             toolResults: $toolResults,
             providerToolCalls: [],
-            usage: new Usage(
-                data_get($data, 'prompt_eval_count', 0),
-                data_get($data, 'eval_count', 0),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: '',
                 model: $request->model(),

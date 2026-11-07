@@ -12,6 +12,7 @@ use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Usage;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -104,12 +105,7 @@ class PrismChatController
             'object' => 'chat.completion',
             'created' => now()->timestamp,
             'model' => $response->meta->model,
-            'usage' => [
-                'prompt_tokens' => $response->usage->promptTokens,
-                'completion_tokens' => $response->usage->completionTokens,
-                'total_tokens' => $response->usage->promptTokens
-                        + $response->usage->completionTokens,
-            ],
+            'usage' => $this->mapUsage($response->usage),
             'choices' => [
                 [
                     'index' => 0,
@@ -123,6 +119,31 @@ class PrismChatController
         ];
 
         return response()->json($data);
+    }
+
+    /**
+     * Prism reports cached input apart from `promptTokens`; the OpenAI shape
+     * counts it inside `prompt_tokens`.
+     *
+     * @return array<string, mixed>
+     */
+    protected function mapUsage(Usage $usage): array
+    {
+        $promptTokens = $usage->promptTokens
+            + ($usage->cacheReadInputTokens ?? 0)
+            + ($usage->cacheWriteInputTokens ?? 0);
+
+        return array_filter([
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $usage->completionTokens,
+            'total_tokens' => $promptTokens + $usage->completionTokens,
+            'prompt_tokens_details' => $usage->cacheReadInputTokens === null
+                ? null
+                : ['cached_tokens' => $usage->cacheReadInputTokens],
+            'completion_tokens_details' => $usage->thoughtTokens === null
+                ? null
+                : ['reasoning_tokens' => $usage->thoughtTokens],
+        ], fn (mixed $value): bool => $value !== null);
     }
 
     protected function textFromResponse(TextResponse $response): string

@@ -35,9 +35,11 @@ it('can generate text with a prompt', function (): void {
     // Assert response type
     expect($response)->toBeInstanceOf(TextResponse::class);
 
-    // Assert usage
+    // Assert usage: DeepSeek reports a cache hit count of 0, which stays 0
     expect($response->usage->promptTokens)->toBe(7);
     expect($response->usage->completionTokens)->toBe(42);
+    expect($response->usage->cacheReadInputTokens)->toBe(0);
+    expect($response->usage->thoughtTokens)->toBeNull();
 
     // Assert metadata
     expect($response->meta->id)->toBe('85edf901-7432-49c6-baab-91ffb01dbe7a');
@@ -129,8 +131,13 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($secondStep->messages[1]->toolCalls[1]->name)->toBe('weather');
     expect($secondStep->messages[2])->toBeInstanceOf(ToolResultMessage::class);
 
-    // Assert usage
-    expect($response->usage->promptTokens)->toBe(507);
+    // Assert usage. promptTokens is now the FRESH portion (prompt_tokens minus
+    // prompt_cache_hit_tokens) so cost trackers can apply the cached rate to the
+    // hit portion separately. Aggregated across both steps:
+    //   step 1 fixture: prompt_tokens=220, prompt_cache_hit_tokens=192 → fresh 28, cached 192
+    //   step 2 fixture: prompt_tokens=287, prompt_cache_hit_tokens=256 → fresh 31, cached 256
+    expect($response->usage->promptTokens)->toBe(59);
+    expect($response->usage->cacheReadInputTokens)->toBe(448);
     expect($response->usage->completionTokens)->toBe(76);
 
     // Assert response
@@ -144,4 +151,73 @@ it('can generate text using multiple tools and multiple steps', function (): voi
 
     // Assert finish reason
     expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('forwards deepseek provider options into the request body', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withProviderOptions([
+            'thinking' => ['type' => 'disabled'],
+            'reasoning_effort' => 'low',
+        ])
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data()['thinking'])->toBe(['type' => 'disabled']);
+        expect($request->data()['reasoning_effort'])->toBe('low');
+
+        return true;
+    });
+});
+
+it('forwards deepseek provider options prism does not name', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withProviderOptions(['logprobs' => true, 'top_logprobs' => 5])
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data()['logprobs'])->toBeTrue();
+        expect($request->data()['top_logprobs'])->toBe(5);
+
+        return true;
+    });
+});
+
+it('omits deepseek provider options that were not set', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data())->not->toHaveKeys(['thinking', 'reasoning_effort', 'stop']);
+
+        return true;
+    });
+});
+
+it('does not let a provider option override model or messages', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withProviderOptions(['model' => 'other-model', 'messages' => []])
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): true {
+        expect($request->data()['model'])->toBe('deepseek-chat');
+        expect($request->data()['messages'])->not->toBe([]);
+
+        return true;
+    });
 });

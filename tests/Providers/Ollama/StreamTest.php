@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Tests\Providers\Ollama;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -124,6 +126,23 @@ it('can generate text using tools with streaming', function (): void {
     $streamEndEvents = array_filter($events, fn (StreamEvent $event): bool => $event instanceof StreamEndEvent);
     expect($streamStartEvents)->toHaveCount(1);
     expect($streamEndEvents)->toHaveCount(1);
+
+    // These recordings predate prompt_eval_cached_count, so the cache bucket stays null
+    expect(array_values($streamEndEvents)[0]->usage->toArray())->toBe([
+        'prompt_tokens' => 787,
+        'completion_tokens' => 646,
+        'cache_write_input_tokens' => null,
+        'cache_read_input_tokens' => null,
+        'thought_tokens' => null,
+    ]);
+
+    $stepUsage = collect($events)
+        ->whereInstanceOf(StepFinishEvent::class)
+        ->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->completionTokens])
+        ->values()
+        ->all();
+
+    expect($stepUsage)->toBe([[218, 306], [263, 152], [306, 188]]);
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
@@ -394,5 +413,351 @@ it('sends StreamEndEvent using tools with streaming and max steps = 1', function
     expect($events)->not->toBeEmpty();
 
     $lastEvent = end($events);
-    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class)
+        ->and($lastEvent->finishReason)->toBe(FinishReason::ToolCalls)
+        ->and(collect($events)->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+        ->and(collect($events)->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls);
+});
+
+function ollamaGatingStreamBody(array ...$chunks): string
+{
+    return collect($chunks)
+        ->map(fn (array $chunk): string => json_encode($chunk)."\n")
+        ->implode('');
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function ollamaGatingToolChunk(?string $doneReason = null): array
+{
+    return array_filter([
+        'model' => 'qwen3:14b',
+        'created_at' => '2025-06-09T17:58:55.337823Z',
+        'message' => [
+            'role' => 'assistant',
+            'content' => '',
+            'tool_calls' => [['function' => ['name' => 'get_weather', 'arguments' => ['city' => 'Detroit']]]],
+        ],
+        'done_reason' => $doneReason,
+        'done' => $doneReason !== null,
+    ], fn (mixed $value): bool => $value !== null);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function ollamaGatingDoneChunk(?string $doneReason): array
+{
+    return array_filter([
+        'model' => 'qwen3:14b',
+        'created_at' => '2025-06-09T17:58:57.192416Z',
+        'message' => ['role' => 'assistant', 'content' => ''],
+        'done_reason' => $doneReason,
+        'done' => true,
+        'prompt_eval_count' => 10,
+        'eval_count' => 5,
+    ], fn (mixed $value): bool => $value !== null);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function ollamaGatingThinkingDoneChunk(string $doneReason): array
+{
+    return [
+        ...ollamaGatingDoneChunk($doneReason),
+        'message' => ['role' => 'assistant', 'content' => '', 'thinking' => 'Done thinking.'],
+    ];
+}
+
+/**
+ * @return Collection<int, StreamEvent>
+ */
+function ollamaGatingStream(int &$calls, int $maxSteps = 3): Collection
+{
+    return collect(iterator_to_array(Prism::text()
+        ->using('ollama', 'qwen3:14b')
+        ->withTools([
+            Tool::as('get_weather')
+                ->for('Get the weather for a city')
+                ->withStringParameter('city', 'The city')
+                ->using(function (string $city) use (&$calls): string {
+                    $calls++;
+
+                    return "Sunny in {$city}";
+                }),
+        ])
+        ->withMaxSteps($maxSteps)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream(), false));
+}
+
+describe('tool execution gating', function (): void {
+    it('never runs tool calls when the turn does not complete normally', function (array $chunks, FinishReason $finishReason): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(...$chunks), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(0)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe($finishReason)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe($finishReason);
+
+        Http::assertSentCount(1);
+    })->with([
+        'length after the tool call' => [[ollamaGatingToolChunk(), ollamaGatingDoneChunk('length')], FinishReason::Length],
+        'length on the tool call chunk' => [[ollamaGatingToolChunk('length')], FinishReason::Length],
+        'done without a reason' => [[ollamaGatingToolChunk(), ollamaGatingDoneChunk(null)], FinishReason::Unknown],
+        'stream ends before done' => [[ollamaGatingToolChunk()], FinishReason::Stop],
+        'length on a thinking chunk' => [[ollamaGatingToolChunk(), ollamaGatingThinkingDoneChunk('length')], FinishReason::Length],
+    ]);
+
+    it('runs tool calls once when the turn completes normally', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody(...$chunks), 200)
+                ->push(ollamaGatingStreamBody(ollamaGatingDoneChunk('stop')), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+        $streamEnds = $events->whereInstanceOf(StreamEndEvent::class);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(ToolResultEvent::class))->toHaveCount(1)
+            ->and($streamEnds)->toHaveCount(1)
+            ->and($streamEnds->first()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())
+            ->toBe([FinishReason::ToolCalls, FinishReason::Stop]);
+
+        Http::assertSentCount(2);
+    })->with([
+        'stop after the tool call' => [[ollamaGatingToolChunk(), ollamaGatingDoneChunk('stop')]],
+        'stop on the tool call chunk' => [[ollamaGatingToolChunk('stop')]],
+        'stop on a thinking chunk' => [[ollamaGatingToolChunk(), ollamaGatingThinkingDoneChunk('stop')]],
+    ]);
+
+    it('reports ToolCalls when max steps ends the stream on a tool call', function (array $chunks): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(...$chunks), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls, maxSteps: 1);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::ToolCalls)
+            ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
+
+        Http::assertSentCount(1);
+    })->with([
+        'stop after the tool call' => [[ollamaGatingToolChunk(), ollamaGatingDoneChunk('stop')]],
+        'stop on the tool call chunk' => [[ollamaGatingToolChunk('stop')]],
+        'stop on a thinking chunk' => [[ollamaGatingToolChunk(), ollamaGatingThinkingDoneChunk('stop')]],
+    ]);
+});
+
+describe('usage', function (): void {
+    it('takes prompt_eval_cached_count out of the prompt and sums each step once', function (): void {
+        $toolDone = [...ollamaGatingToolChunk('stop'), 'prompt_eval_count' => 120, 'prompt_eval_cached_count' => 0, 'eval_count' => 30];
+        $finalDone = [...ollamaGatingDoneChunk('stop'), 'prompt_eval_count' => 160, 'prompt_eval_cached_count' => 128, 'eval_count' => 12];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody($toolDone))
+                ->push(ollamaGatingStreamBody($finalDone)),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+
+        expect($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 152,
+                'completion_tokens' => 42,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 128,
+                'thought_tokens' => null,
+            ])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => [$event->usage->promptTokens, $event->usage->cacheReadInputTokens, $event->usage->completionTokens])->values()->all())
+            ->toBe([[120, 0, 30], [32, 128, 12]]);
+    });
+
+    it('reports every step when max steps ends the stream on a tool call', function (): void {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody([...ollamaGatingToolChunk('stop'), 'prompt_eval_count' => 120, 'eval_count' => 30]))
+                ->push(ollamaGatingStreamBody([...ollamaGatingToolChunk('stop'), 'prompt_eval_count' => 170, 'prompt_eval_cached_count' => 64, 'eval_count' => 25])),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using('ollama', 'qwen3:14b')
+            ->withTools([Tool::as('get_weather')->for('Get the weather')->withStringParameter('city', 'The city')->using(fn (string $city): string => "Sunny in {$city}")])
+            ->withMaxSteps(2)
+            ->withPrompt('What is the weather in Detroit?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(StreamEndEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
+                'prompt_tokens' => 226,
+                'completion_tokens' => 55,
+                'cache_write_input_tokens' => null,
+                'cache_read_input_tokens' => 64,
+                'thought_tokens' => null,
+            ]);
+    });
+});
+
+/**
+ * @param  array<string, mixed>  $message
+ * @return array<string, mixed>
+ */
+function ollamaMessageChunk(array $message): array
+{
+    return [
+        'model' => 'qwen3:14b',
+        'created_at' => '2025-06-09T17:58:56.000000Z',
+        'message' => ['role' => 'assistant', 'content' => '', ...$message],
+        'done' => false,
+    ];
+}
+
+describe('content blocks', function (): void {
+    it('completes every text and thinking block it starts exactly once', function (array $responses, array $expected): void {
+        $sequence = Http::sequence();
+
+        foreach ($responses as $chunks) {
+            $sequence->push(ollamaGatingStreamBody(...$chunks), 200);
+        }
+
+        Http::fake(['*' => $sequence])->preventStrayRequests();
+
+        $calls = 0;
+
+        expect(ollamaGatingStream($calls)->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe($expected);
+    })->with([
+        'thinking and text before tool calls' => [
+            [
+                [
+                    ollamaMessageChunk(['thinking' => 'Thinking it over.']),
+                    ollamaMessageChunk(['content' => 'Let me check.']),
+                    ollamaGatingToolChunk(),
+                    ollamaGatingDoneChunk('stop'),
+                ],
+                [ollamaGatingDoneChunk('stop')],
+            ],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'thinking when the stream closes early' => [
+            [[ollamaMessageChunk(['thinking' => 'Thinking it over.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+        'text when the stream closes early' => [
+            [[ollamaMessageChunk(['content' => 'Sunny.'])]],
+            ['StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent'],
+        ],
+    ]);
+});
+
+describe('in-stream errors', function (): void {
+    it('ends the step and the stream with Error when Ollama sends an error line', function (): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(
+                ollamaMessageChunk(['content' => 'Sunny']),
+                ['error' => 'an error was encountered while running the model'],
+                ollamaGatingDoneChunk('stop'),
+            ), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+        $error = $events->whereInstanceOf(ErrorEvent::class)->sole();
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and([$error->message, $error->recoverable])->toBe(['an error was encountered while running the model', false])
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
+    });
+});
+
+/**
+ * @param  array<string, mixed>  $message
+ * @return array<string, mixed>
+ */
+function ollamaMixedToolChunk(array $message, ?string $doneReason = null): array
+{
+    $chunk = ollamaGatingToolChunk($doneReason);
+    $chunk['message'] = [...$chunk['message'], ...$message];
+
+    return $chunk;
+}
+
+dataset('ollama mixed tool chunk messages', [
+    'text' => [['content' => 'Let me check.'], ['TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'], 'Let me check.'],
+    'thinking' => [['thinking' => 'Weighing the forecast.'], ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent'], ''],
+    'thinking and text' => [
+        ['thinking' => 'Weighing the forecast.', 'content' => 'Let me check.'],
+        ['ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent'],
+        'Let me check.',
+    ],
+]);
+
+describe('chunks that carry text and a tool call together', function (): void {
+    it('streams the text before the tool call, runs the tool once and replays the text', function (array $message, array $blocks, string $text, bool $doneOnMixedChunk): void {
+        $chunks = $doneOnMixedChunk
+            ? [ollamaMixedToolChunk($message, 'stop')]
+            : [ollamaMixedToolChunk($message), ollamaGatingDoneChunk('stop')];
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(ollamaGatingStreamBody(...$chunks), 200)
+                ->push(ollamaGatingStreamBody(ollamaGatingDoneChunk('stop')), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+        $replayed = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'ToolCallEvent', 'ToolResultEvent', 'StepFinishEvent', 'StepStartEvent', 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(1)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->map->finishReason->values()->all())->toBe([FinishReason::ToolCalls, FinishReason::Stop])
+            ->and($replayed['content'] ?? '')->toBe($text)
+            ->and($replayed['tool_calls'])->toHaveCount(1);
+
+        Http::assertSentCount(2);
+    })->with('ollama mixed tool chunk messages')->with([
+        'done on a later chunk' => [false],
+        'done on the same chunk' => [true],
+    ]);
+
+    it('keeps the text and never runs the tool when the chunk ends with a non-tool finish', function (array $message, array $blocks, string $text): void {
+        Http::fake([
+            '*' => Http::response(ollamaGatingStreamBody(ollamaMixedToolChunk($message, 'length')), 200),
+        ])->preventStrayRequests();
+
+        $calls = 0;
+        $events = ollamaGatingStream($calls);
+
+        expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
+            'StreamStartEvent', 'StepStartEvent', ...$blocks, 'StepFinishEvent', 'StreamEndEvent',
+        ])
+            ->and($events->whereInstanceOf(TextDeltaEvent::class)->map->delta->implode(''))->toBe($text)
+            ->and($calls)->toBe(0)
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Length)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Length);
+
+        Http::assertSentCount(1);
+    })->with('ollama mixed tool chunk messages');
 });

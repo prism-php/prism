@@ -76,13 +76,8 @@ class Audio
 
             return new TextResponse(
                 text: $data['text'] ?? '',
-                usage: isset($data['usage'])
-                    ? new Usage(
-                        promptTokens: $data['usage']['input_tokens'] ?? 0,
-                        completionTokens: $data['usage']['total_tokens'] ?? 0,
-                    )
-                    : null,
-                additionalContent: $data,
+                usage: $this->mapTranscriptionUsage($data['usage'] ?? null),
+                additionalContent: $this->transcriptionAdditionalContent($data),
             );
         }
 
@@ -90,5 +85,40 @@ class Audio
         return new TextResponse(
             text: $response->body(),
         );
+    }
+
+    protected function mapTranscriptionUsage(mixed $usage): ?Usage
+    {
+        if (! is_array($usage) || $this->isDurationUsage($usage)) {
+            return null;
+        }
+
+        return new Usage(
+            promptTokens: (int) ($usage['input_tokens'] ?? $usage['prompt_tokens'] ?? 0),
+            completionTokens: (int) ($usage['output_tokens'] ?? $usage['completion_tokens'] ?? 0),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function transcriptionAdditionalContent(array $data): array
+    {
+        $usage = $data['usage'] ?? null;
+
+        if (! is_array($usage) || ! $this->isDurationUsage($usage)) {
+            return $data;
+        }
+
+        return [...$data, 'usage_seconds' => $usage['seconds'] ?? null];
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $usage
+     */
+    protected function isDurationUsage(array $usage): bool
+    {
+        return ($usage['type'] ?? null) === 'duration';
     }
 }

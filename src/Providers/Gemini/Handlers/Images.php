@@ -9,15 +9,15 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 use Prism\Prism\Images\ResponseBuilder;
+use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\ImageRequestMap;
 use Prism\Prism\ValueObjects\GeneratedImage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\Usage;
 
 class Images
 {
-    use ValidatesResponse;
+    use MapsUsage, ValidatesResponse;
 
     public function __construct(protected PendingRequest $client) {}
 
@@ -32,10 +32,7 @@ class Images
         $images = $this->extractImages($data);
 
         $responseBuilder = new ResponseBuilder(
-            usage: new Usage(
-                promptTokens: data_get($data, 'usageMetadata.promptTokenCount', 0),
-                completionTokens: data_get($data, 'usageMetadata.candidatesTokenCount', 0),
-            ),
+            usage: $this->mapUsage($data),
             meta: new Meta(
                 id: data_get($data, 'responseId', data_get($data, 'id', '')),
                 model: data_get($data, 'modelVersion', ''),

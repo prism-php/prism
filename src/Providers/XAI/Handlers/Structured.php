@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\XAI\Concerns\MapsFinishReason;
+use Prism\Prism\Providers\XAI\Concerns\MapsUsage;
 use Prism\Prism\Providers\XAI\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\XAI\Maps\MessageMap;
 use Prism\Prism\Structured\Request;
@@ -17,11 +18,11 @@ use Prism\Prism\Structured\ResponseBuilder;
 use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\Usage;
 
 class Structured
 {
     use MapsFinishReason;
+    use MapsUsage;
     use ValidatesResponses;
 
     protected ResponseBuilder $responseBuilder;
@@ -41,8 +42,14 @@ class Structured
 
         $this->handleRefusal(data_get($data, 'choices.0.message', []));
 
-        $content = data_get($data, 'choices.0.message.content') ?? '';
+        $rawContent = data_get($data, 'choices.0.message.content') ?? '';
         $parsed = data_get($data, 'choices.0.message.parsed');
+
+        // Some OpenAI-compatible providers (e.g. Cloudflare Workers AI) return
+        // content as a parsed object/array instead of a JSON string. Normalize
+        // to string for AssistantMessage and extract structured data.
+        $content = is_array($rawContent) ? json_encode($rawContent) : $rawContent;
+        $parsed ??= is_array($rawContent) ? $rawContent : null;
 
         $responseMessage = new AssistantMessage($content);
 
@@ -59,13 +66,12 @@ class Structured
      */
     protected function addStep(array $data, Request $request, ?array $parsed): void
     {
+        $rawContent = data_get($data, 'choices.0.message.content') ?? '';
+
         $this->responseBuilder->addStep(new Step(
-            text: data_get($data, 'choices.0.message.content') ?? '',
+            text: is_array($rawContent) ? json_encode($rawContent) : $rawContent,
             finishReason: $this->mapFinishReason($data),
-            usage: new Usage(
-                promptTokens: data_get($data, 'usage.prompt_tokens', 0),
-                completionTokens: data_get($data, 'usage.completion_tokens', 0),
-            ),
+            usage: $this->mapUsage((array) data_get($data, 'usage', [])),
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
