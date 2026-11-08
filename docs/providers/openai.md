@@ -24,6 +24,8 @@ Tool::as('search') // [!code focus]
     ]); // [!code focus]
 ```
 
+With `strict` enabled, Prism sends the tool's parameters with `additionalProperties: false`, which OpenAI requires on every object in a strict schema. Nested `ObjectSchema` parameters already send it unless you set `allowAdditionalProperties: true`.
+
 ### Strict Structured Output Schemas
 
 ```php
