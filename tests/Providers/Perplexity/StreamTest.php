@@ -218,3 +218,19 @@ it('keeps Error when a finish reason arrives after an unrecoverable error chunk'
         ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
         ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
 });
+
+it('passes the stream option to the HTTP client', function (): void {
+    $options = [];
+
+    Http::fake(function (Request $request, array $requestOptions) use (&$options) {
+        $options = $requestOptions;
+
+        return Http::response(perplexityStreamSse(
+            perplexityStreamChunk('I am Sonar.', 'stop'),
+        ), 200, ['Content-Type' => 'text/event-stream']);
+    })->preventStrayRequests();
+
+    perplexityStream();
+
+    expect($options['stream'] ?? false)->toBeTrue();
+});

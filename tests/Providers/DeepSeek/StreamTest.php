@@ -777,3 +777,29 @@ it('forwards deepseek provider options when streaming without turning streaming 
         return true;
     });
 });
+
+it('passes the stream option to the HTTP client', function (): void {
+    $options = [];
+
+    Http::fake(function (Request $request, array $requestOptions) use (&$options) {
+        $options = $requestOptions;
+
+        return Http::response(
+            'data: '.json_encode([
+                'id' => 'chatcmpl-1',
+                'object' => 'chat.completion.chunk',
+                'model' => 'deepseek-chat',
+                'choices' => [['index' => 0, 'delta' => ['content' => 'Hi'], 'finish_reason' => 'stop']],
+            ])."\n\ndata: [DONE]\n\n",
+            200,
+            ['Content-Type' => 'text/event-stream'],
+        );
+    })->preventStrayRequests();
+
+    iterator_to_array(Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withPrompt('Who are you?')
+        ->asStream());
+
+    expect($options['stream'] ?? false)->toBeTrue();
+});
