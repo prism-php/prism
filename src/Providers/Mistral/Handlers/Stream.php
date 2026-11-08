@@ -8,7 +8,6 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
@@ -37,6 +36,7 @@ use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -303,11 +303,14 @@ class Stream
     {
         $parts = data_get($data, 'choices.0.delta.tool_calls', []);
 
-        foreach ($parts as $index => $part) {
+        foreach ($parts as $position => $part) {
+            $index = data_get($part, 'index', $position);
+            $toolCalls[$index]['id'] = ToolCallId::remember($toolCalls[$index]['id'] ?? null, data_get($part, 'id'));
             if (isset($part['function'])) {
-                $toolCalls[$index]['id'] = data_get($part, 'id', Str::random(8));
-                $toolCalls[$index]['name'] = data_get($part, 'function.name');
-                $toolCalls[$index]['arguments'] = data_get($part, 'function.arguments', '');
+                if (isset($part['function']['name'])) {
+                    $toolCalls[$index]['name'] = $part['function']['name'];
+                }
+                $toolCalls[$index]['arguments'] = ($toolCalls[$index]['arguments'] ?? '').data_get($part, 'function.arguments', '');
             }
         }
 
@@ -395,7 +398,11 @@ class Stream
                 }
 
                 return new ToolCall(
-                    data_get($toolCall, 'id'),
+                    ToolCallId::resolve(
+                        data_get($toolCall, 'id'), 'mistral',
+                        static fn (): string => substr(EventID::generate('mistral'), -9),
+                        '/\A[a-zA-Z0-9]{9}\z/D',
+                    ),
                     data_get($toolCall, 'name'),
                     $arguments,
                 );
@@ -408,15 +415,7 @@ class Stream
      */
     protected function hasToolCalls(array $data): bool
     {
-        $parts = data_get($data, 'choices.0.delta.tool_calls', []);
-
-        foreach ($parts as $part) {
-            if (isset($part['function'])) {
-                return true;
-            }
-        }
-
-        return false;
+        return ! empty(data_get($data, 'choices.0.delta.tool_calls', []));
     }
 
     protected function sendRequest(Request $request): Response

@@ -35,6 +35,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -281,8 +282,8 @@ class Stream
             if ($name = data_get($toolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
-                $toolCalls[$index]['id'] = data_get($toolCall, 'id');
             }
+            $toolCalls[$index]['id'] = ToolCallId::remember($toolCalls[$index]['id'] ?? null, data_get($toolCall, 'id'));
 
             $arguments = data_get($toolCall, 'function.arguments');
 
@@ -390,7 +391,7 @@ class Stream
                 }
 
                 return new ToolCall(
-                    data_get($toolCall, 'id'),
+                    ToolCallId::resolve(data_get($toolCall, 'id'), 'groq'),
                     data_get($toolCall, 'name'),
                     $arguments,
                 );

@@ -34,6 +34,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -271,15 +272,13 @@ class Stream
 
             if (! isset($toolCalls[$index])) {
                 $toolCalls[$index] = [
-                    'id' => '',
+                    'id' => null,
                     'name' => '',
                     'arguments' => '',
                 ];
             }
 
-            if ($id = data_get($deltaToolCall, 'id')) {
-                $toolCalls[$index]['id'] = $id;
-            }
+            $toolCalls[$index]['id'] = ToolCallId::remember($toolCalls[$index]['id'], data_get($deltaToolCall, 'id'));
 
             if ($name = data_get($deltaToolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
@@ -412,7 +411,7 @@ class Stream
     protected function mapToolCalls(array $toolCalls): array
     {
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
-            id: data_get($toolCall, 'id'),
+            id: ToolCallId::resolve(data_get($toolCall, 'id'), 'z'),
             name: data_get($toolCall, 'name'),
             arguments: data_get($toolCall, 'arguments'),
         ), $toolCalls);

@@ -33,6 +33,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamFailureUsageTracker;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -339,9 +340,7 @@ class Stream
         foreach ($deltaToolCalls as $deltaToolCall) {
             $index = $deltaToolCall['index'];
 
-            if (isset($deltaToolCall['id'])) {
-                $toolCalls[$index]['id'] = $deltaToolCall['id'];
-            }
+            $toolCalls[$index]['id'] = ToolCallId::remember($toolCalls[$index]['id'] ?? null, data_get($deltaToolCall, 'id'));
 
             if (isset($deltaToolCall['type'])) {
                 $toolCalls[$index]['type'] = $deltaToolCall['type'];
@@ -555,7 +554,7 @@ class Stream
                 }
 
                 return new ToolCall(
-                    data_get($toolCall, 'id'),
+                    ToolCallId::resolve(data_get($toolCall, 'id'), 'openrouter'),
                     data_get($toolCall, 'function.name'),
                     $arguments,
                 );

@@ -32,6 +32,7 @@ use Prism\Prism\Streaming\Events\TextStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -276,12 +277,13 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'choices.0.delta.tool_calls') ?? [] as $index => $toolCall) {
+        foreach (data_get($data, 'choices.0.delta.tool_calls') ?? [] as $position => $toolCall) {
+            $index = data_get($toolCall, 'index', $position);
             if ($name = data_get($toolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
-                $toolCalls[$index]['id'] = data_get($toolCall, 'id');
             }
+            $toolCalls[$index]['id'] = ToolCallId::remember($toolCalls[$index]['id'] ?? null, data_get($toolCall, 'id'));
 
             $arguments = data_get($toolCall, 'function.arguments');
 
@@ -380,7 +382,7 @@ class Stream
                 }
 
                 return new ToolCall(
-                    data_get($toolCall, 'id'),
+                    ToolCallId::resolve(data_get($toolCall, 'id'), 'openai'),
                     data_get($toolCall, 'name'),
                     $arguments,
                 );

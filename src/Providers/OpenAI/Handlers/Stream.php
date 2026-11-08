@@ -37,6 +37,7 @@ use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamFailureUsageTracker;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -453,13 +454,36 @@ class Stream
         }
 
         /** @var array<string, mixed> $item */
+        if ($item['type'] === 'function_call') {
+            $index = $this->toolCallIndex($data);
+            if ($index !== null) {
+                $call = $this->state->toolCalls()[$index];
+                // The fallback is a local event identity, not a fabricated
+                // provider item reference. Replay only an id actually received.
+                $providerId = ToolCallId::remember($call['provider_id'] ?? null, $item['id'] ?? null);
+                $this->state->updateToolCall($index, ['provider_id' => $providerId]);
+                if ($providerId === null) {
+                    unset($item['id']);
+                } else {
+                    $item['id'] = $providerId;
+                }
+                $item['call_id'] = $call['call_id'];
+            }
+        }
         $this->state->addOutputItem(
             (int) data_get($data, 'output_index', count($this->state->outputItems())),
             OutputItems::normalize($item),
         );
 
         if ($item['type'] === 'function_call') {
-            $this->markToolCallComplete($item);
+            // Completion belongs to the same output index even when the wire
+            // item id was absent or arrived after the stable event id.
+            $index = $this->toolCallIndex($data);
+            if ($index !== null && ($item['status'] ?? 'completed') === 'completed') {
+                $this->state->updateToolCall($index, Arr::whereNotNull(['arguments' => $item['arguments'] ?? null, 'complete' => true]));
+            } else {
+                $this->markToolCallComplete($item);
+            }
         }
     }
 
@@ -548,12 +572,20 @@ class Stream
 
         if ($type === 'response.output_item.added' && data_get($data, 'item.type') === 'function_call') {
             $index = (int) data_get($data, 'output_index', count($this->state->toolCalls()));
+            $existing = $this->state->toolCalls()[$index] ?? [];
+            $providerId = ToolCallId::remember($existing['provider_id'] ?? null, data_get($data, 'item.id'));
+            $callId = data_get($data, 'item.call_id');
+            if (! is_string($callId) || $callId === '') {
+                throw (new PrismException(sprintf('OpenAI function call at output index %d requires a non-empty provider call_id.', $index)))
+                    ->withStreamFailureUsage($this->streamFailureUsage());
+            }
 
             $toolCall = [
-                'id' => data_get($data, 'item.id'),
-                'call_id' => data_get($data, 'item.call_id'),
+                'id' => ToolCallId::resolve($existing['id'] ?? $providerId, 'openai'),
+                'provider_id' => $providerId,
+                'call_id' => $existing['call_id'] ?? $callId,
                 'name' => data_get($data, 'item.name'),
-                'arguments' => '',
+                'arguments' => $existing['arguments'] ?? '',
             ];
 
             // Associate with the most recent reasoning item if available
@@ -568,40 +600,25 @@ class Stream
             return null;
         }
 
-        if ($type === 'response.function_call_arguments.delta') {
-            $callId = data_get($data, 'item_id');
-            $delta = data_get($data, 'delta', '');
-
-            $toolCalls = $this->state->toolCalls();
-            foreach ($toolCalls as $index => $call) {
-                if (($call['id'] ?? null) === $callId) {
-                    $currentArgs = $call['arguments'] ?? '';
-                    $this->state->updateToolCall($index, ['arguments' => $currentArgs.$delta]);
-
-                    return new ToolCallDeltaEvent(
-                        id: EventID::generate(),
-                        timestamp: time(),
-                        toolId: $call['id'],
-                        toolName: $call['name'],
-                        delta: $delta,
-                        messageId: $this->state->messageId()
-                    );
-                }
+        if (in_array($type, ['response.function_call_arguments.delta', 'response.function_call_arguments.done'], true)) {
+            $index = $this->toolCallIndex($data);
+            if ($index === null) {
+                return null;
             }
-        }
+            $call = $this->state->toolCalls()[$index];
+            $this->state->updateToolCall($index, ['provider_id' => ToolCallId::remember($call['provider_id'] ?? null, data_get($data, 'item_id'))]);
+            if ($type === 'response.function_call_arguments.delta') {
+                $delta = data_get($data, 'delta', '');
+                $this->state->updateToolCall($index, ['arguments' => ($call['arguments'] ?? '').$delta]);
 
-        if ($type === 'response.function_call_arguments.done') {
-            $callId = data_get($data, 'item_id');
+                return new ToolCallDeltaEvent(
+                    id: EventID::generate(), timestamp: time(), toolId: $call['id'], toolName: $call['name'],
+                    delta: $delta, messageId: $this->state->messageId()
+                );
+            }
             $arguments = data_get($data, 'arguments', '');
-
-            $toolCalls = $this->state->toolCalls();
-            foreach ($toolCalls as $index => $call) {
-                if (($call['id'] ?? null) === $callId) {
-                    if ($arguments !== '') {
-                        $this->state->updateToolCall($index, ['arguments' => $arguments]);
-                    }
-                    break;
-                }
+            if ($arguments !== '') {
+                $this->state->updateToolCall($index, ['arguments' => $arguments]);
             }
         }
 
@@ -668,7 +685,7 @@ class Stream
     {
         return collect($toolCalls)
             ->map(fn ($toolCall): ToolCall => new ToolCall(
-                id: data_get($toolCall, 'id'),
+                id: ToolCallId::resolve(data_get($toolCall, 'id'), 'openai'),
                 name: data_get($toolCall, 'name'),
                 arguments: data_get($toolCall, 'arguments'),
                 resultId: data_get($toolCall, 'call_id'),
@@ -738,18 +755,33 @@ class Stream
      */
     protected function getCompletedToolCall(array $data): ?ToolCall
     {
-        $callId = data_get($data, 'item_id');
+        $index = $this->toolCallIndex($data);
+        if ($index === null) {
+            return null;
+        }
+        $call = $this->state->toolCalls()[$index];
 
-        foreach ($this->state->toolCalls() as $call) {
-            if (($call['id'] ?? null) === $callId) {
-                return new ToolCall(
-                    id: $call['id'],
-                    name: $call['name'],
-                    arguments: $call['arguments'] ?? '',
-                    resultId: $call['call_id'] ?? null,
-                    reasoningId: $call['reasoning_id'] ?? null,
-                    reasoningSummary: $call['reasoning_summary'] ?? []
-                );
+        return new ToolCall(
+            id: $call['id'], name: $call['name'], arguments: $call['arguments'] ?? '', resultId: $call['call_id'],
+            reasoningId: $call['reasoning_id'] ?? null, reasoningSummary: $call['reasoning_summary'] ?? []
+        );
+    }
+
+    /** @param array<string, mixed> $data */
+    protected function toolCallIndex(array $data): ?int
+    {
+        $index = data_get($data, 'output_index');
+        $calls = $this->state->toolCalls();
+        if (is_int($index)) {
+            return isset($calls[$index]) ? $index : null;
+        }
+        $providerId = data_get($data, 'item_id', data_get($data, 'item.id'));
+        if (! is_string($providerId) || $providerId === '') {
+            return null;
+        }
+        foreach ($calls as $key => $call) {
+            if (($call['provider_id'] ?? $call['id']) === $providerId) {
+                return $key;
             }
         }
 
