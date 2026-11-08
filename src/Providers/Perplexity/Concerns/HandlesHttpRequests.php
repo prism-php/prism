@@ -15,10 +15,12 @@ trait HandlesHttpRequests
 {
     protected function sendRequest(PendingRequest $client, TextRequest|StructuredRequest $request, bool $stream = false): Response
     {
-        return $client->post(
-            '/chat/completions',
-            $this->buildHttpRequestPayload($request, $stream)
-        );
+        return $client
+            ->when($stream, fn (PendingRequest $client): PendingRequest => $client->withOptions(['stream' => true]))
+            ->post(
+                '/chat/completions',
+                $this->buildHttpRequestPayload($request, $stream)
+            );
     }
 
     /**
