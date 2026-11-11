@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Tools;
 
+use Illuminate\Container\Container;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -44,12 +45,13 @@ class LaravelMcpTool extends Tool
         $request = new Request($args);
 
         try {
+            // Called through the container like Laravel MCP does, so handle() can type-hint other dependencies
             /**
              * @var Response|ResponseFactory|\Generator<Response> $response
              *
-             * @phpstan-ignore method.notFound
+             * @phpstan-ignore argument.type
              */
-            $response = $this->tool->handle($request);
+            $response = Container::getInstance()->call([$this->tool, 'handle'], [Request::class => $request]);
         } catch (ValidationException $validationException) {
             $response = Response::error(ValidationMessages::from($validationException));
         }

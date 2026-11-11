@@ -6,6 +6,7 @@ namespace Tests\Tools;
 
 use Illuminate\Auth\GenericUser;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Mcp\Request;
@@ -130,6 +131,33 @@ it('can handle a tool that returns a Generator of Responses', function (): void 
     $result = $tool->handle();
 
     expect($result)->toBe("Yielded first\nYielded second");
+});
+
+it('resolves the dependencies of the handle method from the container', function (): void {
+    config(['app.name' => 'Weather App']);
+
+    $mcpTool = new class extends McpTool
+    {
+        protected string $name = 'weather-tool';
+
+        protected string $description = 'A tool with a dependency in handle()';
+
+        public function handle(Request $input, Repository $config): Response
+        {
+            return Response::text($config->get('app.name').': '.$input->get('city'));
+        }
+
+        public function schema(JsonSchema $schema): array
+        {
+            return [
+                'city' => $schema->string()->required(),
+            ];
+        }
+    };
+
+    $tool = new LaravelMcpTool($mcpTool);
+
+    expect($tool->handle(city: 'Paris'))->toBe('Weather App: Paris');
 });
 
 it('excludes tools whose shouldRegister returns false', function (): void {
