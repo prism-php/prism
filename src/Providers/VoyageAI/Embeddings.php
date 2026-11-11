@@ -45,7 +45,8 @@ class Embeddings
 
     protected function sendRequest(): void
     {
-        if ($this->request->hasImages()) {
+        // The multimodal models are only served by /multimodalembeddings, text-only input included
+        if ($this->request->hasImages() || str_starts_with($this->request->model(), 'voyage-multimodal')) {
             $this->sendMultimodalRequest();
         } else {
             $this->sendTextRequest();

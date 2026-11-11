@@ -72,6 +72,24 @@ it('returns embeddings from text and image combined', function () use ($testImag
         && $request['inputs'][1]['content'][0]['type'] === 'image_base64');
 });
 
+it('uses the multimodal endpoint for text-only input to a multimodal model', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'voyageai/multimodal-embeddings-text');
+
+    $response = Prism::embeddings()
+        ->using(Provider::VoyageAI, 'voyage-multimodal-3.5')
+        ->fromInput('dark nights')
+        ->withProviderOptions(['inputType' => 'query'])
+        ->asEmbeddings();
+
+    expect($response->meta->model)->toBe('voyage-multimodal-3.5');
+    expect($response->embeddings)->toHaveCount(1);
+
+    Http::assertSent(fn ($request): bool => str_ends_with((string) $request->url(), '/multimodalembeddings')
+        && $request['model'] === 'voyage-multimodal-3.5'
+        && $request['input_type'] === 'query'
+        && $request['inputs'] === [['content' => [['type' => 'text', 'text' => 'dark nights']]]]);
+});
+
 it('uses the text-only endpoint when no images are provided', function (): void {
     FixtureResponse::fakeResponseSequence('*', 'voyageai/embeddings-from-input');
 
