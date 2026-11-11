@@ -47,19 +47,24 @@ trait ProcessRateLimits
             return null;
         }
 
-        // Parse formats like "6ms", "30s", "5m", "1h"
-        if (preg_match('/^(\d+)(ms|s|m|h)$/', $resetTime, $matches)) {
-            $value = (int) $matches[1];
-            $unit = $matches[2];
+        // A Go duration, e.g. "20ms", "1s", "6m0s" or "1h2m3.5s"
+        if (preg_match('/^(?:\d+(?:\.\d+)?(?:ms|h|m|s))+$/', $resetTime) !== 1) {
+            return null;
+        }
 
-            return match ($unit) {
-                'ms' => Carbon::now()->addMilliseconds($value),
-                's' => Carbon::now()->addSeconds($value),
-                'm' => Carbon::now()->addMinutes($value),
-                'h' => Carbon::now()->addHours($value),
+        preg_match_all('/(\d+(?:\.\d+)?)(ms|h|m|s)/', $resetTime, $parts, PREG_SET_ORDER);
+
+        $milliseconds = 0.0;
+
+        foreach ($parts as [, $value, $unit]) {
+            $milliseconds += (float) $value * match ($unit) {
+                'ms' => 1,
+                's' => 1_000,
+                'm' => 60_000,
+                'h' => 3_600_000,
             };
         }
 
-        return null;
+        return Carbon::now()->addMilliseconds((int) round($milliseconds));
     }
 }
