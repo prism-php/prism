@@ -30,6 +30,7 @@ class ToolMap
                 ],
                 'cache_control' => self::normalizeCacheControl($tool),
                 'strict' => (bool) $tool->providerOptions('strict'),
+                'eager_input_streaming' => (bool) $tool->providerOptions('eager_input_streaming'),
             ]);
         }, $tools);
     }
