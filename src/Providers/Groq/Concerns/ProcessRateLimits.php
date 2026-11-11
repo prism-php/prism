@@ -6,12 +6,14 @@ namespace Prism\Prism\Providers\Groq\Concerns;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Prism\Prism\Concerns\ReadsResetDurations;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ProcessRateLimits
 {
+    use ReadsResetDurations;
+
     /**
      * @return ProviderRateLimit[]
      */
@@ -32,37 +34,15 @@ trait ProcessRateLimits
             $rateLimits[$limitName][$fieldName] = $headerValues[0];
         }
 
-        return array_values(Arr::map($rateLimits, function ($fields, $limitName): ProviderRateLimit {
-            $resetsAt = data_get($fields, 'reset', '');
-
-            if (str_contains($resetsAt, 'ms')) {
-                $resetMilliseconds = Str::of($resetsAt)->before('ms')->toString();
-                $resetMinutes = 0;
-                $resetSeconds = 0;
-            } else {
-                $resetMilliseconds = 0;
-
-                $resetMinutes = str_contains($resetsAt, 'm')
-                    ? Str::of($resetsAt)->before('m')->toString()
-                    : 0;
-
-                $resetSeconds = str_contains($resetsAt, 'm')
-                    ? Str::of($resetsAt)->after('m')->before('s')->toString()
-                    : Str::of($resetsAt)->before('s')->toString();
-            }
-
-            return new ProviderRateLimit(
-                name: $limitName,
-                limit: data_get($fields, 'limit') !== null
-                    ? (int) data_get($fields, 'limit')
-                    : null,
-                remaining: data_get($fields, 'remaining') !== null
-                    ? (int) data_get($fields, 'remaining')
-                    : null,
-                resetsAt: data_get($fields, 'reset') !== null
-                    ? Carbon::now()->addMinutes((int) $resetMinutes)->addSeconds((int) $resetSeconds)->addMilliseconds((int) $resetMilliseconds)
-                    : null
-            );
-        }));
+        return array_values(Arr::map($rateLimits, fn ($fields, $limitName): ProviderRateLimit => new ProviderRateLimit(
+            name: $limitName,
+            limit: data_get($fields, 'limit') !== null
+                ? (int) data_get($fields, 'limit')
+                : null,
+            remaining: data_get($fields, 'remaining') !== null
+                ? (int) data_get($fields, 'remaining')
+                : null,
+            resetsAt: $this->resetsAtFromDuration(data_get($fields, 'reset'))
+        )));
     }
 }

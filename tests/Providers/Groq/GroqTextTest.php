@@ -337,6 +337,37 @@ describe('rate limits', function (): void {
         });
     });
 
+    it('works with hours and fractions of a second', function (): void {
+        $this->freezeTime(function (Carbon $time): void {
+            $time = $time->toImmutable();
+            Http::fake([
+                '*' => Http::response(
+                    status: 429,
+                    headers: [
+                        'x-ratelimit-limit-requests' => 14400,
+                        'x-ratelimit-remaining-requests' => 0,
+                        'x-ratelimit-reset-requests' => '13h22m10.5s',
+                        'x-ratelimit-limit-tokens' => 6000,
+                        'x-ratelimit-remaining-tokens' => 0,
+                        'x-ratelimit-reset-tokens' => '7.66s',
+                    ]
+                ),
+            ])->preventStrayRequests();
+
+            try {
+                Prism::text()
+                    ->using(Provider::Groq, 'fake-model')
+                    ->withPrompt('Hello world!')
+                    ->generate();
+
+                $this->fail('The request should be rate limited.');
+            } catch (PrismRateLimitedException $e) {
+                expect($e->rateLimits[0]->resetsAt->equalTo($time->addHours(13)->addMinutes(22)->addMilliseconds(10_500)))->toBeTrue();
+                expect($e->rateLimits[1]->resetsAt->equalTo($time->addMilliseconds(7_660)))->toBeTrue();
+            }
+        });
+    });
+
     it('sets the rate limits on meta', function (): void {
         $this->freezeTime(function (Carbon $time): void {
             $time = $time->toImmutable();

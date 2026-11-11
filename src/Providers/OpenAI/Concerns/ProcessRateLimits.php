@@ -6,10 +6,13 @@ namespace Prism\Prism\Providers\OpenAI\Concerns;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
+use Prism\Prism\Concerns\ReadsResetDurations;
 use Prism\Prism\ValueObjects\ProviderRateLimit;
 
 trait ProcessRateLimits
 {
+    use ReadsResetDurations;
+
     /**
      * @return ProviderRateLimit[]
      */
@@ -43,23 +46,6 @@ trait ProcessRateLimits
 
     protected function parseResetTime(?string $resetTime): ?Carbon
     {
-        if (in_array($resetTime, [null, '', '0'], true)) {
-            return null;
-        }
-
-        // Parse formats like "6ms", "30s", "5m", "1h"
-        if (preg_match('/^(\d+)(ms|s|m|h)$/', $resetTime, $matches)) {
-            $value = (int) $matches[1];
-            $unit = $matches[2];
-
-            return match ($unit) {
-                'ms' => Carbon::now()->addMilliseconds($value),
-                's' => Carbon::now()->addSeconds($value),
-                'm' => Carbon::now()->addMinutes($value),
-                'h' => Carbon::now()->addHours($value),
-            };
-        }
-
-        return null;
+        return $this->resetsAtFromDuration($resetTime);
     }
 }
