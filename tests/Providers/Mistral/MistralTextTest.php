@@ -345,6 +345,42 @@ it('sets the rate limits on meta', function (): void {
     });
 });
 
+it('sets the rate limits Mistral sends now on meta', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/generate-text-with-a-prompt', [
+        'x-ratelimit-limit-tokens-minute' => 400000,
+        'x-ratelimit-remaining-tokens-minute' => 399960,
+        'x-ratelimit-tokens-query-cost' => 40,
+        'x-ratelimit-limit-req-minute' => 15,
+        'x-ratelimit-remaining-req-minute' => 14,
+    ]);
+
+    $response = Prism::text()
+        ->using(Provider::Mistral, 'test-model')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    expect($response->meta->rateLimits)->toHaveCount(2);
+    expect($response->meta->rateLimits[0]->name)->toBe('tokens');
+    expect($response->meta->rateLimits[0]->limit)->toBe(400000);
+    expect($response->meta->rateLimits[0]->remaining)->toBe(399960);
+    expect($response->meta->rateLimits[0]->resetsAt)->toBeNull();
+    expect($response->meta->rateLimits[1]->name)->toBe('requests');
+    expect($response->meta->rateLimits[1]->limit)->toBe(15);
+    expect($response->meta->rateLimits[1]->remaining)->toBe(14);
+    expect($response->meta->rateLimits[1]->resetsAt)->toBeNull();
+});
+
+it('sets no rate limits on meta when Mistral sends none', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'mistral/generate-text-with-a-prompt');
+
+    $response = Prism::text()
+        ->using(Provider::Mistral, 'test-model')
+        ->withPrompt('Who are you?')
+        ->generate();
+
+    expect($response->meta->rateLimits)->toBe([]);
+});
+
 function mistralUsageCompletion(array $usage): array
 {
     return [
