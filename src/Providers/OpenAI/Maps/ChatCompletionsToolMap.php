@@ -23,11 +23,8 @@ class ChatCompletionsToolMap
             'function' => [
                 'name' => $tool->name(),
                 'description' => $tool->description(),
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => $tool->parametersAsObject(),
-                    'required' => $tool->requiredParameters(),
-                ],
+                ...((bool) $tool->providerOptions('strict') ? ['strict' => true] : []),
+                'parameters' => $tool->parametersAsSchema(requireAllProperties: true),
             ],
         ], $tools);
     }

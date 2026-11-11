@@ -18,12 +18,8 @@ class ToolMap
             'type' => 'function',
             'name' => $tool->name(),
             'description' => $tool->description(),
-            ...count($tool->parameters()) ? [
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => $tool->parametersAsObject(),
-                    'required' => $tool->requiredParameters(),
-                ],
+            ...($tool->hasParameters() || (bool) $tool->providerOptions('strict')) ? [
+                'parameters' => $tool->parametersAsSchema(requireAllProperties: true),
             ] : [],
             'strict' => (bool) $tool->providerOptions('strict'),
         ]), $tools);

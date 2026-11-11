@@ -27,6 +27,28 @@ $response = Prism::text()
     ->asText();
 ```
 
+## Strict tools
+
+Enable strict arguments on a tool with `->withProviderOptions(['strict' => true])`. Prism closes the root parameter object with `additionalProperties: false`, including tools with no parameters. Nested schemas are sent as you define them; ensure they meet your selected provider's schema requirements.
+
+For OpenAI (Responses and Chat Completions), Azure and DeepSeek, every root parameter must be required. Prism throws `PrismException` before sending if a strict tool has optional root parameters; the message names the tool and fields. To allow a missing value, define a nullable schema while keeping the parameter required:
+
+```php
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Tool;
+
+$tool = (new Tool)
+    ->as('search')
+    ->for('Search the application')
+    ->withParameter(new StringSchema('query', 'Search query', nullable: true))
+    ->withProviderOptions(['strict' => true])
+    ->using(fn (?string $query): string => 'Application result');
+```
+
+Anthropic retains optional parameters. Qwen, OpenRouter and Requesty receive your declared required fields without the all-required pre-check; strict support and schema restrictions depend on the model and routed provider. DeepSeek strict tools require its beta endpoint. Setting strict off keeps the existing non-strict parameter shape.
+
+See the provider requirements for [OpenAI](https://developers.openai.com/api/docs/guides/function-calling#strict-mode), [Azure](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/structured-outputs), [DeepSeek](https://api-docs.deepseek.com/guides/tool_calls/) and [Anthropic](https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use).
+
 ## Max Steps
 
 Prism defaults to allowing a single step. To use Tools, you'll need to increase this using `withMaxSteps`:

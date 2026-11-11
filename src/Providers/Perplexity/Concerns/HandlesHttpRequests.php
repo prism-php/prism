@@ -18,6 +18,10 @@ trait HandlesHttpRequests
 {
     protected function sendRequest(PendingRequest $client, TextRequest|StructuredRequest $request, bool $stream = false): Response
     {
+        if ($stream) {
+            $client->withOptions(['stream' => true]);
+        }
+
         return $client->post(
             '/v1/agent',
             $this->buildHttpRequestPayload($request, $stream)

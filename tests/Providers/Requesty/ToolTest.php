@@ -48,7 +48,7 @@ it('omits the parameters key for parameterless tools', function (): void {
 });
 
 it('wraps empty parameters as an object when hasParameters is inconsistent', function (): void {
-    $tool = Mockery::mock(Tool::class);
+    $tool = Mockery::mock(Tool::class)->makePartial();
     $tool->shouldReceive('name')->andReturn('mock_tool');
     $tool->shouldReceive('description')->andReturn('A mock tool');
     $tool->shouldReceive('hasParameters')->andReturn(true);

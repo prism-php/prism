@@ -54,6 +54,7 @@ it('maps tools with strict mode', function (): void {
                 ],
             ],
             'required' => $tool->requiredParameters(),
+            'additionalProperties' => false,
         ],
         'strict' => true,
     ]]);

@@ -321,6 +321,33 @@ class Tool
         return JsonMap::ofMaps($this->parametersAsArray());
     }
 
+    /**
+     * The provider-facing root object. Nested caller schemas are unchanged.
+     *
+     * @return array<string, mixed>
+     */
+    public function parametersAsSchema(bool $requireAllProperties = false): array
+    {
+        $strict = (bool) $this->providerOptions('strict');
+        if ($strict && $requireAllProperties) {
+            $optional = array_values(array_diff(array_keys($this->parameters()), $this->requiredParameters()));
+            if ($optional !== []) {
+                throw new PrismException(sprintf(
+                    'Strict tool [%s] has optional parameters [%s]. This provider requires every property to be required. Make them required (nullable if needed) or turn strict off.',
+                    $this->name(),
+                    implode(', ', $optional),
+                ));
+            }
+        }
+
+        return [
+            'type' => 'object',
+            'properties' => $this->parametersAsObject(),
+            'required' => $this->requiredParameters(),
+            ...($strict ? ['additionalProperties' => false] : []),
+        ];
+    }
+
     public function name(): string
     {
         return $this->name;
