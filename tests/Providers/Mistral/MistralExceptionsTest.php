@@ -62,3 +62,33 @@ it('sets the correct data on the PrismRateLimitedException', function (): void {
         }
     });
 });
+
+it('sets the rate limits Mistral sends now on the PrismRateLimitedException', function (): void {
+    Http::fake([
+        '*' => Http::response(
+            status: 429,
+            headers: [
+                'x-ratelimit-limit-tokens-minute' => 400000,
+                'x-ratelimit-remaining-tokens-minute' => 0,
+                'x-ratelimit-limit-req-minute' => 15,
+                'x-ratelimit-remaining-req-minute' => 9,
+            ]
+        ),
+    ])->preventStrayRequests();
+
+    try {
+        Prism::text()
+            ->using(Provider::Mistral, 'fake-model')
+            ->withPrompt('Hello world!')
+            ->asText();
+
+        $this->fail('PrismRateLimitedException was not thrown');
+    } catch (PrismRateLimitedException $e) {
+        expect($e->rateLimits)->toHaveCount(2);
+        expect($e->rateLimits[0]->name)->toBe('tokens');
+        expect($e->rateLimits[0]->limit)->toBe(400000);
+        expect($e->rateLimits[0]->remaining)->toBe(0);
+        expect($e->rateLimits[1]->name)->toBe('requests');
+        expect($e->rateLimits[1]->remaining)->toBe(9);
+    }
+});
