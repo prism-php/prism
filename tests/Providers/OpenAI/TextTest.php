@@ -271,6 +271,24 @@ describe('tools', function (): void {
         expect($response->text)->toContain('frac{4}{3}');
     });
 
+    it('keeps the file citation of a file the code interpreter wrote', function (): void {
+        FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-code-interpreter-file');
+
+        $response = Prism::text()
+            ->using('openai', 'gpt-4.1')
+            ->withPrompt('Solve the equation 3x + 10 = 14 and plot it.')
+            ->withProviderTools([new ProviderTool(type: 'code_interpreter', options: ['container' => ['type' => 'auto']])])
+            ->asText();
+
+        expect($response->text)->toContain('x = 4/3');
+
+        $citation = $response->additionalContent['citations'][0]->citations[0];
+        expect($citation->sourceType)->toBe(CitationSourceType::Document);
+        expect($citation->source)->toBe('solution.png');
+        expect($citation->additionalContent['containerId'])->toBe('cntr_684b06db3a8c8191b0e1e6a3ea0fd1d8');
+        expect($citation->additionalContent['fileId'])->toBe('cfile_684b06e1a9e88191a1b5f1d3c0b6f8a2');
+    });
+
     it('handles a provider tool with a user defined tool', function (): void {
         FixtureResponse::fakeResponseSequence('v1/responses', 'openai/generate-text-with-required-tool-call-and-provider-tool');
 

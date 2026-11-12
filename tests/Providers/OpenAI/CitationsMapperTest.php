@@ -125,3 +125,36 @@ it('maps OpenAI file citations to Prism format', function (): void {
     expect($citation->source)->toBe('deep_research_blog.pdf:1176');
     expect($citation->sourceTitle)->toBeNull;
 });
+
+it('maps the files the code interpreter wrote and back', function (string $type, array $annotation, string $source): void {
+    $contentBlock = [
+        'type' => 'output_text',
+        'text' => 'Here is the chart.',
+        'annotations' => [['type' => $type, ...$annotation]],
+    ];
+
+    $messagePartWithCitations = CitationsMapper::mapFromOpenAI($contentBlock);
+
+    expect($messagePartWithCitations->citations)->toHaveCount(1);
+    expect($messagePartWithCitations->citations[0]->sourceType)->toBe(CitationSourceType::Document);
+    expect($messagePartWithCitations->citations[0]->source)->toBe($source);
+
+    expect(CitationsMapper::mapToOpenAI($messagePartWithCitations))->toEqual($contentBlock);
+})->with([
+    'container file citation' => ['container_file_citation', ['container_id' => 'cntr_1', 'file_id' => 'cfile_1', 'filename' => 'chart.png', 'start_index' => 0, 'end_index' => 18], 'chart.png'],
+    'file path' => ['file_path', ['file_id' => 'file-1', 'index' => 0], 'file-1'],
+]);
+
+it('skips an annotation type it does not know', function (): void {
+    $messagePartWithCitations = CitationsMapper::mapFromOpenAI([
+        'type' => 'output_text',
+        'text' => 'Some text',
+        'annotations' => [
+            ['type' => 'some_new_annotation', 'start_index' => 0, 'end_index' => 4],
+            ['type' => 'url_citation', 'start_index' => 0, 'end_index' => 4, 'url' => 'https://example.com', 'title' => 'Example'],
+        ],
+    ]);
+
+    expect($messagePartWithCitations->citations)->toHaveCount(1);
+    expect($messagePartWithCitations->citations[0]->source)->toBe('https://example.com');
+});
