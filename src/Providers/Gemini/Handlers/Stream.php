@@ -18,6 +18,7 @@ use Prism\Prism\Providers\Gemini\Maps\MessageMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolConfigMap;
 use Prism\Prism\Providers\Gemini\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -115,6 +116,24 @@ class Stream
                     id: EventID::generate(),
                     timestamp: time()
                 );
+            }
+
+            // A failure after the response started comes as an error chunk, and the stream ends there
+            if (isset($data['error'])) {
+                yield from $this->completeOpenBlocks();
+
+                $stepFinishReason = FinishReason::Error;
+
+                yield new ErrorEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    errorType: (string) data_get($data, 'error.status', 'unknown_error'),
+                    message: (string) data_get($data, 'error.message', 'Unknown error occurred'),
+                    recoverable: false,
+                    metadata: Arr::whereNotNull(['code' => data_get($data, 'error.code')]),
+                );
+
+                break;
             }
 
             $this->captureStepUsage($data);
