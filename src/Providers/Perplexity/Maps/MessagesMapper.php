@@ -74,7 +74,7 @@ class MessagesMapper
             'role' => 'assistant',
             'content' => [
                 [
-                    'type' => 'assistant',
+                    'type' => 'text',
                     'text' => $assistantMessage->content,
                 ],
             ],
@@ -90,7 +90,7 @@ class MessagesMapper
             'role' => 'system',
             'content' => [
                 [
-                    'type' => 'system',
+                    'type' => 'text',
                     'text' => $systemMessage->content,
                 ],
             ],

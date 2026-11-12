@@ -41,7 +41,7 @@ trait HandlesHttpRequests
 
         return array_merge([
             'model' => $request->model(),
-            'messages' => (new MessagesMapper($request->messages()))->toPayload(),
+            'messages' => (new MessagesMapper([...$request->systemPrompts(), ...$request->messages()]))->toPayload(),
             'max_tokens' => $request->maxTokens(),
             'stream' => $stream,
         ], Arr::whereNotNull([
