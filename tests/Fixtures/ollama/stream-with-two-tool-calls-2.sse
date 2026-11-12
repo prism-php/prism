@@ -1,0 +1,2 @@
+{"model":"qwen3:14b","created_at":"2025-06-09T17:59:23.284159Z","message":{"role":"assistant","content":"The game is at 3pm and it will be 75° and sunny, so no coat."},"done":false}
+{"model":"qwen3:14b","created_at":"2025-06-09T17:59:23.400000Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":1000000000,"load_duration":24478458,"prompt_eval_count":306,"prompt_eval_duration":339942708,"eval_count":20,"eval_duration":600000000}

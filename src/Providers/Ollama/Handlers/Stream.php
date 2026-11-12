@@ -328,8 +328,14 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'message.tool_calls', []) as $index => $toolCall) {
-            if ($name = data_get($toolCall, 'function.name')) {
+        foreach (data_get($data, 'message.tool_calls', []) as $toolCall) {
+            $name = data_get($toolCall, 'function.name');
+
+            // Ollama streams each call in its own chunk, at position 0, and numbers it with
+            // function.index, which it leaves out for the first call of a turn
+            $index = data_get($toolCall, 'function.index') ?? ($name ? count($toolCalls) : array_key_last($toolCalls) ?? 0);
+
+            if ($name) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
                 $toolCalls[$index]['id'] = data_get($toolCall, 'id');

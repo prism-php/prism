@@ -115,8 +115,11 @@ it('can generate text using tools with streaming', function (): void {
     expect($events)->not->toBeEmpty();
     expect($text)->not->toBeEmpty();
 
-    expect($toolCallEvents)->toHaveCount(2);
-    expect($toolResultEvents)->toHaveCount(2);
+    // The model asked for both tools in the first step. The second step was recorded when only the
+    // last of them ran, so it asks for the weather again.
+    expect(array_map(fn (ToolCallEvent $event): string => $event->toolCall->name, $toolCallEvents))
+        ->toBe(['weather', 'search', 'weather']);
+    expect($toolResultEvents)->toHaveCount(3);
 
     // For the basic tools test, validate completion state
     expect($finishReasonFound)->toBeTrue();
@@ -143,6 +146,39 @@ it('can generate text using tools with streaming', function (): void {
         ->all();
 
     expect($stepUsage)->toBe([[218, 306], [263, 152], [306, 188]]);
+});
+
+it('runs every tool call of a streamed step, each sent in its own chunk', function (): void {
+    FixtureResponse::fakeStreamResponses('api/chat', 'ollama/stream-with-two-tool-calls');
+
+    $tools = [
+        Tool::as('weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+
+        Tool::as('search')
+            ->for('useful for searching current events or data')
+            ->withStringParameter('query', 'The detailed search query')
+            ->using(fn (string $query): string => 'The tigers game is at 3pm today'),
+    ];
+
+    $events = iterator_to_array(Prism::text()
+        ->using('ollama', 'qwen3:14b')
+        ->withTools($tools)
+        ->withMaxSteps(3)
+        ->withPrompt('What time is the tigers game today in Detroit and should I wear a coat?')
+        ->asStream(), false);
+
+    $toolResults = collect($events)->whereInstanceOf(ToolResultEvent::class)->values();
+
+    expect($toolResults->map(fn (ToolResultEvent $event): string => $event->toolResult->toolName)->all())
+        ->toBe(['weather', 'search']);
+
+    Http::assertSentCount(2);
+
+    $toolMessages = collect(Http::recorded()[1][0]->data()['messages'])->where('role', 'tool');
+    expect($toolMessages)->toHaveCount(2);
 });
 
 it('throws a PrismRateLimitedException with a 429 response code', function (): void {
