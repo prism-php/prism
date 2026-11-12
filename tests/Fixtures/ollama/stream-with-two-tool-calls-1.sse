@@ -1,0 +1,3 @@
+{"model":"qwen3:14b","created_at":"2025-06-09T17:58:55.337823Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"weather","arguments":{"city":"Detroit"}}}]},"done":false}
+{"model":"qwen3:14b","created_at":"2025-06-09T17:58:57.045402Z","message":{"role":"assistant","content":"","tool_calls":[{"function":{"index":1,"name":"search","arguments":{"query":"Detroit Tigers game time today"}}}]},"done":false}
+{"model":"qwen3:14b","created_at":"2025-06-09T17:58:57.192416Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":23595672042,"load_duration":24478458,"prompt_eval_count":218,"prompt_eval_duration":339942708,"eval_count":306,"eval_duration":23230435042}
