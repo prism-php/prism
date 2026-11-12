@@ -144,6 +144,33 @@ it('can generate text using tools with streaming', function (): void {
     });
 });
 
+it('sends the reasoning of a streamed tool call turn back to DeepSeek', function (): void {
+    FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-with-reasoning-and-tools');
+
+    $tools = [
+        Tool::as('get_weather')
+            ->for('useful when you need to search for current weather conditions')
+            ->withStringParameter('city', 'The city that you want the weather for')
+            ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+    ];
+
+    $response = Prism::text()
+        ->using(Provider::DeepSeek, 'deepseek-reasoner')
+        ->withTools($tools)
+        ->withMaxSteps(3)
+        ->withPrompt('What is the weather in Detroit?')
+        ->asStream();
+
+    foreach ($response as $event) {
+        // Process stream
+    }
+
+    $assistantMessage = collect(Http::recorded()[1][0]->data()['messages'])->firstWhere('role', 'assistant');
+
+    expect($assistantMessage['reasoning_content'])->toBe('The user wants the weather in Detroit, so I call get_weather.')
+        ->and($assistantMessage['tool_calls'][0]['function']['name'])->toBe('get_weather');
+});
+
 it('handles max_tokens parameter correctly', function (): void {
     FixtureResponse::fakeStreamResponses('chat/completions', 'deepseek/stream-max-tokens');
 
