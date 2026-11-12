@@ -1,0 +1,10 @@
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"role":"assistant","content":null,"reasoning_content":""},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"content":null,"reasoning_content":"It is sunny."},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"content":"It will be 75\u00b0 and sunny in Detroit."},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"content":""},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":180,"completion_tokens":15,"total_tokens":195}}
+
+data: [DONE]
+

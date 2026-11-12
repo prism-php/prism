@@ -122,6 +122,8 @@ class Stream
                     );
                 }
 
+                $this->state->appendThinking($reasoningDelta);
+
                 yield new ThinkingEvent(
                     id: EventID::generate(),
                     timestamp: time(),
@@ -402,7 +404,13 @@ class Stream
             finishReason: FinishReason::ToolCalls,
         );
 
-        $request->addMessage(new AssistantMessage($text, $mappedToolCalls));
+        // DeepSeek rejects a later request whose tool call turn lacks the reasoning that led to it
+        $reasoningContent = $this->state->currentThinking();
+        $request->addMessage(new AssistantMessage(
+            $text,
+            $mappedToolCalls,
+            $reasoningContent !== '' ? ['reasoning_content' => $reasoningContent] : []
+        ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 

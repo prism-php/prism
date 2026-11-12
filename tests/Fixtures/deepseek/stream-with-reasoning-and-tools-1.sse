@@ -1,0 +1,14 @@
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"role":"assistant","content":null,"reasoning_content":""},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"content":null,"reasoning_content":"The user wants the weather"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"content":null,"reasoning_content":" in Detroit, so I call get_weather."},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_0_3f1c9e52-8b0a-4d6e-9c2f-1a7b5d4e8f60","type":"function","function":{"name":"get_weather","arguments":""}}]},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":\"Detroit\"}"}}]},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"7c1a0f2e-5b8d-4e57-9a51-2d1f0b7a6c33","object":"chat.completion.chunk","created":1752810400,"model":"deepseek-reasoner","system_fingerprint":"fp_393bca965e_prod0623_fp8_kvcache","choices":[{"index":0,"delta":{"content":""},"logprobs":null,"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":120,"completion_tokens":40,"total_tokens":160,"completion_tokens_details":{"reasoning_tokens":20}}}
+
+data: [DONE]
+
