@@ -138,11 +138,14 @@ class Mistral extends Provider
     {
         $data = $e->response->json() ?? [];
 
+        // A validation error (422) carries the details of each invalid field as the message
+        $message = data_get($data, 'message');
+
         throw PrismException::providerRequestErrorWithDetails(
             provider: 'Mistral',
             statusCode: $e->response->getStatusCode(),
             errorType: data_get($data, 'type') ?? data_get($data, 'object'),
-            errorMessage: data_get($data, 'message'),
+            errorMessage: is_array($message) ? json_encode($message) : $message,
             previous: $e
         );
     }
