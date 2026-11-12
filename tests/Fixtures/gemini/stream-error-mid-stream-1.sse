@@ -1,0 +1,2 @@
+data: {"candidates": [{"content": {"parts": [{"text": "AI works by learning patterns from"}],"role": "model"}}],"usageMetadata": {"promptTokenCount": 21,"totalTokenCount": 21},"modelVersion": "gemini-2.5-flash","responseId": "za9caLp-rJ_Psg-Ou6T4BA"}
+data: {"error": {"code": 503,"message": "The model is overloaded. Please try again later.","status": "UNAVAILABLE"}}

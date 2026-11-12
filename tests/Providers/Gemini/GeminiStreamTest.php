@@ -11,6 +11,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -217,6 +218,25 @@ it('can generate text stream using tools ', function (): void {
     // Verify the HTTP request
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'streamGenerateContent?alt=sse')
         && isset($request->data()['contents']));
+});
+
+it('ends the step with an error when Gemini sends an error chunk mid-stream', function (): void {
+    FixtureResponse::fakeResponseSequence('*', 'gemini/stream-error-mid-stream');
+
+    $events = iterator_to_array(Prism::text()
+        ->using(Provider::Gemini, 'gemini-2.5-flash')
+        ->withPrompt('Explain how AI works')
+        ->asStream(), false);
+
+    $error = collect($events)->first(fn (StreamEvent $event): bool => $event instanceof ErrorEvent);
+    expect($error)->toBeInstanceOf(ErrorEvent::class);
+    expect($error->errorType)->toBe('UNAVAILABLE');
+    expect($error->message)->toBe('The model is overloaded. Please try again later.');
+    expect($error->metadata)->toBe(['code' => 503]);
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+    expect($lastEvent->finishReason)->toBe(FinishReason::Error);
 });
 
 it('can generate text stream using file_search provider tool with options', function (): void {
