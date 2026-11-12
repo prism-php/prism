@@ -92,6 +92,20 @@ it('handles errors with object fallback for type', function (): void {
         ->toThrow(PrismException::class, 'Mistral Error [400]: error - Invalid model specified');
 });
 
+it('handles validation errors whose message is a list of details (422)', function (): void {
+    $mockResponse = createMistralMockResponse(422, [
+        'object' => 'error',
+        'message' => ['detail' => [['type' => 'float_type', 'loc' => ['body', 'top_p'], 'msg' => 'Input should be a valid number', 'input' => 'high']]],
+        'type' => 'invalid_request_error',
+        'param' => null,
+        'code' => null,
+    ]);
+    $exception = new RequestException($mockResponse);
+
+    expect(fn () => $this->provider->handleRequestException('mistral-large', $exception))
+        ->toThrow(PrismException::class, 'Mistral Error [422]: invalid_request_error - {"detail":[{"type":"float_type","loc":["body","top_p"],"msg":"Input should be a valid number","input":"high"}]}');
+});
+
 it('handles errors without any error details', function (): void {
     $mockResponse = createMistralMockResponse(500, []);
     $exception = new RequestException($mockResponse);
