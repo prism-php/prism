@@ -76,3 +76,21 @@ it('forwards deepseek provider options in structured requests without overriding
         return true;
     });
 });
+
+it('sends the max tokens as max_tokens, the parameter DeepSeek reads', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/structured');
+
+    Prism::structured()
+        ->using(Provider::DeepSeek, 'deepseek-chat')
+        ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('weather', 'The weather forecast')], ['weather']))
+        ->withPrompt('What is the weather?')
+        ->withMaxTokens(100)
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->data()['max_tokens'])->toBe(100);
+        expect($request->data())->not->toHaveKey('max_completion_tokens');
+
+        return true;
+    });
+});
