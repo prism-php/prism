@@ -29,7 +29,7 @@ class TextToSpeechRequestMapper extends ProviderRequestMapper
         $voiceSettings = $providerOptions['voice_settings'] ?? [];
 
         $supportedOptions = [
-            'model_id' => $providerOptions['model_id'] ?? null,
+            'model_id' => $providerOptions['model_id'] ?? ($this->request->model() !== '' ? $this->request->model() : null),
             'voice_settings' => [
                 'stability' => $voiceSettings['stability'] ?? null,
                 'use_speaker_boost' => $voiceSettings['use_speaker_boost'] ?? null,

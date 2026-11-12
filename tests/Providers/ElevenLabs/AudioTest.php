@@ -40,6 +40,39 @@ describe('Text-to-Speech', function (): void {
         });
     });
 
+    it('sends the model given to using() as the model_id', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'text-to-speech/onwK4e9ZLuTAKqWW03F9',
+            'elevenlabs/text-to-speech-basic',
+            ['Content-Type' => 'audio/wav']
+        );
+
+        Prism::audio()
+            ->using('elevenlabs', 'eleven_flash_v2_5')
+            ->withInput('Hello world!')
+            ->withVoice('onwK4e9ZLuTAKqWW03F9')
+            ->asAudio();
+
+        Http::assertSent(fn (Request $request): bool => $request->data()['model_id'] === 'eleven_flash_v2_5');
+    });
+
+    it('lets the model_id provider option win over the model given to using()', function (): void {
+        FixtureResponse::fakeResponseSequence(
+            'text-to-speech/onwK4e9ZLuTAKqWW03F9',
+            'elevenlabs/text-to-speech-basic',
+            ['Content-Type' => 'audio/wav']
+        );
+
+        Prism::audio()
+            ->using('elevenlabs', 'eleven_flash_v2_5')
+            ->withInput('Hello world!')
+            ->withVoice('onwK4e9ZLuTAKqWW03F9')
+            ->withProviderOptions(['model_id' => 'eleven_multilingual_v2'])
+            ->asAudio();
+
+        Http::assertSent(fn (Request $request): bool => $request->data()['model_id'] === 'eleven_multilingual_v2');
+    });
+
     it('can generate audio with different response format', function (): void {
         FixtureResponse::fakeResponseSequence(
             'text-to-speech/onwK4e9ZLuTAKqWW03F9',
