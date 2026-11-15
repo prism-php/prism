@@ -97,7 +97,29 @@ The non-streaming endpoint always serializes `finish_reason` as `stop`; it does 
 
 ## Errors
 
-Caught model-resolution, message-mapping and generation errors return HTTP 500 with `{"error":{"message":"..."}}`. The message is the original exception message and can contain provider diagnostics. Restrict endpoint access and handle diagnostics according to your application's data policy. Validation failures use Laravel's validation response.
+Errors use the OpenAI shape, `{"error":{"message":"...","type":"...","code":...}}`, with a fixed message. An exception's own message is never sent to the caller:
+
+| Failure | Status | `code` |
+| --- | --- | --- |
+| Unknown model | 404 | `model_not_found` |
+| Messages that cannot be read | 422 | `invalid_messages` |
+| Anything else, including provider errors | 500 | `null` (`type` is `server_error`) |
+
+For a 500, the exception is reported through your application's exception handler, so it reaches your logs with its full detail. Requests that fail validation keep Laravel's validation response (422).
+
+To decide the response yourself, register a renderer. Return a response to use it, or `null` to keep the default:
+
+```php
+use Prism\Prism\Facades\PrismServer;
+
+PrismServer::renderErrorsUsing(function (Throwable $e) {
+    return response()->json([
+        'error' => ['message' => 'The assistant is unavailable. Try again later.', 'type' => 'server_error'],
+    ], 503);
+});
+```
+
+Whatever your renderer returns is sent as it is, so do not put exception messages in it unless your callers may see them. If the renderer throws, Prism uses the default response and reports both exceptions.
 
 Streaming failures can occur after HTTP headers have been sent and are not converted by that outer error handler. A stream closing without its expected terminator is not successful completion.
 

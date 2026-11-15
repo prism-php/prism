@@ -87,11 +87,45 @@ class PrismChatController
         ]);
     }
 
+    /**
+     * An OpenAI-shaped error that never carries an exception's own message (#150).
+     *
+     * Exception text can hold provider error bodies, upstream URLs, SQL or file paths from whatever a
+     * registered closure threw. A caller-side failure gets its fixed public message and status; anything
+     * else goes to the app's exception handler and the caller gets a generic 500.
+     */
     protected function error(Throwable $e): Response
     {
+        $renderer = PrismServer::errorRenderer();
+        if ($renderer !== null) {
+            try {
+                $rendered = $renderer($e);
+                if ($rendered instanceof Response) {
+                    return $rendered;
+                }
+            } catch (Throwable $failure) {
+                // A broken renderer must not turn into a leak: fall back to the safe default below.
+                report($failure);
+            }
+        }
+
+        if ($e instanceof PrismServerException && $e->status < 500) {
+            return response()->json([
+                'error' => [
+                    'message' => $e->publicMessage,
+                    'type' => $e->type,
+                    'code' => $e->errorCode,
+                ],
+            ], $e->status);
+        }
+
+        report($e);
+
         return response()->json([
             'error' => [
-                'message' => $e->getMessage(),
+                'message' => 'The server could not complete the request.',
+                'type' => 'server_error',
+                'code' => null,
             ],
         ], Response::HTTP_INTERNAL_SERVER_ERROR);
     }
@@ -162,7 +196,7 @@ class PrismChatController
                 'user' => $this->mapUserMessage($message),
                 'assistant' => new AssistantMessage($this->extractTextContent($message['content'])),
                 'system' => new SystemMessage($this->extractTextContent($message['content'])),
-                default => throw new PrismServerException("Couldn't map messages to Prism messages")
+                default => throw PrismServerException::invalidMessages("Couldn't map messages to Prism messages")
             })
             ->all();
     }
@@ -205,7 +239,7 @@ class PrismChatController
         }
 
         // This line should never be reached due to the type guards above
-        throw new PrismServerException('Invalid message content type');
+        throw PrismServerException::invalidMessages('Invalid message content type');
     }
 
     /**
