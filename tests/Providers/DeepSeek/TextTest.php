@@ -153,11 +153,10 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
-// Upstream prism-php/prism#1032 by @leobeal (fixes prism-php/prism#1031): the
-// DeepSeek handlers dropped provider options entirely, so `thinking` could not
-// be disabled. Absorbed as a generic pass-through rather than upstream's
-// five-key allowlist, matching the Ollama handler — every DeepSeek knob is
-// forwarded, including ones DeepSeek adds later.
+// Upstream prism-php/prism#1032 (fixes prism-php/prism#1031): the DeepSeek
+// handlers dropped provider options entirely, so `thinking` could not be
+// disabled. Every option is forwarded as a generic pass-through, matching the
+// Ollama handler, so knobs DeepSeek adds later need no change here.
 it('forwards deepseek provider options into the request body', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
 
@@ -178,7 +177,7 @@ it('forwards deepseek provider options into the request body', function (): void
     });
 });
 
-it('forwards a deepseek option the allowlist never knew about', function (): void {
+it('forwards deepseek provider options prism does not name', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
 
     Prism::text()
@@ -210,12 +209,12 @@ it('omits deepseek provider options that were not set', function (): void {
     });
 });
 
-it('does not let a provider option clobber model or messages', function (): void {
+it('does not let a provider option override model or messages', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
 
     Prism::text()
         ->using(Provider::DeepSeek, 'deepseek-chat')
-        ->withProviderOptions(['model' => 'evil-model', 'messages' => []])
+        ->withProviderOptions(['model' => 'other-model', 'messages' => []])
         ->withPrompt('Who are you?')
         ->asText();
 

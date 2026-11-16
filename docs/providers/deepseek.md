@@ -34,6 +34,34 @@ $reasoning = $response->additionalContent['reasoning_content'] ?? null;
 
 Per-tool `strict` is forwarded in the function definition. Request provider options such as `thinking` and `reasoning_effort` are passed through to DeepSeek; explicit Prism model, messages, token and sampling settings take precedence over conflicting options. Use options supported by the selected model. See the [DeepSeek model catalog](https://api-docs.deepseek.com/api/list-models/) for available IDs.
 
+### Thinking mode
+
+DeepSeek enables thinking mode by default. You can turn it off, or tune the reasoning effort, through provider options. See the [DeepSeek thinking mode guide](https://api-docs.deepseek.com/guides/thinking_mode) for details.
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
+
+// Disable thinking
+$response = Prism::text()
+    ->using(Provider::DeepSeek, 'deepseek-v4-pro')
+    ->withPrompt('Who are you?')
+    ->withProviderOptions(['thinking' => ['type' => 'disabled']])
+    ->asText();
+
+// Enable thinking with a specific effort (low, high or max)
+$response = Prism::text()
+    ->using(Provider::DeepSeek, 'deepseek-v4-pro')
+    ->withPrompt('Solve this step by step...')
+    ->withProviderOptions([
+        'thinking' => ['type' => 'enabled'],
+        'reasoning_effort' => 'max',
+    ])
+    ->asText();
+```
+
+When neither option is set, nothing is sent and DeepSeek's defaults apply.
+
 ## Structured output
 
 ```php
