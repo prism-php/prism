@@ -89,11 +89,82 @@ Configure an OpenAI-compatible client with the base URL `https://your-app.exampl
 
 ## Supported request fields
 
-The controller reads `model`, `messages` and `stream`. Always include a message array. Client fields such as `temperature`, `max_tokens`, `top_p`, `tools`, `tool_choice` and `response_format` do not override the registered builder.
+The controller reads `model`, `messages` and `stream`. Always include a message array. Client fields such as `temperature`, `max_tokens`, `top_p`, `tools`, `tool_choice` and `response_format` are ignored and do not override the registered builder. A client cannot add a tool, redefine one or choose which tool the model calls.
 
-Message roles are limited to `user`, `assistant` and `system`; a `tool` role is refused. User content can carry supported OpenAI-style text/image parts, while assistant and system content are mapped as text. Use Prism directly for client-tool continuation and approvals.
+Message roles are limited to `user`, `assistant` and `system`; a `tool` role is refused. An `assistant` message that carries `tool_calls` (or a legacy `function_call`) is refused the same way, with `422 invalid_messages`; its error message names the position in your `messages` array, for example `messages[3]: an assistant message carrying tool calls cannot be replayed; a returned tool call ends the conversation.` Other unreadable messages get the generic message. Unknown top-level fields are ignored. User content can carry supported OpenAI-style text/image parts, while assistant and system content are mapped as text. Use Prism directly for client-tool continuation and approvals.
 
-The non-streaming endpoint always serializes `finish_reason` as `stop`; it does not preserve Prism's refusal, truncation or other finish reasons. Use Prism directly when your workflow needs those distinctions.
+The non-streaming endpoint serializes `finish_reason` as `tool_calls` when it [returns tool calls](#returning-tool-calls-to-the-caller), and as `stop` otherwise; it does not preserve Prism's refusal, truncation or other finish reasons. Use Prism directly when your workflow needs those distinctions.
+
+## Returning tool calls to the caller
+
+A registered prism can end a turn in a tool call that the caller reads instead of the server running it. Use this when the client needs a structured signal, for example "the interview is over, here is the result", while ordinary turns stay plain text.
+
+Mark the tool with `clientExecuted()` on the registered prism. Tools with a handler keep running on the server as before and are never shown to the caller:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Facades\PrismServer;
+use Prism\Prism\Facades\Tool;
+
+PrismServer::register(
+    'interview',
+    fn () => Prism::text()
+        ->using('openai', 'gpt-5')
+        ->withSystemPrompt('Interview the user. When you have everything, call business_case_report.')
+        ->withMaxSteps(5)
+        ->withTools([
+            Tool::as('lookup_pricing')
+                ->for('Look up a price')
+                ->withStringParameter('plan', 'The plan name')
+                ->using(fn (string $plan): string => (string) config("pricing.{$plan}", "unknown")),
+            Tool::as('business_case_report')
+                ->for('Report the finished business case')
+                ->withStringParameter('problem', 'The problem')
+                ->withStringParameter('report', 'The report')
+                ->clientExecuted(),
+        ])
+);
+```
+
+When the model calls `business_case_report`, the run stops and the response carries the call in the OpenAI Chat Completions shape:
+
+```json
+{
+  "id": "resp_123",
+  "object": "chat.completion",
+  "created": 1763400000,
+  "model": "gpt-5",
+  "usage": { "prompt_tokens": 60, "completion_tokens": 13, "total_tokens": 73 },
+  "choices": [{
+    "index": 0,
+    "message": {
+      "content": "Thanks, that is everything.",
+      "role": "assistant",
+      "tool_calls": [{
+        "id": "call_abc123",
+        "type": "function",
+        "function": {
+          "name": "business_case_report",
+          "arguments": "{\"problem\":\"churn\",\"report\":\"...\"}"
+        }
+      }]
+    },
+    "finish_reason": "tool_calls"
+  }]
+}
+```
+
+- `arguments` is a JSON string, `"{}"` when the call has none.
+- `content` is `null` when the model wrote no text beside the call.
+- `finish_reason` is `tool_calls` exactly when `tool_calls` is present.
+- `usage` covers the whole turn, including earlier steps that ran server tools.
+- `id` is the provider's tool call id, or a generated `call_…` id when the provider sent none.
+
+The server never runs a returned tool. If the model calls a server tool and a returned tool in the same step, nothing from that step runs: the response carries only the returned calls, and the server tool is neither executed nor shown. Server tools called in earlier steps run as usual.
+
+The exchange is one-way. The client does not send tool results back, and a `tool` message or an assistant message with `tool_calls` in a later request is refused. Send the next turn as a fresh request with the history as `user`, `assistant` and `system` messages.
+
+Streaming is not available for a prism that has returned tools. A request with `"stream": true` is refused with `400 stream_not_supported` before the provider is called.
 
 ## Errors
 
@@ -102,7 +173,8 @@ Errors use the OpenAI shape, `{"error":{"message":"...","type":"...","code":...}
 | Failure | Status | `code` |
 | --- | --- | --- |
 | Unknown model | 404 | `model_not_found` |
-| Messages that cannot be read | 422 | `invalid_messages` |
+| Messages that cannot be read, including `tool` messages and assistant `tool_calls` | 422 | `invalid_messages` |
+| `"stream": true` for a prism with returned tools | 400 | `stream_not_supported` |
 | Anything else, including provider errors | 500 | `null` (`type` is `server_error`) |
 
 For a 500, the exception is reported through your application's exception handler, so it reaches your logs with its full detail. Requests that fail validation keep Laravel's validation response (422).

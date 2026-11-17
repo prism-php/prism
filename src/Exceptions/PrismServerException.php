@@ -38,6 +38,36 @@ class PrismServerException extends Exception
         return $exception;
     }
 
+    /**
+     * A registered prism that returns tool calls to its caller cannot stream: the stream carries text
+     * only, so a returned call would either be dropped or have to be run. Refused before any provider call.
+     */
+    public static function streamingReturnedTools(string $model): self
+    {
+        $exception = new self(sprintf('Prism "%s" returns tool calls to the caller and cannot be streamed', $model));
+        $exception->status = 400;
+        $exception->type = 'invalid_request_error';
+        $exception->errorCode = 'stream_not_supported';
+        $exception->publicMessage = 'This model does not support streaming. Send the request with "stream": false.';
+
+        return $exception;
+    }
+
+    /**
+     * An assistant message in the history carries tool calls. The public message names the position and
+     * the reason because both are the caller's own input: the index is an integer and the text is fixed.
+     */
+    public static function replayedToolCalls(int $index): self
+    {
+        $exception = self::invalidMessages(sprintf('Assistant message %d carries tool calls', $index));
+        $exception->publicMessage = sprintf(
+            'messages[%d]: an assistant message carrying tool calls cannot be replayed; a returned tool call ends the conversation.',
+            $index,
+        );
+
+        return $exception;
+    }
+
     public static function invalidMessages(string $reason): self
     {
         $exception = new self($reason);

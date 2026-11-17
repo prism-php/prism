@@ -27,6 +27,16 @@ trait HasTools
         return $this;
     }
 
+    /**
+     * The tools this request will offer the model.
+     *
+     * @return array<int, Tool>
+     */
+    public function tools(): array
+    {
+        return $this->tools;
+    }
+
     public function withoutToolErrorHandling(): self
     {
         $this->toolErrorHandlingEnabled = false;

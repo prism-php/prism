@@ -21,6 +21,7 @@ use Throwable;
 it('handles chat requests successfully', function (): void {
     $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(fn ($messages): bool => $messages[0] instanceof UserMessage
@@ -83,6 +84,7 @@ it('handles chat requests successfully', function (): void {
 
 it('reports cached input inside prompt_tokens like the OpenAI API', function (): void {
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
     $generator->expects('withMessages')->andReturnSelf();
     $generator->expects('asText')->andReturn(new Response(
         steps: collect(),
@@ -121,6 +123,7 @@ it('reports cached input inside prompt_tokens like the OpenAI API', function ():
 
 it('reports a cache read of zero but leaves out details it does not know', function (): void {
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
     $generator->expects('withMessages')->andReturnSelf();
     $generator->expects('asText')->andReturn(new Response(
         steps: collect(),
@@ -151,6 +154,7 @@ it('reports a cache read of zero but leaves out details it does not know', funct
 it('handles streaming requests', function (): void {
     $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(fn ($messages): bool => $messages[0] instanceof UserMessage
@@ -280,6 +284,7 @@ it('still answers a malformed request with 422', function (): void {
 it('handles multimodal messages with image URL', function (): void {
     $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(function ($messages): bool {
@@ -331,6 +336,7 @@ it('handles multimodal messages with image URL', function (): void {
 it('handles multimodal messages with base64 image', function (): void {
     $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $base64Image = base64_encode('fake-image-data');
 
@@ -385,6 +391,7 @@ it('handles multimodal messages with base64 image', function (): void {
 it('handles multimodal messages with multiple images', function (): void {
     $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(function ($messages): bool {
@@ -437,6 +444,7 @@ it('handles multimodal messages with multiple images', function (): void {
 it('handles mixed simple and multimodal messages', function (): void {
     $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(fn ($messages): bool => count($messages) === 2

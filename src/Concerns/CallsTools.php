@@ -184,6 +184,7 @@ trait CallsTools
     protected function filterServerExecutedToolCalls(array $tools, array $toolCalls, bool &$hasPendingToolCalls, array &$approvalRequiredToolCalls): array
     {
         $serverToolCalls = [];
+        $withholdStep = false;
 
         foreach ($toolCalls as $index => $toolCall) {
             try {
@@ -191,6 +192,7 @@ trait CallsTools
 
                 if ($tool->isClientExecuted()) {
                     $hasPendingToolCalls = true;
+                    $withholdStep = $withholdStep || $tool->withholdsOtherCalls();
 
                     continue;
                 }
@@ -207,6 +209,14 @@ trait CallsTools
                 // Unknown tool — keep it so error handling fires in executeToolCall.
                 $serverToolCalls[$index] = $toolCall;
             }
+        }
+
+        // A client-executed tool that withholds the step: nothing from this
+        // step runs, not even a call that would only have asked for approval.
+        if ($withholdStep) {
+            $approvalRequiredToolCalls = [];
+
+            return [];
         }
 
         return $serverToolCalls;

@@ -3,16 +3,21 @@
 namespace Prism\Prism\Http\Controllers;
 
 use Illuminate\Support\ItemNotFoundException;
+use Illuminate\Support\Str;
+use JsonException;
 use Prism\Prism\Exceptions\PrismServerException;
 use Prism\Prism\Facades\PrismServer;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
+use stdClass;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -34,11 +39,17 @@ class PrismChatController
 
             $prism->withMessages($this->mapMessages($messages));
 
+            $returnedTools = $this->prepareReturnedTools($prism);
+
             if (request('stream')) {
+                if ($returnedTools !== []) {
+                    throw PrismServerException::streamingReturnedTools(request('model'));
+                }
+
                 return $this->stream($prism);
             }
 
-            return $this->chat($prism);
+            return $this->chat($prism, $returnedTools);
         } catch (Throwable $e) {
             return $this->error($e);
         }
@@ -130,9 +141,91 @@ class PrismChatController
         ], Response::HTTP_INTERNAL_SERVER_ERROR);
     }
 
-    protected function chat(PendingRequest $generator): Response
+    /**
+     * Find the registered prism's client-executed tools: the calls Prism Server returns to its caller.
+     *
+     * Each one is copied with withholdOtherCalls(), so a step that calls it runs nothing else. The
+     * caller never sends tool results back, so a tool run beside it would act for nobody. The app's own
+     * Tool instances are not modified. Only tools the app registered can be returned: the request's
+     * `tools` and `tool_choice` are never read.
+     *
+     * @return array<int, string> the names of the returned tools
+     */
+    protected function prepareReturnedTools(PendingRequest $prism): array
+    {
+        $tools = $prism->tools();
+
+        $returned = $this->returnedToolNames($tools);
+
+        if ($returned === []) {
+            return [];
+        }
+
+        $prism->withTools(array_map(
+            fn (Tool $tool): Tool => $tool->isClientExecuted() ? (clone $tool)->withholdOtherCalls() : $tool,
+            $tools,
+        ));
+
+        return $returned;
+    }
+
+    /**
+     * A name counts only when exactly one registered tool has it, matching how a call is resolved to a
+     * tool. A name shared with a tool the server runs is never returned to the caller.
+     *
+     * @param  array<int, Tool>  $tools
+     * @return array<int, string>
+     */
+    protected function returnedToolNames(array $tools): array
+    {
+        $counts = [];
+        $clientExecuted = [];
+
+        foreach ($tools as $tool) {
+            $counts[$tool->name()] = ($counts[$tool->name()] ?? 0) + 1;
+
+            if ($tool->isClientExecuted()) {
+                $clientExecuted[] = $tool->name();
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            $clientExecuted,
+            fn (string $name): bool => $counts[$name] === 1,
+        )));
+    }
+
+    /**
+     * @param  array<int, string>  $returnedTools
+     */
+    protected function chat(PendingRequest $generator, array $returnedTools = []): Response
     {
         $response = $generator->asText();
+
+        $toolCalls = $this->returnedToolCalls($response, $returnedTools);
+
+        if ($toolCalls !== []) {
+            $text = $this->textFromResponse($response);
+
+            return response()->json([
+                'id' => $response->meta->id,
+                'object' => 'chat.completion',
+                'created' => now()->timestamp,
+                'model' => $response->meta->model,
+                'usage' => $this->mapUsage($response->usage),
+                'choices' => [
+                    [
+                        'index' => 0,
+                        'message' => [
+                            'content' => $text === '' ? null : $text,
+                            'role' => 'assistant',
+                            'tool_calls' => array_map($this->mapToolCall(...), $toolCalls),
+                        ],
+                        'finish_reason' => 'tool_calls',
+                    ],
+                ],
+            ]);
+        }
 
         $data = [
             'id' => $response->meta->id,
@@ -153,6 +246,66 @@ class PrismChatController
         ];
 
         return response()->json($data);
+    }
+
+    /**
+     * The final step's calls to returned tools. Calls to tools the server runs are never listed.
+     *
+     * @param  array<int, string>  $returnedTools
+     * @return array<int, ToolCall>
+     */
+    protected function returnedToolCalls(TextResponse $response, array $returnedTools): array
+    {
+        if ($returnedTools === []) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $response->toolCalls,
+            fn (ToolCall $call): bool => in_array($call->name, $returnedTools, true),
+        ));
+    }
+
+    /**
+     * OpenAI's shape: `arguments` is a JSON string, `{}` when there are none.
+     *
+     * The id is the provider's call id: OpenAI's Responses API carries it as `call_id` (Prism's
+     * `resultId`, the `call_…` value), every other provider as the call's own id. One is generated when
+     * the provider sent none.
+     *
+     * @return array{id: string, type: string, function: array{name: string, arguments: string}}
+     */
+    protected function mapToolCall(ToolCall $call): array
+    {
+        $id = $call->resultId !== null && $call->resultId !== '' ? $call->resultId : $call->id;
+
+        return [
+            'id' => $id !== '' ? $id : 'call_'.Str::random(24),
+            'type' => 'function',
+            'function' => [
+                'name' => $call->name,
+                'arguments' => $this->argumentsJson($call),
+            ],
+        ];
+    }
+
+    /**
+     * The model's own argument string when it is a JSON object, so the caller reads what the model sent.
+     * Otherwise the arguments re-encoded as an object: `{}`, never `[]`, for none.
+     */
+    protected function argumentsJson(ToolCall $call): string
+    {
+        if (is_string($call->arguments)) {
+            try {
+                if (json_decode($call->arguments, false, 512, JSON_THROW_ON_ERROR) instanceof stdClass) {
+                    return $call->arguments;
+                }
+            } catch (JsonException) {
+                // Not JSON: fall through to the re-encoded object.
+            }
+        }
+
+        return json_encode($call->argumentsAsObject(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -191,14 +344,34 @@ class PrismChatController
      */
     protected function mapMessages(array $messages): array
     {
-        return collect($messages)
-            ->map(fn (array $message): UserMessage|AssistantMessage|SystemMessage => match ($message['role']) {
+        // array_values: the index reported to the caller is the position in its own `messages` array.
+        return collect(array_values($messages))
+            ->map(fn (array $message, int $index): UserMessage|AssistantMessage|SystemMessage => match ($message['role']) {
                 'user' => $this->mapUserMessage($message),
-                'assistant' => new AssistantMessage($this->extractTextContent($message['content'])),
+                'assistant' => $this->mapAssistantMessage($message, $index),
                 'system' => new SystemMessage($this->extractTextContent($message['content'])),
                 default => throw PrismServerException::invalidMessages("Couldn't map messages to Prism messages")
             })
             ->all();
+    }
+
+    /**
+     * Tool calls in the history are refused, as `tool` messages are: Prism Server takes no tool results
+     * back, and a caller must not be able to claim a call the server never returned.
+     *
+     * @param  array{role: string, content: mixed, tool_calls?: mixed, function_call?: mixed}  $message
+     * @param  int  $index  the message's position in the caller's `messages` array
+     */
+    protected function mapAssistantMessage(array $message, int $index = 0): AssistantMessage
+    {
+        if (! empty($message['tool_calls']) || ! empty($message['function_call'])) {
+            throw PrismServerException::replayedToolCalls($index);
+        }
+
+        /** @var string|array<int, mixed> $content */
+        $content = $message['content'];
+
+        return new AssistantMessage($this->extractTextContent($content));
     }
 
     /**

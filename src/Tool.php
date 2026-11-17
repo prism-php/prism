@@ -54,6 +54,8 @@ class Tool
 
     protected bool $clientExecuted = false;
 
+    protected bool $withholdsOtherCalls = false;
+
     /** @var bool|Closure(array<string,mixed>):bool */
     protected bool|Closure $requiresApproval = false;
 
@@ -106,6 +108,31 @@ class Tool
     public function isClientExecuted(): bool
     {
         return $this->clientExecuted;
+    }
+
+    /**
+     * When the model calls this client-executed tool, run NOTHING else from
+     * that step.
+     *
+     * By default a step that calls a client-executed tool still runs the
+     * ordinary tools the model called beside it, so the caller can resume with
+     * their results. A consumer that will never resume (Prism Server hands the
+     * call to an HTTP client and the turn ends) would otherwise run those tools
+     * for nobody: their side effects happen and their results are thrown away.
+     * With this set, every other call in that step, including any that would
+     * need approval, is held and the step ends unexecuted. It has no effect on a
+     * tool that is not client-executed.
+     */
+    public function withholdOtherCalls(bool $withhold = true): self
+    {
+        $this->withholdsOtherCalls = $withhold;
+
+        return $this;
+    }
+
+    public function withholdsOtherCalls(): bool
+    {
+        return $this->clientExecuted && $this->withholdsOtherCalls;
     }
 
     /**
