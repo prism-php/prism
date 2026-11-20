@@ -226,7 +226,7 @@ it('includes meta information in response', function (): void {
     expect($response->meta->model)->toBe('dall-e-3');
 });
 
-it('can generate an image with gpt-image-1 returning base64', function (): void {
+it('can generate a GPT Image with base64 output', function (string $model): void {
     Http::fake([
         'api.openai.com/v1/images/generations' => Http::response([
             'created' => 1713833628,
@@ -252,7 +252,7 @@ it('can generate an image with gpt-image-1 returning base64', function (): void 
     ]);
 
     $response = Prism::image()
-        ->using('openai', 'gpt-image-1')
+        ->using('openai', $model)
         ->withPrompt('A cute baby sea otter')
         ->generate();
 
@@ -276,14 +276,15 @@ it('can generate an image with gpt-image-1 returning base64', function (): void 
         'background' => 'opaque',
     ]);
 
-    Http::assertSent(function (Request $request): bool {
+    Http::assertSent(function (Request $request) use ($model): bool {
         $data = $request->data();
 
         return $request->url() === 'https://api.openai.com/v1/images/generations' &&
-               $data['model'] === 'gpt-image-1' &&
+               $data['model'] === $model &&
+               ! array_key_exists('response_format', $data) &&
                $data['prompt'] === 'A cute baby sea otter';
     });
-});
+})->with(['gpt-image-1', 'gpt-image-2.6-flare']);
 
 it('can generate an image with dall-e-3 requesting base64 format', function (): void {
     Http::fake([
@@ -366,14 +367,14 @@ it('can generate an image with dall-e-2 requesting base64 format', function (): 
     });
 });
 
-it('can edit images', function (): void {
+it('can edit images', function (string $model): void {
     FixtureResponse::fakeResponseSequence(
         'api.openai.com/v1/images/edits',
         'openai/image-edit'
     );
 
     $response = Prism::image()
-        ->using('openai', 'gpt-image-1')
+        ->using('openai', $model)
         ->withPrompt('Add a vaporwave sunset to the background', [
             Image::fromLocalPath('tests/Fixtures/diamond.png'),
         ])
@@ -394,7 +395,10 @@ it('can edit images', function (): void {
         'background',
     ]);
     expect($response->additionalContent['input_tokens_details'])->toHaveKeys(['text_tokens', 'image_tokens']);
-});
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/images/edits'
+        && collect($request->data())->contains(['name' => 'model', 'contents' => $model])
+        && collect($request->data())->contains(['name' => 'output_format', 'contents' => 'png']));
+})->with(['gpt-image-1', 'gpt-image-2.6-flare']);
 
 it('can edit with multiple images', function (): void {
     FixtureResponse::fakeResponseSequence(
