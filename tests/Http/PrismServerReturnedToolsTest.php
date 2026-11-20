@@ -141,11 +141,15 @@ it('returns a call to a returned tool in the OpenAI shape and never runs it', fu
 
     $response->assertOk();
 
-    expect($response->json())->toBe([
-        'id' => 'resp_end',
+    $json = $response->json();
+    expect($json['id'])->toMatch('/^chatcmpl-[A-Za-z0-9]{29}$/')
+        ->and($json['choices'][0]['message']['tool_calls'][0]['id'])->toMatch('/^call_[A-Za-z0-9]{24}$/');
+    unset($json['id'], $json['choices'][0]['message']['tool_calls'][0]['id']);
+
+    expect($json)->toBe([
         'object' => 'chat.completion',
         'created' => now()->timestamp,
-        'model' => 'gpt-4o-2024-08-06',
+        'model' => 'interview',
         'usage' => [
             'prompt_tokens' => 20,
             'completion_tokens' => 10,
@@ -159,7 +163,6 @@ it('returns a call to a returned tool in the OpenAI shape and never runs it', fu
                 'content' => 'Thanks, that is everything.',
                 'role' => 'assistant',
                 'tool_calls' => [[
-                    'id' => 'call_abc123',
                     'type' => 'function',
                     'function' => [
                         'name' => 'business_case_report',
@@ -241,8 +244,10 @@ it('serialises empty arguments as "{}", never "[]", when the provider decoded th
     ]);
 
     $response->assertOk();
-    expect($response->json('choices.0.message.tool_calls.0'))->toBe([
-        'id' => 'toolu_01',
+    $call = $response->json('choices.0.message.tool_calls.0');
+    expect($call['id'])->toMatch('/^call_[A-Za-z0-9]{24}$/');
+    unset($call['id']);
+    expect($call)->toBe([
         'type' => 'function',
         'function' => ['name' => 'finish', 'arguments' => '{}'],
     ])
@@ -302,7 +307,7 @@ it('runs nothing from a step that calls both a server tool and a returned tool, 
         ->and(RecordingReturnedTool::$calls)->toBe(0)
         ->and($response->json('choices.0.finish_reason'))->toBe('tool_calls')
         ->and($response->json('choices.0.message.tool_calls'))->toHaveCount(1)
-        ->and($response->json('choices.0.message.tool_calls.0.id'))->toBe('call_r')
+        ->and($response->json('choices.0.message.tool_calls.0.function.name'))->toBe('business_case_report')
         ->and((string) $response->getContent())->not->toContain('lookup')
         ->and((string) $response->getContent())->not->toContain('secret');
 
@@ -624,13 +629,15 @@ it('carries both the text and the tool call when the final step has both', funct
     ]);
 
     $response->assertOk();
-    expect($response->json('choices.0'))->toBe([
+    $choice = $response->json('choices.0');
+    expect($choice['message']['tool_calls'][0]['id'])->toMatch('/^call_[A-Za-z0-9]{24}$/');
+    unset($choice['message']['tool_calls'][0]['id']);
+    expect($choice)->toBe([
         'index' => 0,
         'message' => [
             'content' => 'Here is your report.',
             'role' => 'assistant',
             'tool_calls' => [[
-                'id' => 'call_both',
                 'type' => 'function',
                 'function' => ['name' => 'business_case_report', 'arguments' => '{"problem":"p","report":"r"}'],
             ]],

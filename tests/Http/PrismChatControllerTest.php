@@ -58,11 +58,14 @@ it('handles chat requests successfully', function (): void {
 
     $response->assertOk();
 
-    expect($response->json())->toBe([
-        'id' => 'cmp_asdf123',
+    $json = $response->json();
+    expect($json['id'])->toMatch('/^chatcmpl-[A-Za-z0-9]{29}$/');
+    unset($json['id']);
+
+    expect($json)->toBe([
         'object' => 'chat.completion',
         'created' => now()->timestamp,
-        'model' => 'gpt-4',
+        'model' => 'nyx',
         'usage' => [
             'prompt_tokens' => $textResponse->usage->promptTokens,
             'completion_tokens' => $textResponse->usage->completionTokens,
@@ -190,13 +193,14 @@ it('handles streaming requests', function (): void {
 
     $streamParts = array_filter(explode("\n", $response->streamedContent()));
 
-    $data = Str::of($streamParts[0])->substr(6);
+    $data = json_decode((string) Str::of($streamParts[0])->substr(6), true);
+    expect($data['id'])->toMatch('/^chatcmpl-[A-Za-z0-9]{29}$/');
+    unset($data['id']);
 
-    expect(json_decode($data, true))->toBe([
-        'id' => 'cmp_asdf123',
+    expect($data)->toBe([
         'object' => 'chat.completion.chunk',
         'created' => now()->timestamp,
-        'model' => 'unknown',
+        'model' => 'nyx',
         'choices' => [
             [
                 'delta' => [

@@ -21,6 +21,13 @@ use stdClass;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
+/**
+ * Prism Server's OpenAI-compatible endpoint.
+ *
+ * A registered prism is an intelligence layer an app offers other apps, not a pass-through to a provider
+ * (G-315). So no response reveals what backs it: `model` is the registered name the caller asked for,
+ * `id` and every tool call id are generated here, and no provider field is copied through.
+ */
 class PrismChatController
 {
     public function __invoke(): Response
@@ -35,7 +42,12 @@ class PrismChatController
             /** @var array<array{role: string, content: string}> $messages */
             $messages = request('messages');
 
-            $prism = $this->resolvePrism(request('model'));
+            $registered = $this->findPrism(request('model'));
+
+            // The name every response reports as `model`: the registered one, never the provider's. Passed
+            // down rather than kept on the controller, which the router reuses across requests.
+            $name = $registered['name'];
+            $prism = $registered['prism']();
 
             $prism->withMessages($this->mapMessages($messages));
 
@@ -46,43 +58,52 @@ class PrismChatController
                     throw PrismServerException::streamingReturnedTools(request('model'));
                 }
 
-                return $this->stream($prism);
+                return $this->stream($prism, $name);
             }
 
-            return $this->chat($prism, $returnedTools);
+            return $this->chat($prism, $returnedTools, $name);
         } catch (Throwable $e) {
             return $this->error($e);
         }
     }
 
-    protected function stream(PendingRequest $generator): Response
+    protected function stream(PendingRequest $generator, string $model): Response
     {
-        return response()->stream(function () use ($generator): void {
-            $response = $generator->asStream();
+        // One id, one timestamp and the registered name for every chunk of the response. The provider's
+        // message and event ids never reach the caller.
+        $id = $this->completionId();
+        $created = now()->timestamp;
 
-            foreach ($response as $chunk) {
-                if (! $chunk instanceof TextDeltaEvent) {
-                    continue;
+        return response()->stream(function () use ($generator, $id, $created, $model): void {
+            try {
+                foreach ($generator->asStream() as $chunk) {
+                    if (! $chunk instanceof TextDeltaEvent) {
+                        continue;
+                    }
+
+                    $this->sendEvent([
+                        'id' => $id,
+                        'object' => 'chat.completion.chunk',
+                        'created' => $created,
+                        'model' => $model,
+                        'choices' => [[
+                            'delta' => [
+                                'role' => 'assistant',
+                                'content' => $chunk->delta,
+                            ],
+                        ]],
+                    ]);
                 }
+            } catch (Throwable $e) {
+                // The status line is already sent, so a failure goes out as an OpenAI-style error event. It
+                // must not escape: the exception page would be written into the stream, provider body and all.
+                report($e);
 
-                $data = [
-                    'id' => $chunk->id,
-                    'object' => 'chat.completion.chunk',
-                    'created' => now()->timestamp,
-                    'model' => 'unknown',
-                    'choices' => [[
-                        'delta' => [
-                            'role' => 'assistant',
-                            'content' => $chunk->delta,
-                        ],
-                    ]],
-                ];
-
-                echo 'data: '.json_encode($data)."\n\n";
-                if (ob_get_level() > 0) {
-                    ob_flush();
-                }
-                flush();
+                $this->sendEvent(['error' => [
+                    'message' => 'The server could not complete the request.',
+                    'type' => 'server_error',
+                    'code' => null,
+                ]]);
             }
 
             echo "data: [DONE]\n";
@@ -96,6 +117,26 @@ class PrismChatController
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function sendEvent(array $data): void
+    {
+        echo 'data: '.json_encode($data)."\n\n";
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+        flush();
+    }
+
+    /**
+     * An OpenAI-style completion id, generated here: the provider's response id is never sent.
+     */
+    protected function completionId(): string
+    {
+        return 'chatcmpl-'.Str::random(29);
     }
 
     /**
@@ -198,7 +239,7 @@ class PrismChatController
     /**
      * @param  array<int, string>  $returnedTools
      */
-    protected function chat(PendingRequest $generator, array $returnedTools = []): Response
+    protected function chat(PendingRequest $generator, array $returnedTools, string $model): Response
     {
         $response = $generator->asText();
 
@@ -208,10 +249,10 @@ class PrismChatController
             $text = $this->textFromResponse($response);
 
             return response()->json([
-                'id' => $response->meta->id,
+                'id' => $this->completionId(),
                 'object' => 'chat.completion',
                 'created' => now()->timestamp,
-                'model' => $response->meta->model,
+                'model' => $model,
                 'usage' => $this->mapUsage($response->usage),
                 'choices' => [
                     [
@@ -219,7 +260,7 @@ class PrismChatController
                         'message' => [
                             'content' => $text === '' ? null : $text,
                             'role' => 'assistant',
-                            'tool_calls' => array_map($this->mapToolCall(...), $toolCalls),
+                            'tool_calls' => $this->mapToolCalls($toolCalls),
                         ],
                         'finish_reason' => 'tool_calls',
                     ],
@@ -228,10 +269,10 @@ class PrismChatController
         }
 
         $data = [
-            'id' => $response->meta->id,
+            'id' => $this->completionId(),
             'object' => 'chat.completion',
             'created' => now()->timestamp,
-            'model' => $response->meta->model,
+            'model' => $model,
             'usage' => $this->mapUsage($response->usage),
             'choices' => [
                 [
@@ -267,20 +308,43 @@ class PrismChatController
     }
 
     /**
-     * OpenAI's shape: `arguments` is a JSON string, `{}` when there are none.
+     * The calls in OpenAI's shape, each with a `call_` id generated here.
      *
-     * The id is the provider's call id: OpenAI's Responses API carries it as `call_id` (Prism's
-     * `resultId`, the `call_…` value), every other provider as the call's own id. One is generated when
-     * the provider sent none.
+     * A provider's call id names the provider (`toolu_` is Anthropic's), so none is sent. Calls that share
+     * a provider id share the generated one, so the response stays consistent with itself.
+     *
+     * @param  array<int, ToolCall>  $calls
+     * @return array<int, array{id: string, type: string, function: array{name: string, arguments: string}}>
+     */
+    protected function mapToolCalls(array $calls): array
+    {
+        $ids = [];
+
+        return array_map(function (ToolCall $call) use (&$ids): array {
+            $providerId = $call->resultId !== null && $call->resultId !== '' ? $call->resultId : $call->id;
+
+            if ($providerId === '') {
+                return $this->mapToolCall($call, $this->toolCallId());
+            }
+
+            return $this->mapToolCall($call, $ids[$providerId] ??= $this->toolCallId());
+        }, $calls);
+    }
+
+    protected function toolCallId(): string
+    {
+        return 'call_'.Str::random(24);
+    }
+
+    /**
+     * OpenAI's shape: `arguments` is a JSON string, `{}` when there are none.
      *
      * @return array{id: string, type: string, function: array{name: string, arguments: string}}
      */
-    protected function mapToolCall(ToolCall $call): array
+    protected function mapToolCall(ToolCall $call, string $id): array
     {
-        $id = $call->resultId !== null && $call->resultId !== '' ? $call->resultId : $call->id;
-
         return [
-            'id' => $id !== '' ? $id : 'call_'.Str::random(24),
+            'id' => $id,
             'type' => 'function',
             'function' => [
                 'name' => $call->name,
@@ -463,13 +527,22 @@ class PrismChatController
 
     protected function resolvePrism(string $model): PendingRequest
     {
+        return $this->findPrism($model)['prism']();
+    }
+
+    /**
+     * The registration the request names. Its `name` is what a response reports, not the request's string:
+     * `sole` compares loosely.
+     *
+     * @return array{name: string, prism: callable():PendingRequest}
+     */
+    protected function findPrism(string $model): array
+    {
         try {
-            $prism = PrismServer::prisms()
+            return PrismServer::prisms()
                 ->sole('name', $model);
         } catch (ItemNotFoundException $e) {
             throw PrismServerException::unresolvableModel($model, $e);
         }
-
-        return $prism['prism']();
     }
 }
