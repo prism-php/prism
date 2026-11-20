@@ -448,99 +448,55 @@ Prism::text()
 
 ## Image Generation
 
-OpenAI provides powerful image generation capabilities through multiple models. Prism supports all of OpenAI's image generation models with their full feature sets.
+Prism sends image generation and editing requests to the OpenAI Image API. The following examples use GPT Image 2.6.
 
 ### Supported Models
 
 | Model | Description |
 |-------|-------------|
-| `dall-e-3` | Latest DALL-E model |
-| `dall-e-2` | Previous generation |
-| `gpt-image-1` | GPT-based image model |
+| `gpt-image-2.6-flare` | For fast iteration |
+| `gpt-image-2.6-sunburst` | For detailed visual work |
 
 ### Basic Usage
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-2.6-flare')
     ->withPrompt('A serene mountain landscape at sunset')
     ->generate();
 
 $image = $response->firstImage();
-echo $image->url; // Generated image URL
+file_put_contents('landscape.png', base64_decode($image->base64));
 ```
 
-### DALL-E 3 Options
+### GPT Image Options
 
-DALL-E 3 is the most advanced model with the highest quality output:
+GPT Image models return base64-encoded image data. Use `output_format` to pick the format; `response_format` is not supported.
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
-    ->withPrompt('A futuristic cityscape with flying cars')
-    ->withProviderOptions([
-        'size' => '1792x1024',          // 1024x1024, 1024x1792, 1792x1024
-        'quality' => 'hd',              // standard, hd
-        'style' => 'vivid',             // vivid, natural
-    ])
-    ->generate();
-
-// DALL-E 3 automatically revises prompts for better results
-if ($response->firstImage()->hasRevisedPrompt()) {
-    echo "Revised prompt: " . $response->firstImage()->revisedPrompt;
-}
-```
-
-### DALL-E 2 Options
-
-DALL-E 2 supports generating multiple images and is more cost-effective:
-
-```php
-$response = Prism::image()
-    ->using('openai', 'dall-e-2')
-    ->withPrompt('Abstract geometric patterns')
-    ->withProviderOptions([
-        'n' => 4,                       // Number of images (1-10)
-        'size' => '1024x1024',          // 256x256, 512x512, 1024x1024
-        'response_format' => 'url',     // url only
-        'user' => 'user-123',           // Optional user identifier
-    ])
-    ->generate();
-
-// Process multiple images
-foreach ($response->images as $image) {
-    echo "Image: {$image->url}\n";
-}
-```
-
-### GPT-Image-1 Options
-
-GPT-Image-1 offers advanced features including image editing and format control:
-
-```php
-$response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.6-flare')
     ->withPrompt('A detailed architectural rendering of a modern house')
     ->withProviderOptions([
         'size' => '1536x1024',              // Various sizes supported
-        'quality' => 'high',                // standard, high
+        'quality' => 'high',
         'output_format' => 'webp',          // png, webp, jpeg
         'output_compression' => 85,         // Compression level (0-100)
-        'background' => 'transparent',      // transparent, white, black
-        'moderation' => true,               // Enable content moderation
+        'background' => 'transparent',      // transparent, opaque, auto
+        'moderation' => 'auto',              // auto or low
     ])
     ->generate();
 ```
 
-### Image Editing with GPT-Image-1
+### Image Editing
 
-GPT-Image-1 supports sophisticated image editing operations using the `withPrompt` method with Image value objects:
+Pass one or more Image value objects to `withPrompt()` to edit them with GPT Image.
 
 ```php
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.6-flare')
     ->withPrompt('Add a vaporwave sunset to the background', [
         Image::fromLocalPath('tests/Fixtures/diamond.png'),
     ])
@@ -557,16 +513,16 @@ file_put_contents('edited-image.png', base64_decode($response->firstImage()->bas
 
 #### Using Masks for Targeted Editing
 
-For precise control over which parts of the image to edit, use a mask image:
+Use a PNG mask with the same dimensions as the input image to guide the edit. Fully transparent areas identify where to edit:
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.6-flare')
     ->withPrompt('Add a vaporwave sunset to the background', [
         Image::fromLocalPath('tests/Fixtures/diamond.png'),
     ])
     ->withProviderOptions([
-        'mask' => Image::fromLocalPath('tests/Fixtures/diamond-mask.png'),
+        'mask' => Image::fromLocalPath('tests/Fixtures/diamond_background_removed.png'),
         'size' => '1024x1024',
         'output_format' => 'png',
         'quality' => 'high',
@@ -580,7 +536,7 @@ You can also edit with multiple images for more complex operations. Use the `as(
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'gpt-image-1')
+    ->using('openai', 'gpt-image-2.6-flare')
     ->withPrompt('Combine these images with a futuristic theme', [
         Image::fromLocalPath('tests/Fixtures/diamond.png')->as('diamond.png'),
         Image::fromLocalPath('tests/Fixtures/sunset.png')->as('sunset-background.png'),
@@ -595,17 +551,17 @@ $response = Prism::image()
 
 ### Response Format
 
-Generated images are returned as URLs:
+GPT Image responses include base64 image data, not a URL:
 
 ```php
 $response = Prism::image()
-    ->using('openai', 'dall-e-3')
+    ->using('openai', 'gpt-image-2.6-flare')
     ->withPrompt('Digital artwork')
     ->generate();
 
 $image = $response->firstImage();
-if ($image->hasUrl()) {
-    echo "<img src='{$image->url}' alt='Generated image'>";
+if ($image->hasBase64()) {
+    file_put_contents('digital-artwork.png', base64_decode($image->base64));
 }
 ```
 
