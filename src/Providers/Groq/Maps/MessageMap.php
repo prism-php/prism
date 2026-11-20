@@ -98,7 +98,7 @@ class MessageMap
             'type' => 'function',
             'function' => [
                 'name' => $toolCall->name,
-                'arguments' => json_encode($toolCall->arguments() ?: (object) []),
+                'arguments' => $toolCall->argumentsAsJson(),
             ],
         ], $message->toolCalls);
 

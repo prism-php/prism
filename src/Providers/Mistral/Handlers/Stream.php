@@ -8,8 +8,8 @@ use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
@@ -21,6 +21,7 @@ use Prism\Prism\Providers\Mistral\Maps\MessageMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolChoiceMap;
 use Prism\Prism\Providers\Mistral\Maps\ToolMap;
 use Prism\Prism\Streaming\EventID;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -33,7 +34,9 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\Streaming\ToolCallId;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -45,6 +48,7 @@ use Throwable;
 class Stream
 {
     use CallsTools, MapsFinishReason, MapsUsage, ProcessRateLimits, ValidatesResponse;
+    use TracksStreamFailureUsage;
 
     protected StreamState $state;
 
@@ -62,6 +66,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -72,8 +80,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('mistral', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         if ($depth === 0) {
@@ -85,8 +95,8 @@ class Stream
         $stepFinishReason = null;
         $this->stepUsage = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -177,7 +187,7 @@ class Stream
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
                 yield from $this->completeOpenBlocks();
 
-                $this->drainStepUsage($response);
+                yield from $this->drainStepUsage($response);
                 $this->recordStepUsage();
 
                 yield from $this->handleToolCalls($request, $text, $toolCalls, $depth);
@@ -204,7 +214,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->stepUsage,
+            usage: $this->finishStepUsage(),
             finishReason: $this->state->finishReason(),
         );
 
@@ -280,7 +290,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Mistral', $e);
+            throw (new PrismStreamDecodeException('Mistral', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -293,11 +303,14 @@ class Stream
     {
         $parts = data_get($data, 'choices.0.delta.tool_calls', []);
 
-        foreach ($parts as $index => $part) {
+        foreach ($parts as $position => $part) {
+            $index = data_get($part, 'index', $position);
+            $toolCalls[$index]['id'] = ToolCallId::remember($toolCalls[$index]['id'] ?? null, data_get($part, 'id'));
             if (isset($part['function'])) {
-                $toolCalls[$index]['id'] = data_get($part, 'id', Str::random(8));
-                $toolCalls[$index]['name'] = data_get($part, 'function.name');
-                $toolCalls[$index]['arguments'] = data_get($part, 'function.arguments', '');
+                if (isset($part['function']['name'])) {
+                    $toolCalls[$index]['name'] = $part['function']['name'];
+                }
+                $toolCalls[$index]['arguments'] = ($toolCalls[$index]['arguments'] ?? '').data_get($part, 'function.arguments', '');
             }
         }
 
@@ -326,14 +339,24 @@ class Stream
         }
 
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         $this->state->withFinishReason(FinishReason::ToolCalls);
         $this->state->markStepFinished();
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->stepUsage,
+            usage: $this->finishStepUsage(),
             finishReason: FinishReason::ToolCalls,
         );
 
@@ -375,7 +398,11 @@ class Stream
                 }
 
                 return new ToolCall(
-                    data_get($toolCall, 'id'),
+                    ToolCallId::resolve(
+                        data_get($toolCall, 'id'), 'mistral',
+                        static fn (): string => substr(EventID::generate('mistral'), -9),
+                        '/\A[a-zA-Z0-9]{9}\z/D',
+                    ),
                     data_get($toolCall, 'name'),
                     $arguments,
                 );
@@ -388,19 +415,13 @@ class Stream
      */
     protected function hasToolCalls(array $data): bool
     {
-        $parts = data_get($data, 'choices.0.delta.tool_calls', []);
-
-        foreach ($parts as $part) {
-            if (isset($part['function'])) {
-                return true;
-            }
-        }
-
-        return false;
+        return ! empty(data_get($data, 'choices.0.delta.tool_calls', []));
     }
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this
             ->client
@@ -469,7 +490,7 @@ class Stream
 
             foreach ($content as $block) {
                 if (data_get($block, 'type') === 'thinking') {
-                    foreach (data_get($block, 'thinking', []) as $thinkingBlock) {
+                    foreach (data_get($block, 'thinking') ?? [] as $thinkingBlock) {
                         $thinking .= data_get($thinkingBlock, 'text', '');
                     }
                 }
@@ -494,15 +515,30 @@ class Stream
         }
     }
 
-    protected function drainStepUsage(Response $response): void
+    /** @return Generator<int, ErrorEvent> */
+    protected function drainStepUsage(Response $response): Generator
     {
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data !== null) {
                 $this->captureStepUsage($data);
             }
         }
+    }
+
+    /**
+     * The usage this step reported, for its StepFinishEvent.
+     *
+     * Also advances the state's step snapshot, so the client-executed tool path
+     * (yieldToolCallsFinishEvents, which reads takeStepUsage()) hands its step
+     * only that step's usage rather than every earlier step's as well.
+     */
+    protected function finishStepUsage(): ?Usage
+    {
+        $this->state->takeStepUsage();
+
+        return $this->stepUsage;
     }
 
     protected function recordStepUsage(): void

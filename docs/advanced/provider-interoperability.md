@@ -1,108 +1,80 @@
 # Provider Interoperability
 
-When working with Prism, you might need to customize requests based on which provider you're using. Different providers have unique capabilities, configuration options, and requirements that can affect how you structure your requests for optimal results.
+Provider capabilities, models and option names differ. Select a model supported by the chosen provider, then apply only options that integration maps.
 
-## Using the `whenProvider` Method
+## Using the `whenProvider` method
 
-The `whenProvider` method lets you easily customize your requests for specific providers while maintaining clean, readable code.
+`whenProvider()` compares the selected provider key to a string or `Provider` enum and runs the callback only on a match. Return the builder from the callback:
 
 ```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+
 $response = Prism::text()
-    ->using(Provider::OpenAI, 'gpt-4o')
-    ->withPrompt('Who are you?')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->whenProvider(
         Provider::Anthropic,
-        fn ($request) => $request
-            ->withProviderOptions([
-                'cacheType' => 'ephemeral',
-            ])
+        fn ($request) => $request->withProviderOptions(['effort' => 'medium'])
     )
+    ->withPrompt('Explain database indexes.')
     ->asText();
 ```
 
-In this example, the `withProviderOptions` settings will only be applied when using Anthropic's provider. If you're using OpenAI (as specified in the `using` method), these customizations are simply skipped.
+Use lower-case provider keys consistently. `whenProvider()` compares keys exactly; it does not translate a model ID when you change providers.
 
-## Key Benefits
+## Conditional request controls
 
-- **Cleaner Code**: Keep your provider-specific customizations encapsulated and only apply them when needed
-- **Easy Provider Switching**: Swap between providers without rewriting your configuration code
-- **Maintainable Applications**: Define provider-specific behaviors in one place
-
-## Advanced Usage
-
-You can chain multiple `whenProvider` calls to handle different provider scenarios:
+Apply multiple conditions when the provider and model are chosen by your application:
 
 ```php
+use Prism\Prism\Facades\Prism;
+
+// $provider and $model are an application-approved provider/model pair.
 $response = Prism::text()
-    ->using(Provider::OpenAI, 'gpt-4o')
-    ->withPrompt('Generate a creative story about robots.')
-    ->whenProvider(
-        Provider::Anthropic,
-        fn ($request) => $request
-            ->withMaxTokens(4000)
-            ->withProviderOptions(['cacheType' => 'ephemeral'])
-    )
-    ->whenProvider(
-        Provider::OpenAI,
-        fn ($request) => $request
-            ->withMaxTokens(2000)
-            ->withProviderOptions(['response_format' => ['type' => 'text']])
-    )
+    ->using($provider, $model)
+    ->whenProvider('anthropic', fn ($request) => $request
+        ->withMaxTokens(4000)
+        ->withProviderOptions(['effort' => 'medium']))
+    ->whenProvider('openai', fn ($request) => $request
+        ->withMaxTokens(2000)
+        ->withProviderOptions(['store' => false]))
+    ->withPrompt('Explain database indexes.')
     ->asText();
 ```
 
-## Using Invokable Classes
+`withProviderOptions()` replaces its array. Combine options in one call when they must coexist. Consult the [Anthropic](/providers/anthropic) and [OpenAI](/providers/openai) guides for each option's supported models and API format.
 
-For more complex provider-specific configurations, you can use invokable classes instead of closures:
+## Using invokable classes
+
+An invokable configurator can share conditional settings across requests:
 
 ```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Text\PendingRequest;
+
 class AnthropicConfigurator
 {
-    public function __invoke($request)
+    public function __invoke(PendingRequest $request): PendingRequest
     {
         return $request
             ->withMaxTokens(4000)
-            ->withProviderOptions([
-                'cacheType' => 'ephemeral',
-                'citations' => true,
-            ]);
+            ->withProviderOptions(['effort' => 'medium']);
     }
 }
 
 $response = Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
+    ->whenProvider('anthropic', new AnthropicConfigurator)
     ->withPrompt('Explain the theory of relativity.')
-    ->whenProvider(Provider::Anthropic, new AnthropicConfigurator())
     ->asText();
 ```
 
-This approach can be especially helpful when you have complex or reusable provider configurations.
+The method is available on builders using provider configuration, including structured and embeddings requests. Match a configurator's parameter type to the builder it receives.
 
-> [!TIP]
-> The `whenProvider` method works with all request types in Prism including text, structured output, and embeddings requests.
+## Messages and media
 
-## Best Practices
+Use `withSystemPrompt()` for instructions and `withMessages()` for conversation turns; system-message mapping inside the conversation varies by integration. A shared builder method does not guarantee provider or model support for an input.
 
-### Avoiding SystemMessages with Multiple Providers
+Per-message cache options belong on messages, and per-tool strictness belongs on tools. Document citation options require a document and a provider that maps them. Putting those keys into an unrelated request option array does not enable the feature.
 
-When working with multiple providers, it's best to avoid using `SystemMessages` directly in your `withMessages` array. Instead, use the `withSystemPrompt` method as it offers better provider interoperability.
-
-```php
-// Avoid this when switching between providers
-$response = Prism::text()
-    ->using(Provider::OpenAI, 'gpt-4o')
-    ->withMessages([
-        new SystemMessage('You are a helpful assistant.'),
-        new UserMessage('Tell me about AI'),
-    ])
-    ->asText();
-
-// Prefer this instead
-$response = Prism::text()
-    ->using(Provider::OpenAI, 'gpt-4o')
-    ->withSystemPrompt('You are a helpful assistant.')
-    ->withPrompt('Tell me about AI')
-    ->asText();
-```
-
-This approach allows Prism to handle the provider-specific formatting of system messages, making your code more portable across different LLM providers.
+File IDs and provider replay metadata belong to their originating provider. When changing providers, rebuild history in a supported form instead of forwarding provider-specific reasoning items, signed thinking blocks or file IDs blindly. See [input modalities](/input-modalities/documents) and each provider's guide before moving a multimodal conversation.

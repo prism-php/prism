@@ -1,0 +1,228 @@
+{
+  "suite": "embedding-decoding",
+  "schema_version": 1,
+  "corpus_version": "0.1.13",
+  "generated_by": "PHP0.140.0 EmbeddingDecoder executed for all9 reference rows; actual primary-registry TS0.5.1/Python0.5.1 OpenAI and Mistral handlers executed all36 native rows. tools/record-embedding-decoding.mjs records actual identities under decision0023; recording.json binds the artifact evidence.",
+  "cases": [
+    {
+      "id": "emb-0001",
+      "title": "float array control",
+      "since": "0.1.1",
+      "embedding": [
+        1,
+        -2.5,
+        0.5,
+        0
+      ],
+      "expected": {
+        "php": {
+          "embedding": [
+            1,
+            -2.5,
+            0.5,
+            0
+          ]
+        },
+        "ts": {
+          "embedding": [
+            1,
+            -2.5,
+            0.5,
+            0
+          ]
+        },
+        "py": {
+          "embedding": [
+            1,
+            -2.5,
+            0.5,
+            0
+          ]
+        }
+      },
+      "agrees": true,
+      "notes": "An existing numeric array must remain a vector."
+    },
+    {
+      "id": "emb-0002",
+      "title": "little endian float32 control",
+      "since": "0.1.1",
+      "embedding": "AACAPwAAIMAAAAA/AAAAAA==",
+      "expected": {
+        "php": {
+          "embedding": [
+            1,
+            -2.5,
+            0.5,
+            0
+          ]
+        },
+        "ts": {
+          "embedding": [
+            1,
+            -2.5,
+            0.5,
+            0
+          ]
+        },
+        "py": {
+          "embedding": [
+            1,
+            -2.5,
+            0.5,
+            0
+          ]
+        }
+      },
+      "agrees": true,
+      "notes": "Fixed IEEE-754 bytes discriminate little endian decoding from host-dependent or big endian decoding."
+    },
+    {
+      "id": "emb-0003",
+      "title": "malformed base64",
+      "since": "0.1.1",
+      "embedding": "not!base64",
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject invalid alphabet bytes rather than discard them. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    },
+    {
+      "id": "emb-0004",
+      "title": "partial float",
+      "since": "0.1.1",
+      "embedding": "AACAPwA=",
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject trailing bytes rather than silently shorten the vector. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    },
+    {
+      "id": "emb-0005",
+      "title": "NaN",
+      "since": "0.1.1",
+      "embedding": "AADAfw==",
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject non-finite values before they poison similarity calculations. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    },
+    {
+      "id": "emb-0006",
+      "title": "infinity",
+      "since": "0.1.1",
+      "embedding": "AACAfw==",
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject positive infinity rather than return a numeric-looking vector. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    },
+    {
+      "id": "emb-0007",
+      "title": "empty encoding",
+      "since": "0.1.1",
+      "embedding": "",
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject an empty encoded vector. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    },
+    {
+      "id": "emb-0008",
+      "title": "invalid padding bits",
+      "since": "0.1.1",
+      "embedding": "AAAAAB==",
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject noncanonical padding bits that strict base64 decoding alone accepts. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    },
+    {
+      "id": "emb-0009",
+      "title": "wrong response type",
+      "since": "0.1.1",
+      "embedding": null,
+      "expected": {
+        "php": {
+          "exception": "Prism\\Prism\\Exceptions\\PrismException"
+        },
+        "ts": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        },
+        "py": {
+          "exception": "PrismError",
+          "code": "invalid_embedding"
+        }
+      },
+      "agrees": true,
+      "notes": "Reject an invalid response type as a PrismException, never a TypeError. error identity is language-native; PHP carries no stable code (known reference gap); refusal behaviour is identical."
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Streaming Output
 
-Want to show AI responses to your users in real-time? Prism provides multiple ways to handle streaming AI responses, from simple Server-Sent Events to WebSocket broadcasting for real-time applications.
+Stream generated content to clients with Server-Sent Events, the Vercel AI SDK data protocol or WebSocket broadcasting.
 
 > [!WARNING]
 > When using Laravel Telescope or other packages that intercept Laravel's HTTP client events, they may consume the stream before Prism can emit the stream events. This can cause streaming to appear broken or incomplete. Consider disabling such interceptors when using streaming functionality, or configure them to ignore Prism's HTTP requests.
@@ -14,7 +14,7 @@ The simplest way to stream AI responses to a web interface:
 ```php
 Route::get('/chat', function () {
     return Prism::text()
-        ->using('anthropic', 'claude-3-7-sonnet')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt(request('message'))
         ->asEventStreamResponse();
 });
@@ -42,7 +42,7 @@ For apps using Vercel's AI SDK, use the Data Protocol adapter which provides com
 ```php
 Route::post('/api/chat', function () {
     return Prism::text()
-        ->using('openai', 'gpt-4')
+        ->using('openai', 'gpt-4.1')
         ->withPrompt(request('message'))
         ->asDataStreamResponse();
 });
@@ -52,6 +52,7 @@ Client-side with the `useChat` hook:
 
 ```javascript
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState } from 'react';
 
 export default function Chat() {
@@ -59,15 +60,22 @@ export default function Chat() {
     const [input, setInput] = useState('');
 
     const { messages, sendMessage, status } = useChat({
-        transport: {
+        transport: new DefaultChatTransport({
             api: '/api/chat',
-        },
+            prepareSendMessagesRequest: ({ messages }) => ({
+                body: {
+                    message: messages.at(-1).parts
+                        .filter(part => part.type === 'text')
+                        .map(part => part.text).join('\n'),
+                },
+            }),
+        }),
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (input.trim() && status === 'ready') {
-            sendMessage(input);
+            sendMessage({ text: input });
             setInput('');
         }
     };
@@ -102,8 +110,7 @@ export default function Chat() {
 }
 ```
 
-> [!NOTE]
-> This example uses AI SDK 5.0, which introduced significant changes to the `useChat` hook. The hook no longer manages input state internally, and you'll need to use the `sendMessage` function directly instead of `handleSubmit`.
+This example uses the AI SDK 5 transport API and sends the latest user message as `message`, matching the Laravel route above. To retain conversation history, validate the incoming messages and map them to Prism message objects in your application. Apply your application's authentication and rate limits to the route. See [AI SDK transport configuration](https://ai-sdk.dev/docs/ai-sdk-ui/transport).
 
 For more advanced usage, including tool support and custom options, see the [Vercel AI SDK UI documentation](https://ai-sdk.dev/docs/reference/ai-sdk-ui).
 
@@ -112,8 +119,9 @@ For more advanced usage, including tool support and custom options, see the [Ver
 For real-time multi-user applications that need to process AI requests in the background:
 
 ```php
-// Job Class
 <?php
+
+// Job class
 
 namespace App\Jobs;
 
@@ -132,7 +140,7 @@ class ProcessAiStreamJob implements ShouldQueue
     public function __construct(
         public string $message,
         public string $channel,
-        public string $model = 'claude-3-7-sonnet'
+        public string $model = 'claude-sonnet-5-5'
     ) {}
 
     public function handle(): void
@@ -151,7 +159,7 @@ Route::post('/chat-broadcast', function () {
     ProcessAiStreamJob::dispatch(
         request('message'),
         "chat.{$sessionId}",
-        request('model', 'claude-3-7-sonnet')
+        request('model', 'claude-sonnet-5-5')
     );
     
     return response()->json(['status' => 'processing', 'session_id' => $sessionId]);
@@ -229,7 +237,7 @@ function ChatComponent() {
             body: JSON.stringify({ 
                 message, 
                 session_id: sessionId,
-                model: 'claude-3-7-sonnet' 
+                model: 'claude-sonnet-5-5'
             })
         });
     };
@@ -266,6 +274,8 @@ All streaming approaches emit the same core events with consistent data structur
 - **`tool_call`** - Tool invocation with arguments
 - **`tool_result`** - Tool execution results
 - **`tool_call_delta`** - Incremental tool call params chunks as they're generated
+- **`tool_approval_request`** - A custom tool call awaiting an application approval decision
+- **`citation`** - A source citation associated with a message and content block
 - **`artifact`** - Binary artifacts produced by tools (images, audio, files)
 - **`provider_tool_event`** - Provider-specific tool events (e.g., image generation, web search)
 - **`step_finish`** - End of a generation step (emitted after tool calls or before stream end)
@@ -277,14 +287,40 @@ All streaming approaches emit the same core events with consistent data structur
 
 ### Event Data Examples
 
-Based on actual streaming output:
+The PHP event classes live under `Prism\Prism\Streaming\Events`. Use `StreamEventType` to identify them:
+
+| Event name | PHP class |
+|---|---|
+| `stream_start`, `stream_end` | `StreamStartEvent`, `StreamEndEvent` |
+| `step_start`, `step_finish` | `StepStartEvent`, `StepFinishEvent` |
+| `text_start`, `text_delta`, `text_complete` | `TextStartEvent`, `TextDeltaEvent`, `TextCompleteEvent` |
+| `thinking_start`, `thinking_delta`, `thinking_complete` | `ThinkingStartEvent`, `ThinkingEvent`, `ThinkingCompleteEvent` |
+| `tool_call`, `tool_call_delta`, `tool_result` | `ToolCallEvent`, `ToolCallDeltaEvent`, `ToolResultEvent` |
+| `tool_approval_request`, `citation` | `ToolApprovalRequestEvent`, `CitationEvent` |
+| `artifact`, `provider_tool_event`, `error` | `ArtifactEvent`, `ProviderToolEvent`, `ErrorEvent` |
+
+SSE names the event separately from its JSON `data`. Payload fields use snake case; PHP properties use camel case and can contain DTOs. Every payload has `id` and `timestamp`. The following fields supplement the examples below:
+
+| Event | SSE payload fields | PHP access |
+|---|---|---|
+| `error` | `error_type`, `message`, `recoverable`, `metadata` | `$event->errorType`, `message`, `recoverable`, `metadata` |
+| `tool_result` | `tool_id`, `result`, `tool_call_result_id`, `message_id`, `success`, `error` | Result data is in `$event->toolResult`; success/error are on the event |
+| `thinking_start` | `reasoning_id` | `$event->reasoningId` |
+| `thinking_delta` | `delta`, `reasoning_id`, `summary` | `$event->delta`, `reasoningId`, `summary` |
+| `thinking_complete` | `reasoning_id`, `summary` | `$event->reasoningId`, `summary` |
+| `citation` | `citation`, `message_id`, `block_index`, `metadata` | `$event->citation`, `messageId`, `blockIndex`, `metadata` |
+| `tool_approval_request` | `approval_id`, `tool_id`, `tool_name`, `arguments`, `message_id` | `$event->approvalId`, `toolCall`, `messageId` |
+
+Citation data includes `source_type`, `source`, `source_text`, `source_title`, `source_position_type`, `source_start_index`, `source_end_index` and `additional_content`. Nullable fields remain null when not supplied. Read a tool's name and arguments through `$event->toolCall->name` and `$event->toolCall->arguments()`; they are not flat event properties. See [approval resumption](/core-concepts/human-in-the-loop#streaming) before persisting pending calls.
+
+Example event payloads:
 
 ```javascript
 // stream_start event
 {
     "id": "anthropic_evt_SSrB7trNIXsLkbUB",
     "timestamp": 1756412888,
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-sonnet-5-5",
     "provider": "anthropic",
     "metadata": {
         "request_id": "msg_01BS7MKgXvUESY8yAEugphV2",
@@ -458,16 +494,24 @@ When using `asDataStreamResponse()`, artifacts are sent as custom data parts wit
 
 ```javascript
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState } from 'react';
 
 export default function Chat() {
     const [input, setInput] = useState('');
     const [artifacts, setArtifacts] = useState([]);
 
-    const { messages, sendMessage, status, data } = useChat({
-        transport: {
+    const { messages, sendMessage, status } = useChat({
+        transport: new DefaultChatTransport({
             api: '/api/chat',
-        },
+            prepareSendMessagesRequest: ({ messages }) => ({
+                body: {
+                    message: messages.at(-1).parts
+                        .filter(part => part.type === 'text')
+                        .map(part => part.text).join('\n'),
+                },
+            }),
+        }),
         onData: (data) => {
             // Handle artifact data messages
             if (data.type === 'data-artifact') {
@@ -481,10 +525,10 @@ export default function Chat() {
             {/* Display artifacts */}
             <div className="artifacts">
                 {artifacts.map((artifact, i) => (
-                    artifact.mime_type.startsWith('image/') && (
+                    artifact.mimeType.startsWith('image/') && (
                         <img
                             key={artifact.id || i}
-                            src={`data:${artifact.mime_type};base64,${artifact.data}`}
+                            src={`data:${artifact.mimeType};base64,${artifact.data}`}
                             alt={`Generated artifact ${i + 1}`}
                         />
                     )
@@ -507,7 +551,7 @@ export default function Chat() {
             <form onSubmit={(e) => {
                 e.preventDefault();
                 if (input.trim() && status === 'ready') {
-                    sendMessage(input);
+                    sendMessage({ text: input });
                     setInput('');
                 }
             }}>
@@ -561,7 +605,7 @@ use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Text\PendingRequest;
 
 return Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withTools([$imageGeneratorTool])
     ->withPrompt(request('message'))
     ->asDataStreamResponse(function (PendingRequest $request, Collection $events) use ($conversationId) {
@@ -587,7 +631,7 @@ For more information about creating tools that produce artifacts, see [Tool Arti
 
 ### Handling Completion with Callbacks
 
-Need to save a conversation to your database after the AI finishes responding? Pass a callback directly to your terminal method to handle the completed response. This is perfect for persisting conversations, tracking analytics, or logging AI interactions.
+Pass a callback to the terminal method to process the completed response or collected stream events. Use callbacks to persist conversations or record usage.
 
 #### Text Generation Callbacks
 
@@ -598,7 +642,7 @@ use Prism\Prism\Text\PendingRequest;
 use Prism\Prism\Text\Response;
 
 $response = Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(request('message'))
     ->asText(function (PendingRequest $request, Response $response) use ($conversationId) {
         // Save the response to your database
@@ -627,7 +671,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\PendingRequest;
 
 return Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(request('message'))
     ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use ($conversationId) {
         // Reconstruct the full text from all delta events
@@ -684,7 +728,7 @@ class SaveStreamedConversation
 
 // Use with streaming responses
 return Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt($message)
     ->asEventStreamResponse(new SaveStreamedConversation($conversationId));
 ```
@@ -695,7 +739,7 @@ Access raw events for complete control over handling:
 
 ```php
 $events = Prism::text()
-    ->using('openai', 'gpt-4')
+    ->using('openai', 'gpt-4.1')
     ->withPrompt('Explain quantum physics')
     ->asStream();
 
@@ -724,7 +768,7 @@ $searchTool = Tool::as('search')
     });
 
 return Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withTools([$searchTool])
     ->withPrompt("What's the weather in Detroit?")
     ->asEventStreamResponse();
@@ -776,6 +820,21 @@ A few details worth knowing:
 
 ### Data Protocol Output
 
+`asDataStreamResponse()` converts PHP events to AI SDK UI-message parts:
+
+| Prism event | Data-protocol part |
+|---|---|
+| Stream and step boundaries | `start`, `finish`, `start-step`, `finish-step` |
+| Text boundaries and deltas | `text-start`, `text-delta`, `text-end` |
+| Thinking boundaries and deltas | `reasoning-start`, `reasoning-delta`, `reasoning-end` |
+| Custom tool call | `tool-input-available` with `toolCallId`, `toolName`, `input` |
+| Custom tool result | `tool-output-available`, or `tool-output-error` when unsuccessful |
+| Artifact | `data-artifact`; artifact fields use `mimeType` in this protocol |
+| Citation, pending approval, tool-call delta | `data-citation`, `data-tool_approval_request`, `data-tool_call_delta`; `data` holds the event's serialized payload |
+| Error | `error` with `errorText` |
+
+Provider tool events are converted to tool-input/output parts when applicable. The stream ends with `data: [DONE]`. Step replay state in `StepFinishEvent::$additionalContent` is available to PHP callbacks and is not part of the serialized step-finish payload; persist it server-side through those callbacks.
+
 The Vercel AI SDK format provides structured streaming data:
 
 ```
@@ -795,6 +854,37 @@ data: {"type":"finish","messageMetadata":{"finishReason":"stop","usage":{"prompt
 
 data: [DONE]
 ```
+
+## Usage after a failed stream
+
+An `ErrorEvent` can carry `failureUsage` when the provider reported usage before the failure. It contains the full `Usage`, `status: provisional`, `scope: attempt`, a `stepIndex` and the normalized `reportedFields`. The counts cover that failed request and exclude earlier completed steps. They are not a completed turn or a final bill. Missing usage is null; an explicit zero remains zero. Serialized errors omit `failure_usage` when it is null.
+
+```php
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Streaming\Events\ErrorEvent;
+
+$failureUsage = null;
+
+try {
+    foreach (Prism::text()
+        ->using('anthropic', 'claude-sonnet-5-5')
+        ->withPrompt('Summarize the document.')
+        ->asStream() as $event) {
+        if ($event instanceof ErrorEvent) {
+            $failureUsage = $event->failureUsage;
+        }
+
+        // Process the event.
+    }
+} catch (PrismException $exception) {
+    $failureUsage = $exception->streamFailureUsage() ?? $failureUsage;
+    throw $exception;
+}
+```
+
+SDK exceptions expose the optional payload through `streamFailureUsage()`. When usage was reported, a foreign transport exception causes one final `ErrorEvent` before the read exception propagates. Without reported usage, no extra event is emitted. Existing provider HTTP exception mappings remain in effect: their mapped SDK exception receives the snapshot. Other foreign exceptions propagate unchanged and have no usage accessor: retain the final event or read [failure telemetry](/advanced/telemetry). Iteration can therefore fail after yielding an event; `iterator_to_array()` does not return its partial result when an exception is thrown.
+
+Record each attempt once. An error event, an exception and an Error terminal can describe the same attempt; do not add their copies of usage together. Use `reportedFields` to distinguish a reported zero from an unavailable field. Successful `Usage` and completed-step accounting retain their existing shape.
 
 ## Configuration Options
 

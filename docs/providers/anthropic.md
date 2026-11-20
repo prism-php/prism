@@ -4,6 +4,7 @@
 ```php
 'anthropic' => [
     'api_key' => env('ANTHROPIC_API_KEY', ''),
+    'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
     'version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
     'default_thinking_budget' => env('ANTHROPIC_DEFAULT_THINKING_BUDGET', 1024),
     // Include beta strings as a comma separated list (e.g. output-128k-2025-02-19, code-execution-2025-05-22).
@@ -12,9 +13,19 @@
 ```
 
 You can also override `anthropic_beta` per request with `->using('anthropic', $model, ['anthropic_beta' => '...'])`. On top of the configured list, Prism adds the betas a request's provider options need (`fallbacks`, `thinking.display: updates`, `thinking.block_binding`), de-duplicated, on every request and step.
+## Models and remote MCP
+
+Use model IDs available to your account, such as `claude-sonnet-5-5` or `claude-opus-5-5`; consult the [Anthropic model catalog](https://platform.claude.com/docs/en/models/overview) for availability and retirement dates. Examples marked as legacy thinking require an older model that still supports token-budget thinking.
+
+The `mcp_servers` request provider option is forwarded to Anthropic for text and structured requests. Configure the remote servers, credentials and required Anthropic beta headers according to [Anthropic's MCP connector](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector). These servers execute on the provider side. To connect MCP tools for execution and authorization in your application, use [Prism MCP](/companion-packages/mcp).
+
+## Errors
+
+HTTP 429 raises `PrismRateLimitedException` with rate-limit buckets and optional retry-after information. HTTP 413 raises `PrismRequestTooLargeException`; 529 raises `PrismProviderOverloadedException`. Other HTTP failures use `PrismException`. See [Error Handling](/advanced/error-handling) for retry and logging guidance.
+
 ## Prompt caching
 
-Anthropic's prompt caching feature allows you to drastically reduce latency and your API bill when repeatedly re-using blocks of content within five minutes or one hour of each other, depending on the Anthropic compatible TTL option you provide.
+Prompt caching reuses eligible content across requests. Configure a five-minute or one-hour TTL according to the provider's caching requirements.
 
 There are two ways to enable prompt caching:
 - Automatic caching
@@ -25,12 +36,12 @@ To enable automatic caching, simply add a single cache_control field at the top 
 ```php
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withSystemPrompt(
         (new SystemMessage('I am a long re-usable system message.'))
     )
@@ -38,7 +49,9 @@ Prism::text()
         (new UserMessage('I am a long re-usable user message.'))
     ])
     ->withTools([
-        Tool::as('cache me')
+        Tool::as('cache_me')
+            ->for('Return a reusable example result')
+            ->using(fn (): string => 'Example result')
     ])
     ->withProviderOptions(['cache_control' => ['type' => 'ephemeral']])
     ->asText();
@@ -56,12 +69,12 @@ The API for enabling prompt caching is the same for all, enabled via the `withPr
 ```php
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withSystemPrompt(
         (new SystemMessage('I am a long re-usable system message.'))
             ->withProviderOptions(['cacheType' => 'ephemeral', 'cacheTtl' => '1h'])
@@ -71,7 +84,9 @@ Prism::text()
             ->withProviderOptions(['cacheType' => 'ephemeral'])
     ])
     ->withTools([
-        Tool::as('cache me')
+        Tool::as('cache_me')
+            ->for('Return a reusable example result')
+            ->using(fn (): string => 'Example result')
             ->withProviderOptions(['cacheType' => 'ephemeral'])
     ])
     ->asText();
@@ -85,7 +100,7 @@ use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Document;
 
-(new UserMessage('I am a long re-usable user message.'))->withProviderOptions(['cacheType' => AnthropicCacheType::ephemeral])
+(new UserMessage('I am a long re-usable user message.'))->withProviderOptions(['cacheType' => AnthropicCacheType::ephemeral]);
 ```
 **Important:** To enable prompt caching:
 - System messages must use `withSystemPrompt()` or `withSystemPrompts()` (Anthropic does not allow SystemMessages in the messages array)
@@ -94,6 +109,14 @@ use Prism\Prism\ValueObjects\Media\Document;
 - All message types support caching via `withProviderOptions(['cacheType' => 'ephemeral'])`
 - You cannot use `withPrompt()` for caching as it doesn't allow adding provider options to individual messages
 - Anthropic supports two TTL options: `5m` (default) or `1h`. You can leave the `cacheTtl` unset and Anthropic will use the default TTL of `5m`.
+
+### Cache-write usage and pricing
+
+Text, structured, batch results and completed streamed responses expose `usage->cacheWrite5mInputTokens` and `usage->cacheWrite1hInputTokens` when Anthropic reports the lifetime split. They come from `usage.cache_creation.ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens`. The existing `cacheWriteInputTokens` remains the reported total; the new fields are breakdowns of it. An unreported counter is `null`; a reported zero is `0`.
+
+Five-minute cache writes cost **1.25 times** the base input token price; one-hour writes cost **2 times** that price. Price each bucket at its own rate and don't charge the combined total again. Cache reads use a separate model-specific rate. See [token usage](/core-concepts/text-generation#token-usage) for a calculation and Anthropic's [current pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing) for modifiers and cache-read rates.
+
+Streaming deltas replace cumulative counts rather than adding repeated reports. Each API step contributes once to a multi-step response. A changed write total without a new split invalidates the earlier split. In a multi-step response, a nonzero write without a split makes that aggregate bucket unknown; zero/null-write steps contribute zero, and entirely unreported totals stay `null`. The TTL you requested doesn't establish the TTL of every write: server tool results can also create 5-minute writes. Keep unknown portions of the price unknown rather than guessing a lifetime.
 
 ### Tool result caching
 
@@ -105,7 +128,7 @@ To enable tool result caching, use the `tool_result_cache_type` provider option 
 use Prism\Prism\Facades\Prism;
 
 $response = Prism::text()
-    ->using('anthropic', 'claude-3-5-sonnet-20241022')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withMaxSteps(30)
     ->withTools([new WeatherTool()])
     ->withProviderOptions([
@@ -196,23 +219,25 @@ Prism::text()
 ### Manual thinking (legacy)
 
 > [!WARNING]
-> Manual thinking with `enabled` and a token budget is deprecated on Claude 4.6 and rejected by the 5.x models. Use adaptive thinking instead. Manual thinking is still required for older models (Sonnet 4.5, Opus 4.5, Sonnet 3.7, etc.).
+> Manual thinking with `enabled` and a token budget is deprecated on Claude 4.6 and rejected by the 5.x models. Use adaptive thinking instead. Use the Opus 4.5 example only while that model remains available; consult [model retirement dates](https://platform.claude.com/docs/en/about-claude/model-deprecations).
 
 ```php
 Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-opus-4-5-20251101')
+    ->withMaxTokens(4096)
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     ->withProviderOptions(['thinking' => ['enabled' => true]])
     ->asText();
 ```
 
-By default Prism will set the thinking budget to the value set in config, or where that isn't set, the minimum allowed (1024).
+By default Prism sets the thinking budget to `default_thinking_budget` from the Anthropic provider config (`ANTHROPIC_DEFAULT_THINKING_BUDGET`), or, where that isn't set, to the minimum allowed (1024).
 
 You can override the config (or its default) using `withProviderOptions`:
 
 ```php
 Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-opus-4-5-20251101')
+    ->withMaxTokens(4096)
     ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
     ->withProviderOptions([
         'thinking' => [
@@ -221,6 +246,8 @@ Prism::text()
         ],
     ]);
 ```
+
+Any other `thinking` value is sent to Anthropic as given: for example its own `['type' => 'enabled', 'budget_tokens' => 2048]`, or `['type' => 'adaptive', 'display' => 'summarized']`. `withReasoning(false)` still removes it.
 
 Note that thinking tokens count towards output tokens, so you will be billed for them and your token budget must be less than the max tokens you have set for the request. If you expect a long response, ensure there's enough tokens left for the response — i.e. does (maxTokens - thinkingBudget) leave a sufficient remainder.
 
@@ -276,11 +303,9 @@ Thinking blocks have to go back to Anthropic complete and unmodified, in their o
 
 A `cacheType` on an `AssistantMessage` that carries `content_blocks` goes on its last cacheable block; thinking and fallback blocks never get `cache_control`.
 
-### Extended output mode
+### Output limits
 
-Claude Sonnet 3.7 also brings extended output mode which increase the output limit to 128k tokens.
-
-This feature is currently in beta, so you will need to enable to by adding `output-128k-2025-02-19` to your Anthropic anthropic_beta config (see [Configuration](#configuration) above).
+Set `withMaxTokens()` within the selected model's output limit. Manual thinking budgets must leave room for the answer within that limit. Check the [model catalog](https://platform.claude.com/docs/en/models/overview) for the selected model.
 
 ## Streaming
 
@@ -289,13 +314,13 @@ Claude supports streaming responses in real-time. All the standard streaming met
 ```php
 // Stream events
 $stream = Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt('Write a story')
     ->asStream();
 
 // Server-Sent Events
 return Prism::text()
-    ->using('anthropic', 'claude-3-7-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(request('message'))
     ->asEventStreamResponse();
 ```
@@ -308,13 +333,37 @@ When using thinking (adaptive or manual), the reasoning process streams separate
 use Prism\Prism\Enums\StreamEventType;
 
 foreach ($stream as $event) {
-    match ($event->type()) {
-        StreamEventType::ThinkingDelta => echo "[Thinking] " . $event->delta,
-        StreamEventType::TextDelta => echo $event->delta,
-        default => null,
-    };
+    if ($event->type() === StreamEventType::ThinkingDelta) {
+        echo '[Thinking] '.$event->delta;
+    } elseif ($event->type() === StreamEventType::TextDelta) {
+        echo $event->delta;
+    }
 }
 ```
+
+### Fine-grained tool streaming
+
+Anthropic’s [fine-grained tool streaming](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming) lets tool-use input arrive incrementally (with lower latency for large arguments) instead of waiting for a complete JSON payload. Enable it on each tool that should use this behavior with the `eager_input_streaming` provider option:
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Facades\Tool;
+
+$weatherTool = Tool::as('get_weather')
+    ->for('Get current weather for a location')
+    ->withStringParameter('location', 'The city and state')
+    ->withProviderOptions(['eager_input_streaming' => true])
+    ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
+
+$stream = Prism::text()
+    ->using('anthropic', 'claude-sonnet-5-5')
+    ->withTools([$weatherTool])
+    ->withMaxSteps(2)
+    ->withPrompt('What is the weather in San Francisco?')
+    ->asStream();
+```
+
+Use this together with a streaming entrypoint (`asStream()`, `asEventStreamResponse()`, etc.). While the model is still emitting a tool call, streamed input may be partial JSON; only treat tool arguments as final once the stream indicates the tool input is complete.
 
 For complete streaming documentation including Vercel Data Protocol and WebSocket broadcasting, see [Streaming Output](/core-concepts/streaming-output).
 
@@ -328,6 +377,12 @@ Streams carry the same metadata as `asText()`, split across two events:
 If you persist streamed conversations, pass the events your stream callback receives to `Prism\Prism\Streaming\StreamedMessages::fromEvents()` (see [Persisting Streamed Conversations](/core-concepts/streaming-output#persisting-streamed-conversations)). It builds one `AssistantMessage` per step and attaches that step's `additionalContent`, so the stored messages replay exactly like the ones Prism sends inside its own tool loop.
 
 The stream's `finishReason` reflects Anthropic's `stop_reason`, and Prism only runs the tools Claude asked for when the turn actually ended with `tool_use`. A turn that ends in a refusal, `max_tokens` or an error doesn't execute the tool calls it streamed. You still get their `ToolCallEvent`s, but the step's `content_blocks` leave them out (along with any block the stream never finished), the `StepFinishEvent` reports the step's `finishReason`, and the `AssistantMessage` `StreamedMessages` builds for that step has no tool calls.
+
+#### Streams that end early
+
+A stream that ends before Anthropic's `message_stop` (a dropped connection, or a proxy that cuts the response short) did not finish, and is reported that way: an `ErrorEvent` with `errorType` `incomplete_stream` and `recoverable` `false`, then `FinishReason::Error` on the `StepFinishEvent` and `StreamEndEvent`. An Anthropic `error` event ends the stream the same way, with its own `ErrorEvent`.
+
+The `StreamEndEvent`'s `usage` is `null` when Anthropic sent no usage, or when a step ended without its final usage (the `message_delta` that carries `output_tokens`). Its total would otherwise leave out the output generated before the stream stopped, so treat `null` as unknown, not as zero. The step's `StepFinishEvent` still carries whatever usage arrived, for inspection, and so does the `Response` a completion callback receives (its `usage` can't be `null`), so check its `finishReason` before relying on that total.
 
 ## Paused turns
 
@@ -422,7 +477,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Document;
 
 Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withMessages([
         new UserMessage(
             content: "Is the grass green and the sky blue?",
@@ -440,42 +495,6 @@ Prism supports [Anthropic's citations feature](https://docs.anthropic.com/en/doc
 
 Please note that citations cannot be used with native structured output mode (the default). If you need citations with structured output, use tool calling mode via `withProviderOptions(['use_tool_calling' => true, 'citations' => true])`. Note however that citations with tool calling mode can produce unreliable output, so you should implement proper error handling.
 
-## Code execution
-
-Anthropic offers built-in code execution capabilities that allow your AI to run code in a secure environment. This is a provider tool that executes code using Anthropic's infrastructure. For more information about the difference between custom tools and provider tools, see [Tools & Function Calling](/core-concepts/tools-function-calling#provider-tools).
-
-To enable code execution, you will first need to enable the beta feature.
-
-Either in prism/config.php:
-
-```php
-        'anthropic' => [
-            ...
-            'anthropic_beta' => 'code-execution-2025-05-22',
-        ],
-
-```
-
-Or in your env file (assuming config/prism.php reflects the default prism setup):
-
-```
-ANTHROPIC_BETA="code-execution-2025-05-22"
-```
-
-You may then use code execution as follows:
-
-```php
-use Prism\Prism\Facades\Prism;
-use Prism\Prism\ValueObjects\ProviderTool;
-
-Prism::text()
-    ->using('anthropic', 'claude-3-5-haiku-latest')
-    ->withPrompt('Solve the equation 3x + 10 = 14.')
-    ->withProviderTools([new ProviderTool(type: 'code_execution_20250522', name: 'code_execution')])
-    ->asText();
-
-```
-
 ### Enabling citations
 
 Anthropic require citations to be enabled on all documents in a request. To enable them, using the `withProviderOptions()` method when building your request:
@@ -487,15 +506,14 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withMessages([
         new UserMessage(
             content: "Is the grass green and the sky blue?",
             additionalContent: [
                 Document::fromChunks(
                     chunks: ["The grass is green.", "Flamingos are pink.", "The sky is blue."],
-                    title: 'The colours of nature',
-                    context: 'The go-to textbook on the colours found in nature!'
+                    title: 'The colours of nature'
                 )
             ]
         )
@@ -508,7 +526,7 @@ $response = Prism::text()
 
 You can access the chunked output with its citations via the additionalContent property on a response, which returns an array of `MessagePartWithCitations`s.
 
-As a rough worked example, let's assume you want to implement footnotes. You'll need to loop through those chunks and (1) re-construct the message with links to the footnotes; and (2) build an array of footnotes to loop through in your frontend.
+To render footnotes, iterate over the chunks, add citation links to the text and collect the corresponding footnotes:
 
 ```php
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
@@ -523,7 +541,7 @@ $footnoteId = 1;
 
 /** @var MessagePartWithCitations $messageChunk  */
 foreach ($messageChunks as $messageChunk) {
-    $text .= $messageChunk->outputText;
+    $text .= htmlspecialchars($messageChunk->outputText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     
     /** @var Citation $citation */
     foreach ($messageChunk->citations as $citation) {
@@ -541,7 +559,90 @@ foreach ($messageChunks as $messageChunk) {
 }
 ```
 
-Note that when using streaming, Anthropic does not stream citations in the same way. Instead, of building the context as above, yield text to the browser in the usual way and pair text up with the relevant footnote using the `citationIndex` on the text chunk's additionalContent parameter.
+When streaming, consume `CitationEvent` objects with `StreamEventType::Citation`. Each carries `citation`, `messageId`, `blockIndex` and optional `metadata`; correlate it with the matching text block. See [Streaming Output](/core-concepts/streaming-output) for event payloads.
+
+## Code execution
+
+Use a provider tool to run code in Anthropic's hosted environment. It executes on Anthropic's infrastructure rather than in your PHP application. Check the [code execution API](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool) for model compatibility and tool versions.
+
+```php
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\ProviderTool;
+
+$response = Prism::text()
+    ->using('anthropic', 'claude-opus-5-5')
+    ->withPrompt('Use code to calculate the mean of 1, 2, 3, 4 and 5.')
+    ->withProviderTools([
+        new ProviderTool(type: 'code_execution_20250825', name: 'code_execution'),
+    ])
+    ->asText();
+```
+
+This tool version does not require a beta header. Other provider features can still require entries in `ANTHROPIC_BETA`. See [Provider Tools](/core-concepts/tools-function-calling#provider-tools) for the distinction from tools your application executes.
+
+## Context management
+
+Anthropic can edit the transcript server-side as a conversation grows — clearing
+older tool results, clearing thinking blocks, or compacting. Pass the edits
+through `context_management`, along with the beta header:
+
+```php
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+
+$response = Prism::text()
+    ->using(Provider::Anthropic, 'claude-sonnet-5')
+    ->withMaxSteps(24)
+    ->withTools($tools)
+    ->withPrompt('Audit every page of the ledger.')
+    ->withProviderOptions([
+        'anthropic_beta' => 'context-management-2025-06-27',
+        'context_management' => [
+            'edits' => [[
+                'type' => 'clear_tool_uses_20250919',
+                'trigger' => ['type' => 'input_tokens', 'value' => 30000],
+                'keep' => ['type' => 'tool_uses', 'value' => 3],
+            ]],
+        ],
+    ])
+    ->asText();
+```
+
+`anthropic_beta` accepts a comma-separated string or an array and merges with
+the beta features in your configuration.
+
+### Context management results
+
+Read the applied edits from `additionalContent`:
+
+```php
+$applied = $response->additionalContent['context_management'] ?? null;
+
+foreach ($applied['applied_edits'] ?? [] as $edit) {
+    $edit['type'];                  // clear_tool_uses_20250919
+    $edit['cleared_tool_uses'];     // 6
+    $edit['cleared_input_tokens'];  // 12678
+}
+```
+
+Read token counts from each `applied_edits` entry, not its parent object.
+Distinguish an absent result from an empty list of edits:
+
+| `additionalContent['context_management']` | meaning |
+|---|---|
+| absent | the field never reached the API — usually a missing beta header |
+| present, `applied_edits` empty | the edit ran and had nothing to clear yet |
+| present, `applied_edits` populated | the transcript was edited |
+
+If the field is absent, check the request options and required beta header.
+
+`cleared_input_tokens` accumulates over a conversation rather than reporting a
+per-turn delta.
+
+::: info Comparing token counts
+Per-step input totals include newly added messages and tool results. Their
+difference is not a direct measure of the tokens cleared by context management.
+:::
 
 ## Considerations
 ### Message Order
@@ -576,17 +677,13 @@ $response = Prism::structured()
         ],
         ['forecast', 'recommendation']
     ))
-    ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withPrompt('What\'s the weather like and what should I wear?')
     ->asStructured();
 ```
 
-**Benefits of native structured outputs:**
-- **Always valid JSON**: No more parsing errors or malformed responses
-- **Type safe**: Guaranteed field types and required fields
-
 **Limitations:**
-- Only available on Claude Sonnet 4.5+ and Claude Opus 4.1+
+- Requires a model that supports native structured output
 - Cannot be used with citations
 - Some JSON Schema features are not supported (see [Schema Limitations](#schema-limitations))
 
@@ -609,21 +706,15 @@ $response = Prism::structured()
         ],
         ['forecast', 'recommendation']
     ))
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withPrompt('What\'s the weather like and what should I wear?')
     ->withProviderOptions(['use_tool_calling' => true])
+    ->withToolChoice(\Prism\Prism\Enums\ToolChoice::Auto)
     ->asStructured();
 ```
 
-**Benefits of tool calling mode:**
-- More reliable JSON parsing, especially with quotes and special characters
-- Better handling of non-English content (Chinese, Japanese, etc.)
-- Reduced risk of malformed JSON responses
-- Compatible with thinking mode
-
 **Limitations:**
 - Cannot be used with citations (citations are not supported in tool calling mode)
-- Slightly more complex under the hood but identical API usage
 
 > [!IMPORTANT]
 > Without custom tools or thinking, tool calling mode forces Claude to call the structured output tool (`tool_choice` of type `tool`). Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 reject forced tool use with a 400. On those models use native structured output (the default), or keep tool calling mode and pass `->withToolChoice(ToolChoice::Auto)`, which Prism honours. With `Auto` the structured output tool is best effort rather than schema-enforced, so native mode remains the recommendation. `ToolChoice::None` is still rejected in tool calling mode.
@@ -632,13 +723,13 @@ Prism adds the "use the structured output tool" instruction once, before the fir
 
 #### Combining Custom Tools with Structured Output
 
-You can combine custom tools with structured output to gather data before returning a structured response. This requires tool calling mode to be enabled:
+You can combine custom tools with structured output to gather data before returning a structured response. Native structured output supports custom tools on compatible models. The example uses the default native mode:
 
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $schema = new ObjectSchema(
     'weather_analysis',
@@ -656,11 +747,10 @@ $weatherTool = Tool::as('get_weather')
     ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
 
 $response = Prism::structured()
-    ->using('anthropic', 'claude-3-5-sonnet-latest')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withSchema($schema)
     ->withTools([$weatherTool])
     ->withMaxSteps(3)
-    ->withProviderOptions(['use_tool_calling' => true]) // Required for Anthropic
     ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
     ->asStructured();
 
@@ -675,7 +765,7 @@ foreach ($response->toolCalls as $toolCall) {
 
 > [!IMPORTANT]
 > When using custom tools with structured output on Anthropic, you must:
-> - Set `use_tool_calling: true` in provider options
+> - Choose a model supporting native structured output and tools, or use the explicit tool-mode controls above
 > - Set `maxSteps` to at least 2
 
 For complete documentation on combining tools with structured output, see [Structured Output - Combining with Tools](/core-concepts/structured-output#combining-structured-output-with-tools).
@@ -688,7 +778,7 @@ To enable strict mode for a tool, use the `strict` provider option:
 
 ```php
 use Prism\Prism\Facades\Prism;
-use Prism\Prism\Tool;
+use Prism\Prism\Facades\Tool;
 
 $weatherTool = Tool::as('get_weather')
     ->for('Get current weather for a location')
@@ -697,17 +787,15 @@ $weatherTool = Tool::as('get_weather')
     ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
 
 $response = Prism::text()
-    ->using('anthropic', 'claude-sonnet-4-5-20250929')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withTools([$weatherTool])
+    ->withMaxSteps(2)
     ->withPrompt('What is the weather in San Francisco?')
     ->asText();
 ```
 
-**Benefits of strict tool use:**
-- Functions receive correctly-typed arguments every time
-- No need to validate tool inputs
-- Eliminates runtime errors from type mismatches
-- Production-ready agents that work consistently
+Strict mode constrains generated arguments to the provider-supported schema.
+Application validation and authorization are still required before executing tools.
 
 ### Schema Limitations
 
@@ -741,4 +829,4 @@ Therefore, for Anthropic we:
 
 ### Images
 
-Does not support `Image::fromURL`
+`Image::fromUrl()` sends an image URL to Anthropic as a URL reference. Local files, raw bytes, base64 content and provider file IDs are also supported. Choose a model that accepts images.

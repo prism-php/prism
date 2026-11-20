@@ -9,11 +9,13 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsAdditionalContent;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
+use Prism\Prism\Providers\Anthropic\Maps\RequestPayloadMap;
 use Prism\Prism\Providers\Anthropic\Support\ContentBlocks;
 use Prism\Prism\Providers\Anthropic\ValueObjects\AnthropicStreamState;
 use Prism\Prism\Streaming\EventID;
@@ -33,6 +35,7 @@ use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Citation;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
@@ -46,6 +49,7 @@ use Throwable;
 class Stream
 {
     use CallsTools, ExtractsAdditionalContent;
+    use TracksStreamFailureUsage;
 
     protected AnthropicStreamState $state;
 
@@ -59,6 +63,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $this->state->reset();
         $response = $this->sendRequest($request);
 
@@ -70,8 +78,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
-        while (! $response->getBody()->eof()) {
-            $event = $this->parseNextSSEEvent($response->getBody());
+        $this->streamFailureTracker = new StreamFailureUsageTracker('anthropic', $depth);
+
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $event = yield from $this->readStreamValue(fn (): ?array => $this->parseNextSSEEvent($response->getBody()));
 
             if ($event === null) {
                 continue;
@@ -86,6 +96,16 @@ class Stream
             } elseif ($streamEvent instanceof StreamEvent) {
                 yield $streamEvent;
             }
+        }
+
+        $incomplete = $this->incompleteStreamError();
+
+        if ($incomplete instanceof ErrorEvent) {
+            yield $incomplete;
+        }
+
+        if (! $this->state->finalUsageReported()) {
+            $this->state->markTurnUsageIncomplete();
         }
 
         $unfinishedBlockEvent = $this->completeUnfinishedBlock();
@@ -121,6 +141,30 @@ class Stream
         );
 
         yield $this->emitStreamEndEvent($additionalContent);
+    }
+
+    /**
+     * A body that ends without `message_stop` (a dropped connection, a proxy
+     * cutting it short) is not a finished message, and is reported the way
+     * Anthropic's own `error` event is: never as Stop. An `error` event already
+     * reported it, so it is not reported twice.
+     */
+    protected function incompleteStreamError(): ?ErrorEvent
+    {
+        if ($this->state->messageStopped() || $this->state->finishReason() === FinishReason::Error) {
+            return null;
+        }
+
+        $this->state->withFinishReason(FinishReason::Error);
+
+        return new ErrorEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            errorType: 'incomplete_stream',
+            message: 'The stream ended before Anthropic finished the message.',
+            recoverable: false,
+            failureUsage: $this->streamFailureUsage(),
+        );
     }
 
     /**
@@ -252,6 +296,11 @@ class Stream
         $this->state->withMessageId($message['id'] ?? EventID::generate());
 
         $usageData = $message['usage'] ?? [];
+
+        // The step's usage lives on the state, which is reset between steps,
+        // so a start without a usage block never inherits the previous
+        // message's numbers. message_delta reconciles it; finalizeStepUsage
+        // adds it to the turn's running total once, at the step's end.
         if (! empty($usageData)) {
             $this->state->withStepUsage(new Usage(
                 promptTokens: $usageData['input_tokens'] ?? 0,
@@ -259,6 +308,8 @@ class Stream
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
                 cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
                 thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens'),
+                cacheWrite5mInputTokens: data_get($usageData, 'cache_creation.ephemeral_5m_input_tokens'),
+                cacheWrite1hInputTokens: data_get($usageData, 'cache_creation.ephemeral_1h_input_tokens'),
             ));
         }
 
@@ -396,6 +447,10 @@ class Stream
 
         $this->reconcileStepUsage($usageData);
 
+        if (isset($usageData['output_tokens'])) {
+            $this->state->markFinalUsageReported();
+        }
+
         return null;
     }
 
@@ -412,13 +467,18 @@ class Stream
         }
 
         $current = $this->state->stepUsage() ?? new Usage(0, 0);
+        $cacheWriteTotal = $usageData['cache_creation_input_tokens'] ?? $current->cacheWriteInputTokens;
+        // A changed total cannot reuse an unreported split from an earlier report.
+        $carryCacheWrites = $cacheWriteTotal === $current->cacheWriteInputTokens;
 
         $this->state->withStepUsage(new Usage(
             promptTokens: $usageData['input_tokens'] ?? $current->promptTokens,
             completionTokens: $usageData['output_tokens'] ?? $current->completionTokens,
-            cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? $current->cacheWriteInputTokens,
+            cacheWriteInputTokens: $cacheWriteTotal,
             cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? $current->cacheReadInputTokens,
             thoughtTokens: data_get($usageData, 'output_tokens_details.thinking_tokens') ?? $current->thoughtTokens,
+            cacheWrite5mInputTokens: data_get($usageData, 'cache_creation.ephemeral_5m_input_tokens') ?? ($carryCacheWrites ? $current->cacheWrite5mInputTokens : null),
+            cacheWrite1hInputTokens: data_get($usageData, 'cache_creation.ephemeral_1h_input_tokens') ?? ($carryCacheWrites ? $current->cacheWrite1hInputTokens : null),
         ));
     }
 
@@ -427,6 +487,8 @@ class Stream
      */
     protected function handleMessageStop(array $event): ?StreamEndEvent
     {
+        $this->state->markMessageStopped();
+
         if (! $this->state->finishReason() instanceof FinishReason) {
             $this->state->withFinishReason(FinishReason::Stop);
         }
@@ -446,7 +508,9 @@ class Stream
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage() ?? new Usage(0, 0),
+            // Unknown is null, never zeros: a consumer billing on this must
+            // not read a missing or partial total as a cheap call.
+            usage: $this->state->turnUsageIncomplete() ? null : $this->state->usage(),
             citations: $this->state->citations() !== [] ? $this->state->citations() : null,
             additionalContent: [
                 'thinking' => $stepAdditionalContent['thinking'] ?? null,
@@ -471,7 +535,8 @@ class Stream
             timestamp: time(),
             errorType: $event['error']['type'] ?? 'unknown_error',
             message: $event['error']['message'] ?? 'Unknown error occurred',
-            recoverable: false
+            recoverable: false,
+            failureUsage: $this->streamFailureUsage(),
         );
     }
 
@@ -664,7 +729,8 @@ class Stream
     protected function handleToolCalls(Request $request, int $depth, array $toolCalls, array $additionalContent): Generator
     {
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $toolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $toolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
 
         $this->state->markStepFinished();
         yield new StepFinishEvent(
@@ -674,6 +740,16 @@ class Stream
             additionalContent: $additionalContent,
             finishReason: FinishReason::ToolCalls,
         );
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            // The step's own usage is already on the StepFinishEvent above;
+            // the StreamEndEvent carries the turn's running total.
+            yield $this->emitStreamEndEvent($additionalContent);
+
+            return;
+        }
 
         $request->addMessage(new AssistantMessage(
             content: $this->state->currentText(),
@@ -885,7 +961,7 @@ class Stream
 
             return $data;
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Anthropic', $e);
+            throw (new PrismStreamDecodeException('Anthropic', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -912,13 +988,12 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this->client
             ->withOptions(['stream' => true])
-            ->post('messages', Arr::whereNotNull([
-                'stream' => true,
-                ...Text::buildHttpRequestPayload($request),
-            ]));
+            ->post('messages', RequestPayloadMap::stream($request));
 
         return $response;
     }

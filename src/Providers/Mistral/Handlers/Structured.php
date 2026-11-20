@@ -47,6 +47,8 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
+        $this->resolveToolApprovals($request);
+
         return $this->sendAndRespond($request);
     }
 
@@ -102,18 +104,21 @@ class Structured
     {
         $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
         $this->addStep($data, $request, $clientResponse, toolCalls: $toolCalls, toolResults: $toolResults);
 
         $request->addMessage(new AssistantMessage(
             $this->extractText(data_get($data, 'choices.0.message', [])),
             $toolCalls,
+            toolApprovalRequests: $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->sendAndRespond($request);
         }
 
@@ -127,7 +132,7 @@ class Structured
      */
     protected function handleStop(array $data, Request $request, ClientResponse $clientResponse): StructuredResponse
     {
-        $text = data_get($data, 'choices.0.message.content') ?? '';
+        $text = $this->extractText(data_get($data, 'choices.0.message', []));
 
         $request->addMessage(new AssistantMessage($text));
 

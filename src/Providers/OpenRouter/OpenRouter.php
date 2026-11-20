@@ -15,6 +15,9 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\OpenRouter\Concerns\ExtractsErrorDetails;
 use Prism\Prism\Providers\OpenRouter\Handlers\Embeddings;
 use Prism\Prism\Providers\OpenRouter\Handlers\Stream;
@@ -37,6 +40,15 @@ class OpenRouter extends Provider
         public readonly ?string $httpReferer = null,
         public readonly ?string $xTitle = null,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all(nameKey: 'name');
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

@@ -52,14 +52,14 @@ class Structured
         $response = $this->client->post(
             'chat/completions',
             array_merge(
-                // Provider options go first so the request settings below always win.
+                // See Text::sendRequest — provider options first so the explicit
+                // settings below always win.
                 $request->providerOptions(),
                 [
                     'model' => $request->model(),
                     'messages' => (new MessageMap($request->messages(), $request->systemPrompts()))(),
                     'max_completion_tokens' => $request->maxTokens(),
-                ],
-                Arr::whereNotNull([
+                ], Arr::whereNotNull([
                     'temperature' => $request->temperature(),
                     'top_p' => $request->topP(),
                     'response_format' => ['type' => 'json_object'],

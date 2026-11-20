@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\OpenRouter\Concerns;
 
+use Prism\Prism\Providers\OpenRouter\ValueObjects\Billing;
 use Prism\Prism\ValueObjects\Usage;
 
 trait MapsUsage
@@ -14,6 +15,7 @@ trait MapsUsage
      * so the prompt bucket is what remains once both are taken out. Replayed
      * response-cache hits can report more cached tokens than prompt tokens,
      * hence the floor at zero. `completion_tokens` already includes reasoning.
+     * Explicit complete BYOK cost includes the router charge and reported upstream estimate.
      *
      * @param  array<string, mixed>  $usage
      */
@@ -29,6 +31,7 @@ trait MapsUsage
             cacheWriteInputTokens: $cacheWriteTokens,
             cacheReadInputTokens: $cacheReadTokens,
             thoughtTokens: $this->reportedTokenCount($usage, 'completion_tokens_details.reasoning_tokens'),
+            cost: Billing::cost(Billing::fromUsage($usage)),
         );
     }
 

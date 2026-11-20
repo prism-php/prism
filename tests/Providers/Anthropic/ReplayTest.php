@@ -260,10 +260,12 @@ describe('stored message compatibility', function (): void {
             new ToolResultMessage([new ToolResult('toolu_1', 'get_weather', ['city' => 'Paris'], '20°C')]),
         ]);
 
-        expect($mapped[1]['content'])->toBe([
+        // Tool input is mapped as an object so an empty input still encodes as
+        // `{}`; compare the wire form.
+        expect(json_encode($mapped[1]['content']))->toBe(json_encode([
             ['type' => 'thinking', 'thinking' => '', 'signature' => 'sig-legacy'],
             ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'get_weather', 'input' => ['city' => 'Paris']],
-        ]);
+        ]));
     });
 
     it('prefers content_blocks over thinking_blocks over the legacy pair', function (): void {

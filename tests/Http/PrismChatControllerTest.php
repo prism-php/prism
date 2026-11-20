@@ -2,6 +2,8 @@
 
 namespace Tests\Http;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Mockery;
@@ -14,12 +16,12 @@ use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
-
-use function Pest\Laravel\freezeTime;
+use Throwable;
 
 it('handles chat requests successfully', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(fn ($messages): bool => $messages[0] instanceof UserMessage
@@ -56,11 +58,14 @@ it('handles chat requests successfully', function (): void {
 
     $response->assertOk();
 
-    expect($response->json())->toBe([
-        'id' => 'cmp_asdf123',
+    $json = $response->json();
+    expect($json['id'])->toMatch('/^chatcmpl-[A-Za-z0-9]{29}$/');
+    unset($json['id']);
+
+    expect($json)->toBe([
         'object' => 'chat.completion',
         'created' => now()->timestamp,
-        'model' => 'gpt-4',
+        'model' => 'nyx',
         'usage' => [
             'prompt_tokens' => $textResponse->usage->promptTokens,
             'completion_tokens' => $textResponse->usage->completionTokens,
@@ -82,6 +87,7 @@ it('handles chat requests successfully', function (): void {
 
 it('reports cached input inside prompt_tokens like the OpenAI API', function (): void {
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
     $generator->expects('withMessages')->andReturnSelf();
     $generator->expects('asText')->andReturn(new Response(
         steps: collect(),
@@ -120,6 +126,7 @@ it('reports cached input inside prompt_tokens like the OpenAI API', function ():
 
 it('reports a cache read of zero but leaves out details it does not know', function (): void {
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
     $generator->expects('withMessages')->andReturnSelf();
     $generator->expects('asText')->andReturn(new Response(
         steps: collect(),
@@ -148,8 +155,9 @@ it('reports a cache read of zero but leaves out details it does not know', funct
 });
 
 it('handles streaming requests', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(fn ($messages): bool => $messages[0] instanceof UserMessage
@@ -185,13 +193,14 @@ it('handles streaming requests', function (): void {
 
     $streamParts = array_filter(explode("\n", $response->streamedContent()));
 
-    $data = Str::of($streamParts[0])->substr(6);
+    $data = json_decode((string) Str::of($streamParts[0])->substr(6), true);
+    expect($data['id'])->toMatch('/^chatcmpl-[A-Za-z0-9]{29}$/');
+    unset($data['id']);
 
-    expect(json_decode($data, true))->toBe([
-        'id' => 'cmp_asdf123',
+    expect($data)->toBe([
         'object' => 'chat.completion.chunk',
         'created' => now()->timestamp,
-        'model' => 'unknown',
+        'model' => 'nyx',
         'choices' => [
             [
                 'delta' => [
@@ -207,18 +216,7 @@ it('handles streaming requests', function (): void {
     expect((string) Str::of($lastPart)->substr(6))->toBe('[DONE]');
 });
 
-it('handles invalid model requests', function (): void {
-    /** @var TestResponse */
-    $response = $this->postJson('prism/openai/v1/chat/completions', [
-        'model' => 'nyx',
-    ]);
-
-    $response->assertServerError();
-
-    expect($response->json('error.message'))->toContain('nyx');
-});
-
-it('handles missing prism', function (): void {
+it('answers an unknown model with 404 and a fixed message (#150)', function (): void {
     /** @var TestResponse */
     $response = $this->postJson('prism/openai/v1/chat/completions', [
         'model' => 'nyx',
@@ -228,14 +226,69 @@ it('handles missing prism', function (): void {
         ]],
     ]);
 
+    $response->assertNotFound();
+    expect($response->json('error'))->toBe([
+        'message' => 'The requested model does not exist.',
+        'type' => 'invalid_request_error',
+        'code' => 'model_not_found',
+    ]);
+    expect($response->getContent())->not->toContain('PrismServer');
+});
+
+it('answers messages it cannot read with 422 and a fixed message (#150)', function (): void {
+    PrismServer::register('nyx', fn (): PendingRequest => Mockery::mock(PendingRequest::class));
+
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'not-a-role', 'content' => 'x']],
+    ]);
+
+    $response->assertUnprocessable();
+    expect($response->json('error'))->toBe([
+        'message' => 'The messages could not be read.',
+        'type' => 'invalid_request_error',
+        'code' => 'invalid_messages',
+    ]);
+});
+
+it('never returns an exception message to the caller, and reports it instead (#150)', function (): void {
+    Exceptions::fake();
+    PrismServer::register('nyx', function (): PendingRequest {
+        throw new \RuntimeException('SQLSTATE[28000] password=hunter2 at https://internal.example/v1 /var/www/.env');
+    });
+
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'user', 'content' => 'Who are you?']],
+    ]);
+
     $response->assertServerError();
-    expect($response->json('error.message'))
-        ->toBe('Prism "nyx" is not registered with PrismServer');
+    expect($response->json('error'))->toBe([
+        'message' => 'The server could not complete the request.',
+        'type' => 'server_error',
+        'code' => null,
+    ]);
+    foreach (['SQLSTATE', 'hunter2', 'internal.example', '.env'] as $secret) {
+        expect($response->getContent())->not->toContain($secret);
+    }
+    Exceptions::assertReported(
+        fn (\RuntimeException $e): bool => str_contains($e->getMessage(), 'hunter2')
+    );
+});
+
+it('still answers a malformed request with 422', function (): void {
+    /** @var TestResponse */
+    $response = $this->postJson('prism/openai/v1/chat/completions', ['messages' => 'nope']);
+
+    $response->assertUnprocessable();
 });
 
 it('handles multimodal messages with image URL', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(function ($messages): bool {
@@ -285,8 +338,9 @@ it('handles multimodal messages with image URL', function (): void {
 });
 
 it('handles multimodal messages with base64 image', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $base64Image = base64_encode('fake-image-data');
 
@@ -339,8 +393,9 @@ it('handles multimodal messages with base64 image', function (): void {
 });
 
 it('handles multimodal messages with multiple images', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(function ($messages): bool {
@@ -391,8 +446,9 @@ it('handles multimodal messages with multiple images', function (): void {
 });
 
 it('handles mixed simple and multimodal messages', function (): void {
-    freezeTime();
+    $this->freezeTime();
     $generator = Mockery::mock(PendingRequest::class);
+    $generator->allows('tools')->andReturn([]);
 
     $generator->expects('withMessages')
         ->withArgs(fn ($messages): bool => count($messages) === 2
@@ -443,4 +499,53 @@ it('handles mixed simple and multimodal messages', function (): void {
 
     $response->assertOk();
     expect($response->json('choices.0.message.content'))->toBe('Hello! I can see the image you shared.');
+});
+
+it('lets the app render Prism Server errors (#150)', function (): void {
+    PrismServer::register('nyx', function (): PendingRequest {
+        throw new \RuntimeException('internal detail');
+    });
+    PrismServer::renderErrorsUsing(fn (Throwable $e): JsonResponse => response()->json(['error' => ['message' => 'Try again later.', 'type' => 'app_error']], 503));
+
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'user', 'content' => 'Who are you?']],
+    ]);
+
+    $response->assertStatus(503);
+    expect($response->json('error'))->toBe(['message' => 'Try again later.', 'type' => 'app_error']);
+});
+
+it('keeps the safe default when the renderer returns null (#150)', function (): void {
+    PrismServer::renderErrorsUsing(fn (Throwable $e): null => null);
+
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'user', 'content' => 'Who are you?']],
+    ]);
+
+    $response->assertNotFound();
+    expect($response->json('error.code'))->toBe('model_not_found');
+});
+
+it('falls back to the safe default when the renderer throws, without leaking either message (#150)', function (): void {
+    Exceptions::fake();
+    PrismServer::register('nyx', function (): PendingRequest {
+        throw new \RuntimeException('provider body password=hunter2');
+    });
+    PrismServer::renderErrorsUsing(function (Throwable $e): never {
+        throw new \LogicException('renderer bug at /var/www/app.php');
+    });
+
+    $response = $this->postJson('prism/openai/v1/chat/completions', [
+        'model' => 'nyx',
+        'messages' => [['role' => 'user', 'content' => 'Who are you?']],
+    ]);
+
+    $response->assertServerError();
+    expect($response->json('error.message'))->toBe('The server could not complete the request.');
+    expect($response->getContent())->not->toContain('hunter2');
+    expect($response->getContent())->not->toContain('/var/www');
+    Exceptions::assertReported(fn (\LogicException $e): bool => str_contains($e->getMessage(), 'renderer bug'));
+    Exceptions::assertReported(fn (\RuntimeException $e): bool => str_contains($e->getMessage(), 'hunter2'));
 });

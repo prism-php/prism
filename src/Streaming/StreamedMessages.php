@@ -14,10 +14,12 @@ use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 
@@ -35,6 +37,9 @@ class StreamedMessages
 
     /** @var ToolResult[] */
     protected array $toolResults = [];
+
+    /** @var ToolApprovalRequest[] */
+    protected array $toolApprovalRequests = [];
 
     /** @var Message[] */
     protected array $messages = [];
@@ -70,6 +75,7 @@ class StreamedMessages
             $event instanceof TextStartEvent => $this->startText(),
             $event instanceof TextDeltaEvent => $this->text .= $event->delta,
             $event instanceof ToolCallEvent => $this->toolCalls[] = $event->toolCall,
+            $event instanceof ToolApprovalRequestEvent => $this->recordApproval($event),
             $event instanceof ToolResultEvent => $this->toolResults[] = $event->toolResult,
             $event instanceof ProviderToolEvent => $this->recordProviderTool(),
             $event instanceof StreamEndEvent => $this->flush(),
@@ -88,10 +94,26 @@ class StreamedMessages
         $this->insideStep = false;
 
         if ($event->finishReason instanceof FinishReason && $event->finishReason !== FinishReason::ToolCalls) {
-            $this->toolCalls = [];
+            $pending = array_map(fn (ToolApprovalRequest $request): string => $request->toolCallId, $this->toolApprovalRequests);
+            $this->toolCalls = array_values(array_filter(
+                $this->toolCalls,
+                fn (ToolCall $call): bool => in_array($call->id, $pending, true)
+            ));
         }
 
         $this->flush($event->additionalContent);
+    }
+
+    protected function recordApproval(ToolApprovalRequestEvent $event): void
+    {
+        // Some providers emit the call separately; the approval event also
+        // carries it. Keep exactly one native call so its request can be
+        // matched on a later turn without fabricating a tool result.
+        if (! in_array($event->toolCall->id, array_map(fn (ToolCall $call): string => $call->id, $this->toolCalls), true)) {
+            $this->toolCalls[] = $event->toolCall;
+        }
+
+        $this->toolApprovalRequests[] = new ToolApprovalRequest($event->approvalId, $event->toolCall->id);
     }
 
     /**
@@ -125,10 +147,11 @@ class StreamedMessages
     protected function finishInterruptedStream(): void
     {
         $answered = array_map(fn (ToolResult $result): string => $result->toolCallId, $this->toolResults);
+        $pending = array_map(fn (ToolApprovalRequest $request): string => $request->toolCallId, $this->toolApprovalRequests);
 
         $this->toolCalls = array_values(array_filter(
             $this->toolCalls,
-            fn (ToolCall $toolCall): bool => in_array($toolCall->id, $answered, true)
+            fn (ToolCall $toolCall): bool => in_array($toolCall->id, $answered, true) || in_array($toolCall->id, $pending, true)
         ));
 
         $this->flush();
@@ -142,10 +165,11 @@ class StreamedMessages
      */
     protected function flush(array $additionalContent = []): void
     {
-        if ($this->text !== '' || $this->toolCalls !== [] || $this->hasReplayContent($additionalContent)) {
-            $this->messages[] = new AssistantMessage($this->text, $this->toolCalls, $additionalContent);
+        if ($this->text !== '' || $this->toolCalls !== [] || $this->toolApprovalRequests !== [] || $this->hasReplayContent($additionalContent)) {
+            $this->messages[] = new AssistantMessage($this->text, $this->toolCalls, $additionalContent, $this->toolApprovalRequests);
             $this->text = '';
             $this->toolCalls = [];
+            $this->toolApprovalRequests = [];
         }
 
         if ($this->toolResults !== []) {

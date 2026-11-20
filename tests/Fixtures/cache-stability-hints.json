@@ -1,0 +1,164 @@
+{
+    "suite": "cache-stability-hints",
+    "schema_version": 1,
+    "corpus_version": "0.1.0",
+    "generated_by": "The php column is recorded by prism:tests/CacheStabilityCorpusTest.php against particle-academy/prism v0.129.0. The ts and py columns are the EXPECTATION the ports are to be built against, and are null until a runner exists, so this suite is red by construction rather than agreeing with itself.",
+    "legend": {
+        "breakpoint_index": "Index of the message carrying the cache breakpoint under the mark-in-place model (Anthropic), or null for none.",
+        "ordering_warning": "Whether core warns that the declared order defeats prefix caching — true on every provider, since a cache matches a prefix.",
+        "cached_prefix_length": "How many leading messages become the cached resource under the create-and-reference model (Gemini, Vertex), or null when nothing is cached."
+    },
+    "cases": [
+        {
+            "id": "hint-0001",
+            "title": "a conversation that declares nothing",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "One", "hint": null},
+                {"role": "assistant", "text": "Two", "hint": null}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": null, "ordering_warning": false, "cached_prefix_length": null},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "The control. A language that derives anything here is acting on a declaration nobody made, and every row below it would pass anyway."
+        },
+        {
+            "id": "hint-0002",
+            "title": "stable history, then this turn's question",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "The manual", "hint": "stable"},
+                {"role": "assistant", "text": "Understood.", "hint": "stable"},
+                {"role": "user", "text": "Today's question", "hint": "volatile"}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": 1, "ordering_warning": false, "cached_prefix_length": 2},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "The ordinary case. The breakpoint goes after the LAST stable message before the first volatile one — index 1, not 0 — because a breakpoint means everything before it is unchanged. A port marking index 0 caches less than the caller declared and still looks like it works."
+        },
+        {
+            "id": "hint-0003",
+            "title": "every message declared stable",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "One", "hint": "stable"},
+                {"role": "assistant", "text": "Two", "hint": "stable"}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": 1, "ordering_warning": false, "cached_prefix_length": null},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "The two models answer DIFFERENTLY here, and both are right. Mark-in-place caches the whole prompt by marking the last message. Create-and-reference declines: with no volatile remainder there is nothing left to ask, and a generation needs a question."
+        },
+        {
+            "id": "hint-0004",
+            "title": "the caller placed their own breakpoint",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "The manual", "hint": null, "provider_options": {"cacheType": "ephemeral"}},
+                {"role": "user", "text": "Also stable", "hint": "stable"},
+                {"role": "user", "text": "Question", "hint": "volatile"}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": 0, "ordering_warning": false, "cached_prefix_length": 2},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "Their mark, untouched, and no second one derived. A caller writing cacheType is working in the mark-in-place idiom and budgeting against its limit of four; spending another on their behalf is how a request that worked starts failing. The create-and-reference column still caches the prefix, and that is not an inconsistency: cacheType is ONE provider's option and says nothing about what another provider should do. The first version of this row said null for both, and the runner caught it -- which is the argument for a runner over a written-down expectation."
+        },
+        {
+            "id": "hint-0005",
+            "title": "the volatile part declared FIRST",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "Changes every turn", "hint": "volatile"},
+                {"role": "user", "text": "The manual", "hint": "stable"}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": null, "ordering_warning": true, "cached_prefix_length": null},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "The row to read first. Nothing stable precedes the volatile message, so there is no prefix to cache and the right answer is to mark NOTHING — a port that marked something here would look like it was doing more work rather than less. The warning is the only output, and it is the only half of this feature that helps a caller whose provider has no breakpoints at all."
+        },
+        {
+            "id": "hint-0006",
+            "title": "several misordered pairs in one conversation",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "Volatile", "hint": "volatile"},
+                {"role": "user", "text": "Stable", "hint": "stable"},
+                {"role": "user", "text": "Volatile again", "hint": "volatile"},
+                {"role": "user", "text": "Stable again", "hint": "stable"}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": null, "ordering_warning": true, "cached_prefix_length": null},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "ONE warning, not one per pair: the fix is the same edit and a warning repeated four times is one a reader filters out. Pinned because 'warns' and 'warns once' are different behaviours that a port will not distinguish unless asked."
+        },
+        {
+            "id": "hint-0007",
+            "title": "a ttl written the provider's way",
+            "since": "0.1.0",
+            "skip": {
+                "php": "Executed by prism:tests/CacheStabilityCorpusTest.php, not this generic runner.",
+                "ts": "G-64: no cache-stability derivation or package-specific runner implemented.",
+                "py": "G-64: no cache-stability derivation or package-specific runner implemented."
+            },
+            "messages": [
+                {"role": "user", "text": "The manual", "hint": "stable", "ttl": "1h"},
+                {"role": "user", "text": "Question", "hint": "volatile"}
+            ],
+            "expected": {
+                "php": {"breakpoint_index": 0, "ordering_warning": false, "cached_prefix_length": 1, "ttl_seconds": 3600},
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "`1h` is 3600 seconds in every language or the cached resources do not line up. A port reading it as 1 would create a resource that expires before the next turn: the write is paid for and the read never happens, which costs more than not caching."
+        }
+    ]
+}

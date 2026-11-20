@@ -27,6 +27,7 @@ use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
@@ -104,6 +105,9 @@ it('can return usage with a basic stream', function (): void {
         'cacheWriteInputTokens' => 0,
         'cacheReadInputTokens' => 0,
         'thoughtTokens' => null,
+        'cost' => null,
+        'cacheWrite5mInputTokens' => 0,
+        'cacheWrite1hInputTokens' => 0,
     ]);
 
     // Verify the HTTP request
@@ -969,7 +973,216 @@ describe('step events', function (): void {
     });
 });
 
-it('ends with a step finish and Stop when the stream closes before message_delta', function (): void {
+describe('client-executed tools', function (): void {
+    it('stops streaming when a client-executed tool is called', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-client-executed-tool');
+
+        $tool = Tool::as('client_tool')
+            ->for('A tool that executes on the client')
+            ->withStringParameter('input', 'Input parameter')
+            ->clientExecuted();
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Use the client tool')
+            ->asStream();
+
+        $events = [];
+        $toolCallFound = false;
+
+        foreach ($response as $event) {
+            $events[] = $event;
+
+            if ($event instanceof ToolCallEvent) {
+                $toolCallFound = true;
+            }
+        }
+
+        expect($toolCallFound)->toBeTrue();
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
+describe('approval-required tools', function (): void {
+    it('stops streaming with an approval request event when approval is required', function (): void {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-approval-tool');
+
+        $tool = Tool::as('delete_file')
+            ->for('Delete a file. Requires user approval.')
+            ->withStringParameter('path', 'File path to delete')
+            ->using(fn (string $path): string => "Deleted: {$path}")
+            ->requiresApproval();
+
+        $response = Prism::text()
+            ->using('anthropic', 'claude-3-5-sonnet-20240620')
+            ->withTools([$tool])
+            ->withMaxSteps(3)
+            ->withPrompt('Delete the file at /tmp/test.txt')
+            ->asStream();
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        $eventTypes = array_map(fn (StreamEvent $e): string => $e::class, $events);
+
+        $approvalIndex = array_search(ToolApprovalRequestEvent::class, $eventTypes);
+        expect($approvalIndex)->not->toBeFalse();
+
+        $approvalEvent = $events[$approvalIndex];
+        expect($approvalEvent->toolCall->name)->toBe('delete_file')
+            ->and($approvalEvent->approvalId)->toStartWith('apr_');
+
+        $lastEvent = end($events);
+        expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+        expect($lastEvent->finishReason)->toBe(FinishReason::ToolCalls);
+    });
+});
+
+describe('usage across a multi-step stream', function (): void {
+    // Three steps, each checkable by hand from the fixture's own usage blocks:
+    //
+    //   step 1   input 465   output 96    (stop_reason: tool_use)
+    //   step 2   input 560   output 71    (stop_reason: tool_use)
+    //   step 3   input 200   output 36    (stop_reason: end_turn)
+    //   total    input 1225  output 203
+    //
+    // Expected values come from the FIXTURE, not from running this code -- a
+    // test whose numbers came out of the code it tests proves only that the
+    // code is deterministic.
+    function streamedToolTurn(): array
+    {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-tools');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ];
+
+        return iterator_to_array(
+            Prism::text()
+                ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+                ->withTools($tools)
+                ->withMaxSteps(3)
+                ->withPrompt('What time is the tigers game today and should I wear a coat?')
+                ->asStream(),
+            false,
+        );
+    }
+
+    it('reports the output tokens of EVERY step in the total, not only the last', function (): void {
+        // `handleMessageDelta` REPLACED the running total's completion tokens
+        // with the current step's `output_tokens` instead of adding them. The
+        // prompt side accumulates through addUsage() at message_start, so the
+        // total came out 1225 in / 36 out -- input right, output only the last
+        // step's. A multi-step streamed turn under-reported what it generated,
+        // and the root span of every such generation inherited it.
+        $end = collect(streamedToolTurn())->last(fn ($event): bool => $event instanceof StreamEndEvent);
+
+        expect($end->usage->promptTokens)->toBe(1225)
+            ->and($end->usage->completionTokens)->toBe(203);
+    });
+
+    it('attaches each step its OWN usage, so per-step cost is visible', function (): void {
+        // Streamed StepFinishEvents carried no usage at all, so a telemetry
+        // step span had no token counts while a non-streamed one did. Reported
+        // from production: per-step cost of a streamed multi-step turn was
+        // invisible, and only the root total existed.
+        //
+        // Each step gets its own delta rather than the running total -- a step
+        // that reported the total would show step 2 as costing steps 1 and 2.
+        $steps = collect(streamedToolTurn())
+            ->filter(fn ($event): bool => $event instanceof StepFinishEvent)
+            ->values();
+
+        expect($steps)->toHaveCount(3);
+
+        expect([$steps[0]->usage?->promptTokens, $steps[0]->usage?->completionTokens])->toBe([465, 96])
+            ->and([$steps[1]->usage?->promptTokens, $steps[1]->usage?->completionTokens])->toBe([560, 71])
+            ->and([$steps[2]->usage?->promptTokens, $steps[2]->usage?->completionTokens])->toBe([200, 36]);
+    });
+});
+
+describe('usage when a message_start carries no usage block', function (): void {
+    // Found by the pre-publish audit of the fix above, in the fix itself.
+    //
+    // message_delta turns its output count into an increment against the
+    // baseline message_start recorded. That baseline outlived its message: a
+    // message_start WITHOUT a usage block -- which the handler explicitly
+    // guards for -- left the PREVIOUS message's baseline in place, and the
+    // next delta subtracted another step's output from the running total.
+    //
+    // Traced by hand on this fixture, where step 2's message_start carries no
+    // usage: the total's output would fall from 96 to 71, and step 2's own
+    // delta would come out at MINUS 25 -- a negative token count on a value
+    // consumers bill on.
+    //
+    //   step 1   465 in /  96 out
+    //   step 2     ? in /  71 out   (no usage at message_start)
+    //   step 3   200 in /  36 out
+    //   total    665 in / 203 out
+    function streamedTurnWithAStartMissingUsage(): array
+    {
+        FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-usage-missing-at-start');
+
+        $tools = [
+            Tool::as('weather')
+                ->for('useful when you need to search for current weather conditions')
+                ->withStringParameter('city', 'The city that you want the weather for')
+                ->using(fn (string $city): string => "The weather will be 75° and sunny in {$city}"),
+            Tool::as('search')
+                ->for('useful for searching current events or data')
+                ->withStringParameter('query', 'The detailed search query')
+                ->using(fn (string $query): string => "Search results for: {$query}"),
+        ];
+
+        return iterator_to_array(
+            Prism::text()
+                ->using(Provider::Anthropic, 'claude-3-7-sonnet-20250219')
+                ->withTools($tools)
+                ->withMaxSteps(3)
+                ->withPrompt('What time is the tigers game today and should I wear a coat?')
+                ->asStream(),
+            false,
+        );
+    }
+
+    it('keeps every step output in the total', function (): void {
+        $end = collect(streamedTurnWithAStartMissingUsage())
+            ->last(fn ($event): bool => $event instanceof StreamEndEvent);
+
+        expect($end->usage->promptTokens)->toBe(665)
+            ->and($end->usage->completionTokens)->toBe(203);
+    });
+
+    it('never reports a negative step', function (): void {
+        $steps = collect(streamedTurnWithAStartMissingUsage())
+            ->filter(fn ($event): bool => $event instanceof StepFinishEvent)
+            ->values();
+
+        foreach ($steps as $step) {
+            expect($step->usage?->promptTokens)->toBeGreaterThanOrEqual(0)
+                ->and($step->usage?->completionTokens)->toBeGreaterThanOrEqual(0);
+        }
+
+        expect($steps[1]->usage?->completionTokens)->toBe(71);
+    });
+});
+
+it('ends with a step finish and Error, running no tool, when the stream closes before message_delta', function (): void {
     $truncated = collect(explode("\n\n", (string) file_get_contents(__DIR__.'/../../Fixtures/anthropic/stream-with-tools-1.sse')))
         ->reject(fn (string $event): bool => str_contains($event, '"type":"message_delta"') || str_contains($event, '"type":"message_stop"'))
         ->implode("\n\n");
@@ -998,8 +1211,10 @@ it('ends with a step finish and Stop when the stream closes before message_delta
 
     expect($calls)->toBe(0)
         ->and($events->whereInstanceOf(ToolResultEvent::class))->toBeEmpty()
-        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
-        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+        ->and($events->whereInstanceOf(ErrorEvent::class)->sole()->errorType)->toBe('incomplete_stream')
+        ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+        ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage)->toBeNull()
         ->and($events->last())->toBeInstanceOf(StreamEndEvent::class);
 
     Http::assertSentCount(1);
@@ -1087,9 +1302,92 @@ describe('unfinished streams', function (): void {
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
+        // A dropped connection is not a finished message: it is reported the
+        // way Anthropic's own `error` event is, and never as Stop.
         expect($events->map(fn (StreamEvent $event): string => class_basename($event))->values()->all())->toBe([
-            'StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
+            'StreamStartEvent', 'StepStartEvent', 'ThinkingStartEvent', 'ThinkingEvent', 'ThinkingCompleteEvent', 'TextStartEvent', 'TextDeltaEvent', 'ErrorEvent', 'TextCompleteEvent', 'StepFinishEvent', 'StreamEndEvent',
         ])
-            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop);
+            ->and($events->whereInstanceOf(ErrorEvent::class)->sole())
+            ->errorType->toBe('incomplete_stream')
+            ->recoverable->toBeFalse()
+            ->and($events->whereInstanceOf(StepFinishEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error);
+    });
+
+    it('reports no turn usage, rather than the start usage, when the final usage never arrived', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(...anthropicThinkingThenTextEvents()), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        // The step keeps what message_start said, for inspection; the turn's
+        // total would understate the output generated before the drop.
+        expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage?->promptTokens)->toBe(11)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage)->toBeNull();
+    });
+
+    it('reports no turn usage after an error event without a final usage delta', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(
+                ...anthropicThinkingThenTextEvents(),
+                ...[['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(ErrorEvent::class))->toHaveCount(1)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage)->toBeNull();
+    });
+
+    it('ends with Error but keeps the final usage when only message_stop is missing', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(
+                ...anthropicThinkingThenTextEvents(),
+                ...[
+                    ['type' => 'content_block_stop', 'index' => 1],
+                    ['type' => 'message_delta', 'delta' => ['stop_reason' => 'end_turn'], 'usage' => ['output_tokens' => 7]],
+                ],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(ErrorEvent::class)->sole()->errorType)->toBe('incomplete_stream')
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Error)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage?->promptTokens)->toBe(11)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage?->completionTokens)->toBe(7);
+    });
+
+    it('reports no usage rather than zeros when the provider sent none', function (): void {
+        Http::fake([
+            '*' => Http::response(anthropicBlockSse(
+                ['type' => 'message_start', 'message' => ['id' => 'msg_none', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-4-5', 'content' => []]],
+                ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'text', 'text' => '']],
+                ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'Sunny']],
+                ['type' => 'content_block_stop', 'index' => 0],
+                ['type' => 'message_delta', 'delta' => ['stop_reason' => 'end_turn']],
+                ['type' => 'message_stop'],
+            ), 200, ['Content-Type' => 'text/event-stream']),
+        ])->preventStrayRequests();
+
+        $events = collect(iterator_to_array(Prism::text()
+            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->withPrompt('What is the weather?')
+            ->asStream(), false));
+
+        expect($events->whereInstanceOf(ErrorEvent::class))->toBeEmpty()
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->finishReason)->toBe(FinishReason::Stop)
+            ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage)->toBeNull();
     });
 });

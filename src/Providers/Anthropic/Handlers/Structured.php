@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\Handlers;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Prism\Prism\Concerns\CallsTools;
@@ -18,12 +17,9 @@ use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Concerns\ResolvesThinking;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\AnthropicStructuredStrategy;
-use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\NativeOutputFormatStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Handlers\StructuredStrategies\ToolStructuredStrategy;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
-use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
-use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
+use Prism\Prism\Providers\Anthropic\Maps\RequestPayloadMap;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response;
 use Prism\Prism\Structured\ResponseBuilder;
@@ -31,7 +27,7 @@ use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
@@ -52,6 +48,8 @@ class Structured
 
     public function handle(): Response
     {
+        $this->resolveToolApprovals($this->request);
+
         if ($this->responseBuilder->steps->isEmpty()) {
             $this->strategy->appendMessages();
         }
@@ -92,34 +90,12 @@ class Structured
             throw new InvalidArgumentException('Request must be an instance of '.StructuredRequest::class);
         }
 
-        $structuredStrategy = self::createStrategy($request);
-
-        $basePayload = Arr::whereNotNull([
-            'model' => $request->model(),
-            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
-            'thinking' => static::resolveThinking($request),
-            'max_tokens' => $request->maxTokens() ?? 64000,
-            'temperature' => $request->temperature(),
-            'top_p' => $request->topP(),
-            'tools' => static::buildTools($request) ?: null,
-            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-            'mcp_servers' => $request->providerOptions('mcp_servers'),
-            'cache_control' => $request->providerOptions('cache_control'),
-            'output_config' => $request->providerOptions('effort') !== null
-                ? ['effort' => $request->providerOptions('effort')]
-                : null,
-            'fallbacks' => $request->providerOptions('fallbacks'),
-        ]);
-
-        return $structuredStrategy->mutatePayload($basePayload);
+        return RequestPayloadMap::structured($request, static::buildTools($request), static::resolveThinking($request));
     }
 
     protected static function createStrategy(StructuredRequest $request): AnthropicStructuredStrategy
     {
-        return $request->providerOptions('use_tool_calling')
-            ? new ToolStructuredStrategy(request: $request)
-            : new NativeOutputFormatStructuredStrategy(request: $request);
+        return RequestPayloadMap::createStrategy($request);
     }
 
     /**
@@ -127,22 +103,7 @@ class Structured
      */
     protected static function buildTools(StructuredRequest $request): array
     {
-        $tools = ToolMap::map($request->tools());
-
-        if ($request->providerTools() === []) {
-            return $tools;
-        }
-
-        $providerTools = array_map(
-            fn (ProviderTool $tool): array => [
-                'type' => $tool->type,
-                'name' => $tool->name,
-                ...$tool->options,
-            ],
-            $request->providerTools()
-        );
-
-        return array_merge($providerTools, $tools);
+        return RequestPayloadMap::buildTools($request);
     }
 
     /**
@@ -170,8 +131,12 @@ class Structured
     protected function executeCustomToolsAndFinalize(array $toolCalls, Response $tempResponse): Response
     {
         $customToolCalls = $this->filterCustomToolCalls($toolCalls);
-        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
-        $this->addStep($toolCalls, $tempResponse, $toolResults);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($this->request->tools(), $customToolCalls, $hasPendingToolCalls, $approvalRequests);
+
+        $this->attachApprovalRequests($approvalRequests, $tempResponse, $toolCalls);
+        $this->addStep($toolCalls, $tempResponse, $toolResults, $approvalRequests);
 
         return $this->responseBuilder->toResponse();
     }
@@ -182,17 +147,46 @@ class Structured
     protected function executeCustomToolsAndContinue(array $toolCalls, Response $tempResponse): Response
     {
         $customToolCalls = $this->filterCustomToolCalls($toolCalls);
-        $toolResults = $this->callTools($this->request->tools(), $customToolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($this->request->tools(), $customToolCalls, $hasPendingToolCalls, $approvalRequests);
+
+        $this->attachApprovalRequests($approvalRequests, $tempResponse, $toolCalls);
 
         $this->request->addMessage(new ToolResultMessage($toolResults));
         $this->request->resetToolChoice();
-        $this->addStep($toolCalls, $tempResponse, $toolResults);
+        $this->addStep($toolCalls, $tempResponse, $toolResults, $approvalRequests);
 
-        if ($this->canContinue()) {
+        if (! $hasPendingToolCalls && $this->canContinue()) {
             return $this->handle();
         }
 
         return $this->responseBuilder->toResponse();
+    }
+
+    /**
+     * Replace the already-appended assistant message with one carrying the
+     * approval requests, so the resume pass can correlate them.
+     *
+     * @param  ToolApprovalRequest[]  $approvalRequests
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function attachApprovalRequests(array $approvalRequests, Response $tempResponse, array $toolCalls): void
+    {
+        if ($approvalRequests === []) {
+            return;
+        }
+
+        $messages = $this->request->messages();
+        array_pop($messages);
+        $this->request->setMessages($messages);
+
+        $this->request->addMessage(new AssistantMessage(
+            content: $tempResponse->text,
+            toolCalls: $toolCalls,
+            additionalContent: $tempResponse->additionalContent,
+            toolApprovalRequests: $approvalRequests,
+        ));
     }
 
     /**
@@ -276,8 +270,9 @@ class Structured
     /**
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $toolCalls, Response $tempResponse, array $toolResults = []): void
+    protected function addStep(array $toolCalls, Response $tempResponse, array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $data = $this->httpResponse->json();
         $isStructuredStep = $this->determineIfStructuredStep($toolCalls, $toolResults);
@@ -295,6 +290,7 @@ class Structured
             providerToolCalls: $this->extractProviderToolCalls($data),
             toolResults: $toolResults,
             raw: $data,
+            toolApprovalRequests: $toolApprovalRequests,
         ));
     }
 
@@ -353,6 +349,8 @@ class Structured
                 cacheWriteInputTokens: data_get($data, 'usage.cache_creation_input_tokens'),
                 cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens'),
                 thoughtTokens: data_get($data, 'usage.output_tokens_details.thinking_tokens'),
+                cacheWrite5mInputTokens: data_get($data, 'usage.cache_creation.ephemeral_5m_input_tokens'),
+                cacheWrite1hInputTokens: data_get($data, 'usage.cache_creation.ephemeral_1h_input_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

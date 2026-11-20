@@ -37,6 +37,8 @@ it('converts to array with the finish reason name and step usage', function (): 
             'cache_write_input_tokens' => 25,
             'cache_read_input_tokens' => 10,
             'thought_tokens' => 5,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ],
     ]);
 });

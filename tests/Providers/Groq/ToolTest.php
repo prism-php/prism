@@ -15,15 +15,15 @@ it('maps tools', function (): void {
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]');
 
-    expect(ToolMap::map([$tool]))->toBe([[
+    expect(ToolMap::map([$tool]))->toEqual([[
         'type' => 'function',
         'function' => [
             'name' => $tool->name(),
             'description' => $tool->description(),
             'parameters' => [
                 'type' => 'object',
-                'properties' => [
-                    'query' => [
+                'properties' => (object) [
+                    'query' => (object) [
                         'description' => 'the detailed search query',
                         'type' => 'string',
                     ],
@@ -57,10 +57,10 @@ it('relaxes boolean and number parameter types to also accept strings', function
 
     $properties = ToolMap::map([$tool])[0]['function']['parameters']['properties'];
 
-    expect($properties['limit'])->not->toHaveKey('type')
-        ->and($properties['limit']['anyOf'])->toBe([['type' => 'number'], ['type' => 'string']])
-        ->and($properties['include_pending']['anyOf'])->toBe([['type' => 'boolean'], ['type' => 'string']])
-        ->and($properties['account']['type'])->toBe('string');
+    expect($properties->limit)->not->toHaveProperty('type')
+        ->and($properties->limit->anyOf)->toBe([['type' => 'number'], ['type' => 'string']])
+        ->and($properties->include_pending->anyOf)->toBe([['type' => 'boolean'], ['type' => 'string']])
+        ->and($properties->account->type)->toBe('string');
 });
 
 it('maps tools with strict mode', function (): void {
@@ -70,15 +70,15 @@ it('maps tools with strict mode', function (): void {
         ->withStringParameter('query', 'the detailed search query')
         ->using(fn (): string => '[Search results]');
 
-    expect(ToolMap::map([$tool]))->toBe([[
+    expect(ToolMap::map([$tool]))->toEqual([[
         'type' => 'function',
         'function' => [
             'name' => $tool->name(),
             'description' => $tool->description(),
             'parameters' => [
                 'type' => 'object',
-                'properties' => [
-                    'query' => [
+                'properties' => (object) [
+                    'query' => (object) [
                         'description' => 'the detailed search query',
                         'type' => 'string',
                     ],

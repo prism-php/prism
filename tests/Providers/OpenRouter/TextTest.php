@@ -255,6 +255,33 @@ it('forwards advanced provider options to openrouter', function (): void {
     });
 });
 
+it('excludes cached tokens from promptTokens', function (): void {
+    Http::fake([
+        '*' => Http::response([
+            'id' => 'gen-cache-1',
+            'model' => 'openai/gpt-4o',
+            'choices' => [[
+                'index' => 0,
+                'message' => ['role' => 'assistant', 'content' => 'Hello!'],
+                'finish_reason' => 'stop',
+            ]],
+            'usage' => [
+                'prompt_tokens' => 100,
+                'completion_tokens' => 10,
+                'prompt_tokens_details' => ['cached_tokens' => 60],
+            ],
+        ]),
+    ])->preventStrayRequests();
+
+    $response = Prism::text()
+        ->using(Provider::OpenRouter, 'openai/gpt-4o')
+        ->withPrompt('Hello')
+        ->asText();
+
+    expect($response->usage->promptTokens)->toBe(40)
+        ->and($response->usage->cacheReadInputTokens)->toBe(60);
+});
+
 describe('usage normalization', function (): void {
     it('splits cache reads and writes out of prompt tokens and keeps reasoning inside completion tokens', function (array $usage, array $expected): void {
         Http::fake([
@@ -285,7 +312,7 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['cached_tokens' => 300, 'cache_write_tokens' => 100],
                 'completion_tokens_details' => ['reasoning_tokens' => 20],
             ],
-            ['prompt_tokens' => 600, 'completion_tokens' => 50, 'cache_write_input_tokens' => 100, 'cache_read_input_tokens' => 300, 'thought_tokens' => 20],
+            ['prompt_tokens' => 600, 'completion_tokens' => 50, 'cache_write_input_tokens' => 100, 'cache_read_input_tokens' => 300, 'thought_tokens' => 20, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'reported zeros stay zero' => [
             [
@@ -295,11 +322,11 @@ describe('usage normalization', function (): void {
                 'prompt_tokens_details' => ['cached_tokens' => 0, 'cache_write_tokens' => 0],
                 'completion_tokens_details' => ['reasoning_tokens' => 0],
             ],
-            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => 0, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0],
+            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => 0, 'cache_read_input_tokens' => 0, 'thought_tokens' => 0, 'cost' => null, 'cache_write_5m_input_tokens' => 0, 'cache_write_1h_input_tokens' => 0],
         ],
         'fields that are not reported stay null' => [
             ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
-            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null],
+            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
         'response-cache replay reporting more cached than prompt tokens' => [
             [
@@ -308,7 +335,17 @@ describe('usage normalization', function (): void {
                 'total_tokens' => 0,
                 'prompt_tokens_details' => ['cached_tokens' => 512],
             ],
-            ['prompt_tokens' => 0, 'completion_tokens' => 0, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 512, 'thought_tokens' => null],
+            ['prompt_tokens' => 0, 'completion_tokens' => 0, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 512, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+        ],
+        // Fork #920: OpenRouter reports what the request cost, and Usage carries it.
+        'reported cost is kept' => [
+            [
+                'prompt_tokens' => 10,
+                'completion_tokens' => 5,
+                'total_tokens' => 15,
+                'cost' => 0.00042,
+            ],
+            ['prompt_tokens' => 10, 'completion_tokens' => 5, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => 0.00042, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ],
     ]);
 });

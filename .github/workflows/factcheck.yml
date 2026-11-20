@@ -1,0 +1,57 @@
+name: Factcheck
+
+# Verifies that this repository's PROSE agrees with its CODE — that a class an
+# example imports exists, an artisan command it names is declared, an install
+# line resolves, a cited decision is real, a link points at something.
+#
+# The checker lives in prism-parity and is checked out here as `.parity`, the
+# same way the conformance loaders already arrive. It is maintained in ONE
+# place: see prism-parity/docs/decisions/0019-checking-the-prose.md.
+
+on:
+  push:
+    branches: [main, "*.x"]
+  pull_request:
+  workflow_dispatch:
+  # Claims rot without anything here changing — a sibling renames a class, a
+  # package gets published. The nightly notices.
+  schedule:
+    - cron: "40 7 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  factcheck:
+    name: Claims
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Tags, not a shallow clone: the staleness lockfile records versions as
+      # git tags, and without them every repo reads as "unknown" and the
+      # currency check compares nothing to nothing and passes.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout prism-parity
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/prism-parity
+          path: .parity
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test factcheck and release guards
+        run: node --test .github/scripts/factcheck.test.mjs .github/scripts/release-factcheck.test.mjs
+
+      # Every event checks Prism with --strict. A fresh tag makes the shared
+      # version lock stale; the next push must re-read and reconcile it.
+      # Reconciliation is a manual review step, never a CI mutation.
+      - name: Check claims and currency (strict)
+        run: node .github/scripts/factcheck.mjs check .parity

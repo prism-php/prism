@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Streaming\Events;
 
+use JsonSerializable;
 use Prism\Prism\Enums\StreamEventType;
+use Prism\Prism\ValueObjects\StreamFailureUsage;
 
-readonly class ErrorEvent extends StreamEvent
+readonly class ErrorEvent extends StreamEvent implements JsonSerializable
 {
     /**
      * @param  array<string, mixed>|null  $metadata
@@ -18,6 +20,7 @@ readonly class ErrorEvent extends StreamEvent
         public string $message,         // Error message
         public bool $recoverable,       // Whether stream can continue
         public ?array $metadata = null, // Additional error context
+        public ?StreamFailureUsage $failureUsage = null,
     ) {
         parent::__construct($id, $timestamp);
     }
@@ -25,6 +28,19 @@ readonly class ErrorEvent extends StreamEvent
     public function type(): StreamEventType
     {
         return StreamEventType::Error;
+    }
+
+    /** @return array<string, mixed> */
+    public function jsonSerialize(): array
+    {
+        $public = [];
+        foreach ((array) $this as $key => $value) {
+            if ($key !== 'failureUsage' && ! str_contains((string) $key, "\0")) {
+                $public[$key] = $value;
+            }
+        }
+
+        return [...$public, ...($this->failureUsage instanceof StreamFailureUsage ? ['failure_usage' => $this->failureUsage->toArray()] : [])];
     }
 
     /**
@@ -39,6 +55,7 @@ readonly class ErrorEvent extends StreamEvent
             'message' => $this->message,
             'recoverable' => $this->recoverable,
             'metadata' => $this->metadata,
+            ...($this->failureUsage instanceof StreamFailureUsage ? ['failure_usage' => $this->failureUsage->toArray()] : []),
         ];
     }
 }

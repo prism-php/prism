@@ -1,10 +1,10 @@
 # Testing
 
-Want to make sure your Prism integrations work flawlessly? Let's dive into testing! Prism provides a powerful fake implementation that makes it a breeze to test your AI‑powered features.
+Use Prism's fake provider to test application behavior without making requests to an external API.
 
 ## Basic Test Setup
 
-First, let's look at how to set up basic response faking:
+Configure a fake response:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -22,7 +22,7 @@ it('can generate text', function () {
 
     // Run your code
     $response = Prism::text()
-        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withPrompt('Who are you?')
         ->asText();
 
@@ -94,13 +94,7 @@ Prism::fake([
                 ->withMeta(new Meta('step1', 'test-model'))
                 ->withMessages([
                     new UserMessage('Test message 1', [
-                        new Document(
-                            document: '',
-                            mimeType: 'text/plain',
-                            dataFormat: 'text',
-                            documentTitle: 'Test document',
-                            documentContext: 'Test context'
-                        ),
+                        Document::fromText('', 'Test document'),
                     ]),
                     new AssistantMessage('Test message 2')
                 ])
@@ -116,7 +110,7 @@ Prism::fake([
                 ->withToolCalls([/* tool calls */])
                 ->withToolResults([/* tool results */])
                 ->withUsage(new Usage(1000, 750))
-                ->withMeta(new Meta(id: 123, model: 'test-model'))
+                ->withMeta(new Meta(id: '123', model: 'test-model'))
                 ->withMessages([/* Second step messages */])
                 ->withSystemPrompts([/* Second step system prompts */])
                 ->withAdditionalContent([/* Second step additional data */])
@@ -187,7 +181,7 @@ it('can use weather tool', function () {
 
     // Run the actual test
     $response = Prism::text()
-        ->using(Provider::Anthropic, 'claude-3-5-sonnet-latest')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withPrompt('What\'s the weather in Paris?')
         ->withTools([$weatherTool])
         ->withMaxSteps(2)
@@ -230,7 +224,7 @@ Prism::fake([
 ]);
 
 $stream = Prism::text()
-    ->using('anthropic', 'claude-3-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt('What is the meaning of life?')
     ->asStream();
 
@@ -302,7 +296,7 @@ Prism::fake([
 ]);
 
 $stream = Prism::text()
-    ->using('anthropic', 'claude-3-sonnet')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt('What is the meaning of life?')
     ->asStream();
 
@@ -374,7 +368,7 @@ it('can generate structured response', function () {
     $fake = Prism::fake([$fakeResponse]);
 
     $response = Prism::structured()
-        ->using('anthropic', 'claude-3-sonnet')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Generate a user profile')
         ->withSchema($schema)
         ->asStructured();
@@ -416,6 +410,14 @@ it('can generate embeddings', function () {
 });
 ```
 
+## Fake scope and fixture consumption
+
+`Prism::fake()` replaces provider behavior for text, structured output, embeddings, images and synchronous audio. It returns supplied responses without running tool handlers or performing provider request mapping. A fixture containing tool calls or results describes the response; it does not prove that the handler ran or that a provider accepts the request.
+
+With a nonempty fixture list, each call consumes the next response. Exhausting it raises an exception; provide fixtures in operation order and with the correct response types. An empty `Prism::fake()` uses default responses instead. Streaming consumes its fixture when iterated, so consume the generator before checking recorded calls.
+
+Moderation, FIM, Files, Batch and asynchronous audio are not implemented by this fake. Use Laravel `Http::fake()` plus `Http::preventStrayRequests()` to exercise those provider handlers, and assert the outgoing payload. See [Azure's native v1 streaming limitation](/providers/azure#streaming) before assuming Laravel fakes intercept every path.
+
 ## Assertions
 
 `PrismFake` provides several helpful assertion methods:
@@ -441,7 +443,7 @@ $fake->assertCallCount(2);
 // Assert detailed request properties
 $fake->assertRequest(function ($requests) {
     expect($requests[0]->provider())->toBe('anthropic');
-    expect($requests[0]->model())->toBe('claude-3-sonnet');
+    expect($requests[0]->model())->toBe('claude-sonnet-5-5');
 });
 
 // Assert provider configuration
@@ -462,16 +464,15 @@ use Prism\Prism\ValueObjects\Meta;
 
 $response = new Response(
     steps: collect([]),
+    messages: collect([]),
     text: 'The meaning of life is 42',
     finishReason: FinishReason::Stop,
     toolCalls: [],
     toolResults: [],
     usage: new Usage(42, 42),
     meta: new Meta('resp_1', 'real-model'),
-    messages: collect([]),
     additionalContent: [],
 );
 ```
 
-This approach is perfectly valid—but for most tests the fake builders are shorter and
-easier to read.
+Use real response classes when the fake builders do not expose the properties your test needs.

@@ -18,15 +18,18 @@ it('extracts finish reason correctly from response data', function (array $data,
 
     expect((new $testClass)->testExtractsFinishReason($data))->toBe($expected);
 })->with([
-    'stop finish reason' => [
-        'data' => [
-            'choices' => [
-                ['finish_reason' => 'stop'],
-            ],
-        ],
+    // The Agent API reports a run status rather than a per-choice finish
+    // reason. Failed and cancelled runs never reach here — assertRunSucceeded
+    // throws on those first.
+    'completed run' => [
+        'data' => ['status' => 'completed'],
         'expected' => FinishReason::Stop,
     ],
-    'length finish reason' => [
+    'incomplete does not imply a token limit' => [
+        'data' => ['status' => 'incomplete'],
+        'expected' => FinishReason::Unknown,
+    ],
+    'sonar-shaped length finish reason' => [
         'data' => [
             'choices' => [
                 ['finish_reason' => 'length'],
@@ -34,7 +37,7 @@ it('extracts finish reason correctly from response data', function (array $data,
         ],
         'expected' => FinishReason::Length,
     ],
-    'undocumented finish reason' => [
+    'sonar-shaped undocumented finish reason' => [
         'data' => [
             'choices' => [
                 ['finish_reason' => 'content_filter'],
@@ -42,20 +45,21 @@ it('extracts finish reason correctly from response data', function (array $data,
         ],
         'expected' => FinishReason::Unknown,
     ],
-    'missing finish reason key' => [
+    'run status wins over a per-choice finish reason' => [
         'data' => [
+            'status' => 'incomplete',
             'choices' => [
-                ['content' => 'Hello world'],
+                ['finish_reason' => 'length'],
             ],
         ],
         'expected' => FinishReason::Unknown,
     ],
-    'null finish reason value' => [
-        'data' => [
-            'choices' => [
-                ['finish_reason' => null],
-            ],
-        ],
+    'unrecognised status' => [
+        'data' => ['status' => 'something_new'],
+        'expected' => FinishReason::Unknown,
+    ],
+    'missing status key' => [
+        'data' => ['output' => []],
         'expected' => FinishReason::Unknown,
     ],
 ]);

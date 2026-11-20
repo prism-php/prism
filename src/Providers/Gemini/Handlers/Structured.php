@@ -12,6 +12,7 @@ use Prism\Prism\Concerns\HandlesStructuredJson;
 use Prism\Prism\Concerns\ManagesStructuredSteps;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Gemini\Concerns\CachesStablePrefix;
 use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
@@ -33,6 +34,7 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 class Structured
 {
+    use CachesStablePrefix;
     use CallsTools;
     use HandlesStructuredJson;
     use ManagesStructuredSteps;
@@ -48,6 +50,8 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
+        $this->resolveToolApprovals($request);
+
         $data = $this->sendRequest($request);
 
         $this->validateResponse($data);
@@ -79,6 +83,14 @@ class Structured
     {
         $providerOptions = $request->providerOptions();
 
+        // The declared-stable prefix becomes the cached resource, exactly as
+        // it does for a plain text generation. See the trait: opt-in.
+        [$messages, $cachedContentName] = $this->resolveStablePrefix(
+            $request->messages(),
+            $providerOptions,
+            $request->model(),
+        );
+
         $hasBothToolTypes = $request->tools() !== [] && $request->providerTools() !== [];
 
         $tools = [];
@@ -88,7 +100,7 @@ class Structured
                 Arr::mapWithKeys(
                     $request->providerTools(),
                     fn (ProviderTool $providerTool): array => [
-                        $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                        $providerTool->type => $providerTool->optionsAsObject(),
                     ]
                 ),
             ];
@@ -116,14 +128,18 @@ class Structured
             ]);
         }
 
+        if ($request->reasoningEnabled() === false && $thinkingConfig === null) {
+            $thinkingConfig = ['thinkingBudget' => 0];
+        }
+
         $toolConfig = ToolConfigMap::map($request->toolChoice(), $hasBothToolTypes);
 
         /** @var Response $response */
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
-                ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                ...(new MessageMap($messages, $request->systemPrompts()))(),
+                'cachedContent' => $cachedContentName,
                 'generationConfig' => Arr::whereNotNull([
                     'response_mime_type' => 'application/json',
                     // response_json_schema takes standard JSON Schema, which the
@@ -173,8 +189,8 @@ class Structured
             $totalTokens = (int) data_get($data, 'usageMetadata.totalTokenCount', 0);
             $toolUseAccounting = $toolUsePromptTokens > 0 ? " + {$toolUsePromptTokens} tool-use prompt" : '';
 
-            $isEmpty = in_array(trim($content), ['', '0'], true);
-            $isInvalidJson = $content !== '' && $content !== '0' && json_decode($content) === null;
+            $isEmpty = trim($content) === '';
+            $isInvalidJson = $content !== '' && json_decode($content) === null;
             $contentLength = strlen($content);
 
             if (($isEmpty || $isInvalidJson) && $thoughtTokens > 0) {
@@ -209,17 +225,28 @@ class Structured
      */
     protected function handleToolCalls(array $data, Request $request): StructuredResponse
     {
-        $toolResults = $this->callTools(
-            $request->tools(),
-            ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []))
-        );
+        $toolCalls = ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []));
+
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
+
+        if ($approvalRequests !== []) {
+            // Record the tool calls + approval requests so the resume pass
+            // can correlate approval responses.
+            $request->addMessage(new AssistantMessage(
+                $this->extractTextContent($data),
+                $toolCalls,
+                toolApprovalRequests: $approvalRequests,
+            ));
+        }
 
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
         $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 

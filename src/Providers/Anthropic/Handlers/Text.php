@@ -18,9 +18,7 @@ use Prism\Prism\Providers\Anthropic\Concerns\HandlesHttpRequests;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
 use Prism\Prism\Providers\Anthropic\Concerns\ResolvesThinking;
 use Prism\Prism\Providers\Anthropic\Maps\FinishReasonMap;
-use Prism\Prism\Providers\Anthropic\Maps\MessageMap;
-use Prism\Prism\Providers\Anthropic\Maps\ToolChoiceMap;
-use Prism\Prism\Providers\Anthropic\Maps\ToolMap;
+use Prism\Prism\Providers\Anthropic\Maps\RequestPayloadMap;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
@@ -28,7 +26,7 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Meta;
-use Prism\Prism\ValueObjects\ProviderTool;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -47,6 +45,8 @@ class Text
 
     public function handle(): Response
     {
+        $this->resolveToolApprovals($this->request);
+
         $this->sendRequest();
 
         $this->prepareTempResponse();
@@ -73,23 +73,7 @@ class Text
             throw new InvalidArgumentException('Request must be an instance of '.TextRequest::class);
         }
 
-        return Arr::whereNotNull([
-            'model' => $request->model(),
-            'system' => MessageMap::mapSystemMessages($request->systemPrompts()) ?: null,
-            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
-            'thinking' => static::resolveThinking($request),
-            'max_tokens' => $request->maxTokens() ?? 64000,
-            'temperature' => $request->temperature(),
-            'top_p' => $request->topP(),
-            'tools' => static::buildTools($request) ?: null,
-            'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-            'mcp_servers' => $request->providerOptions('mcp_servers'),
-            'cache_control' => $request->providerOptions('cache_control'),
-            'output_config' => $request->providerOptions('effort') !== null
-                ? ['effort' => $request->providerOptions('effort')]
-                : null,
-            'fallbacks' => $request->providerOptions('fallbacks'),
-        ]);
+        return RequestPayloadMap::text($request, static::buildTools($request), static::resolveThinking($request));
     }
 
     /**
@@ -117,14 +101,17 @@ class Text
 
     protected function handleToolCalls(): Response
     {
-        $toolResults = $this->callTools($this->request->tools(), $this->tempResponse->toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($this->request->tools(), $this->tempResponse->toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $this->addStep($toolResults);
+        $this->addStep($toolResults, $approvalRequests);
 
         $this->request->addMessage(new AssistantMessage(
             $this->tempResponse->text,
             $this->tempResponse->toolCalls,
             $this->tempResponse->additionalContent,
+            $approvalRequests,
         ));
 
         $toolResultMessage = new ToolResultMessage($toolResults);
@@ -132,7 +119,7 @@ class Text
         $this->request->addMessage($toolResultMessage);
         $this->request->resetToolChoice();
 
-        if ($this->responseBuilder->steps->count() < $this->request->maxSteps()) {
+        if (! $hasPendingToolCalls && $this->responseBuilder->steps->count() < $this->request->maxSteps()) {
             return $this->handle();
         }
 
@@ -148,8 +135,9 @@ class Text
 
     /**
      * @param  ToolResult[]  $toolResults
+     * @param  ToolApprovalRequest[]  $toolApprovalRequests
      */
-    protected function addStep(array $toolResults = []): void
+    protected function addStep(array $toolResults = [], array $toolApprovalRequests = []): void
     {
         $data = $this->httpResponse->json();
 
@@ -165,6 +153,7 @@ class Text
             systemPrompts: $this->request->systemPrompts(),
             additionalContent: $this->tempResponse->additionalContent,
             raw: $data,
+            toolApprovalRequests: $toolApprovalRequests,
         ));
     }
 
@@ -184,6 +173,8 @@ class Text
                 cacheWriteInputTokens: data_get($data, 'usage.cache_creation_input_tokens'),
                 cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens'),
                 thoughtTokens: data_get($data, 'usage.output_tokens_details.thinking_tokens'),
+                cacheWrite5mInputTokens: data_get($data, 'usage.cache_creation.ephemeral_5m_input_tokens'),
+                cacheWrite1hInputTokens: data_get($data, 'usage.cache_creation.ephemeral_1h_input_tokens'),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),
@@ -191,7 +182,14 @@ class Text
                 rateLimits: $this->processRateLimits($this->httpResponse)
             ),
             messages: new Collection,
-            additionalContent: $this->extractAdditionalContent($data)
+            additionalContent: Arr::whereNotNull([
+                ...$this->extractAdditionalContent($data),
+                // What the server actually cleared (#35). Without it a caller
+                // cannot tell "cleared 40 tool results" from "the beta header
+                // was ignored" -- both look identical from outside: a
+                // successful response and a smaller bill nobody can attribute.
+                'context_management' => data_get($data, 'context_management'),
+            ])
         );
     }
 
@@ -200,21 +198,6 @@ class Text
      */
     protected static function buildTools(TextRequest $request): array
     {
-        $tools = ToolMap::map($request->tools());
-
-        if ($request->providerTools() === []) {
-            return $tools;
-        }
-
-        $providerTools = array_map(
-            fn (ProviderTool $tool): array => [
-                'type' => $tool->type,
-                'name' => $tool->name,
-                ...$tool->options,
-            ],
-            $request->providerTools()
-        );
-
-        return array_merge($providerTools, $tools);
+        return RequestPayloadMap::buildTools($request);
     }
 }

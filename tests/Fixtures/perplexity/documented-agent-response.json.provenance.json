@@ -1,0 +1,9 @@
+{
+  "fixture": "documented-agent-response.json",
+  "source": "https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/overview",
+  "retrievedAt": "2026-10-30T19:49:53.959Z",
+  "sourceSha256": "01d838ae5e38c6e69c295c65e95c3e30bc3982bbfab05fa75348efd4a34ab461",
+  "fixtureSha256": "2e85f0158a98c40d58fad972d6c5fe25386beb6d33e410f09e0983a649524171",
+  "transformation": "Extract Agent API response code block, remove Markdown quote prefixes and standalone // ... elision comments only. No values added or changed.",
+  "kind": "published documentation example; not a live recording"
+}

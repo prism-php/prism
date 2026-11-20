@@ -15,6 +15,13 @@ trait ProcessRateLimits
      */
     protected function processRateLimits(Response $response): array
     {
+        $psrResponse = $response->toPsrResponse();
+
+        if (! $psrResponse->hasHeader('ratelimitbysize-limit')
+            || ! $psrResponse->hasHeader('ratelimitbysize-remaining')) {
+            return [];
+        }
+
         return [
             new ProviderRateLimit(
                 name: 'tokens',

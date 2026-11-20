@@ -8,8 +8,11 @@ trait GeneratesAudioFilename
 {
     protected function generateFilename(?string $mimeType): string
     {
-        // MediaRecorder attaches codec parameters ("audio/webm;codecs=opus"),
-        // so match on the bare, lowercased type.
+        // Browsers hand back the CONTAINER type, so an audio-only MediaRecorder
+        // clip arrives as video/webm or video/mp4, often with codec parameters
+        // attached ("audio/webm;codecs=opus"). Strip the parameters and treat
+        // the video containers as their audio equivalents, so a recording keeps
+        // its real extension instead of being mislabelled .mp3.
         $mimeType = $mimeType === null
             ? null
             : strtolower(trim(explode(';', $mimeType)[0]));

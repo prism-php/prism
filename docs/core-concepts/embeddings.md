@@ -1,10 +1,10 @@
 # Embeddings
 
-Transform your content into powerful vector representations! Embeddings let you add semantic search, recommendation systems, and other advanced features to your applications - whether you're working with text, images, audio, video, or documents.
+Embeddings represent content as vectors for semantic search, similarity comparisons and retrieval. Supported input types depend on the provider and model.
 
 ## Quick Start
 
-Here's how to generate an embedding with just a few lines of code:
+Generate an embedding from text:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -44,7 +44,7 @@ $response = Prism::embeddings()
     ->asEmbeddings();
 
 /** @var Embedding $embedding */
-foreach ($embeddings as $embedding) {
+foreach ($response->embeddings as $embedding) {
     // Do something with your embeddings
     $embedding->embedding;
 }
@@ -55,7 +55,7 @@ echo $response->usage->tokens;
 
 ## Input Methods
 
-You've got two convenient ways to feed text into the embeddings generator:
+Supply text directly or read it from a file:
 
 ### Direct Text Input
 
@@ -71,7 +71,7 @@ $response = Prism::embeddings()
 
 ### From File
 
-Need to analyze a larger document? No problem:
+Read input from a text file:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -84,11 +84,11 @@ $response = Prism::embeddings()
 ```
 
 > [!NOTE]
-> Make sure your file exists and is readable. The generator will throw a helpful `PrismException` if there's any issue accessing the file.
+> Make sure your file exists and is readable. The generator will throw a `PrismException` if there's any issue accessing the file.
 
 ## Multimodal Embeddings
 
-Some providers support multimodal embeddings, enabling powerful use cases like visual similarity search, cross-modal retrieval, and mixed media retrieval. Prism makes it easy to generate embeddings from images, audio, video, and documents using the same fluent API.
+For supported providers, use images, audio, video or documents as embedding inputs. These embeddings can support media similarity search and cross-modal retrieval.
 
 > [!IMPORTANT]
 > Multimodal embeddings require a provider and model that supports the input modalities you send. Check your provider's documentation to confirm support for images, audio, video, documents, and grouped content.
@@ -102,7 +102,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::embeddings()
-    ->using('provider', 'model')
+    ->using('gemini', 'gemini-embedding-2')
     ->fromImage(Image::fromLocalPath('/path/to/product.jpg'))
     ->asEmbeddings();
 
@@ -118,7 +118,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::embeddings()
-    ->using('provider', 'model')
+    ->using('gemini', 'gemini-embedding-2')
     ->fromImages([
         Image::fromLocalPath('/path/to/image1.jpg'),
         Image::fromUrl('https://example.com/image2.png'),
@@ -133,6 +133,8 @@ foreach ($response->embeddings as $embedding) {
 
 ### Audio, Video, and Documents
 
+The plural helpers `fromAudios(array $audios)`, `fromVideos(array $videos)` and `fromDocuments(array $documents)` append one content entry per item, just like repeated calls to the singular helper. They do not combine parts into one embedding. Use a multimodal embedding provider/model such as the Gemini integration described in its [embedding guide](/providers/gemini#embeddings); input support is not implied by the builder method's availability.
+
 ```php
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Audio;
@@ -140,7 +142,7 @@ use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Video;
 
 $response = Prism::embeddings()
-    ->using('provider', 'model')
+    ->using('gemini', 'gemini-embedding-2')
     ->fromAudio(Audio::fromLocalPath('/path/to/sample.mp3'))
     ->fromVideo(Video::fromLocalPath('/path/to/sample.mp4'))
     ->fromDocument(Document::fromLocalPath('/path/to/report.pdf'))
@@ -156,7 +158,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::embeddings()
-    ->using('provider', 'model')
+    ->using('gemini', 'gemini-embedding-2')
     ->fromContent([
         'Find similar products in red',
         Image::fromBase64($productImage, 'image/png'),
@@ -171,7 +173,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 
 $response = Prism::embeddings()
-    ->using('provider', 'model')
+    ->using('gemini', 'gemini-embedding-2')
     ->fromContents([
         ['The dog is cute'],
         [Image::fromLocalPath('/path/to/dog.png')],
@@ -202,10 +204,14 @@ $response = Prism::embeddings()
 
 ## Response Handling
 
-The embeddings response gives you everything you need:
+Provider options are model-specific: for example, OpenAI uses `dimensions`, Voyage AI text embeddings use `outputDimension`, and Gemini/Vertex use `outputDimensionality`. See the provider guide before setting one; unknown options are not handled consistently across integrations.
+
+The response exposes `meta` (ID, model and rate limits when reported) and optional `raw` payload data. `usage->tokens` can be null when unreported; Vertex maps a billable-character count into this field. Raw payloads may contain input content or identifiers, so apply your retention policy before storing them.
+
+Read results and metadata from the embeddings response:
 
 ```php
-namespace Prism\Prism\ValueObjects\Embedding;
+use Prism\Prism\ValueObjects\Embedding;
 
 // Get an array of Embedding value objects
 $embeddings = $response->embeddings;
@@ -225,7 +231,9 @@ $tokenCount = $response->usage->tokens;
 
 ## Error Handling
 
-Always handle potential errors gracefully:
+Handle request failures:
+
+`fromFile()` throws `PrismException` for a missing or unreadable local file. A provider without embeddings raises an unsupported-action `PrismException`. Invalid provider responses can also raise `PrismException`; media inputs refused by an explicit guarded fetch raise `PrismUrlRefused`. A builder accepting a media object does not guarantee that the selected embedding provider sends it.
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -244,15 +252,11 @@ try {
 }
 ```
 
-## Pro Tips
+## Usage Notes
 
 **Vector Storage**: Consider using a vector database like Milvus, Qdrant, or pgvector to store and query your embeddings efficiently.
 
-**Text Preprocessing**: For best results, clean and normalize your text before generating embeddings. This might include:
-   - Removing unnecessary whitespace
-   - Converting to lowercase
-   - Removing special characters
-   - Handling Unicode normalization
+**Text Preprocessing**: Follow the model's input requirements. Avoid removing case, punctuation or characters that carry meaning in your content.
 
 > [!IMPORTANT]
 > Different providers and models produce vectors of different dimensions. Always check your provider's documentation for specific details about the embedding model you're using.

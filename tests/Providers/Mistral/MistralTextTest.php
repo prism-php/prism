@@ -378,6 +378,9 @@ describe('Usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 12752,
             'thought_tokens' => 87,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 
@@ -402,6 +405,9 @@ describe('Usage', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => 0,
             'thought_tokens' => 0,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ]);
     });
 });

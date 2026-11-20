@@ -283,8 +283,8 @@ it('leaves unknown arguments to the existing validation handling', function (): 
 });
 
 /*
- * AN OBJECT OR ARRAY ARGUMENT SENT AS A STRING OF JSON IS DECODED. A run failed only because Haiku sent an
- * object-typed `schema` argument as a string of JSON and the handler rejected it:
+ * AN OBJECT OR ARRAY ARGUMENT SENT AS A STRING OF JSON IS DECODED (fancy, owner's ruling 2026-10-21). A fancy-labs run
+ * failed only because Haiku sent an object-typed `schema` argument as a string of JSON and the handler rejected it:
  * "Parameter validation error: Type mismatch. Expected: [schema (ObjectSchema, required)]". The rule: decode it, use
  * it only if it is exactly the declared JSON type, and otherwise fail as before. A string-typed parameter is never
  * decoded. Every call enters as CallsTools makes it: call_user_func_array($tool->handle(...), $toolCall->arguments()).

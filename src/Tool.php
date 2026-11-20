@@ -10,6 +10,7 @@ use Error;
 use Illuminate\Container\Container;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
+use Prism\Prism\Concerns\CopiesWithProviderOptions;
 use Prism\Prism\Concerns\HasProviderOptions;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Exceptions\PrismException;
@@ -19,6 +20,8 @@ use Prism\Prism\Schema\EnumSchema;
 use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Support\JsonMap;
+use Prism\Prism\Support\ToolErrorHandler;
 use Prism\Prism\Tools\LaravelMcpTool;
 use Prism\Prism\ValueObjects\ToolError;
 use Prism\Prism\ValueObjects\ToolOutput;
@@ -28,6 +31,7 @@ use TypeError;
 
 class Tool
 {
+    use CopiesWithProviderOptions;
     use HasProviderOptions;
 
     protected string $name = '';
@@ -47,6 +51,13 @@ class Tool
     protected null|false|Closure $failedHandler = null;
 
     protected bool $concurrent = false;
+
+    protected bool $clientExecuted = false;
+
+    protected bool $withholdsOtherCalls = false;
+
+    /** @var bool|Closure(array<string,mixed>):bool */
+    protected bool|Closure $requiresApproval = false;
 
     public function __construct()
     {
@@ -74,8 +85,90 @@ class Tool
         }
 
         $this->fn = $fn;
+        $this->clientExecuted = false;
 
         return $this;
+    }
+
+    /**
+     * Mark this tool as client-executed (no server-side handler).
+     *
+     * Client-executed tools are sent to the AI model, but their execution is
+     * handled by the consuming application: the request loop stops and the
+     * pending tool calls are returned on the response instead of being run.
+     */
+    public function clientExecuted(): self
+    {
+        $this->clientExecuted = true;
+        $this->fn = null;
+
+        return $this;
+    }
+
+    public function isClientExecuted(): bool
+    {
+        return $this->clientExecuted;
+    }
+
+    /**
+     * When the model calls this client-executed tool, run NOTHING else from
+     * that step.
+     *
+     * By default a step that calls a client-executed tool still runs the
+     * ordinary tools the model called beside it, so the caller can resume with
+     * their results. A consumer that will never resume (Prism Server hands the
+     * call to an HTTP client and the turn ends) would otherwise run those tools
+     * for nobody: their side effects happen and their results are thrown away.
+     * With this set, every other call in that step, including any that would
+     * need approval, is held and the step ends unexecuted. It has no effect on a
+     * tool that is not client-executed.
+     */
+    public function withholdOtherCalls(bool $withhold = true): self
+    {
+        $this->withholdsOtherCalls = $withhold;
+
+        return $this;
+    }
+
+    public function withholdsOtherCalls(): bool
+    {
+        return $this->clientExecuted && $this->withholdsOtherCalls;
+    }
+
+    /**
+     * Mark this tool as requiring approval before execution.
+     *
+     * When a closure is provided, it receives the tool call arguments and
+     * should return true if approval is required for that specific call.
+     *
+     * @param  bool|Closure(array<string,mixed>):bool  $condition
+     */
+    public function requiresApproval(bool|Closure $condition = true): self
+    {
+        $this->requiresApproval = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Whether this tool has approval configured (static true or dynamic
+     * closure) — an early-exit check that never invokes the closure.
+     */
+    public function hasApprovalConfigured(): bool
+    {
+        return $this->requiresApproval === true || $this->requiresApproval instanceof Closure;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     */
+    public function needsApproval(array $arguments = []): bool
+    {
+        if ($this->requiresApproval instanceof Closure) {
+            return (bool) ($this->requiresApproval)($arguments);
+        }
+
+        return $this->requiresApproval;
     }
 
     public function make(string|object $tool): Tool
@@ -234,6 +327,52 @@ class Tool
         return Arr::mapWithKeys($this->parameters, fn (Schema $schema, string $name): array => [
             $name => $schema->toArray(),
         ]);
+    }
+
+    /**
+     * The parameters as a JSON Schema `properties` OBJECT.
+     *
+     * `properties` is a map, and a tool with no parameters made it an empty
+     * one — which PHP renders as `[]`, and which a provider validating the
+     * schema rejects. Each tool map used to carry its own
+     * `=== [] ? new \stdClass` guard, and the ones that forgot sent `[]`.
+     */
+    public function parametersAsObject(): stdClass
+    {
+        // Each VALUE is a JSON Schema, and a JSON Schema is an object by
+        // definition — including the empty one, which means "any value" and
+        // which a RawSchema built from an MCP server's `{}` would otherwise
+        // send as a list. That is evidence from the field's own declaration,
+        // not a guess about empty arrays in general: `required: []` sits
+        // inside a property and is not touched.
+        return JsonMap::ofMaps($this->parametersAsArray());
+    }
+
+    /**
+     * The provider-facing root object. Nested caller schemas are unchanged.
+     *
+     * @return array<string, mixed>
+     */
+    public function parametersAsSchema(bool $requireAllProperties = false): array
+    {
+        $strict = (bool) $this->providerOptions('strict');
+        if ($strict && $requireAllProperties) {
+            $optional = array_values(array_diff(array_keys($this->parameters()), $this->requiredParameters()));
+            if ($optional !== []) {
+                throw new PrismException(sprintf(
+                    'Strict tool [%s] has optional parameters [%s]. This provider requires every property to be required. Make them required (nullable if needed) or turn strict off.',
+                    $this->name(),
+                    implode(', ', $optional),
+                ));
+            }
+        }
+
+        return [
+            'type' => 'object',
+            'properties' => $this->parametersAsObject(),
+            'required' => $this->requiredParameters(),
+            ...($strict ? ['additionalProperties' => false] : []),
+        ];
     }
 
     public function name(): string
@@ -588,7 +727,8 @@ class Tool
         if ($this->shouldUseDefaultErrorHandling()) {
             $providedParams = $this->extractProvidedParams($args);
 
-            return new ToolError($this->getDefaultFailedMessage($e, $providedParams));
+            return new ToolError(ToolErrorHandler::message($e, $this, $providedParams)
+                ?? $this->getDefaultFailedMessage($e, $providedParams));
         }
 
         throw $e;

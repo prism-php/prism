@@ -6,6 +6,7 @@ namespace Prism\Prism\Streaming\Adapters;
 
 use Generator;
 use Illuminate\Support\Collection;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Streaming\Adapters\Concerns\HandlesClientDisconnects;
 use Prism\Prism\Streaming\EventID;
 use Prism\Prism\Streaming\Events\ArtifactEvent;
@@ -25,6 +26,7 @@ use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\ValueObjects\StreamFailureUsage;
 use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -79,21 +81,29 @@ class DataProtocolAdapter
                     flush();
                 }
             } catch (Throwable $e) {
-                $errorEvent = new ErrorEvent(
-                    id: EventID::generate(),
-                    timestamp: time(),
-                    errorType: $e::class,
-                    message: $e->getMessage(),
-                    recoverable: false,
-                    metadata: [
-                        'code' => $e->getCode(),
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                    ]
-                );
+                $last = $collectedEvents->last();
+                if (! ($last instanceof ErrorEvent && $last->errorType === 'stream_read_failed')) {
+                    $errorEvent = new ErrorEvent(
+                        id: EventID::generate(),
+                        timestamp: time(),
+                        errorType: $e::class,
+                        message: $e->getMessage(),
+                        recoverable: false,
+                        metadata: [
+                            'code' => $e->getCode(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                        ],
+                        failureUsage: $e instanceof PrismException ? $e->streamFailureUsage() : null,
+                    );
 
-                $collectedEvents->push($errorEvent);
-                $this->outputError($e->getMessage());
+                    $collectedEvents->push($errorEvent);
+                    if (! $errorEvent->failureUsage instanceof StreamFailureUsage) {
+                        $this->outputError($e->getMessage());
+                    } else {
+                        $this->outputErrorWithUsage($e->getMessage(), $errorEvent->failureUsage);
+                    }
+                }
             }
 
             echo "data: [DONE]\n\n";
@@ -116,9 +126,15 @@ class DataProtocolAdapter
 
     protected function outputError(string $message): void
     {
+        $this->outputErrorWithUsage($message, null);
+    }
+
+    protected function outputErrorWithUsage(string $message, ?StreamFailureUsage $failureUsage): void
+    {
         $errorData = json_encode([
             'type' => 'error',
             'errorText' => $message,
+            ...($failureUsage instanceof StreamFailureUsage ? ['failure_usage' => $failureUsage->toArray()] : []),
         ]);
 
         echo "data: {$errorData}\n\n";
@@ -253,7 +269,7 @@ class DataProtocolAdapter
             'type' => 'tool-input-available',
             'toolCallId' => $event->toolCall->id,
             'toolName' => $event->toolCall->name,
-            'input' => $event->toolCall->arguments(),
+            'input' => $event->toolCall->argumentsAsObject(),
         ];
     }
 
@@ -385,6 +401,7 @@ class DataProtocolAdapter
         return [
             'type' => 'error',
             'errorText' => $event->message,
+            ...($event->failureUsage instanceof StreamFailureUsage ? ['failure_usage' => $event->failureUsage->toArray()] : []),
         ];
     }
 

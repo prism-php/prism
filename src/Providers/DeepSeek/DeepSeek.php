@@ -9,6 +9,9 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\DeepSeek\Handlers\Stream;
 use Prism\Prism\Providers\DeepSeek\Handlers\Structured;
 use Prism\Prism\Providers\DeepSeek\Handlers\Text;
@@ -26,6 +29,15 @@ class DeepSeek extends Provider
         #[\SensitiveParameter] public readonly string $apiKey,
         public readonly string $url,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all(nameKey: 'name', createdKey: null);
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse

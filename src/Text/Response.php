@@ -8,6 +8,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Support\JsonMap;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -58,7 +59,7 @@ readonly class Response implements Arrayable
             'usage' => $this->usage->toArray(),
             'meta' => $this->meta->toArray(),
             'messages' => $this->messages->map($this->messageToArray(...))->toArray(),
-            'additional_content' => $this->additionalContent,
+            'additional_content' => JsonMap::of($this->additionalContent),
             'raw' => $this->raw,
         ];
     }

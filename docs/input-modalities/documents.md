@@ -4,7 +4,19 @@ Prism supports including documents in your messages with some providers.
 
 See the [provider support table](/getting-started/introduction.html#provider-support) to check whether Prism supports your chosen provider.
 
-Note however that provider support may differ by model. If you receive error messages with a provider that Prism indicates is supported, check the provider's documentation as to whether the model you are using supports documents.
+Check that both the provider integration and selected model support the input type.
+
+## Provider input forms
+
+| Integration | Accepted document forms |
+|---|---|
+| Anthropic | Bytes, text, chunks, URL or an Anthropic file ID |
+| OpenAI Responses API | Bytes, URL or an OpenAI file ID; chunks are refused |
+| Mistral OCR | URL only; local bytes and chunks are refused |
+| Gemini | Bytes or a recognized Gemini File API URI; arbitrary document URLs need an explicit fetch |
+| OpenRouter / Requesty | Bytes or URL; file IDs and chunks are refused |
+
+File IDs belong to their originating provider and account. Authorize access before sending them. Anthropic maps a `text/*` document to a `text/plain` source and keeps its text unchanged; use `fromText()` or decodable text bytes. `fromChunks()` takes an array of strings and is an Anthropic document form, not a generic provider chunk format.
 
 ## Supported file types
 
@@ -22,11 +34,11 @@ The most supported file types are pdf and text/plain (which may include markdown
 
 Providers are not consistent in their support of sending file raw contents, base64 and/or URLs.
 
-Prism tries to smooth over these rough edges, but its not always possible.
+Prism converts between supported representations where possible. The following conversions and limitations apply.
 
 ### Supported conversions
 
-- Where a provider does not support URLs: Prism will fetch the URL and use base64 or rawContent.
+- A URL stays a reference. If your provider needs document bytes, call `fetchPublicUrlContent()` explicitly for a user- or model-supplied URL. Use the unguarded `fetchUrlContent()` only for URLs your application trusts. See [Fetching remote media](/input-modalities/images#fetching-remote-media) for limits and refusals.
 - Where you provide a file, base64 or rawContent: Prism will switch between base64 and rawContent depending on what the provider accepts.
 
 ### Limitations
@@ -38,6 +50,8 @@ Prism tries to smooth over these rough edges, but its not always possible.
 
 To add a document to your prompt, use the `withPrompt` method with a `Document` value object:
 
+These examples assume your application has authorized the local/storage paths and supplies validated PDF bytes as `$rawContent`, their base64 encoding as `$baseFromDB`, and any provider file ID. Replace the example paths with files on your configured disks.
+
 ```php
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
@@ -45,7 +59,7 @@ use Prism\Prism\ValueObjects\Media\Document;
 
 // From a local path
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Analyze this document',
         [Document::fromLocalPath(
@@ -57,7 +71,7 @@ $response = Prism::text()
 
 // From a storage path
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Summarize this document',
         [Document::fromStoragePath(
@@ -70,12 +84,12 @@ $response = Prism::text()
 
 // From base64
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Extract key points from this document',
         [Document::fromBase64(
-            base64: $baseFromDB,
-            mimeType: 'optional/mimetype', // optional
+            document: $baseFromDB,
+            mimeType: 'application/pdf',
             title: 'My document title' // optional
         )]
     )
@@ -83,12 +97,12 @@ $response = Prism::text()
 
 // From raw content
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Review this document',
         [Document::fromRawContent(
             rawContent: $rawContent,
-            mimeType: 'optional/mimetype', // optional
+            mimeType: 'application/pdf',
             title: 'My document title' // optional
         )]
     )
@@ -96,7 +110,7 @@ $response = Prism::text()
 
 // From a text string
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Process this text document',
         [Document::fromText(
@@ -108,7 +122,7 @@ $response = Prism::text()
 
 // From an URL
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Analyze this document from URL',
         [Document::fromUrl(
@@ -120,7 +134,7 @@ $response = Prism::text()
 
 // From chunks
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Process this chunked document',
         [Document::fromChunks(
@@ -133,13 +147,13 @@ $response = Prism::text()
     )
     ->asText();
 
-// From a provider file ID
+// From an application-authorized Anthropic file ID ($anthropicFileId)
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withPrompt(
         'Analyze this document from provider file',
         [Document::fromFileId(
-            fileId: 'my-provider-file-id'
+            fileId: $anthropicFileId
         )]
     )
     ->asText();
@@ -162,7 +176,7 @@ $message = new UserMessage(
 );
 
 $response = Prism::text()
-    ->using('my-provider', 'my-model')
+    ->using('anthropic', 'claude-sonnet-5-5')
     ->withMessages([$message])
     ->asText();
 ```
@@ -175,7 +189,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
-    ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+    ->using(Provider::OpenAI, 'gpt-4.1')
     ->withPrompt(
         'Analyze this OpenAI file',
         [Document::fromFileId(

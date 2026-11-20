@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Providers\Gemini\Concerns\CachesStablePrefix;
 use Prism\Prism\Providers\Gemini\Concerns\MapsUsage;
 use Prism\Prism\Providers\Gemini\Concerns\ValidatesResponse;
 use Prism\Prism\Providers\Gemini\Maps\CitationMapper;
@@ -29,7 +30,7 @@ use Prism\Prism\ValueObjects\ToolResult;
 
 class Text
 {
-    use CallsTools, MapsUsage, ValidatesResponse;
+    use CachesStablePrefix, CallsTools, MapsUsage, ValidatesResponse;
 
     protected ResponseBuilder $responseBuilder;
 
@@ -42,6 +43,8 @@ class Text
 
     public function handle(Request $request): TextResponse
     {
+        $this->resolveToolApprovals($request);
+
         $response = $this->sendRequest($request);
 
         $this->validateResponse($response);
@@ -65,6 +68,14 @@ class Text
     {
         $providerOptions = $request->providerOptions();
 
+        // A declared-stable prefix becomes the cached resource this provider
+        // references by name, and only the rest is sent. Opt-in: see the trait.
+        [$messages, $cachedContentName] = $this->resolveStablePrefix(
+            $request->messages(),
+            $providerOptions,
+            $request->model(),
+        );
+
         $thinkingConfig = $providerOptions['thinkingConfig'] ?? null;
 
         if (isset($providerOptions['thinkingBudget'])) {
@@ -79,6 +90,10 @@ class Text
                 'thinkingLevel' => $providerOptions['thinkingLevel'],
                 'includeThoughts' => $providerOptions['includeThoughts'] ?? null,
             ]);
+        }
+
+        if ($request->reasoningEnabled() === false && $thinkingConfig === null) {
+            $thinkingConfig = ['thinkingBudget' => 0];
         }
 
         $generationConfig = Arr::whereNotNull([
@@ -96,7 +111,7 @@ class Text
         if ($request->providerTools() !== []) {
             $tools = array_map(
                 fn (ProviderTool $providerTool): array => [
-                    $providerTool->type => $providerTool->options !== [] ? $providerTool->options : (object) [],
+                    $providerTool->type => $providerTool->optionsAsObject(),
                 ],
                 $request->providerTools()
             );
@@ -112,8 +127,8 @@ class Text
         $response = $this->client->post(
             "{$request->model()}:generateContent",
             Arr::whereNotNull([
-                ...(new MessageMap($request->messages(), $request->systemPrompts()))(),
-                'cachedContent' => $providerOptions['cachedContentName'] ?? null,
+                ...(new MessageMap($messages, $request->systemPrompts()))(),
+                'cachedContent' => $cachedContentName,
                 'generationConfig' => $generationConfig !== [] ? $generationConfig : null,
                 'tools' => $tools !== [] ? $tools : null,
                 'tool_config' => $toolConfig,
@@ -142,18 +157,21 @@ class Text
     {
         $toolCalls = ToolCallMap::map(data_get($data, 'candidates.0.content.parts', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
         $this->addStep($data, $request, FinishReason::ToolCalls, $toolResults);
 
         $request->addMessage(new AssistantMessage(
             $this->extractTextContent($data),
             $toolCalls,
+            toolApprovalRequests: $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
