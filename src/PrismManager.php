@@ -452,7 +452,7 @@ class PrismManager
      * so it is refused too (preg_match returns false). The same rule is spelled
      * in prism-ts registerProvider() and prism-py register_provider().
      */
-    private function isValidProviderName(string $provider): bool
+    protected function isValidProviderName(string $provider): bool
     {
         return preg_match('/^[^\p{Cc}\p{Cf}\p{Cs}'.self::INVISIBLE.']+\z/u', $provider) === 1;
     }
