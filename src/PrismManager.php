@@ -87,6 +87,12 @@ class PrismManager
         $factory = sprintf('create%sProvider', ucfirst($name));
 
         if (method_exists($this, $factory)) {
+            // A key left behind by a new endpoint is an empty key, not a
+            // misconfiguration. A key set to null still reaches the factory.
+            if ($this->changesEndpoint($configured, $providerConfig) && ! array_key_exists('api_key', $providerConfig)) {
+                $config['api_key'] = '';
+            }
+
             return $this->{$factory}($config);
         }
 
@@ -157,11 +163,7 @@ class PrismManager
     {
         $config = array_merge($configured, $overrides);
 
-        if (! array_key_exists('url', $overrides)) {
-            return $config;
-        }
-
-        if ($this->sameEndpoint($configured['url'] ?? null, $overrides['url'])) {
+        if (! $this->changesEndpoint($configured, $overrides)) {
             return $config;
         }
 
@@ -172,6 +174,16 @@ class PrismManager
         }
 
         return $config;
+    }
+
+    /**
+     * @param  array<string, mixed>  $configured
+     * @param  array<string, mixed>  $overrides
+     */
+    protected function changesEndpoint(array $configured, array $overrides): bool
+    {
+        return array_key_exists('url', $overrides)
+            && ! $this->sameEndpoint($configured['url'] ?? null, $overrides['url']);
     }
 
     protected function sameEndpoint(mixed $configured, mixed $override): bool
@@ -252,7 +264,7 @@ class PrismManager
     protected function createMistralProvider(array $config): Mistral
     {
         return new Mistral(
-            apiKey: $config['api_key'] ?? '',
+            apiKey: $config['api_key'],
             url: $config['url'],
         );
     }
@@ -263,7 +275,7 @@ class PrismManager
     protected function createAnthropicProvider(array $config): Anthropic
     {
         return new Anthropic(
-            apiKey: $config['api_key'] ?? '',
+            apiKey: $config['api_key'],
             apiVersion: $config['version'],
             url: $config['url'] ?? 'https://api.anthropic.com/v1',
             betaFeatures: $config['anthropic_beta'] ?? null,
@@ -322,7 +334,7 @@ class PrismManager
     protected function createGroqProvider(array $config): Groq
     {
         return new Groq(
-            apiKey: $config['api_key'] ?? '',
+            apiKey: $config['api_key'],
             url: $config['url'],
         );
     }
@@ -333,7 +345,7 @@ class PrismManager
     protected function createXaiProvider(array $config): XAI
     {
         return new XAI(
-            apiKey: $config['api_key'] ?? '',
+            apiKey: $config['api_key'],
             url: $config['url'],
         );
     }
@@ -344,7 +356,7 @@ class PrismManager
     protected function createGeminiProvider(array $config): Gemini
     {
         return new Gemini(
-            apiKey: $config['api_key'] ?? '',
+            apiKey: $config['api_key'],
             url: $config['url'],
         );
     }
@@ -450,7 +462,7 @@ class PrismManager
     protected function createZProvider(array $config): Z
     {
         return new Z(
-            apiKey: $config['api_key'] ?? '',
+            apiKey: $config['api_key'],
             url: $config['url'],
         );
     }
