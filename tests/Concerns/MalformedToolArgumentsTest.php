@@ -9,6 +9,8 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Events\Telemetry\ToolInvoked;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
@@ -1077,4 +1079,128 @@ it('sends a follow-up for a conversation already holding a long argument list', 
     });
 
     expect($text)->toBe('done')->and($requests)->toBe(1)->and($ratio)->toBeLessThan(4.0);
+});
+
+/**
+ * A provider's non-streaming reply holding one tool call, then its final
+ * answer. `$arguments` is JSON placed in the reply as written, so a value the
+ * decoder alone can read reaches the handler the way a real reply would.
+ *
+ * @return array{0: string, 1: string}
+ */
+function nonStreamingBodies(string $label, string $arguments): array
+{
+    $final = '{\"ok\":true}';
+
+    return match ($label) {
+        'anthropic' => [
+            '{"id":"m1","type":"message","role":"assistant","model":"m","stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"tool_use","id":"call_1","name":"probe","input":'.$arguments.'}]}',
+            '{"id":"m2","type":"message","role":"assistant","model":"m","stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"'.$final.'"}]}',
+        ],
+        'gemini', 'vertex' => [
+            '{"modelVersion":"m","usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1},"candidates":[{"finishReason":"STOP","content":{"role":"model","parts":[{"functionCall":{"name":"probe","args":'.$arguments.'}}]}}]}',
+            '{"modelVersion":"m","usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1},"candidates":[{"finishReason":"STOP","content":{"role":"model","parts":[{"text":"'.$final.'"}]}}]}',
+        ],
+        'ollama' => [
+            '{"model":"m","created_at":"2026-01-01T00:00:00Z","done":true,"done_reason":"stop","prompt_eval_count":1,"eval_count":1,"message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"probe","arguments":'.$arguments.'}}]}}',
+            '{"model":"m","created_at":"2026-01-01T00:00:00Z","done":true,"done_reason":"stop","prompt_eval_count":1,"eval_count":1,"message":{"role":"assistant","content":"'.$final.'"}}',
+        ],
+        'qwen' => [
+            '{"request_id":"q1","usage":{"input_tokens":1,"output_tokens":1},"output":{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"probe","arguments":'.json_encode($arguments).'}}]}}]}}',
+            '{"request_id":"q2","usage":{"input_tokens":1,"output_tokens":1},"output":{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"'.$final.'"}}]}}',
+        ],
+        'openai' => [
+            '{"id":"r1","object":"response","created_at":1,"status":"completed","model":"m","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2},"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"probe","arguments":'.json_encode($arguments).'}]}',
+            '{"id":"r2","object":"response","created_at":1,"status":"completed","model":"m","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2},"output":[{"id":"m1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"'.$final.'","annotations":[]}]}]}',
+        ],
+        default => [
+            '{"id":"c1","object":"chat.completion","created":1,"model":"m","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2},"choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"probe","arguments":'.json_encode($arguments).'}}]}}]}',
+            '{"id":"c2","object":"chat.completion","created":1,"model":"m","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2},"choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"'.$final.'"}}]}',
+        ],
+    };
+}
+
+/**
+ * @return array{0: Tool, 1: Closure(): array{checks: int, runs: int}}
+ */
+function countingProbeTool(): array
+{
+    $checks = 0;
+    $runs = 0;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)
+        ->requiresApproval(function () use (&$checks): bool {
+            $checks++;
+
+            return false;
+        })
+        ->using(function (mixed ...$received) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        });
+
+    return [$tool, function () use (&$checks, &$runs): array {
+        return ['checks' => $checks, 'runs' => $runs];
+    }];
+}
+
+dataset('arguments a reply can carry but a request cannot', [
+    'a number past the float range' => ['{"amount":1e999}'],
+    'a nested negative one' => ['{"a":{"b":[-1e999]}}'],
+    'an integer past the float range' => ['{"amount":1'.str_repeat('0', 400).'}'],
+    'a key starting with NUL' => ['{"amount":"5","\u0000a":1}'],
+]);
+
+it('answers an unusable call and sends the follow-up on a text turn', function (string $label, string $arguments): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider($label);
+    [$first, $second] = nonStreamingBodies($label, $arguments);
+    Http::fake(['*' => Http::sequence()->push($first, 200)->push($second, 200)]);
+    [$tool, $counts] = countingProbeTool();
+
+    $response = Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asText();
+
+    expect($counts())->toBe(['checks' => 0, 'runs' => 0])
+        ->and($response->finishReason)->toBe(FinishReason::Stop)
+        ->and(Http::recorded())->toHaveCount(2)
+        ->and(replayedToolArguments(json_decode(secondRequestBody(), false)))->toBeIn(['{}', 'omitted']);
+})->with('streaming providers')->with('arguments a reply can carry but a request cannot');
+
+it('answers an unusable call and sends the follow-up on a structured turn', function (string $label, string $arguments): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider($label);
+    [$first, $second] = nonStreamingBodies($label, $arguments);
+    // Mistral asks for the structured answer in a request of its own.
+    Http::fake(['*' => Http::sequence()->push($first, 200)->push($second, 200)->whenEmpty(Http::response($second, 200))]);
+    [$tool, $counts] = countingProbeTool();
+
+    $response = Prism::structured()->using($provider, 'm')
+        ->withSchema(new ObjectSchema('result', 'result', [new BooleanSchema('ok', 'ok')], ['ok']))
+        ->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStructured();
+
+    expect($counts())->toBe(['checks' => 0, 'runs' => 0])
+        ->and($response->structured)->toBe(['ok' => true])
+        ->and(Http::recorded())->toHaveCount($label === 'mistral' ? 3 : 2)
+        ->and(replayedToolArguments(json_decode(Http::recorded()[1][0]->body(), false)))->toBeIn(['{}', 'omitted']);
+})->with(['anthropic', 'gemini', 'vertex', 'mistral', 'openai', 'openrouter', 'requesty'])->with('arguments a reply can carry but a request cannot');
+
+it('replays a server tool input no request can carry as empty', function (): void {
+    Http::preventStrayRequests();
+    configureMalformedProvider('anthropic');
+    [, $second] = nonStreamingBodies('anthropic', '{}');
+    $first = '{"id":"m1","type":"message","role":"assistant","model":"m","stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1},"content":['
+        .'{"type":"server_tool_use","id":"srv_1","name":"web_search","input":{"query":1e999}},'
+        .'{"type":"web_search_tool_result","tool_use_id":"srv_1","content":[]},'
+        .'{"type":"tool_use","id":"call_1","name":"probe","input":{"amount":"5"}}]}';
+    Http::fake(['*' => Http::sequence()->push($first, 200)->push($second, 200)]);
+    [$tool, $counts] = countingProbeTool();
+
+    Prism::text()->using('anthropic', 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asText();
+
+    $blocks = json_decode(secondRequestBody(), true)['messages'][1]['content'];
+
+    expect($counts())->toBe(['checks' => 1, 'runs' => 1])
+        ->and($blocks[0]['type'])->toBe('server_tool_use')
+        ->and($blocks[0]['input'])->toBe([])
+        ->and($blocks[2]['input'])->toBe(['amount' => '5']);
 });
