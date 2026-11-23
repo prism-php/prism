@@ -41,6 +41,16 @@ class PrismManager
     /** @var array<string, Closure> */
     protected array $customCreators = [];
 
+    /**
+     * Codepoints that are invisible in a name: the G-36 set, spelled by
+     * codepoint and identically to the human-plus confirmation guard
+     * (prism-human-plus TrustPolicy::INVISIBLE) and to prism-ts / prism-py.
+     * It covers every Unicode White_Space codepoint plus U+0000, U+200B..U+200D
+     * and U+FEFF. Each language's own idea of "whitespace" disagrees with the
+     * others, so none of them is used.
+     */
+    private const INVISIBLE = '\x{0000}\x{0009}-\x{000D}\x{0020}\x{0085}\x{00A0}\x{1680}\x{2000}-\x{200D}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
+
     public function __construct(
         protected Application $app
     ) {}
@@ -78,10 +88,20 @@ class PrismManager
      * hands the replacement that provider's configured credentials; that must
      * be a decision made on purpose, not a side effect of a naming collision.
      *
-     * @throws InvalidArgumentException when the name is taken and $replace is false
+     * The name itself must be readable: see isValidProviderName(). An invalid
+     * name is refused whether or not `$replace` is set, and never trimmed.
+     *
+     * @throws InvalidArgumentException when the name is not a valid provider
+     *                                  name, or is taken and $replace is false
      */
     public function extend(string $provider, Closure $callback, bool $replace = false): self
     {
+        if (! $this->isValidProviderName($provider)) {
+            throw new InvalidArgumentException(
+                'That is not a valid provider name: a provider name must be non-empty and contain no whitespace, control, format or invisible characters.'
+            );
+        }
+
         if (! $replace && $this->isRegistered($provider)) {
             throw new InvalidArgumentException(
                 "Provider [{$provider}] is already registered. Pass replace: true to replace it."
@@ -419,5 +439,21 @@ class PrismManager
             apiKey: $config['api_key'] ?? '',
             url: $config['url'],
         );
+    }
+
+    /**
+     * Is this a name a provider may be registered under?
+     *
+     * Non-empty, and no codepoint that is a control (Cc), format (Cf) or
+     * surrogate (Cs) character or in the G-36 set. ` openai`, `openai ` and
+     * `openai` + U+200B are distinct keys that read as the built-in in a config
+     * file or a log, so they are REFUSED — trimming would silently turn one
+     * name into another. A string that is not valid UTF-8 cannot be checked,
+     * so it is refused too (preg_match returns false). The same rule is spelled
+     * in prism-ts registerProvider() and prism-py register_provider().
+     */
+    private function isValidProviderName(string $provider): bool
+    {
+        return preg_match('/^[^\p{Cc}\p{Cf}\p{Cs}'.self::INVISIBLE.']+\z/u', $provider) === 1;
     }
 }

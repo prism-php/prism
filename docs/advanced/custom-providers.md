@@ -98,6 +98,8 @@ app(PrismManager::class)->extend(
 
 A replacement receives that provider's configured credentials, so replace a built-in provider only with code you control.
 
+Names are compared case-insensitively, so `OpenAI` collides with `openai`. `extend()` also throws `InvalidArgumentException` for an empty name or one containing whitespace, control characters, or invisible characters such as a zero-width space, even with `replace: true`. The name is not trimmed.
+
 ```php
 use Prism\Prism\Facades\Prism;
 
