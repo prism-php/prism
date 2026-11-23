@@ -10,6 +10,7 @@ use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Support\Json;
 use Prism\Prism\Support\JsonMap;
 use stdClass;
+use WeakMap;
 
 /**
  * @implements Arrayable<string, mixed>
@@ -28,6 +29,15 @@ class ToolCall implements Arrayable
      * if the record is ever read back into a call.
      */
     protected const UNUSABLE_ARGUMENTS_RECORD = ']';
+
+    /**
+     * Calls already found usable. Their arguments cannot change, and one call
+     * is asked many times per request, so the answer is not worked out again.
+     * Held outside the object so that it is no part of its value.
+     *
+     * @var WeakMap<self, array{verbatim: bool, hasValues: bool}>|null
+     */
+    private static ?WeakMap $usableCalls = null;
 
     /** @var string|array<string, mixed> */
     public readonly string|array $arguments;
@@ -157,12 +167,16 @@ class ToolCall implements Arrayable
      */
     public function argumentsFailure(): ?PrismException
     {
-        try {
-            $decoded = is_string($this->arguments) ? $this->decodeArguments() : $this->arguments;
+        if (self::$usableCalls?->offsetExists($this) === true) {
+            return null;
+        }
 
-            if (is_string($this->arguments)) {
-                $this->decodeArguments(preservingContainerTypes: true);
-            }
+        try {
+            // Runs first and keeps nothing, so that this and the decode below
+            // are never in memory together.
+            $verbatim = is_string($this->arguments) && $this->decodesToObjects($this->arguments);
+
+            $decoded = is_string($this->arguments) ? $this->decodeArguments() : $this->arguments;
         } catch (PrismException $failure) {
             return $failure;
         }
@@ -176,9 +190,16 @@ class ToolCall implements Arrayable
             return PrismException::toolCallArgumentsNotAnObject($this->name);
         }
 
-        return self::canBeSentBack($decoded)
-            ? null
-            : PrismException::malformedToolCallArguments($this->name, new JsonException('The value cannot be encoded.'));
+        if (! self::canBeSentBack($decoded)) {
+            return PrismException::malformedToolCallArguments($this->name, new JsonException('The value cannot be encoded.'));
+        }
+
+        /** @var WeakMap<self, array{verbatim: bool, hasValues: bool}> $usableCalls */
+        $usableCalls = self::$usableCalls ?? new WeakMap;
+        $usableCalls[$this] = ['verbatim' => $verbatim, 'hasValues' => $decoded !== []];
+        self::$usableCalls = $usableCalls;
+
+        return null;
     }
 
     /**
@@ -278,13 +299,12 @@ class ToolCall implements Arrayable
      */
     public function replayableArgumentsText(): string
     {
-        if (is_string($this->arguments) && ! $this->hasMalformedArguments() && $this->arguments() !== []) {
-            try {
-                json_decode($this->arguments, flags: JSON_THROW_ON_ERROR);
+        if (is_string($this->arguments) && ! $this->argumentsFailure() instanceof PrismException) {
+            $usable = self::$usableCalls[$this] ?? null;
 
+            // Text valid only after repair is sent encoded.
+            if ($usable !== null && $usable['verbatim'] && $usable['hasValues']) {
                 return $this->arguments;
-            } catch (JsonException) {
-                // Valid only after repair, so it is sent encoded.
             }
         }
 
@@ -319,37 +339,46 @@ class ToolCall implements Arrayable
 
     /**
      * Whether a decoded value survives the encode a follow-up request uses.
-     * Walked with a stack, so deep input cannot overflow the call stack.
+     * Walked one nesting level at a time, so deep input cannot overflow the
+     * call stack, and only nested values are held, so a long list of scalars
+     * costs no memory beyond the list itself.
      *
      * @param  array<array-key, mixed>  $decoded
      */
     protected static function canBeSentBack(array $decoded): bool
     {
-        $pending = [[$decoded, 1]];
+        /** @var list<array<array-key, mixed>> $level */
+        $level = [$decoded];
+        $depth = 1;
 
-        while ($pending !== []) {
-            [$value, $depth] = array_pop($pending);
+        while ($level !== []) {
+            $next = [];
 
-            if (is_float($value) && ! is_finite($value)) {
-                return false;
-            }
+            foreach ($level as $value) {
+                foreach ($value as $key => $item) {
+                    // An object cannot hold a key starting with NUL.
+                    if (is_string($key) && str_starts_with($key, "\0")) {
+                        return false;
+                    }
 
-            if (! is_array($value)) {
-                continue;
-            }
+                    if (is_float($item) && ! is_finite($item)) {
+                        return false;
+                    }
 
-            if ($depth > self::MAX_ARGUMENT_DEPTH) {
-                return false;
-            }
+                    if (is_array($item)) {
+                        if ($depth >= self::MAX_ARGUMENT_DEPTH) {
+                            return false;
+                        }
 
-            foreach ($value as $key => $item) {
-                // An object cannot hold a key starting with NUL.
-                if (is_string($key) && str_starts_with($key, "\0")) {
-                    return false;
+                        if ($item !== []) {
+                            $next[] = $item;
+                        }
+                    }
                 }
-
-                $pending[] = [$item, $depth + 1];
             }
+
+            $level = $next;
+            $depth++;
         }
 
         try {
@@ -383,6 +412,35 @@ class ToolCall implements Arrayable
                     self::escapeControlCharactersInStrings($this->arguments),
                     $preservingContainerTypes
                 );
+            } catch (JsonException $e) {
+                throw PrismException::malformedToolCallArguments($this->name, $e);
+            }
+        }
+    }
+
+    /**
+     * Refuse text that cannot be decoded to objects, which is stricter than
+     * decoding to arrays. Keeps nothing it decodes.
+     *
+     * @return bool whether the text is valid as written, without repair
+     *
+     * @throws PrismException
+     */
+    protected function decodesToObjects(string $text): bool
+    {
+        if ($text === '' || $text === '0') {
+            return false;
+        }
+
+        try {
+            json_decode($text, false, 512, JSON_THROW_ON_ERROR);
+
+            return true;
+        } catch (JsonException) {
+            try {
+                json_decode(self::escapeControlCharactersInStrings($text), false, 512, JSON_THROW_ON_ERROR);
+
+                return false;
             } catch (JsonException $e) {
                 throw PrismException::malformedToolCallArguments($this->name, $e);
             }

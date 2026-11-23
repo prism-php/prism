@@ -121,7 +121,7 @@ class MessageMap
         $outputItems = $message->additionalContent['output_items'] ?? null;
 
         if (is_array($outputItems) && $outputItems !== []) {
-            $this->mapOutputItems($outputItems);
+            $this->mapOutputItems($outputItems, $message->toolCalls);
 
             return;
         }
@@ -174,8 +174,9 @@ class MessageMap
 
     /**
      * @param  array<array-key, mixed>  $outputItems
+     * @param  array<array-key, ToolCall>  $toolCalls  the message's calls, whose arguments are already checked
      */
-    protected function mapOutputItems(array $outputItems): void
+    protected function mapOutputItems(array $outputItems, array $toolCalls = []): void
     {
         foreach ($outputItems as $item) {
             if (OutputItems::isReplayable($item)) {
@@ -184,7 +185,10 @@ class MessageMap
 
                 // The same replay every other path sends for unusable arguments.
                 if (($item['type'] ?? null) === 'function_call') {
-                    $item['arguments'] = (new ToolCall('', '', $item['arguments'] ?? ''))->replayableArgumentsText();
+                    $text = $item['arguments'] ?? '';
+                    $call = collect($toolCalls)->first(fn (ToolCall $toolCall): bool => $toolCall->arguments === $text)
+                        ?? new ToolCall('', '', $text);
+                    $item['arguments'] = $call->replayableArgumentsText();
                 }
 
                 $this->mappedMessages[] = $item;

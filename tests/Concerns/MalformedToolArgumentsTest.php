@@ -1011,3 +1011,70 @@ it('never binds a numeric-looking string key to a parameter by position', functi
     'the key +1' => '{"+1":"prod"}',
     'a key with a leading space' => '{" 1":"prod"}',
 ]);
+
+/**
+ * The extra memory an action needs, as a multiple of decoding the same text
+ * once. A ratio of two measurements in one process, so it does not depend on
+ * the machine or on what the suite has already allocated.
+ */
+function memoryRelativeToDecoding(string $json, Closure $action): float
+{
+    gc_collect_cycles();
+    memory_reset_peak_usage();
+    $before = memory_get_usage();
+    $decoded = json_decode($json, true);
+    $decoding = memory_get_peak_usage() - $before;
+    unset($decoded);
+
+    gc_collect_cycles();
+    memory_reset_peak_usage();
+    $before = memory_get_usage();
+    $action();
+
+    return (memory_get_peak_usage() - $before) / $decoding;
+}
+
+it('checks a long argument list in about the memory of reading it', function (string $json): void {
+    $call = new ToolCall('call_1', 'probe', $json);
+    $malformed = null;
+
+    $ratio = memoryRelativeToDecoding($json, function () use ($call, &$malformed): void {
+        $malformed = $call->hasMalformedArguments();
+    });
+
+    expect($malformed)->toBeFalse()->and($ratio)->toBeLessThan(1.6);
+})->with([
+    'numbers' => ['{"a":['.rtrim(str_repeat('0,', 150000), ',').']}'],
+    'short lists' => ['{"a":['.rtrim(str_repeat('[0],', 50000), ',').']}'],
+    'empty lists' => ['{"a":['.rtrim(str_repeat('[],', 100000), ',').']}'],
+]);
+
+it('sends a follow-up for a conversation already holding a long argument list', function (): void {
+    $json = '{"a":['.rtrim(str_repeat('0,', 150000), ',').']}';
+    $requests = 0;
+
+    Http::preventStrayRequests();
+    Http::fake(function () use (&$requests) {
+        $requests++;
+
+        return Http::response([
+            'id' => 'r1', 'object' => 'response', 'model' => 'm', 'status' => 'completed',
+            'output' => [['type' => 'message', 'id' => 'm1', 'role' => 'assistant', 'status' => 'completed', 'content' => [['type' => 'output_text', 'text' => 'done', 'annotations' => []]]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1, 'total_tokens' => 2],
+        ]);
+    });
+
+    $messages = [
+        new UserMessage('go'),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', $json)]),
+        new ToolResultMessage([new ToolResult('call_1', 'probe', ['a' => 1], 'ran')]),
+        new UserMessage('next'),
+    ];
+    $text = null;
+
+    $ratio = memoryRelativeToDecoding($json, function () use ($messages, &$text): void {
+        $text = Prism::text()->using('openai', 'gpt-4o')->withMessages($messages)->asText()->text;
+    });
+
+    expect($text)->toBe('done')->and($requests)->toBe(1)->and($ratio)->toBeLessThan(4.0);
+});
