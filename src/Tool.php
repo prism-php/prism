@@ -592,6 +592,10 @@ class Tool
      */
     protected function resolveHandler(): callable
     {
+        if ($this->clientExecuted) {
+            throw new PrismException("Tool [{$this->name}] is client-executed and has no server handler.");
+        }
+
         $fn = $this->fn;
 
         if ($fn === null && method_exists($this, '__invoke')) {
