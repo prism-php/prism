@@ -35,7 +35,8 @@ readonly class ToolApprovalRequestEvent extends StreamEvent
             'approval_id' => $this->approvalId,
             'tool_id' => $this->toolCall->id,
             'tool_name' => $this->toolCall->name,
-            'arguments' => $this->toolCall->argumentsAsObject(),
+            'arguments' => $this->toolCall->withoutMalformedArguments()->argumentsAsObject(),
+            ...$this->toolCall->hasMalformedArguments() ? ['arguments_malformed' => true] : [],
             'message_id' => $this->messageId,
         ];
     }

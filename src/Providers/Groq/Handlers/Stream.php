@@ -379,15 +379,8 @@ class Stream
             ->map(function ($toolCall): ToolCall {
                 $arguments = data_get($toolCall, 'arguments', '');
 
-                // Parse JSON arguments if needed
                 if (is_string($arguments) && $arguments !== '') {
-                    try {
-                        $parsedArguments = json_decode($arguments, true, flags: JSON_THROW_ON_ERROR);
-                        $arguments = $parsedArguments;
-                    } catch (Throwable) {
-                        // If JSON parsing fails, use the raw string
-                        $arguments = ['raw' => $arguments];
-                    }
+                    $arguments = ToolCall::fromStreamedArguments($arguments);
                 }
 
                 return new ToolCall(

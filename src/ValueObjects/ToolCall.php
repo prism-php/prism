@@ -67,6 +67,77 @@ class ToolCall implements Arrayable
     }
 
     /**
+     * Whether the model's arguments are unusable: not JSON, or not a map of
+     * named values. Such a call must not reach an approval check or a handler.
+     */
+    public function hasMalformedArguments(): bool
+    {
+        return $this->argumentsFailure() instanceof PrismException;
+    }
+
+    /**
+     * Why the arguments are unusable, or null when they are fine. A JSON
+     * `null` and an empty string both mean the model supplied none.
+     */
+    public function argumentsFailure(): ?PrismException
+    {
+        try {
+            $decoded = is_string($this->arguments) ? $this->decodeArguments() : $this->arguments;
+        } catch (PrismException $failure) {
+            return $failure;
+        }
+
+        if ($decoded === null) {
+            return null;
+        }
+
+        // An integer key would bind to a handler parameter by position.
+        if (is_array($decoded) && array_filter(array_keys($decoded), is_int(...)) === []) {
+            return null;
+        }
+
+        return PrismException::toolCallArgumentsNotAnObject($this->name);
+    }
+
+    /**
+     * The arguments for a result record: empty when they are unusable, so that
+     * nothing downstream reads a value the model did not validly send.
+     *
+     * @return array<string, mixed>
+     */
+    public function argumentsForResult(): array
+    {
+        return $this->hasMalformedArguments() ? [] : $this->arguments();
+    }
+
+    /**
+     * This call with unusable arguments replaced by none, for sending it back
+     * once a tool result has reported the failure. A valid call is unchanged.
+     */
+    public function withoutMalformedArguments(): self
+    {
+        if (! $this->hasMalformedArguments()) {
+            return $this;
+        }
+
+        return new self($this->id, $this->name, [], $this->resultId, $this->reasoningId, $this->reasoningSummary);
+    }
+
+    /**
+     * What a stream handler stores for an accumulated argument string: the
+     * decoded map, or the original text when it is not one, which keeps the
+     * call detectable by hasMalformedArguments().
+     *
+     * @return string|array<string, mixed>
+     */
+    public static function fromStreamedArguments(string $arguments): string|array
+    {
+        $decoded = json_decode($arguments, true);
+
+        return is_array($decoded) ? $decoded : $arguments;
+    }
+
+    /**
      * The arguments as a JSON OBJECT, in the container types the MODEL sent.
      *
      * Every provider message map goes through here, and it differs from

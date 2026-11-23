@@ -33,7 +33,8 @@ readonly class ToolCallEvent extends StreamEvent
             'timestamp' => $this->timestamp,
             'tool_id' => $this->toolCall->id,
             'tool_name' => $this->toolCall->name,
-            'arguments' => $this->toolCall->argumentsAsObject(),
+            'arguments' => $this->toolCall->withoutMalformedArguments()->argumentsAsObject(),
+            ...$this->toolCall->hasMalformedArguments() ? ['arguments_malformed' => true] : [],
             'message_id' => $this->messageId,
             'reasoning_id' => $this->toolCall->reasoningId,
         ];

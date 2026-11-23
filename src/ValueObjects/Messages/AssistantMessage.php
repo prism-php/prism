@@ -36,6 +36,21 @@ class AssistantMessage implements Arrayable, DeclaresCacheStability, Message
     ) {}
 
     /**
+     * A copy carrying these tool calls, and everything else this message holds.
+     *
+     * @param  ToolCall[]  $toolCalls
+     */
+    public function withToolCalls(array $toolCalls): self
+    {
+        $copy = new self($this->content, $toolCalls, $this->additionalContent, $this->toolApprovalRequests);
+        $copy->providerOptions = $this->providerOptions;
+        $copy->cacheStability = $this->cacheStability;
+        $copy->cacheTtl = $this->cacheTtl;
+
+        return $copy;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     #[\Override]

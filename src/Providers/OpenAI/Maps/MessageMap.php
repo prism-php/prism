@@ -180,7 +180,16 @@ class MessageMap
         foreach ($outputItems as $item) {
             if (OutputItems::isReplayable($item)) {
                 /** @var array<string, mixed> $item */
-                $this->mappedMessages[] = OutputItems::normalize($item);
+                $item = OutputItems::normalize($item);
+
+                // The same replay every other path sends for unusable arguments.
+                if (($item['type'] ?? null) === 'function_call'
+                    && is_string($item['arguments'] ?? null)
+                    && (new ToolCall('', '', $item['arguments']))->hasMalformedArguments()) {
+                    $item['arguments'] = '{}';
+                }
+
+                $this->mappedMessages[] = $item;
             }
         }
     }

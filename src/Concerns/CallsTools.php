@@ -139,6 +139,12 @@ trait CallsTools
     {
         $approvalRequiredToolCalls = [];
 
+        if ($this->malformedCallWithholdsStep($tools, $toolCalls)) {
+            yield from $this->refuseStep($toolCalls, $messageId, $toolResults);
+
+            return;
+        }
+
         $executableToolCalls = $filterPending
             ? $this->filterServerExecutedToolCalls($tools, $toolCalls, $hasPendingToolCalls, $approvalRequiredToolCalls)
             : $toolCalls;
@@ -173,6 +179,60 @@ trait CallsTools
     }
 
     /**
+     * Whether an unparseable call targets a tool that holds back its whole
+     * step. It cannot be handed over, and its siblings must still not run.
+     *
+     * @param  Tool[]  $tools
+     * @param  ToolCall[]  $toolCalls
+     */
+    protected function malformedCallWithholdsStep(array $tools, array $toolCalls): bool
+    {
+        foreach ($toolCalls as $toolCall) {
+            if (! $toolCall->hasMalformedArguments()) {
+                continue;
+            }
+
+            try {
+                if ($this->resolveTool($toolCall->name, $tools)->withholdsOtherCalls()) {
+                    return true;
+                }
+            } catch (PrismException) {
+                continue;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Report every call in the step as failed without running any of them.
+     *
+     * @param  ToolCall[]  $toolCalls
+     * @param  ToolResult[]  $toolResults
+     * @return Generator<ToolResultEvent|ArtifactEvent>
+     */
+    protected function refuseStep(array $toolCalls, string $messageId, array &$toolResults): Generator
+    {
+        $telemetryContext = Telemetry::current();
+
+        foreach (array_values($toolCalls) as $index => $toolCall) {
+            $failure = $toolCall->argumentsFailure()
+                ?? new PrismException('Tool call was not run because another call in this step has invalid arguments');
+            $result = self::failedToolExecution($toolCall, $failure, $messageId, microtime(true));
+
+            if ($telemetryContext instanceof TelemetryContext) {
+                $this->recordToolTelemetry($telemetryContext, $toolCall, $result, $index);
+            }
+
+            $toolResults[] = $result['toolResult'];
+
+            yield from $result['events'];
+        }
+
+        Telemetry::advanceStep($telemetryContext);
+    }
+
+    /**
      * Split out client-executed and approval-required tool calls, setting the
      * pending flag when any are found.
      *
@@ -196,6 +256,14 @@ trait CallsTools
                 continue;
             }
 
+            // Before every other check: unusable arguments reach no client, no
+            // approval check and no handler. executeToolCall reports the failure.
+            if ($toolCall->hasMalformedArguments()) {
+                $serverToolCalls[$index] = $toolCall;
+
+                continue;
+            }
+
             if ($tool->isClientExecuted()) {
                 $hasPendingToolCalls = true;
                 $withholdStep = $withholdStep || $tool->withholdsOtherCalls();
@@ -203,19 +271,9 @@ trait CallsTools
                 continue;
             }
 
-            try {
-                $arguments = $toolCall->arguments();
-            } catch (PrismException) {
-                // Unparseable arguments cannot reach the handler: executeToolCall
-                // hits the same failure and reports it as the tool's result.
-                $serverToolCalls[$index] = $toolCall;
-
-                continue;
-            }
-
             // Outside any catch: an approval check that fails stops the call,
             // and the step, before anything in it has run.
-            if ($tool->needsApproval($arguments)) {
+            if ($tool->needsApproval($toolCall->arguments())) {
                 $hasPendingToolCalls = true;
                 $approvalRequiredToolCalls[] = $toolCall;
 
@@ -384,7 +442,7 @@ trait CallsTools
             $toolResult = new ToolResult(
                 toolCallId: $toolCall->id,
                 toolName: $toolCall->name,
-                args: $toolCall->arguments(),
+                args: $toolCall->argumentsForResult(),
                 result: $reason,
                 toolCallResultId: $toolCall->resultId,
             );
@@ -655,6 +713,13 @@ trait CallsTools
         $startedAt = microtime(true);
 
         try {
+            // The one gate every execution path passes through.
+            $argumentsFailure = $toolCall->argumentsFailure();
+
+            if ($argumentsFailure instanceof PrismException) {
+                throw $argumentsFailure;
+            }
+
             $tool = self::resolveTool($toolCall->name, $tools);
             $output = call_user_func_array(
                 $tool->handle(...),
@@ -728,39 +793,37 @@ trait CallsTools
                 'failure' => null,
             ];
         } catch (PrismException $e) {
-            try {
-                $args = $toolCall->arguments();
-            } catch (PrismException) {
-                // Malformed arguments are themselves the failure being reported —
-                // surface the raw string so the model can see what it sent.
-                $args = ['raw' => is_string($toolCall->arguments) ? $toolCall->arguments : ''];
-            }
+            return self::failedToolExecution($toolCall, $e, $messageId, $startedAt);
+        }
+    }
 
-            $toolResult = new ToolResult(
-                toolCallId: $toolCall->id,
-                toolName: $toolCall->name,
-                args: $args,
-                result: $e->getMessage(),
-                toolCallResultId: $toolCall->resultId,
-            );
+    /**
+     * @return array{toolResult: ToolResult, events: array<int, ToolResultEvent|ArtifactEvent>, durationMs: float, failed: bool, failure: ?string}
+     */
+    protected static function failedToolExecution(ToolCall $toolCall, PrismException $failure, string $messageId, float $startedAt): array
+    {
+        $toolResult = new ToolResult(
+            toolCallId: $toolCall->id,
+            toolName: $toolCall->name,
+            args: $toolCall->argumentsForResult(),
+            result: $failure->getMessage(),
+            toolCallResultId: $toolCall->resultId,
+        );
 
-            $events[] = new ToolResultEvent(
+        return [
+            'toolResult' => $toolResult,
+            'events' => [new ToolResultEvent(
                 id: EventID::generate(),
                 timestamp: time(),
                 toolResult: $toolResult,
                 messageId: $messageId,
                 success: false,
-                error: $e->getMessage()
-            );
-
-            return [
-                'toolResult' => $toolResult,
-                'events' => $events,
-                'durationMs' => (microtime(true) - $startedAt) * 1000,
-                'failed' => true,
-                'failure' => self::toolExceptionKind($e),
-            ];
-        }
+                error: $failure->getMessage(),
+            )],
+            'durationMs' => (microtime(true) - $startedAt) * 1000,
+            'failed' => true,
+            'failure' => self::toolExceptionKind($failure),
+        ];
     }
 
     /**

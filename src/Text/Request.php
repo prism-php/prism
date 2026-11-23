@@ -11,6 +11,7 @@ use Prism\Prism\Concerns\HasReasoning;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\ToolChoice;
+use Prism\Prism\Support\ReplayableMessages;
 use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -118,7 +119,7 @@ class Request implements PrismRequest
      */
     public function messages(): array
     {
-        return $this->messages;
+        return ReplayableMessages::of($this->messages);
     }
 
     public function prompt(): ?string

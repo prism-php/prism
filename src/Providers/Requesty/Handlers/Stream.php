@@ -448,12 +448,7 @@ class Stream
                 $arguments = data_get($toolCall, 'function.arguments', '');
 
                 if (is_string($arguments) && $arguments !== '') {
-                    try {
-                        $parsedArguments = json_decode($arguments, true, flags: JSON_THROW_ON_ERROR);
-                        $arguments = $parsedArguments;
-                    } catch (Throwable) {
-                        $arguments = ['raw' => $arguments];
-                    }
+                    $arguments = ToolCall::fromStreamedArguments($arguments);
                 }
 
                 return new ToolCall(

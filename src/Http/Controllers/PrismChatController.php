@@ -367,6 +367,12 @@ class PrismChatController
             } catch (JsonException) {
                 // Not JSON: fall through to the re-encoded object.
             }
+
+            // Still the model's own text: this API's callers validate it, and
+            // an empty object would present a failed call as a real one.
+            if ($call->hasMalformedArguments()) {
+                return $call->arguments;
+            }
         }
 
         return json_encode($call->argumentsAsObject(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

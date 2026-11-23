@@ -6,6 +6,7 @@ namespace Prism\Prism\Providers\Anthropic\Maps;
 
 use Exception;
 use Illuminate\Support\Arr;
+use JsonException;
 use Prism\Prism\Concerns\FiltersEmptyValues;
 use Prism\Prism\Contracts\DeclaresCacheStability;
 use Prism\Prism\Contracts\Message;
@@ -171,6 +172,29 @@ class MessageMap
     }
 
     /**
+     * A provider tool's input for replay. The API requires an object, so input
+     * that is not one is sent empty rather than failing the whole request.
+     */
+    protected static function providerToolInput(mixed $input): mixed
+    {
+        if ($input === null || $input === '') {
+            return new \stdClass;
+        }
+
+        $call = new ToolCall('', '', (string) $input);
+
+        if ($call->hasMalformedArguments()) {
+            return new \stdClass;
+        }
+
+        try {
+            return Json::decode((string) $input, preservingContainerTypes: true);
+        } catch (JsonException) {
+            return $call->argumentsAsObject();
+        }
+    }
+
+    /**
      * Replay precedence: `content_blocks` (the ordered response content) >
      * `thinking_blocks` > the legacy `thinking`/`thinking_signature` pair.
      *
@@ -212,7 +236,7 @@ class MessageMap
                     'type' => $toolCall['type'] ?? 'server_tool_use',
                     'id' => $toolCall['id'] ?? null,
                     'name' => $toolCall['name'] ?? null,
-                    'input' => isset($toolCall['input']) && $toolCall['input'] !== '' ? Json::decode((string) $toolCall['input'], preservingContainerTypes: true) : new \stdClass,
+                    'input' => self::providerToolInput($toolCall['input'] ?? null),
                 ]);
             }
         }

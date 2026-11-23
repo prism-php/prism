@@ -252,16 +252,12 @@ class Stream
     }
 
     /**
-     * @return array<string, mixed>
+     * @return string|array<string, mixed>
      */
-    protected function normalizeToolInput(mixed $input): array
+    protected function normalizeToolInput(mixed $input): string|array
     {
-        if (is_string($input) && json_validate($input)) {
-            return json_decode($input, true) ?: [];
-        }
-
         if (is_string($input) && $input !== '') {
-            return ['input' => $input];
+            return ToolCall::fromStreamedArguments($input);
         }
 
         return is_array($input) ? $input : [];
@@ -694,17 +690,7 @@ class Stream
         }
 
         $toolCall = $this->state->toolCalls()[$this->state->currentBlockIndex()];
-        $input = $toolCall['input'];
-
-        // Parse the JSON input
-        if (is_string($input) && json_validate($input)) {
-            $input = json_decode($input, true);
-        } elseif (is_string($input) && $input !== '') {
-            // If it's not valid JSON but not empty, wrap in array
-            $input = ['input' => $input];
-        } else {
-            $input = [];
-        }
+        $input = $this->normalizeToolInput($toolCall['input']);
 
         $toolCallObj = new ToolCall(
             id: $toolCall['id'],
