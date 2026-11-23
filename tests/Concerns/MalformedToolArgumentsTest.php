@@ -1181,7 +1181,7 @@ it('answers an unusable call and sends the follow-up on a structured turn', func
     expect($counts())->toBe(['checks' => 0, 'runs' => 0])
         ->and($response->structured)->toBe(['ok' => true])
         ->and(Http::recorded())->toHaveCount($label === 'mistral' ? 3 : 2)
-        ->and(replayedToolArguments(json_decode(Http::recorded()[1][0]->body(), false)))->toBeIn(['{}', 'omitted']);
+        ->and(replayedToolArguments(json_decode((string) Http::recorded()[1][0]->body(), false)))->toBeIn(['{}', 'omitted']);
 })->with(['anthropic', 'gemini', 'vertex', 'mistral', 'openai', 'openrouter', 'requesty'])->with('arguments a reply can carry but a request cannot');
 
 it('replays a server tool input no request can carry as empty', function (): void {
