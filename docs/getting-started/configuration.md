@@ -84,6 +84,20 @@ $response = Prism::text()
 
 Alternatively, call `usingProviderConfig($config)` after `using()`; this resolves the provider again from its configured defaults plus that override. It does not merge with earlier per-request overrides. Keep endpoint overrides under application control because requests carry provider credentials.
 
+Credentials are scoped to their configured endpoint. When an override sets a `url` that differs from the configured one, the configured `api_key`, `access_token`, `credentials_path`, `organization` and `project` are not carried over; pass the key for that endpoint in the same override:
+
+```php
+$response = Prism::text()
+    ->using('openai', 'gpt-4.1', [
+        'url' => 'https://gateway.example.com/v1',
+        'api_key' => $gatewayApiKey,
+    ])
+    ->withPrompt('Explain quantum computing.')
+    ->asText();
+```
+
+A trailing slash, or a difference in the case of the scheme or host, is the same endpoint. A different scheme, host, port, path or query is not. A Vertex `region` must contain only lowercase letters, digits and hyphens.
+
 ## Telemetry
 
 Telemetry is disabled by default. The configuration keys and environment variables are:
