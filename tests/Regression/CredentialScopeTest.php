@@ -301,3 +301,50 @@ it('replaces a provider when replacement is explicit', function (): void {
 
     expect($manager->resolve('openai'))->toBeInstanceOf(TestProvider::class);
 });
+
+/**
+ * A provider name a human cannot read correctly is refused, not trimmed. A
+ * padded or zero-width-suffixed `openai` is a second, different key that looks
+ * exactly like the built-in in a config file or a log. The rule is spelled
+ * identically in the reference and both ports: non-empty, and no whitespace,
+ * control (Cc) or format (Cf) character, nor any codepoint of the G-36 set the
+ * human-plus confirmation guard normalises.
+ */
+it('refuses a provider name that is empty or carries an invisible character', function (string $name): void {
+    $manager = resolve(PrismManager::class);
+
+    expect(fn (): PrismManager => $manager->extend($name, fn (): Provider => new TestProvider))
+        ->toThrow(InvalidArgumentException::class, 'not a valid provider name');
+
+    // Refused even when replacement is explicit: replace does not license a name.
+    expect(fn (): PrismManager => $manager->extend($name, fn (): Provider => new TestProvider, replace: true))
+        ->toThrow(InvalidArgumentException::class, 'not a valid provider name');
+
+    expect($manager->resolve('openai'))->not->toBeInstanceOf(TestProvider::class);
+})->with([
+    'empty' => [''],
+    'leading space' => [' openai'],
+    'trailing space' => ['openai '],
+    'interior space' => ['open ai'],
+    'tab' => ["openai\t"],
+    'newline' => ["openai\n"],
+    'NUL' => ["openai\u{0000}"],
+    'C0 control' => ["openai\u{001F}"],
+    'NEL' => ["openai\u{0085}"],
+    'no-break space' => ["openai\u{00A0}"],
+    'ideographic space' => ["open\u{3000}ai"],
+    'zero-width space' => ["openai\u{200B}"],
+    'zero-width joiner' => ["open\u{200D}ai"],
+    'BOM prefix' => ["\u{FEFF}openai"],
+    'right-to-left override (Cf)' => ["openai\u{202E}"],
+    'word joiner (Cf, outside G-36)' => ["openai\u{2060}"],
+    'soft hyphen (Cf)' => ["open\u{00AD}ai"],
+    'invalid UTF-8' => ["openai\xC3"],
+]);
+
+it('still accepts an ordinary custom provider name', function (string $name): void {
+    $manager = resolve(PrismManager::class);
+    $manager->extend($name, fn (): Provider => new TestProvider);
+
+    expect($manager->resolve($name))->toBeInstanceOf(TestProvider::class);
+})->with(['credential-scope-plain', 'my_provider.v2', 'acme:edge', 'caf'."\u{00E9}"]);
