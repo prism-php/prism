@@ -317,10 +317,8 @@ class Stream
                 $toolCalls[$index]['name'] = $name;
             }
 
-            $arguments = data_get($toolCall, 'function.arguments', '');
-            if ($arguments !== '') {
-                $toolCalls[$index]['arguments'] .= $arguments;
-            }
+            $arguments = data_get($toolCall, 'function.arguments');
+            $toolCalls[$index]['arguments'] = ToolCall::appendArgumentFragment($toolCalls[$index]['arguments'], $arguments);
         }
 
         return $toolCalls;

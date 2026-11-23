@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 
 class AnthropicStreamState extends StreamState
@@ -150,7 +151,10 @@ class AnthropicStreamState extends StreamState
 
         foreach ($this->contentBlockInputs as $index => $json) {
             if (isset($blocks[$index]) && $json !== '') {
-                $blocks[$index]['input'] = json_decode($json, true) ?? $json;
+                // The API requires an object here. Unusable input replays as
+                // empty; the tool result beside it reports the error.
+                $call = new ToolCall('', '', $json);
+                $blocks[$index]['input'] = $call->hasMalformedArguments() ? [] : $call->arguments();
             }
         }
 

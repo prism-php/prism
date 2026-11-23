@@ -265,6 +265,18 @@ class DataProtocolAdapter
     {
         $this->startedToolCallIds[$event->toolCall->id] = true;
 
+        $failure = $event->toolCall->argumentsFailure();
+
+        if ($failure instanceof PrismException) {
+            return [
+                'type' => 'tool-input-error',
+                'toolCallId' => $event->toolCall->id,
+                'toolName' => $event->toolCall->name,
+                'input' => $event->toolCall->withoutMalformedArguments()->argumentsAsObject(),
+                'errorText' => $failure->getMessage(),
+            ];
+        }
+
         return [
             'type' => 'tool-input-available',
             'toolCallId' => $event->toolCall->id,

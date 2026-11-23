@@ -84,6 +84,16 @@ class PrismException extends Exception implements JsonSerializable
         );
     }
 
+    public static function toolCallArgumentsNotAnObject(string $toolName): self
+    {
+        return new self(sprintf('Tool call arguments for tool %s are not a JSON object', $toolName));
+    }
+
+    public static function toolCallArgumentsNotDeclared(string $toolName): self
+    {
+        return new self(sprintf('Tool call arguments for tool %s cannot be used: they name a parameter the tool does not declare', $toolName));
+    }
+
     public static function invalidParameterInTool(string $toolName, Throwable $previous): self
     {
         return new self(

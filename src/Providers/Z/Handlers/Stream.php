@@ -286,9 +286,7 @@ class Stream
 
             $arguments = data_get($deltaToolCall, 'function.arguments');
 
-            if (is_string($arguments) && $arguments !== '') {
-                $toolCalls[$index]['arguments'] .= $arguments;
-            }
+            $toolCalls[$index]['arguments'] = ToolCall::appendArgumentFragment($toolCalls[$index]['arguments'], $arguments);
         }
 
         return $toolCalls;

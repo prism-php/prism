@@ -252,19 +252,15 @@ class Stream
     }
 
     /**
-     * @return array<string, mixed>
+     * @return string|array<string, mixed>
      */
-    protected function normalizeToolInput(mixed $input): array
+    protected function normalizeToolInput(mixed $input): string|array
     {
-        if (is_string($input) && json_validate($input)) {
-            return json_decode($input, true) ?: [];
-        }
-
         if (is_string($input) && $input !== '') {
-            return ['input' => $input];
+            return ToolCall::fromStreamedArguments($input);
         }
 
-        return is_array($input) ? $input : [];
+        return $input === '' || $input === null ? [] : ToolCall::storableArguments($input);
     }
 
     /**
@@ -392,7 +388,7 @@ class Stream
             'text_delta' => $this->state->appendContentBlockField($index, 'text', $delta['text'] ?? ''),
             'thinking_delta' => $this->state->appendContentBlockField($index, 'thinking', $delta['thinking'] ?? ''),
             'signature_delta' => $this->state->appendContentBlockField($index, 'signature', $delta['signature'] ?? ''),
-            'input_json_delta' => $this->state->appendContentBlockInput($index, $delta['partial_json'] ?? ''),
+            'input_json_delta' => $this->state->appendContentBlockInput($index, ToolCall::appendArgumentFragment('', $delta['partial_json'] ?? '')),
             'citations_delta' => is_array($delta['citation'] ?? null)
                 ? $this->state->appendContentBlockCitation($index, $delta['citation'])
                 : null,
@@ -667,7 +663,7 @@ class Stream
      */
     protected function handleToolInputDelta(array $delta): ?ToolCallDeltaEvent
     {
-        $partialJson = $delta['partial_json'] ?? '';
+        $partialJson = ToolCall::appendArgumentFragment('', $delta['partial_json'] ?? '');
 
         if ($this->state->currentBlockIndex() !== null && isset($this->state->toolCalls()[$this->state->currentBlockIndex()])) {
             $this->state->appendToolCallInput($this->state->currentBlockIndex(), $partialJson);
@@ -694,17 +690,7 @@ class Stream
         }
 
         $toolCall = $this->state->toolCalls()[$this->state->currentBlockIndex()];
-        $input = $toolCall['input'];
-
-        // Parse the JSON input
-        if (is_string($input) && json_validate($input)) {
-            $input = json_decode($input, true);
-        } elseif (is_string($input) && $input !== '') {
-            // If it's not valid JSON but not empty, wrap in array
-            $input = ['input' => $input];
-        } else {
-            $input = [];
-        }
+        $input = $this->normalizeToolInput($toolCall['input']);
 
         $toolCallObj = new ToolCall(
             id: $toolCall['id'],

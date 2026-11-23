@@ -310,7 +310,7 @@ class Stream
                 if (isset($part['function']['name'])) {
                     $toolCalls[$index]['name'] = $part['function']['name'];
                 }
-                $toolCalls[$index]['arguments'] = ($toolCalls[$index]['arguments'] ?? '').data_get($part, 'function.arguments', '');
+                $toolCalls[$index]['arguments'] = ToolCall::appendArgumentFragment($toolCalls[$index]['arguments'] ?? '', data_get($part, 'function.arguments'));
             }
         }
 
@@ -389,12 +389,7 @@ class Stream
                 $arguments = data_get($toolCall, 'arguments', '');
 
                 if (is_string($arguments) && $arguments !== '') {
-                    try {
-                        $parsedArguments = json_decode($arguments, true, flags: JSON_THROW_ON_ERROR);
-                        $arguments = $parsedArguments;
-                    } catch (Throwable) {
-                        $arguments = ['raw' => $arguments];
-                    }
+                    $arguments = ToolCall::fromStreamedArguments($arguments);
                 }
 
                 return new ToolCall(

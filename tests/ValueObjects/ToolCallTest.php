@@ -80,14 +80,14 @@ it('escapes raw control characters inside string values instead of dropping them
     ]);
 });
 
-it('drops invalid control characters outside string values', function (): void {
+it('refuses control characters outside string values', function (): void {
     $toolCall = new ToolCall(
         id: 'test-id',
         name: 'test-tool',
         arguments: "{\"param\":\x01 \"value\"}"
     );
 
-    expect($toolCall->arguments())->toBe(['param' => 'value']);
+    expect($toolCall->hasMalformedArguments())->toBeTrue();
 });
 
 it('does not mangle escape sequences already present in valid JSON', function (): void {

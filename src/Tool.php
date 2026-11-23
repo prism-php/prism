@@ -171,6 +171,31 @@ class Tool
         return $this->requiresApproval;
     }
 
+    /**
+     * Whether this tool names a parameter, in its schema or as a named
+     * parameter of its handler. A variadic handler names nothing.
+     */
+    public function namesParameter(string $name): bool
+    {
+        if (array_key_exists($name, $this->parameters)) {
+            return true;
+        }
+
+        try {
+            $reflection = new \ReflectionFunction(Closure::fromCallable($this->resolveHandler()));
+        } catch (Throwable) {
+            return false;
+        }
+
+        foreach ($reflection->getParameters() as $parameter) {
+            if ($parameter->getName() === $name && ! $parameter->isVariadic()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function make(string|object $tool): Tool
     {
         if (is_string($tool)) {

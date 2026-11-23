@@ -352,9 +352,10 @@ class Stream
                 }
 
                 if (isset($deltaToolCall['function']['arguments'])) {
-                    $toolCalls[$index]['function']['arguments'] =
-                        ($toolCalls[$index]['function']['arguments'] ?? '').
-                        $deltaToolCall['function']['arguments'];
+                    $toolCalls[$index]['function']['arguments'] = ToolCall::appendArgumentFragment(
+                        $toolCalls[$index]['function']['arguments'] ?? '',
+                        $deltaToolCall['function']['arguments'],
+                    );
                 }
             }
         }
@@ -545,12 +546,7 @@ class Stream
                 $arguments = data_get($toolCall, 'function.arguments', '');
 
                 if (is_string($arguments) && $arguments !== '') {
-                    try {
-                        $parsedArguments = json_decode($arguments, true, flags: JSON_THROW_ON_ERROR);
-                        $arguments = is_array($parsedArguments) ? $parsedArguments : ['raw' => $arguments];
-                    } catch (Throwable) {
-                        $arguments = ['raw' => $arguments];
-                    }
+                    $arguments = ToolCall::fromStreamedArguments($arguments);
                 }
 
                 return new ToolCall(

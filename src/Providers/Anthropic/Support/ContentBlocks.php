@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Prism\Prism\Providers\Anthropic\Support;
 
+use Prism\Prism\ValueObjects\ToolCall;
 use stdClass;
 
 /**
@@ -210,17 +211,35 @@ class ContentBlocks
 
     /**
      * JSON objects decode to PHP arrays, so an empty tool input would be
-     * re-encoded as `[]`. Restore it as an object.
+     * re-encoded as `[]`. Restore it as an object. The API requires an object
+     * here, so tool input a request cannot carry replays empty, as it does on
+     * the streaming path; the tool result beside it reports the error.
      *
      * @param  array<string, mixed>  $block
      * @return array<string, mixed>
      */
     protected static function normalizeForReplay(array $block): array
     {
-        if (array_key_exists('input', $block) && $block['input'] === []) {
+        if (! array_key_exists('input', $block)) {
+            return $block;
+        }
+
+        if (self::isToolUse($block) && (new ToolCall('', '', $block['input']))->hasMalformedArguments()) {
+            $block['input'] = [];
+        }
+
+        if ($block['input'] === []) {
             $block['input'] = new stdClass;
         }
 
         return $block;
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     */
+    protected static function isToolUse(array $block): bool
+    {
+        return in_array($block['type'] ?? null, ['tool_use', ...self::SERVER_TOOL_USE_TYPES], true);
     }
 }

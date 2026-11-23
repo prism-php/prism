@@ -21,7 +21,7 @@ class ToolCallMap
             // callers and separately for the wire, and only the second keeps
             // the container types the model chose — a decode here throws them
             // away before the value object can see them.
-            arguments: (string) ($toolCall['function']['arguments'] ?? ''),
+            arguments: $toolCall['function']['arguments'] ?? '',
         ), $toolCalls);
     }
 }

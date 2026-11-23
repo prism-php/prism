@@ -168,7 +168,7 @@ class Text
             return new ToolCall(
                 id: data_get($toolCall, 'id'),
                 name: $name,
-                arguments: $arguments ?: '{}',
+                arguments: $arguments === '' ? '{}' : $arguments,
             );
         }, $toolCalls);
     }

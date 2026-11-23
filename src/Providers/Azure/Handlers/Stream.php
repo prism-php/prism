@@ -483,9 +483,7 @@ class Stream
                 $toolCalls[$index]['name'] = $name;
             }
 
-            if ($arguments = data_get($deltaToolCall, 'function.arguments')) {
-                $toolCalls[$index]['arguments'] .= $arguments;
-            }
+            $toolCalls[$index]['arguments'] = ToolCall::appendArgumentFragment($toolCalls[$index]['arguments'], data_get($deltaToolCall, 'function.arguments'));
         }
 
         return $toolCalls;
