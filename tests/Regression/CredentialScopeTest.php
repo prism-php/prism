@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
+use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\PrismManager;
 use Prism\Prism\Providers\Provider;
@@ -302,15 +303,17 @@ it('replaces a provider when replacement is explicit', function (): void {
     expect($manager->resolve('openai'))->toBeInstanceOf(TestProvider::class);
 });
 
+
 /**
- * A provider name a human cannot read correctly is refused, not trimmed. A
- * padded or zero-width-suffixed `openai` is a second, different key that looks
- * exactly like the built-in in a config file or a log. The rule is spelled
- * identically in the reference and both ports: non-empty, and no whitespace,
- * control (Cc) or format (Cf) character, nor any codepoint of the G-36 set the
- * human-plus confirmation guard normalises.
+ * A provider name is a positive allow-list, not a list of forbidden
+ * characters: ASCII `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`. A homoglyph,
+ * full-width or padded `openai` is a second, different key that reads as the
+ * built-in in a config file or a log; any character test that relies on a
+ * language's Unicode tables disagrees with the other languages somewhere. The
+ * same rule is spelled in prism-ts registerProvider() and prism-py
+ * register_provider(). Collisions stay ASCII case-insensitive.
  */
-it('refuses a provider name that is empty or carries an invisible character', function (string $name): void {
+it('refuses a provider name outside the ASCII allow-list', function (string $name): void {
     $manager = resolve(PrismManager::class);
 
     expect(fn (): PrismManager => $manager->extend($name, fn (): Provider => new TestProvider))
@@ -340,6 +343,16 @@ it('refuses a provider name that is empty or carries an invisible character', fu
     'word joiner (Cf, outside G-36)' => ["openai\u{2060}"],
     'soft hyphen (Cf)' => ["open\u{00AD}ai"],
     'invalid UTF-8' => ["openai\xC3"],
+    'Cyrillic o homoglyph' => ["\u{043E}penai"],
+    'Cyrillic a homoglyph' => ["open\u{0430}i"],
+    'full-width' => ["\u{FF4F}\u{FF50}\u{FF45}\u{FF4E}\u{FF41}\u{FF49}"],
+    'Latin-1 letter' => ['caf'."\u{00E9}"],
+    'leading hyphen' => ['-openai'],
+    'leading dot' => ['.openai'],
+    'leading underscore' => ['_openai'],
+    'colon' => ['acme:edge'],
+    'slash' => ['acme/edge'],
+    '65 characters' => [str_repeat('a', 65)],
 ]);
 
 it('still accepts an ordinary custom provider name', function (string $name): void {
@@ -347,4 +360,97 @@ it('still accepts an ordinary custom provider name', function (string $name): vo
     $manager->extend($name, fn (): Provider => new TestProvider);
 
     expect($manager->resolve($name))->toBeInstanceOf(TestProvider::class);
-})->with(['credential-scope-plain', 'my_provider.v2', 'acme:edge', 'caf'."\u{00E9}"]);
+})->with([
+    'hyphenated' => ['credential-scope-plain'],
+    'underscore and dot' => ['my_provider.v2'],
+    'leading digit' => ['0day'],
+    'one character' => ['q'],
+    '64 characters' => [str_repeat('a', 64)],
+]);
+
+it('accepts every built-in provider name under the allow-list', function (ProviderEnum $provider): void {
+    $manager = resolve(PrismManager::class);
+
+    // Replacing is the only way to register over a built-in; the name itself must pass.
+    expect($manager->extend($provider->value, fn (): Provider => new TestProvider, replace: true))
+        ->toBeInstanceOf(PrismManager::class);
+})->with(ProviderEnum::cases());
+
+/**
+ * A url that carries whitespace or a control character anywhere — padded,
+ * interior, or an invisible codepoint — is refused before any request, whether
+ * it arrives per call or from configuration. Trimming it would make the
+ * endpoint comparison depend on each HTTP stack's tolerance (PHP's verdict
+ * moved with the Guzzle major); refusing it is the same in every language. The
+ * error names neither the url nor the key.
+ *
+ * The forbidden set is spelled by codepoint, identically in prism-ts and
+ * prism-py: every Cc control (U+0000..U+001F, U+007F..U+009F), every Unicode
+ * White_Space codepoint, and the G-36 zero-widths U+200B..U+200D and U+FEFF.
+ */
+it('refuses a per-call url carrying whitespace or a control character before any request', function (string $url): void {
+    configureCredentialScope('openai', 'https://api.openai.com/v1');
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response(['error' => ['message' => 'fixture']], 500)]);
+
+    $error = null;
+
+    try {
+        Prism::text()->using('openai', 'fixture-model', ['url' => $url])->withPrompt('hi')->asText();
+    } catch (Throwable $caught) {
+        $error = $caught;
+    }
+
+    expect($error)->toBeInstanceOf(InvalidArgumentException::class)
+        ->and($error->getMessage())->toContain('url must not contain whitespace or control characters')
+        ->and($error->getMessage())->not->toContain('openai.com')
+        ->and($error->getMessage())->not->toContain('configured-secret-openai');
+
+    Http::assertNothingSent();
+})->with([
+    'padded both ends (cs-0016)' => [' https://api.openai.com/v1 '],
+    'leading space' => [' https://api.openai.com/v1'],
+    'trailing space' => ['https://api.openai.com/v1 '],
+    'interior space' => ['https://api.openai.com/v1 x'],
+    'tab' => ["https://api.openai.com/v1\t"],
+    'newline' => ["https://api.openai.com/v1\n"],
+    'carriage return' => ["\rhttps://api.openai.com/v1"],
+    'NUL' => ["https://api.openai.com\u{0000}/v1"],
+    'DEL' => ["https://api.openai.com/v1\u{007F}"],
+    'C1 control' => ["https://api.openai.com/v1\u{009B}"],
+    'NEL' => ["https://api.openai.com/v1\u{0085}"],
+    'no-break space' => ["\u{00A0}https://api.openai.com/v1"],
+    'ideographic space' => ["https://api.openai.com/v1\u{3000}"],
+    'zero-width space' => ["https://api.openai.com\u{200B}/v1"],
+    'BOM prefix' => ["\u{FEFF}https://api.openai.com/v1"],
+]);
+
+it('refuses a configured url carrying whitespace or a control character before any request', function (): void {
+    configureCredentialScope('openai', "https://api.openai.com/v1\n");
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response(['error' => ['message' => 'fixture']], 500)]);
+
+    expect(fn (): mixed => Prism::text()->using('openai', 'fixture-model')->withPrompt('hi')->asText())
+        ->toThrow(InvalidArgumentException::class, 'url must not contain whitespace or control characters');
+
+    Http::assertNothingSent();
+});
+
+it('refuses a padded url for a custom provider before its creator runs', function (): void {
+    config()->set('prism.providers.custom-padded', [
+        'url' => 'https://configured.example/v1',
+        'api_key' => 'configured-secret-custom',
+    ]);
+
+    $called = false;
+    resolve(PrismManager::class)->extend('custom-padded', function () use (&$called): Provider {
+        $called = true;
+
+        return new TestProvider;
+    });
+
+    expect(fn (): Provider => resolve(PrismManager::class)->resolve('custom-padded', ['url' => ' https://configured.example/v1']))
+        ->toThrow(InvalidArgumentException::class, 'url must not contain whitespace or control characters');
+
+    expect($called)->toBeFalse();
+});
