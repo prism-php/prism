@@ -15,6 +15,8 @@ use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
+use Prism\Prism\ValueObjects\ToolApprovalResponse;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 
@@ -455,8 +457,8 @@ it('still refuses to send an unparseable call that nothing has answered', functi
         $failure = $caught->getMessage();
     }
 
-    expect($failure)->toContain('not valid JSON');
-    Http::assertNothingSent();
+    expect((string) $failure)->toContain('not valid JSON');
+    expect(Http::recorded())->toHaveCount(0);
 })->with(['openai', 'openai-chat', 'azure', 'anthropic', 'gemini', 'groq', 'mistral', 'deepseek', 'xai', 'z', 'ollama']);
 
 it('can resend a stored conversation holding an answered unparseable call', function (string $label): void {
@@ -483,3 +485,107 @@ it('can resend a stored conversation holding an answered unparseable call', func
     expect(replayedToolArguments(json_decode((string) $body, false)))->toBeIn(['{}', 'omitted'])
         ->and($history[1]->toolCalls[0]->arguments)->toBe(MALFORMED_ARGUMENTS);
 })->with('streaming providers');
+
+/**
+ * @return array{results: array<int, ToolResultEvent>, runs: int, crash: ?string, body: string}
+ */
+function resumeStoredApproval(Tool $tool, array $arguments, bool $approved, int &$runs): array
+{
+    $provider = configureMalformedProvider('groq');
+    Http::fake(['*' => Http::response(malformedChatStream('', 'done'), 200, ['Content-Type' => 'text/event-stream'])]);
+
+    $history = [
+        new UserMessage('p'),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments)], [], [new ToolApprovalRequest('apr_1', 'call_1')]),
+        new ToolResultMessage([], [new ToolApprovalResponse('apr_1', $approved)]),
+    ];
+
+    $results = [];
+    $crash = null;
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withMessages($history)->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        if ($event instanceof ToolResultEvent) {
+            $results[] = $event;
+        }
+    }
+
+    return ['results' => $results, 'runs' => $runs, 'crash' => $crash, 'body' => Http::recorded()[0][0]->body()];
+}
+
+it('refuses a stored approved call in the old wrapped form', function (string $key): void {
+    $runs = 0;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)
+        ->requiresApproval()
+        ->using(function (string ...$args) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        });
+
+    $outcome = resumeStoredApproval($tool, [$key => MALFORMED_ARGUMENTS], true, $runs);
+
+    expect($outcome['crash'])->toBeNull()
+        ->and($runs)->toBe(0)
+        ->and($outcome['results'])->toHaveCount(1)
+        ->and($outcome['results'][0]->success)->toBeFalse()
+        ->and($outcome['results'][0]->toolResult->result)->toContain('cannot be used')
+        ->and($outcome['results'][0]->toolResult->args)->toBe([]);
+})->with(['raw', 'input']);
+
+it('still runs an approved call when the tool really declares that parameter', function (string $key): void {
+    $runs = 0;
+    $received = null;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter($key, 'value')
+        ->requiresApproval()
+        ->using(function (string ...$args) use (&$runs, &$received): string {
+            $runs++;
+            $received = $args;
+
+            return 'ran';
+        });
+
+    $outcome = resumeStoredApproval($tool, [$key => 'hello'], true, $runs);
+
+    expect($outcome['crash'])->toBeNull()
+        ->and($runs)->toBe(1)
+        ->and($received)->toBe([$key => 'hello']);
+})->with(['raw', 'input']);
+
+it('still runs an approved call whose arguments only resemble the old form', function (array $arguments): void {
+    $runs = 0;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)
+        ->withStringParameter('other', 'other', false)
+        ->requiresApproval()
+        ->using(function (string ...$args) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        });
+
+    $outcome = resumeStoredApproval($tool, $arguments, true, $runs);
+
+    expect($outcome['crash'])->toBeNull()->and($runs)->toBe(1);
+})->with([
+    'a declared key' => [['amount' => '5']],
+    'no arguments' => [[]],
+    'two keys' => [['amount' => '5', 'other' => 'x']],
+]);
+
+it('still runs an approved call when the handler names that parameter', function (string $key): void {
+    $runs = 0;
+    $handler = $key === 'raw'
+        ? function (string $raw) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        }
+    : function (string $input) use (&$runs): string {
+        $runs++;
+
+        return 'ran';
+    };
+    $tool = (new Tool)->as('probe')->for('probe')->requiresApproval()->using($handler);
+
+    $outcome = resumeStoredApproval($tool, [$key => 'hello'], true, $runs);
+
+    expect($outcome['crash'])->toBeNull()->and($runs)->toBe(1);
+})->with(['raw', 'input']);

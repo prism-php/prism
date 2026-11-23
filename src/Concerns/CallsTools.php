@@ -420,7 +420,16 @@ trait CallsTools
             }
 
             if ($approval->approved) {
-                $result = $this->executeToolCall($request->tools(), $toolCall, $messageId);
+                $tool = $toolsByName->get($toolCall->name);
+
+                $result = $tool instanceof Tool && self::hasStoredWrappedArguments($tool, $toolCall)
+                    ? self::failedToolExecution(
+                        new ToolCall($toolCall->id, $toolCall->name, [], $toolCall->resultId, $toolCall->reasoningId, $toolCall->reasoningSummary),
+                        PrismException::toolCallArgumentsNotDeclared($toolCall->name),
+                        $messageId,
+                        microtime(true),
+                    )
+                    : $this->executeToolCall($request->tools(), $toolCall, $messageId);
 
                 $telemetryContext = Telemetry::current();
 
@@ -505,6 +514,27 @@ trait CallsTools
             'concurrent' => $concurrent,
             'sequential' => $sequential,
         ];
+    }
+
+    /**
+     * Whether a stored call has the form earlier versions gave arguments they
+     * could not parse: one string under `raw` or `input`. That is only
+     * distinguishable when the tool does not name the key. A tool that does
+     * could have received the same value for real, so it is not refused here.
+     */
+    protected static function hasStoredWrappedArguments(Tool $tool, ToolCall $toolCall): bool
+    {
+        if ($toolCall->hasMalformedArguments()) {
+            return false;
+        }
+
+        $arguments = $toolCall->arguments();
+        $key = array_key_first($arguments);
+
+        return count($arguments) === 1
+            && in_array($key, ['raw', 'input'], true)
+            && is_string($arguments[$key])
+            && ! $tool->namesParameter($key);
     }
 
     /**
