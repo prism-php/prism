@@ -189,26 +189,40 @@ trait CallsTools
         foreach ($toolCalls as $index => $toolCall) {
             try {
                 $tool = $this->resolveTool($toolCall->name, $tools);
-
-                if ($tool->isClientExecuted()) {
-                    $hasPendingToolCalls = true;
-                    $withholdStep = $withholdStep || $tool->withholdsOtherCalls();
-
-                    continue;
-                }
-
-                if ($tool->needsApproval($toolCall->arguments())) {
-                    $hasPendingToolCalls = true;
-                    $approvalRequiredToolCalls[] = $toolCall;
-
-                    continue;
-                }
-
-                $serverToolCalls[$index] = $toolCall;
             } catch (PrismException) {
                 // Unknown tool — keep it so error handling fires in executeToolCall.
                 $serverToolCalls[$index] = $toolCall;
+
+                continue;
             }
+
+            if ($tool->isClientExecuted()) {
+                $hasPendingToolCalls = true;
+                $withholdStep = $withholdStep || $tool->withholdsOtherCalls();
+
+                continue;
+            }
+
+            try {
+                $arguments = $toolCall->arguments();
+            } catch (PrismException) {
+                // Unparseable arguments cannot reach the handler: executeToolCall
+                // hits the same failure and reports it as the tool's result.
+                $serverToolCalls[$index] = $toolCall;
+
+                continue;
+            }
+
+            // Outside any catch: an approval check that fails stops the call,
+            // and the step, before anything in it has run.
+            if ($tool->needsApproval($arguments)) {
+                $hasPendingToolCalls = true;
+                $approvalRequiredToolCalls[] = $toolCall;
+
+                continue;
+            }
+
+            $serverToolCalls[$index] = $toolCall;
         }
 
         // A client-executed tool that withholds the step: nothing from this
