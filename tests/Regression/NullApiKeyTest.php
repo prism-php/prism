@@ -74,7 +74,7 @@ beforeEach(function (): void {
 });
 
 it('refuses a key configured as null before any request', function (string $name): void {
-    config()->set("prism.providers.{$name}.api_key", null);
+    config()->set(["prism.providers.{$name}.api_key" => null]);
 
     expect(fn (): mixed => callWithKeyConfig($name))->toThrow(TypeError::class);
 
@@ -112,7 +112,7 @@ it('sends no key and does not throw when a per-call url drops the configured key
 })->with(nullKeyProviders());
 
 it('does not throw when a per-call url replaces a provider whose configured key is null', function (string $name): void {
-    config()->set("prism.providers.{$name}.api_key", null);
+    config()->set(["prism.providers.{$name}.api_key" => null]);
 
     $requests = requestsAfterCall($name, ['url' => 'https://other-host.example/v1']);
 
