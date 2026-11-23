@@ -38,10 +38,22 @@ class ToolCall implements Arrayable
      * `[]` for a `{}` the model sent, or fixing the wire would break the very
      * tools the wire exists to call.
      *
+     * An empty string, `0`, `null`, `[]` and `{}` mean none were given. Anything
+     * else that is not a map of named values is refused rather than read as no
+     * arguments, so a tool is never run on an empty set the model did not send.
+     *
      * @return array<string, mixed>
+     *
+     * @throws PrismException
      */
     public function arguments(): array
     {
+        $failure = $this->argumentsFailure();
+
+        if ($failure instanceof PrismException) {
+            throw $failure;
+        }
+
         if (is_string($this->arguments)) {
             $decoded = $this->decodeArguments();
 
@@ -158,6 +170,12 @@ class ToolCall implements Arrayable
      */
     public function argumentsAsObject(): stdClass
     {
+        $failure = $this->argumentsFailure();
+
+        if ($failure instanceof PrismException) {
+            throw $failure;
+        }
+
         $decoded = is_string($this->arguments)
             ? $this->decodeArguments(preservingContainerTypes: true)
             : $this->arguments();

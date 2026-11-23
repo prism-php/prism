@@ -181,7 +181,7 @@ class Telemetry
             $toolCall->name,
             $toolCall->id,
             $durationMs,
-            $capturesContent ? $toolCall : null,
+            $capturesContent ? $toolCall->withoutMalformedArguments() : null,
             $capturesContent ? $toolResult : null,
             $failed,
             $failure,
@@ -228,7 +228,7 @@ class Telemetry
                     self::appendBounded($stepText, $event->delta, $maxLength, $stepTruncated);
                     self::appendBounded($fullText, $event->delta, $maxLength, $fullTruncated);
                 } elseif ($event instanceof ToolCallEvent && $capturesContent) {
-                    self::appendItem($toolCalls, $event->toolCall->toArray(), $maxItems, $itemsTruncated);
+                    self::appendItem($toolCalls, $event->toolCall->withoutMalformedArguments()->toArray(), $maxItems, $itemsTruncated);
                 } elseif ($event instanceof ToolResultEvent && $capturesContent) {
                     self::appendItem($messages, ['type' => 'tool_result', 'tool_results' => [$event->toolResult->toArray()]], $maxItems, $itemsTruncated);
                 } elseif ($event instanceof StepFinishEvent) {

@@ -373,6 +373,8 @@ class PrismChatController
             if ($call->hasMalformedArguments()) {
                 return $call->arguments;
             }
+        } elseif ($call->hasMalformedArguments()) {
+            return json_encode($call->arguments, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
         return json_encode($call->argumentsAsObject(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

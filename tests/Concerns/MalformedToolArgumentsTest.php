@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Events\Telemetry\ToolInvoked;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -589,3 +591,124 @@ it('still runs an approved call when the handler names that parameter', function
 
     expect($outcome['crash'])->toBeNull()->and($runs)->toBe(1);
 })->with(['raw', 'input']);
+
+dataset('valid non-objects and unusable maps', [
+    'a number' => ['5'],
+    'zero as a float' => ['0.0'],
+    'zero with a space' => [' 0'],
+    'a quoted zero' => ['"0"'],
+    'a string' => ['"x"'],
+    'true' => ['true'],
+    'false' => ['false'],
+    'a list' => ['[1,2]'],
+    'an integer key' => ['{"0":"x"}'],
+    'a negative integer key' => ['{"-5":"x"}'],
+]);
+
+dataset('no arguments', [
+    'an empty string' => [''],
+    'the text 0' => ['0'],
+    'null' => ['null'],
+    'an empty list' => ['[]'],
+    'an empty object' => ['{}'],
+]);
+
+it('refuses unusable arguments from arguments() for a host running its own loop', function (string $arguments): void {
+    $provider = configureMalformedProvider('groq');
+    fakeMalformedStream('groq', $arguments);
+
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)->using(fn (): string => 'ran');
+
+    $seen = [];
+    $crash = null;
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        if ($event instanceof ToolCallEvent) {
+            try {
+                $seen[] = ['returned' => $event->toolCall->arguments()];
+            } catch (PrismException $failure) {
+                $seen[] = ['refused' => $failure->getMessage()];
+            }
+        }
+    }
+
+    expect($crash)->toBeNull()
+        ->and($seen)->toHaveCount(1)
+        ->and($seen[0])->toHaveKey('refused')
+        ->and($seen[0]['refused'] ?? '')->toContain('Tool call arguments for tool probe');
+})->with('valid non-objects and unusable maps');
+
+it('reads the empty forms as no arguments', function (string $arguments): void {
+    $call = new ToolCall('c', 'probe', $arguments);
+
+    expect($call->arguments())->toBe([])
+        ->and($call->hasArguments())->toBeFalse()
+        ->and($call->hasMalformedArguments())->toBeFalse()
+        ->and($call->argumentsAsJson())->toBe('{}');
+})->with('no arguments');
+
+it('refuses an unanswered unusable call at mapping on every provider', function (string $label, string $arguments): void {
+    $provider = configureMalformedProvider($label);
+    Http::fake(['*' => Http::response(malformedChatStream('', 'done'))]);
+
+    $history = [
+        new UserMessage('p'),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments, 'call_1')]),
+    ];
+
+    $failure = null;
+
+    try {
+        foreach (Prism::text()->using($provider, 'm')->withMessages($history)->asStream() as $event) {
+            // Drain.
+        }
+    } catch (Throwable $caught) {
+        $failure = $caught->getMessage();
+    }
+
+    expect((string) $failure)->toContain('Tool call arguments for tool probe')
+        ->and(Http::recorded())->toHaveCount(0);
+})->with(['openai', 'openai-chat', 'azure', 'anthropic', 'gemini', 'vertex', 'groq', 'mistral', 'openrouter', 'requesty', 'deepseek', 'qwen', 'xai', 'z', 'ollama'])
+    ->with(['a number' => ['5'], 'a list' => ['[1,2]'], 'an integer key' => ['{"0":"x"}']]);
+
+it('can resend an answered non-object call on every provider', function (string $label, string $arguments): void {
+    $provider = configureMalformedProvider($label);
+    [, $second] = malformedStreamBodies($label === 'openai-chat' ? 'chat' : $label, MALFORMED_ARGUMENTS);
+    Http::fake(['*' => Http::response($second, 200, ['Content-Type' => 'text/event-stream'])]);
+
+    $history = [
+        new UserMessage('p'),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments, 'call_1')]),
+        new ToolResultMessage([new ToolResult('call_1', 'probe', [], 'failed', 'call_1')]),
+        new UserMessage('again'),
+    ];
+
+    $crash = null;
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withMessages($history)->asStream(), $crash) as $event) {
+        // Drain.
+    }
+
+    expect($crash)->toBeNull()
+        ->and(replayedToolArguments(json_decode((string) Http::recorded()[0][0]->body(), false)))->toBeIn(['{}', 'omitted']);
+})->with('streaming providers')->with(['a number' => ['5'], 'a list' => ['[1,2]']]);
+
+it('keeps the raw text out of captured telemetry', function (): void {
+    config()->set('prism.telemetry.enabled', true);
+    config()->set('prism.telemetry.capture_content', true);
+    $provider = configureMalformedProvider('groq');
+    fakeMalformedStream('groq', '{"secret-text": 5');
+    Event::fake([ToolInvoked::class]);
+
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)->using(fn (): string => 'ran');
+
+    $crash = null;
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        // Drain.
+    }
+
+    expect($crash)->toBeNull();
+
+    $invoked = Event::dispatched(ToolInvoked::class)->flatten(1);
+
+    expect($invoked)->toHaveCount(1)
+        ->and(json_encode($invoked->first()->toolCall?->toArray()))->not->toContain('secret-text');
+});
