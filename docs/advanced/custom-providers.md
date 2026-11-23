@@ -83,6 +83,23 @@ The callback receives the Laravel application and the provider configuration. Ad
 
 `resolve()` lowercases provider names, while `extend()` stores the key exactly as supplied. Register lower-case keys so the custom creator can be found.
 
+`extend()` refuses a name that is already registered — a built-in provider such as `openai`, or a custom provider registered earlier — and throws `InvalidArgumentException`. To replace one deliberately, for example with a test double, pass `replace: true`:
+
+```php
+use App\Prism\Providers\LocalTextProvider;
+use Prism\Prism\PrismManager;
+
+app(PrismManager::class)->extend(
+    'openai',
+    fn ($app, array $config) => new LocalTextProvider,
+    replace: true,
+);
+```
+
+A replacement receives that provider's configured credentials, so replace a built-in provider only with code you control.
+
+A provider name must start with an ASCII letter or digit, contain only ASCII letters, digits, `.`, `_` and `-`, and be at most 64 characters long. `extend()` throws `InvalidArgumentException` for any other name, even with `replace: true`, so a look-alike such as `openai` spelled with a Cyrillic `о`, a full-width `ｏｐｅｎａｉ` or a padded `openai ` cannot be registered. The name is not trimmed. Names are compared case-insensitively, so `OpenAI` collides with `openai`.
+
 ```php
 use Prism\Prism\Facades\Prism;
 

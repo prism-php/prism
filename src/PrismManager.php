@@ -30,8 +30,33 @@ use Prism\Prism\Providers\Z\Z;
 
 class PrismManager
 {
+    /**
+     * Configuration keys that authenticate the caller. They are scoped to the
+     * endpoint they were configured for.
+     *
+     * @var list<string>
+     */
+    protected const CREDENTIAL_KEYS = ['api_key', 'access_token', 'credentials_path', 'organization', 'project'];
+
     /** @var array<string, Closure> */
     protected array $customCreators = [];
+
+    /**
+     * A provider name: ASCII, starting with a letter or digit, at most 64
+     * characters. A positive allow-list rather than a list of forbidden
+     * characters, so it needs no Unicode tables and reads the same in prism-ts
+     * registerProvider() and prism-py register_provider().
+     */
+    protected const PROVIDER_NAME = '/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/';
+
+    /**
+     * Codepoints a provider url may not contain anywhere, spelled by codepoint
+     * and identically in prism-ts and prism-py: every Cc control
+     * (U+0000..U+001F, U+007F..U+009F), every Unicode White_Space codepoint,
+     * and the G-36 zero-widths U+200B..U+200D and U+FEFF. Each language's own
+     * idea of "whitespace" disagrees with the others, so none of them is used.
+     */
+    protected const URL_FORBIDDEN = '/[\x{0000}-\x{001F}\x{0020}\x{007F}-\x{009F}\x{00A0}\x{1680}\x{2000}-\x{200D}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u';
 
     public function __construct(
         protected Application $app
@@ -46,7 +71,14 @@ class PrismManager
     {
         $name = $this->resolveName($name);
 
-        $config = array_merge($this->getConfig($name), $providerConfig);
+        $configured = $this->getConfig($name);
+
+        // Both urls are checked, before anything is built: a padded configured
+        // url is a misconfiguration even when this call overrides it.
+        $this->assertUrlIsClean($configured['url'] ?? null);
+        $this->assertUrlIsClean($providerConfig['url'] ?? null);
+
+        $config = $this->mergeConfig($configured, $providerConfig);
 
         if (isset($this->customCreators[$name])) {
             return $this->callCustomCreator($name, $config);
@@ -61,11 +93,123 @@ class PrismManager
         throw new InvalidArgumentException("Provider [{$name}] is not supported.");
     }
 
-    public function extend(string $provider, Closure $callback): self
+    /**
+     * Register a custom provider creator.
+     *
+     * A name that is already taken — a built-in provider, or a custom provider
+     * registered earlier — is refused unless `$replace` is true. Replacing a
+     * provider changes what every caller of that name gets, process-wide, and
+     * hands the replacement that provider's configured credentials; that must
+     * be a decision made on purpose, not a side effect of a naming collision.
+     *
+     * The name itself must be readable: see isValidProviderName(). An invalid
+     * name is refused whether or not `$replace` is set, and never trimmed.
+     *
+     * @throws InvalidArgumentException when the name is not a valid provider
+     *                                  name, or is taken and $replace is false
+     */
+    public function extend(string $provider, Closure $callback, bool $replace = false): self
     {
+        if (! $this->isValidProviderName($provider)) {
+            throw new InvalidArgumentException(
+                'That is not a valid provider name: a provider name must start with an ASCII letter or digit, contain only ASCII letters, digits, ".", "_" and "-", and be at most 64 characters long.'
+            );
+        }
+
+        if (! $replace && $this->isRegistered($provider)) {
+            throw new InvalidArgumentException(
+                "Provider [{$provider}] is already registered. Pass replace: true to replace it."
+            );
+        }
+
         $this->customCreators[$provider] = $callback;
 
         return $this;
+    }
+
+    protected function isRegistered(string $provider): bool
+    {
+        $name = strtolower($provider);
+
+        foreach (array_keys($this->customCreators) as $registered) {
+            if (strtolower($registered) === $name) {
+                return true;
+            }
+        }
+
+        return method_exists($this, sprintf('create%sProvider', ucfirst($name)));
+    }
+
+    /**
+     * Merge per-call provider config over the configured provider config.
+     *
+     * Credentials are scoped to their configured endpoint: when the per-call
+     * config points the provider at a different URL, configured credentials
+     * are not carried over. The per-call config must supply its own key for
+     * that endpoint. A URL that differs only in a trailing slash or in the case
+     * of the scheme or host is the same endpoint.
+     *
+     * @param  array<string, mixed>  $configured
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    protected function mergeConfig(array $configured, array $overrides): array
+    {
+        $config = array_merge($configured, $overrides);
+
+        if (! array_key_exists('url', $overrides)) {
+            return $config;
+        }
+
+        if ($this->sameEndpoint($configured['url'] ?? null, $overrides['url'])) {
+            return $config;
+        }
+
+        foreach (self::CREDENTIAL_KEYS as $key) {
+            if (! array_key_exists($key, $overrides)) {
+                unset($config[$key]);
+            }
+        }
+
+        return $config;
+    }
+
+    protected function sameEndpoint(mixed $configured, mixed $override): bool
+    {
+        if (! is_string($configured) || ! is_string($override)) {
+            return false;
+        }
+
+        $a = $this->normalizeEndpoint($configured);
+        $b = $this->normalizeEndpoint($override);
+
+        return $a !== null && $a === $b;
+    }
+
+    protected function normalizeEndpoint(string $url): ?string
+    {
+        $parts = parse_url($url);
+
+        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || $parts['host'] === '') {
+            return null;
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        $port = $parts['port'] ?? match ($scheme) {
+            'https' => 443,
+            'http' => 80,
+            default => null,
+        };
+
+        return implode('|', [
+            $scheme,
+            $parts['user'] ?? '',
+            $parts['pass'] ?? '',
+            strtolower($parts['host']),
+            (string) $port,
+            rtrim($parts['path'] ?? '', '/'),
+            $parts['query'] ?? '',
+        ]);
     }
 
     protected function resolveName(ProviderEnum|string $name): string
@@ -108,7 +252,7 @@ class PrismManager
     protected function createMistralProvider(array $config): Mistral
     {
         return new Mistral(
-            apiKey: $config['api_key'],
+            apiKey: $config['api_key'] ?? '',
             url: $config['url'],
         );
     }
@@ -119,7 +263,7 @@ class PrismManager
     protected function createAnthropicProvider(array $config): Anthropic
     {
         return new Anthropic(
-            apiKey: $config['api_key'],
+            apiKey: $config['api_key'] ?? '',
             apiVersion: $config['version'],
             url: $config['url'] ?? 'https://api.anthropic.com/v1',
             betaFeatures: $config['anthropic_beta'] ?? null,
@@ -178,7 +322,7 @@ class PrismManager
     protected function createGroqProvider(array $config): Groq
     {
         return new Groq(
-            apiKey: $config['api_key'],
+            apiKey: $config['api_key'] ?? '',
             url: $config['url'],
         );
     }
@@ -189,7 +333,7 @@ class PrismManager
     protected function createXaiProvider(array $config): XAI
     {
         return new XAI(
-            apiKey: $config['api_key'],
+            apiKey: $config['api_key'] ?? '',
             url: $config['url'],
         );
     }
@@ -200,7 +344,7 @@ class PrismManager
     protected function createGeminiProvider(array $config): Gemini
     {
         return new Gemini(
-            apiKey: $config['api_key'],
+            apiKey: $config['api_key'] ?? '',
             url: $config['url'],
         );
     }
@@ -306,8 +450,46 @@ class PrismManager
     protected function createZProvider(array $config): Z
     {
         return new Z(
-            apiKey: $config['api_key'],
+            apiKey: $config['api_key'] ?? '',
             url: $config['url'],
         );
+    }
+
+    /**
+     * Is this a name a provider may be registered under?
+     *
+     * See PROVIDER_NAME. A homoglyph (Cyrillic U+043E for the first `o`), a
+     * full-width `openai`, a padded one or one carrying an invisible codepoint
+     * is a second key that reads as the built-in in a config file or a log, so
+     * it is REFUSED, never trimmed or folded. Bytes that are not ASCII never
+     * match, so invalid UTF-8 is refused too.
+     */
+    protected function isValidProviderName(string $provider): bool
+    {
+        return preg_match(self::PROVIDER_NAME, $provider) === 1;
+    }
+
+    /**
+     * Refuse a url that carries whitespace or a control character anywhere.
+     *
+     * Trimming it would leave the endpoint comparison, and where the key goes,
+     * to each HTTP stack's tolerance of a padded url, which differs by library
+     * version. The message names neither the url nor any credential. A string
+     * that is not valid UTF-8 cannot be checked, so it is refused as well
+     * (preg_match returns false).
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function assertUrlIsClean(mixed $url): void
+    {
+        if (! is_string($url)) {
+            return;
+        }
+
+        if (preg_match(self::URL_FORBIDDEN, $url) !== 0) {
+            throw new InvalidArgumentException(
+                'That is not a valid provider url: a provider url must not contain whitespace or control characters.'
+            );
+        }
     }
 }

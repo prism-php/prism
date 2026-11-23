@@ -11,8 +11,8 @@ beforeEach(function (): void {
     $this->manager = resolve(PrismManager::class);
 
     // Register test provider implementations
-    $this->manager->extend('openai', fn (): TestProvider => new TestProvider);
-    $this->manager->extend('anthropic', fn (): TestProvider => new TestProvider);
+    $this->manager->extend('openai', fn (): TestProvider => new TestProvider, replace: true);
+    $this->manager->extend('anthropic', fn (): TestProvider => new TestProvider, replace: true);
 });
 
 test('it applies provider specific options when provider matches', function (): void {

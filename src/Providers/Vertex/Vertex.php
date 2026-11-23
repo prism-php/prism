@@ -7,6 +7,7 @@ namespace Prism\Prism\Providers\Vertex;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use InvalidArgumentException;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;
 use Prism\Prism\Embeddings\Response as EmbeddingResponse;
@@ -32,7 +33,13 @@ class Vertex extends Provider
         public readonly string $region,
         #[\SensitiveParameter] public readonly ?string $accessToken = null,
         public readonly ?string $credentialsPath = null,
-    ) {}
+    ) {
+        // The region is interpolated into the endpoint host, so it decides
+        // where the access token is sent. Only a region-shaped value is valid.
+        if (preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/', $this->region) !== 1) {
+            throw new InvalidArgumentException('Vertex region must contain only lowercase letters, digits and hyphens.');
+        }
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse
