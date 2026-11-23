@@ -574,7 +574,9 @@ foreach ($response->steps as $step) {
 
 Text-response `toolCalls` and `toolResults` contain the final step's activity; a normal final answer often has neither. Read earlier calls, results and artifacts from `steps`. Structured responses aggregate those fields across steps.
 
-For raw tool arguments, `arguments()` returns an associative PHP array. Use `argumentsAsObject()` when serializing an argument object, especially an empty object or numeric property names; `argumentsAsJson()` encodes that object as JSON. Invalid argument JSON raises `PrismException` when decoded.
+For raw tool arguments, `arguments()` returns an associative PHP array. Use `argumentsAsObject()` when serializing an argument object, especially an empty object or nested numeric property names; `argumentsAsJson()` encodes that object as JSON.
+
+These methods raise `PrismException` when the arguments are not a JSON object of named values: invalid JSON, a number, string, boolean or non-empty list, or a top-level numeric name such as `{"0": "prod"}`. An empty string, `0`, `null`, `[]` and `{}` mean no arguments. Prism reports such a call to the model as a failed tool result. It never reaches an approval check, a handler or a client. If you run your own tool loop, check `hasMalformedArguments()` first or catch the exception and return it to the model as a tool error.
 
 Provider-side calls are separate from your PHP tools: inspect `$step->providerToolCalls` on text steps when the provider populates them. To defer a custom call to your application, use `clientExecuted()`; to pause execution for an approval, use `requiresApproval()`. See [Human-in-the-Loop](/core-concepts/human-in-the-loop) for continuation and authorization requirements.
 
