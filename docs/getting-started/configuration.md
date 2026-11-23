@@ -96,7 +96,7 @@ $response = Prism::text()
     ->asText();
 ```
 
-A trailing slash, or a difference in the case of the scheme or host, is the same endpoint. A different scheme, host, port, path or query is not. A Vertex `region` must contain only lowercase letters, digits and hyphens.
+A trailing slash, or a difference in the case of the scheme or host, is the same endpoint. A different scheme, host, port, path or query is not. A Vertex `region` must contain only lowercase letters, digits and hyphens. A `url`, configured or per call, that contains whitespace or a control character anywhere, including at either end, is refused with `InvalidArgumentException` before any request is made; it is not trimmed.
 
 ## Telemetry
 

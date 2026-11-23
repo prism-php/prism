@@ -42,14 +42,21 @@ class PrismManager
     protected array $customCreators = [];
 
     /**
-     * Codepoints that are invisible in a name: the G-36 set, spelled by
-     * codepoint and identically to the human-plus confirmation guard
-     * (prism-human-plus TrustPolicy::INVISIBLE) and to prism-ts / prism-py.
-     * It covers every Unicode White_Space codepoint plus U+0000, U+200B..U+200D
-     * and U+FEFF. Each language's own idea of "whitespace" disagrees with the
-     * others, so none of them is used.
+     * A provider name: ASCII, starting with a letter or digit, at most 64
+     * characters. A positive allow-list rather than a list of forbidden
+     * characters, so it needs no Unicode tables and reads the same in prism-ts
+     * registerProvider() and prism-py register_provider().
      */
-    private const INVISIBLE = '\x{0000}\x{0009}-\x{000D}\x{0020}\x{0085}\x{00A0}\x{1680}\x{2000}-\x{200D}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
+    protected const PROVIDER_NAME = '/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/';
+
+    /**
+     * Codepoints a provider url may not contain anywhere, spelled by codepoint
+     * and identically in prism-ts and prism-py: every Cc control
+     * (U+0000..U+001F, U+007F..U+009F), every Unicode White_Space codepoint,
+     * and the G-36 zero-widths U+200B..U+200D and U+FEFF. Each language's own
+     * idea of "whitespace" disagrees with the others, so none of them is used.
+     */
+    protected const URL_FORBIDDEN = '/[\x{0000}-\x{001F}\x{0020}\x{007F}-\x{009F}\x{00A0}\x{1680}\x{2000}-\x{200D}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u';
 
     public function __construct(
         protected Application $app
@@ -64,7 +71,14 @@ class PrismManager
     {
         $name = $this->resolveName($name);
 
-        $config = $this->mergeConfig($this->getConfig($name), $providerConfig);
+        $configured = $this->getConfig($name);
+
+        // Both urls are checked, before anything is built: a padded configured
+        // url is a misconfiguration even when this call overrides it.
+        $this->assertUrlIsClean($configured['url'] ?? null);
+        $this->assertUrlIsClean($providerConfig['url'] ?? null);
+
+        $config = $this->mergeConfig($configured, $providerConfig);
 
         if (isset($this->customCreators[$name])) {
             return $this->callCustomCreator($name, $config);
@@ -98,7 +112,7 @@ class PrismManager
     {
         if (! $this->isValidProviderName($provider)) {
             throw new InvalidArgumentException(
-                'That is not a valid provider name: a provider name must be non-empty and contain no whitespace, control, format or invisible characters.'
+                'That is not a valid provider name: a provider name must start with an ASCII letter or digit, contain only ASCII letters, digits, ".", "_" and "-", and be at most 64 characters long.'
             );
         }
 
@@ -174,7 +188,7 @@ class PrismManager
 
     protected function normalizeEndpoint(string $url): ?string
     {
-        $parts = parse_url(trim($url));
+        $parts = parse_url($url);
 
         if ($parts === false || ! isset($parts['scheme'], $parts['host']) || $parts['host'] === '') {
             return null;
@@ -444,16 +458,38 @@ class PrismManager
     /**
      * Is this a name a provider may be registered under?
      *
-     * Non-empty, and no codepoint that is a control (Cc), format (Cf) or
-     * surrogate (Cs) character or in the G-36 set. ` openai`, `openai ` and
-     * `openai` + U+200B are distinct keys that read as the built-in in a config
-     * file or a log, so they are REFUSED — trimming would silently turn one
-     * name into another. A string that is not valid UTF-8 cannot be checked,
-     * so it is refused too (preg_match returns false). The same rule is spelled
-     * in prism-ts registerProvider() and prism-py register_provider().
+     * See PROVIDER_NAME. A homoglyph (Cyrillic U+043E for the first `o`), a
+     * full-width `openai`, a padded one or one carrying an invisible codepoint
+     * is a second key that reads as the built-in in a config file or a log, so
+     * it is REFUSED, never trimmed or folded. Bytes that are not ASCII never
+     * match, so invalid UTF-8 is refused too.
      */
     protected function isValidProviderName(string $provider): bool
     {
-        return preg_match('/^[^\p{Cc}\p{Cf}\p{Cs}'.self::INVISIBLE.']+\z/u', $provider) === 1;
+        return preg_match(self::PROVIDER_NAME, $provider) === 1;
+    }
+
+    /**
+     * Refuse a url that carries whitespace or a control character anywhere.
+     *
+     * Trimming it would leave the endpoint comparison, and where the key goes,
+     * to each HTTP stack's tolerance of a padded url, which differs by library
+     * version. The message names neither the url nor any credential. A string
+     * that is not valid UTF-8 cannot be checked, so it is refused as well
+     * (preg_match returns false).
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function assertUrlIsClean(mixed $url): void
+    {
+        if (! is_string($url)) {
+            return;
+        }
+
+        if (preg_match(self::URL_FORBIDDEN, $url) !== 0) {
+            throw new InvalidArgumentException(
+                'That is not a valid provider url: a provider url must not contain whitespace or control characters.'
+            );
+        }
     }
 }

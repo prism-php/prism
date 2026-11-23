@@ -303,7 +303,6 @@ it('replaces a provider when replacement is explicit', function (): void {
     expect($manager->resolve('openai'))->toBeInstanceOf(TestProvider::class);
 });
 
-
 /**
  * A provider name is a positive allow-list, not a list of forbidden
  * characters: ASCII `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`. A homoglyph,
