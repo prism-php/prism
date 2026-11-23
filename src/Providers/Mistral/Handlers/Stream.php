@@ -310,7 +310,7 @@ class Stream
                 if (isset($part['function']['name'])) {
                     $toolCalls[$index]['name'] = $part['function']['name'];
                 }
-                $toolCalls[$index]['arguments'] = ($toolCalls[$index]['arguments'] ?? '').data_get($part, 'function.arguments', '');
+                $toolCalls[$index]['arguments'] = ToolCall::appendArgumentFragment($toolCalls[$index]['arguments'] ?? '', data_get($part, 'function.arguments'));
             }
         }
 

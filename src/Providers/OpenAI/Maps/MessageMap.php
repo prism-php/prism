@@ -183,10 +183,8 @@ class MessageMap
                 $item = OutputItems::normalize($item);
 
                 // The same replay every other path sends for unusable arguments.
-                if (($item['type'] ?? null) === 'function_call'
-                    && is_string($item['arguments'] ?? null)
-                    && (new ToolCall('', '', $item['arguments']))->hasMalformedArguments()) {
-                    $item['arguments'] = '{}';
+                if (($item['type'] ?? null) === 'function_call') {
+                    $item['arguments'] = (new ToolCall('', '', $item['arguments'] ?? ''))->replayableArgumentsText();
                 }
 
                 $this->mappedMessages[] = $item;

@@ -352,9 +352,10 @@ class Stream
                 }
 
                 if (isset($deltaToolCall['function']['arguments'])) {
-                    $toolCalls[$index]['function']['arguments'] =
-                        ($toolCalls[$index]['function']['arguments'] ?? '').
-                        $deltaToolCall['function']['arguments'];
+                    $toolCalls[$index]['function']['arguments'] = ToolCall::appendArgumentFragment(
+                        $toolCalls[$index]['function']['arguments'] ?? '',
+                        $deltaToolCall['function']['arguments'],
+                    );
                 }
             }
         }

@@ -17,17 +17,77 @@ use stdClass;
 class ToolCall implements Arrayable
 {
     /**
-     * @param  string|array<string, mixed>  $arguments
+     * The deepest nesting accepted. A provider wraps the arguments in its own
+     * request envelope, and the request is encoded with a depth limit of 512,
+     * so the limit leaves room for the deepest envelope.
+     */
+    protected const MAX_ARGUMENT_DEPTH = 500;
+
+    /**
+     * What a record holds in place of unusable arguments: text that is refused
+     * if the record is ever read back into a call.
+     */
+    protected const UNUSABLE_ARGUMENTS_RECORD = ']';
+
+    /** @var string|array<string, mixed> */
+    public readonly string|array $arguments;
+
+    /**
+     * @param  mixed  $arguments  A JSON string or a map. A provider can send
+     *                            anything else, which is kept in a form that
+     *                            is refused rather than read as no arguments.
      * @param  null|array<string, mixed>  $reasoningSummary
      */
     public function __construct(
         public readonly string $id,
         public readonly string $name,
-        public readonly string|array $arguments,
+        mixed $arguments,
         public readonly ?string $resultId = null,
         public readonly ?string $reasoningId = null,
         public readonly ?array $reasoningSummary = null,
-    ) {}
+    ) {
+        $this->arguments = self::storableArguments($arguments);
+    }
+
+    /**
+     * A provider's value as this class stores it. Null means none were given.
+     * Any other value that is neither text nor a map is held as a one-item
+     * list, the one form that is refused whatever the value was: `0` and
+     * `false` must not turn into "no arguments" on the way in.
+     *
+     * @return string|array<string, mixed>
+     */
+    public static function storableArguments(mixed $arguments): string|array
+    {
+        if (is_string($arguments)) {
+            return $arguments;
+        }
+
+        if (is_array($arguments)) {
+            /** @var array<string, mixed> $arguments */
+            return $arguments;
+        }
+
+        if ($arguments === null) {
+            return '';
+        }
+
+        return json_encode([$arguments], JSON_PARTIAL_OUTPUT_ON_ERROR) ?: '[null]';
+    }
+
+    /**
+     * The accumulated text once a streamed fragment is added. A fragment that
+     * is not text makes the whole value unreadable, wherever it arrived: a
+     * leading `]` can never become valid JSON, whatever is appended after it.
+     */
+    public static function appendArgumentFragment(string $text, mixed $fragment): string
+    {
+        if ($fragment === null) {
+            return $text;
+        }
+
+        return is_string($fragment) ? $text.$fragment : ']'.$text;
+    }
 
     /**
      * The arguments as PHP sees them: associative arrays all the way down.
@@ -90,11 +150,19 @@ class ToolCall implements Arrayable
     /**
      * Why the arguments are unusable, or null when they are fine. A JSON
      * `null` and an empty string both mean the model supplied none.
+     *
+     * Arguments are admitted only if they survive both decodes and the encode
+     * a follow-up request uses, so that a call which ran can always be sent
+     * back.
      */
     public function argumentsFailure(): ?PrismException
     {
         try {
             $decoded = is_string($this->arguments) ? $this->decodeArguments() : $this->arguments;
+
+            if (is_string($this->arguments)) {
+                $this->decodeArguments(preservingContainerTypes: true);
+            }
         } catch (PrismException $failure) {
             return $failure;
         }
@@ -104,11 +172,13 @@ class ToolCall implements Arrayable
         }
 
         // An integer key would bind to a handler parameter by position.
-        if (is_array($decoded) && array_filter(array_keys($decoded), is_int(...)) === []) {
-            return null;
+        if (! is_array($decoded) || array_filter(array_keys($decoded), is_int(...)) !== []) {
+            return PrismException::toolCallArgumentsNotAnObject($this->name);
         }
 
-        return PrismException::toolCallArgumentsNotAnObject($this->name);
+        return self::canBeSentBack($decoded)
+            ? null
+            : PrismException::malformedToolCallArguments($this->name, new JsonException('The value cannot be encoded.'));
     }
 
     /**
@@ -202,22 +272,94 @@ class ToolCall implements Arrayable
     }
 
     /**
+     * The arguments as text for a provider field that carries them as written:
+     * the original text when it is valid JSON naming values, otherwise the
+     * same value encoded, and `{}` for no arguments or unusable ones.
+     */
+    public function replayableArgumentsText(): string
+    {
+        if (is_string($this->arguments) && ! $this->hasMalformedArguments() && $this->arguments() !== []) {
+            try {
+                json_decode($this->arguments, flags: JSON_THROW_ON_ERROR);
+
+                return $this->arguments;
+            } catch (JsonException) {
+                // Valid only after repair, so it is sent encoded.
+            }
+        }
+
+        return $this->withoutMalformedArguments()->argumentsAsJson();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     #[\Override]
     public function toArray(): array
     {
+        $malformed = $this->hasMalformedArguments();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             // A map when the provider gave us one, and still the original
             // string when it gave us that — but never a JSON list, which is
             // what an empty argument set would otherwise serialise as.
-            'arguments' => is_array($this->arguments) ? JsonMap::of($this->arguments) : $this->arguments,
+            'arguments' => match (true) {
+                $malformed => self::UNUSABLE_ARGUMENTS_RECORD,
+                is_array($this->arguments) => JsonMap::of($this->arguments),
+                default => $this->arguments,
+            },
+            ...$malformed ? ['arguments_malformed' => true] : [],
             'result_id' => $this->resultId,
             'reasoning_id' => $this->reasoningId,
             'reasoning_summary' => $this->reasoningSummary,
         ];
+    }
+
+    /**
+     * Whether a decoded value survives the encode a follow-up request uses.
+     * Walked with a stack, so deep input cannot overflow the call stack.
+     *
+     * @param  array<array-key, mixed>  $decoded
+     */
+    protected static function canBeSentBack(array $decoded): bool
+    {
+        $pending = [[$decoded, 1]];
+
+        while ($pending !== []) {
+            [$value, $depth] = array_pop($pending);
+
+            if (is_float($value) && ! is_finite($value)) {
+                return false;
+            }
+
+            if (! is_array($value)) {
+                continue;
+            }
+
+            if ($depth > self::MAX_ARGUMENT_DEPTH) {
+                return false;
+            }
+
+            foreach ($value as $key => $item) {
+                // An object cannot hold a key starting with NUL.
+                if (is_string($key) && str_starts_with($key, "\0")) {
+                    return false;
+                }
+
+                $pending[] = [$item, $depth + 1];
+            }
+        }
+
+        try {
+            /** @var array<string, mixed> $decoded */
+            json_encode(JsonMap::of($decoded), JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -249,9 +391,9 @@ class ToolCall implements Arrayable
 
     /**
      * Escape raw control characters (0x00–0x1F) that appear inside JSON string
-     * literals with their JSON escape sequences, and drop the ones that appear
-     * outside strings where they can never be valid (raw \t, \n and \r between
-     * tokens are legal whitespace and are kept).
+     * literals with their JSON escape sequences. Anything else is left as it
+     * is, so that the decode refuses it: a control character outside a string,
+     * or straight after a backslash, has no value it can be repaired to.
      */
     protected static function escapeControlCharactersInStrings(string $json): string
     {
@@ -265,18 +407,16 @@ class ToolCall implements Arrayable
             $ord = ord($char);
 
             if ($ord <= 0x1F) {
-                if ($inString) {
-                    $result .= match ($char) {
+                $result .= $inString && ! $escaped
+                    ? match ($char) {
                         "\x08" => '\b',
                         "\x09" => '\t',
                         "\x0A" => '\n',
                         "\x0C" => '\f',
                         "\x0D" => '\r',
                         default => sprintf('\u%04x', $ord),
-                    };
-                } elseif (in_array($char, ["\t", "\n", "\r"], true)) {
-                    $result .= $char;
-                }
+                    }
+                : $char;
 
                 $escaped = false;
 

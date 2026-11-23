@@ -260,7 +260,7 @@ class Stream
             return ToolCall::fromStreamedArguments($input);
         }
 
-        return is_array($input) ? $input : [];
+        return $input === '' || $input === null ? [] : ToolCall::storableArguments($input);
     }
 
     /**
@@ -388,7 +388,7 @@ class Stream
             'text_delta' => $this->state->appendContentBlockField($index, 'text', $delta['text'] ?? ''),
             'thinking_delta' => $this->state->appendContentBlockField($index, 'thinking', $delta['thinking'] ?? ''),
             'signature_delta' => $this->state->appendContentBlockField($index, 'signature', $delta['signature'] ?? ''),
-            'input_json_delta' => $this->state->appendContentBlockInput($index, $delta['partial_json'] ?? ''),
+            'input_json_delta' => $this->state->appendContentBlockInput($index, ToolCall::appendArgumentFragment('', $delta['partial_json'] ?? '')),
             'citations_delta' => is_array($delta['citation'] ?? null)
                 ? $this->state->appendContentBlockCitation($index, $delta['citation'])
                 : null,
@@ -663,7 +663,7 @@ class Stream
      */
     protected function handleToolInputDelta(array $delta): ?ToolCallDeltaEvent
     {
-        $partialJson = $delta['partial_json'] ?? '';
+        $partialJson = ToolCall::appendArgumentFragment('', $delta['partial_json'] ?? '');
 
         if ($this->state->currentBlockIndex() !== null && isset($this->state->toolCalls()[$this->state->currentBlockIndex()])) {
             $this->state->appendToolCallInput($this->state->currentBlockIndex(), $partialJson);

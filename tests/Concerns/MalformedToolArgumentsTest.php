@@ -712,3 +712,302 @@ it('keeps the raw text out of captured telemetry', function (): void {
     expect($invoked)->toHaveCount(1)
         ->and(json_encode($invoked->first()->toolCall?->toArray()))->not->toContain('secret-text');
 });
+
+/**
+ * @return array<string, array{0: string}>
+ */
+function argumentsNoRequestCanCarry(): array
+{
+    return [
+        'a number past the float range' => ['{"amount":1e999}'],
+        'a nested negative one' => ['{"a":{"b":[-1e999]}}'],
+        'an integer past the float range' => ['{"amount":1'.str_repeat('0', 400).'}'],
+        'a key starting with NUL' => ['{"amount":"5","\u0000a":1}'],
+        'a nested key starting with NUL' => ['{"a":[{"\u0000b":1}]}'],
+        'a control character inside a number' => ["{\"amount\":1\x0100}"],
+        'a control character inside a literal' => ["nu\x01ll"],
+        'a control character between tokens' => ["{\"amount\"\x01:1}"],
+        'a control character after a backslash' => ["{\"a\":\"b\\\x01\"}"],
+    ];
+}
+
+dataset('arguments no request can carry', argumentsNoRequestCanCarry());
+
+it('refuses arguments a follow-up request could not carry', function (string $label, string $args): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider($label);
+    fakeMalformedStream($label, $args);
+
+    $checks = 0;
+    $runs = 0;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)
+        ->requiresApproval(function (array $received) use (&$checks): bool {
+            $checks++;
+
+            return (int) ($received['amount'] ?? 0) > 100;
+        })
+        ->using(function (mixed ...$received) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        });
+
+    $results = [];
+    $eventRecords = [];
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        if ($event instanceof ToolCallEvent) {
+            $eventRecords[] = $event->toArray();
+        }
+        if ($event instanceof ToolResultEvent) {
+            $results[] = $event;
+        }
+    }
+
+    expect($crash)->toBeNull()
+        ->and($checks)->toBe(0)
+        ->and($runs)->toBe(0)
+        ->and($results)->toHaveCount(1)
+        ->and($results[0]->success)->toBeFalse()
+        ->and($eventRecords)->toHaveCount(1)
+        ->and($eventRecords[0]['arguments_malformed'] ?? false)->toBeTrue()
+        ->and(replayedToolArguments(json_decode(secondRequestBody(), false)))->toBeIn(['{}', 'omitted']);
+})->with('streaming providers')->with('arguments no request can carry');
+
+it('keeps a control character inside a string as the value the model sent', function (): void {
+    $call = new ToolCall('c', 'probe', "{\"note\":\"a\x01b\nc\",\"n\":1}");
+
+    expect($call->hasMalformedArguments())->toBeFalse()
+        ->and($call->arguments())->toBe(['note' => "a\x01b\nc", 'n' => 1])
+        ->and(json_decode($call->argumentsAsJson(), true))->toBe(['note' => "a\x01b\nc", 'n' => 1]);
+});
+
+it('accepts a long digit key and a NUL that does not start a key', function (): void {
+    $key = str_repeat('7', 5000);
+    $call = new ToolCall('c', 'probe', '{"'.$key.'":1,"a\u0000b":2}');
+
+    expect($call->hasMalformedArguments())->toBeFalse()
+        ->and(array_keys($call->arguments()))->toBe([$key, "a\0b"])
+        ->and(json_decode($call->argumentsAsJson(), true))->toBe([$key => 1, "a\0b" => 2]);
+});
+
+it('refuses a decoded map holding a value no request can carry', function (array $arguments): void {
+    $call = new ToolCall('c', 'probe', $arguments);
+
+    expect($call->hasMalformedArguments())->toBeTrue()
+        ->and($call->withoutMalformedArguments()->argumentsAsJson())->toBe('{}');
+})->with([
+    'infinity' => [['a' => INF]],
+    'not a number' => [['a' => ['b' => NAN]]],
+    'a NUL key' => [["\0a" => 1]],
+    'a nested NUL key' => [['a' => ["\0b" => 1]]],
+]);
+
+it('reads a non-string provider value as refused, and an absent one as none', function (mixed $value, bool $refused): void {
+    $call = new ToolCall('c', 'probe', $value);
+
+    expect($call->hasMalformedArguments())->toBe($refused);
+
+    if (! $refused) {
+        expect($call->arguments())->toBe([]);
+    }
+})->with([
+    'a number' => [5, true],
+    'zero' => [0, true],
+    'a float zero' => [0.0, true],
+    'true' => [true, true],
+    'false' => [false, true],
+    'a list' => [[1, 2], true],
+    'an integer-keyed map' => [['0' => 'x'], true],
+    'null' => [null, false],
+    'an empty list' => [[], false],
+]);
+
+it('answers a call whose arguments arrive as a non-string value', function (string $provider, mixed $value): void {
+    Http::preventStrayRequests();
+    configureMalformedProvider($provider);
+
+    $usage = ['input_tokens' => 1, 'output_tokens' => 1, 'total_tokens' => 2];
+    [$first, $second] = match ($provider) {
+        'openai' => [
+            ['id' => 'r1', 'status' => 'completed', 'model' => 'm', 'output' => [['id' => 'fc_1', 'type' => 'function_call', 'status' => 'completed', 'call_id' => 'call_1', 'name' => 'probe', 'arguments' => $value]], 'usage' => $usage],
+            ['id' => 'r2', 'status' => 'completed', 'model' => 'm', 'output' => [['id' => 'msg_1', 'type' => 'message', 'role' => 'assistant', 'status' => 'completed', 'content' => [['type' => 'output_text', 'text' => 'done']]]], 'usage' => $usage],
+        ],
+        'anthropic' => [
+            ['id' => 'm1', 'type' => 'message', 'role' => 'assistant', 'model' => 'm', 'content' => [['type' => 'tool_use', 'id' => 'call_1', 'name' => 'probe', 'input' => $value]], 'stop_reason' => 'tool_use', 'usage' => $usage],
+            ['id' => 'm2', 'type' => 'message', 'role' => 'assistant', 'model' => 'm', 'content' => [['type' => 'text', 'text' => 'done']], 'stop_reason' => 'end_turn', 'usage' => $usage],
+        ],
+        'gemini' => [
+            ['candidates' => [['content' => ['role' => 'model', 'parts' => [['functionCall' => ['name' => 'probe', 'args' => $value]]]], 'finishReason' => 'STOP']], 'modelVersion' => 'm', 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1]],
+            ['candidates' => [['content' => ['role' => 'model', 'parts' => [['text' => 'done']]], 'finishReason' => 'STOP']], 'modelVersion' => 'm', 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1]],
+        ],
+    };
+    Http::fake(['*' => Http::sequence()->push($first)->push($second)]);
+
+    $runs = 0;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)
+        ->using(function (mixed ...$received) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        });
+
+    $failure = null;
+    $response = null;
+
+    try {
+        $response = Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asText();
+    } catch (Throwable $caught) {
+        $failure = $caught::class.': '.$caught->getMessage();
+    }
+
+    expect($failure)->toBeNull()
+        ->and($runs)->toBe(0)
+        ->and($response?->text)->toBe('done')
+        ->and(Http::recorded())->toHaveCount(2);
+})->with(['openai', 'anthropic', 'gemini'])->with(['a number' => [5], 'true' => [true], 'a list' => [[1, 2]], 'an integer-keyed map' => [['0' => 'x']]]);
+
+it('refuses a non-string delta wherever it lands in a streamed call', function (string $label, array $deltas): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider($label);
+
+    $line = fn (array $choice): string => 'data: '.json_encode(['id' => 'c1', 'model' => 'm', 'choices' => [$choice]])."\n\n";
+    $qwenLine = fn (array $toolCall, ?string $finish): string => 'data: '.json_encode(['request_id' => 'r1', 'output' => ['choices' => [['message' => ['role' => 'assistant', 'content' => '', 'tool_calls' => [$toolCall]], 'finish_reason' => $finish]]], 'usage' => ['input_tokens' => 1, 'output_tokens' => 1]])."\n\n";
+    $body = '';
+    foreach ($deltas as $position => $delta) {
+        $toolCall = ['index' => 0, 'id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'probe', 'arguments' => $delta]];
+        $body .= $label === 'qwen'
+            ? $qwenLine($toolCall, $position === count($deltas) - 1 ? 'tool_calls' : null)
+            : $line(['index' => 0, 'delta' => ['role' => 'assistant', 'tool_calls' => [$toolCall]], 'finish_reason' => null]);
+    }
+    if ($label !== 'qwen') {
+        $body .= $line(['index' => 0, 'delta' => (object) [], 'finish_reason' => 'tool_calls'])."data: [DONE]\n\n";
+    }
+    [, $second] = malformedStreamBodies($label === 'openai-chat' ? 'chat' : $label, MALFORMED_ARGUMENTS);
+
+    Http::fake(['*' => Http::sequence()
+        ->push($body, 200, ['Content-Type' => 'text/event-stream'])
+        ->push($second, 200, ['Content-Type' => 'text/event-stream'])]);
+
+    $runs = 0;
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('amount', 'amount', false)
+        ->using(function (mixed ...$received) use (&$runs): string {
+            $runs++;
+
+            return 'ran';
+        });
+
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        // Drain.
+    }
+
+    expect($crash)->toBeNull()
+        ->and($runs)->toBe(0)
+        ->and(Http::recorded())->toHaveCount(2);
+})->with(['openai-chat', 'azure', 'groq', 'mistral', 'openrouter', 'requesty', 'deepseek', 'qwen', 'xai', 'z'])->with([
+    'a number' => [[5]],
+    'zero' => [[0]],
+    'false' => [[false]],
+    'true' => [[true]],
+    'a list' => [[[1, 2]]],
+    'a number completing an object' => [['{"amount":', 5, '}']],
+]);
+
+it('does not keep the raw text in a call record', function (): void {
+    $record = (new ToolCall('c', 'probe', '{"kept-out": 5'))->toArray();
+
+    expect(json_encode($record))->not->toContain('kept-out')
+        ->and($record['arguments_malformed'] ?? false)->toBeTrue();
+});
+
+it('resends the deepest accepted arguments on every provider', function (string $label): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider($label);
+    [, $second] = malformedStreamBodies($label === 'openai-chat' ? 'chat' : $label, MALFORMED_ARGUMENTS);
+    Http::fake(['*' => Http::response($second, 200, ['Content-Type' => 'text/event-stream'])]);
+
+    $deepest = null;
+    for ($depth = 520; $depth > 0; $depth--) {
+        $arguments = str_repeat('{"a":', $depth).'1'.str_repeat('}', $depth);
+        if (! (new ToolCall('c', 'probe', $arguments))->hasMalformedArguments()) {
+            $deepest = $arguments;
+            break;
+        }
+    }
+
+    $history = [
+        new UserMessage('p'),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', (string) $deepest, 'call_1')]),
+        new ToolResultMessage([new ToolResult('call_1', 'probe', [], 'ok', 'call_1')]),
+        new UserMessage('again'),
+    ];
+
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withMessages($history)->asStream(), $crash) as $event) {
+        // Drain.
+    }
+
+    expect($crash)->toBeNull()->and(Http::recorded())->toHaveCount(1);
+})->with('streaming providers');
+
+it('checks and runs nothing for an argument key that could bind by position', function (string $label, string $args): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider($label);
+    fakeMalformedStream($label, $args);
+
+    $checks = 0;
+    $bound = [];
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('target', 'target', false)
+        ->requiresApproval(function (array $received) use (&$checks): bool {
+            $checks++;
+
+            return ($received['target'] ?? null) === 'prod';
+        })
+        ->using(function (string $target = 'none', mixed ...$rest) use (&$bound): string {
+            $bound[] = $target;
+
+            return 'ran';
+        });
+
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        // Drain.
+    }
+
+    expect($crash)->toBeNull()
+        ->and($checks)->toBe(0)
+        ->and($bound)->toBe([])
+        ->and(Http::recorded())->toHaveCount(2);
+})->with(['openai', 'openai-chat', 'anthropic', 'gemini', 'mistral'])->with([
+    'one integer key' => '{"0":"prod"}',
+    'a one-item list' => '["prod"]',
+    'an integer key beside a name' => '{"0":"prod","note":"x"}',
+    'a name beside an integer key' => '{"note":"x","1":"prod"}',
+    'a negative integer key' => '{"-1":"prod"}',
+]);
+
+it('never binds a numeric-looking string key to a parameter by position', function (string $args): void {
+    Http::preventStrayRequests();
+    $provider = configureMalformedProvider('openai-chat');
+    fakeMalformedStream('openai-chat', $args);
+
+    $bound = [];
+    $tool = (new Tool)->as('probe')->for('probe')->withStringParameter('target', 'target', false)
+        ->using(function (string $target = 'none', mixed ...$rest) use (&$bound): string {
+            $bound[] = $target;
+
+            return 'ran';
+        });
+
+    foreach (guardedMalformedStream(fn (): Generator => Prism::text()->using($provider, 'm')->withPrompt('p')->withTools([$tool])->withMaxSteps(3)->asStream(), $crash) as $event) {
+        // Drain.
+    }
+
+    expect($crash)->toBeNull()
+        ->and($bound)->not->toContain('prod')
+        ->and((new ToolCall('c', 'probe', $args))->hasMalformedArguments())->toBeFalse()
+        ->and(Http::recorded())->toHaveCount(2);
+})->with([
+    'the key 00' => '{"00":"prod"}',
+    'the key 1.0' => '{"1.0":"prod"}',
+    'the key -0' => '{"-0":"prod"}',
+    'the key +1' => '{"+1":"prod"}',
+    'a key with a leading space' => '{" 1":"prod"}',
+]);

@@ -17,7 +17,7 @@ class ToolCallMap
         return array_map(fn (array $toolCall): ToolCall => new ToolCall(
             id: $toolCall['id'],
             name: $toolCall['function']['name'],
-            arguments: (string) ($toolCall['function']['arguments'] ?? ''),
+            arguments: $toolCall['function']['arguments'] ?? '',
         ), $toolCalls);
     }
 }

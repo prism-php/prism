@@ -217,7 +217,7 @@ it('handles JSON encoding errors gracefully', function (): void {
     $event = new ToolCallEvent(
         'evt-1',
         1640995200,
-        new ToolCall('tool-123', 'test', ['binary' => "\x80\x81\x82"]), // Invalid UTF-8 sequence
+        new ToolCall('tool-123', "\x80\x81\x82", ['a' => 1]), // Invalid UTF-8 sequence
         'msg-456'
     );
 

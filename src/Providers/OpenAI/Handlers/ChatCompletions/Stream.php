@@ -291,7 +291,7 @@ class Stream
                 if (! isset($toolCalls[$index]['arguments'])) {
                     $toolCalls[$index]['arguments'] = '';
                 }
-                $toolCalls[$index]['arguments'] .= $arguments;
+                $toolCalls[$index]['arguments'] = ToolCall::appendArgumentFragment($toolCalls[$index]['arguments'], $arguments);
             }
         }
 
