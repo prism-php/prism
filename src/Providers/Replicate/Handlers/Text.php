@@ -13,7 +13,6 @@ use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response;
 use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Text\Step;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -56,14 +55,8 @@ class Text
         // Extract the text output
         $text = $this->extractTextFromOutput($prediction->output);
 
-        // Create assistant message
-        $responseMessage = new AssistantMessage(
-            content: $text,
-        );
-
-        $request->addMessage($responseMessage);
-
-        // Add step to response builder
+        // The step records the conversation as the request carried it; the
+        // response builder appends the reply as the assistant message.
         $this->responseBuilder->addStep(new Step(
             text: $text,
             finishReason: FinishReasonMap::map($prediction->status),

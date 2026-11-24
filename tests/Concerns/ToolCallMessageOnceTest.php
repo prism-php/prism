@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Contracts\Message;
@@ -11,6 +12,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ToolApprovalResponse;
+use Tests\Fixtures\FixtureResponse;
 
 /*
  * G-355. A text response's messages are the conversation as the request
@@ -163,7 +165,7 @@ function g355Fake(string $provider, array $config, Closure $body, array &$sent):
 
     $replies = [$body(true, ''), $body(false, 'Done.')];
 
-    Http::fake(function (HttpRequest $request) use (&$sent, &$replies): \GuzzleHttp\Promise\PromiseInterface {
+    Http::fake(function (HttpRequest $request) use (&$sent, &$replies): PromiseInterface {
         $sent[] = $request->body();
 
         return Http::response(count($replies) > 1 ? array_shift($replies) : $replies[0]);
@@ -255,7 +257,7 @@ it('stores a Replicate reply once', function (): void {
     config()->set('prism.providers.replicate.polling_interval', 10);
     config()->set('prism.providers.replicate.max_wait_time', 10);
     Http::preventStrayRequests();
-    \Tests\Fixtures\FixtureResponse::fakeResponseSequence('*', 'replicate/generate-text-with-a-prompt');
+    FixtureResponse::fakeResponseSequence('*', 'replicate/generate-text-with-a-prompt');
 
     $response = Prism::text()->using('replicate', 'meta/meta-llama-3.1-405b-instruct')
         ->withPrompt('Hello, world!')->asText();
