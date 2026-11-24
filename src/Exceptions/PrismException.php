@@ -94,6 +94,11 @@ class PrismException extends Exception implements JsonSerializable
         return new self(sprintf('Tool call arguments for tool %s cannot be used: they name a parameter the tool does not declare', $toolName));
     }
 
+    public static function toolApprovalExpired(string $toolName): self
+    {
+        return new self(sprintf('Not run: the approval for tool %s was recorded by an earlier version and has expired. Call the tool again if it is still needed, and the person will be asked to approve it again.', $toolName));
+    }
+
     public static function invalidParameterInTool(string $toolName, Throwable $previous): self
     {
         return new self(

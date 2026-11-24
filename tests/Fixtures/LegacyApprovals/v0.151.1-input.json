@@ -1,0 +1,20 @@
+{
+    "written_by": "particle-academy/prism v0.151.1",
+    "type": "assistant",
+    "content": "",
+    "tool_calls": [
+        {
+            "id": "toolu_1",
+            "name": "probe",
+            "arguments": {
+                "input": "{\"city\": \"Par"
+            }
+        }
+    ],
+    "tool_approval_requests": [
+        {
+            "approval_id": "apr_01M85E0EE10WXEDNYZW4ZYHPXA",
+            "tool_call_id": "toolu_1"
+        }
+    ]
+}

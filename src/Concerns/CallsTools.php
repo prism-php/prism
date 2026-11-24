@@ -91,10 +91,7 @@ trait CallsTools
 
         foreach ($this->callToolsAndYieldEventsWithPending($tools, $toolCalls, EventID::generate(), $toolResults, $hasPendingToolCalls) as $event) {
             if ($event instanceof ToolApprovalRequestEvent) {
-                $approvalRequests[] = new ToolApprovalRequest(
-                    approvalId: $event->approvalId,
-                    toolCallId: $event->toolCall->id,
-                );
+                $approvalRequests[] = $event->approvalRequest();
             }
         }
 
@@ -174,6 +171,9 @@ trait CallsTools
                 toolCall: $toolCall,
                 messageId: $messageId,
                 approvalId: EventID::generate('apr'),
+                // Set here, where the call was parsed by this version, and
+                // nowhere else.
+                argumentsFormat: ToolApprovalRequest::ARGUMENTS_AS_SENT,
             );
         }
     }
@@ -391,8 +391,10 @@ trait CallsTools
         $toolMessage = new ToolResultMessage($toolResultsSoFar, $approvalResponses);
 
         $toolCallIdToApprovalId = [];
+        $toolCallIdToApprovalRequest = [];
         foreach ($assistantMessage->toolApprovalRequests as $approvalRequest) {
             $toolCallIdToApprovalId[$approvalRequest->toolCallId] = $approvalRequest->approvalId;
+            $toolCallIdToApprovalRequest[$approvalRequest->toolCallId] = $approvalRequest;
         }
 
         $approvalResolvedToolResults = [];
@@ -421,20 +423,27 @@ trait CallsTools
 
             if ($approval->approved) {
                 $tool = $toolsByName->get($toolCall->name);
+                $withoutArguments = new ToolCall($toolCall->id, $toolCall->name, [], $toolCall->resultId, $toolCall->reasoningId, $toolCall->reasoningSummary);
+                $refusal = $tool instanceof Tool
+                    ? self::storedArgumentsRefusal($tool, $toolCall, $toolCallIdToApprovalRequest[$toolCall->id] ?? null)
+                    : null;
 
-                $result = $tool instanceof Tool && self::hasStoredWrappedArguments($tool, $toolCall)
-                    ? self::failedToolExecution(
-                        new ToolCall($toolCall->id, $toolCall->name, [], $toolCall->resultId, $toolCall->reasoningId, $toolCall->reasoningSummary),
-                        PrismException::toolCallArgumentsNotDeclared($toolCall->name),
-                        $messageId,
-                        microtime(true),
-                    )
-                    : $this->executeToolCall($request->tools(), $toolCall, $messageId);
+                // A refused call is recorded without its arguments, in the
+                // result, the event and telemetry alike.
+                if ($refusal !== null) {
+                    $result = self::failedToolExecution($withoutArguments, $refusal['failure'], $messageId, microtime(true));
+
+                    if ($refusal['kind'] !== null) {
+                        $result['failure'] = $refusal['kind'];
+                    }
+                } else {
+                    $result = $this->executeToolCall($request->tools(), $toolCall, $messageId);
+                }
 
                 $telemetryContext = Telemetry::current();
 
                 if ($telemetryContext instanceof TelemetryContext) {
-                    Telemetry::toolInvoked($telemetryContext, $toolCall, $result['toolResult'], $result['durationMs'], failed: $result['failed'], failure: $result['failure']);
+                    Telemetry::toolInvoked($telemetryContext, $refusal !== null ? $withoutArguments : $toolCall, $result['toolResult'], $result['durationMs'], failed: $result['failed'], failure: $result['failure']);
                 }
 
                 $approvalResolvedToolResults[] = $result['toolResult'];
@@ -517,15 +526,45 @@ trait CallsTools
     }
 
     /**
-     * Whether a stored call has the form earlier versions gave arguments they
-     * could not parse: one string under `raw` or `input`. That is only
-     * distinguishable when the tool does not name the key. A tool that does
-     * could have received the same value for real, so it is not refused here.
+     * Why an approved stored call must not run, or null when it may.
+     *
+     * Before 0.152, arguments that could not be parsed were stored as one
+     * string under `raw` or `input`. On a tool that does not name that key the
+     * call is refused. On a tool that does, the stored call is the same as a
+     * genuine one, so only the approval's marker can tell them apart: a
+     * request without it was stored by an earlier version, and its approval
+     * expires. The model is told to call again, and the new call is a new
+     * approval for the person to decide.
+     *
+     * @return array{failure: PrismException, kind: ?string}|null
      */
-    protected static function hasStoredWrappedArguments(Tool $tool, ToolCall $toolCall): bool
+    protected static function storedArgumentsRefusal(Tool $tool, ToolCall $toolCall, ?ToolApprovalRequest $approvalRequest): ?array
+    {
+        $key = self::storedWrappedKey($toolCall);
+
+        if ($key === null) {
+            return null;
+        }
+
+        if (! $tool->namesParameter($key)) {
+            return ['failure' => PrismException::toolCallArgumentsNotDeclared($toolCall->name), 'kind' => null];
+        }
+
+        if ($approvalRequest?->argumentsAreAsSent() === true) {
+            return null;
+        }
+
+        return ['failure' => PrismException::toolApprovalExpired($toolCall->name), 'kind' => 'approval_expired'];
+    }
+
+    /**
+     * The key, when a stored call has the form earlier versions gave arguments
+     * they could not parse: one string under `raw` or `input`.
+     */
+    protected static function storedWrappedKey(ToolCall $toolCall): ?string
     {
         if ($toolCall->hasMalformedArguments()) {
-            return false;
+            return null;
         }
 
         $arguments = $toolCall->arguments();
@@ -534,7 +573,8 @@ trait CallsTools
         return count($arguments) === 1
             && in_array($key, ['raw', 'input'], true)
             && is_string($arguments[$key])
-            && ! $tool->namesParameter($key);
+            ? $key
+            : null;
     }
 
     /**

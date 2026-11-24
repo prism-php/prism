@@ -116,6 +116,28 @@ $final = Prism::text()
     ->asText();
 ```
 
+### Storing approval requests
+
+Store each `ToolApprovalRequest` with `toArray()` and read it back with
+`ToolApprovalRequest::fromArray()`. The array includes `arguments_format`, which
+records that the call's arguments were stored exactly as the model sent them.
+When you build a request from a stream event, use `$event->approvalRequest()`.
+Prism sets the marker only on the requests and events it issues. Do not add it
+yourself to a request you rebuild from a stored row that does not have it.
+
+If your application builds requests with `new ToolApprovalRequest($approvalId,
+$toolCallId)`, they have no marker. Change it to keep the requests Prism
+returns, or to store them with `toArray()` and read them back with
+`fromArray()`. Otherwise, on a tool with a parameter named `input` or `raw`,
+every approval of a call with only that one string argument expires.
+
+A request without `arguments_format` expires instead of running when the tool
+has a parameter named `input` or `raw` and the stored call has only that one
+string argument. Earlier versions stored arguments they could not parse in that
+same form, so such a call cannot be told apart from a real one. The call does
+not run, and its result tells the model that the approval expired. If the model
+calls the tool again, the new call needs a new approval.
+
 ::: warning
 Approval responses are trusted input from **your application** — Prism
 verifies correlation ids, not who clicked the button. Authenticate and
@@ -142,7 +164,6 @@ use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\StreamedMessages;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\ToolApprovalRequest;
 
 $history = [new UserMessage('Delete reports/draft.txt.')];
 $events = iterator_to_array(Prism::text()
@@ -169,7 +190,7 @@ $generated = StreamedMessages::fromEvents($events)->map(function ($message) use 
     foreach ($approvalEvents as $event) {
         foreach ($message->toolCalls as $call) {
             if ($call->id === $event->toolCall->id) {
-                $requests[] = new ToolApprovalRequest($event->approvalId, $call->id);
+                $requests[] = $event->approvalRequest();
             }
         }
     }

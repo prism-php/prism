@@ -500,7 +500,7 @@ function resumeStoredApproval(Tool $tool, array $arguments, bool $approved, int 
 
     $history = [
         new UserMessage('p'),
-        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments)], [], [new ToolApprovalRequest('apr_1', 'call_1')]),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments)], [], [new ToolApprovalRequest('apr_1', 'call_1', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
         new ToolResultMessage([], [new ToolApprovalResponse('apr_1', $approved)]),
     ];
 
@@ -535,7 +535,7 @@ it('refuses a stored approved call in the old wrapped form', function (string $k
         ->and($outcome['results'][0]->toolResult->args)->toBe([]);
 })->with(['raw', 'input']);
 
-it('still runs an approved call when the tool really declares that parameter', function (string $key): void {
+it('still runs a marked approved call when the tool really declares that parameter', function (string $key): void {
     $runs = 0;
     $received = null;
     $tool = (new Tool)->as('probe')->for('probe')->withStringParameter($key, 'value')
@@ -574,7 +574,7 @@ it('still runs an approved call whose arguments only resemble the old form', fun
     'two keys' => [['amount' => '5', 'other' => 'x']],
 ]);
 
-it('still runs an approved call when the handler names that parameter', function (string $key): void {
+it('still runs a marked approved call when the handler names that parameter', function (string $key): void {
     $runs = 0;
     $handler = $key === 'raw'
         ? function (string $raw) use (&$runs): string {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Streaming\Events;
 
 use Prism\Prism\Enums\StreamEventType;
+use Prism\Prism\ValueObjects\ToolApprovalRequest;
 use Prism\Prism\ValueObjects\ToolCall;
 
 readonly class ToolApprovalRequestEvent extends StreamEvent
@@ -15,8 +16,19 @@ readonly class ToolApprovalRequestEvent extends StreamEvent
         public ToolCall $toolCall,
         public string $messageId,
         public string $approvalId,
+        public ?int $argumentsFormat = null,
     ) {
         parent::__construct($id, $timestamp);
+    }
+
+    /**
+     * The request to store with the assistant message. It carries the marker
+     * only when the event did: Prism sets it on the events it issues, and an
+     * event rebuilt from storage without it stays unmarked.
+     */
+    public function approvalRequest(): ToolApprovalRequest
+    {
+        return new ToolApprovalRequest($this->approvalId, $this->toolCall->id, $this->argumentsFormat);
     }
 
     public function type(): StreamEventType

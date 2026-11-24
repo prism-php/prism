@@ -113,7 +113,7 @@ class StreamedMessages
             $this->toolCalls[] = $event->toolCall;
         }
 
-        $this->toolApprovalRequests[] = new ToolApprovalRequest($event->approvalId, $event->toolCall->id);
+        $this->toolApprovalRequests[] = $event->approvalRequest();
     }
 
     /**
