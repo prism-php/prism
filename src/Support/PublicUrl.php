@@ -102,6 +102,17 @@ class PublicUrl
             throw new PrismUrlRefused('private_address_refused', $host.' is not a valid address, which a guarded fetch will not request.');
         }
 
+        // ISATAP (RFC 5214) puts an IPv4 address in the low 32 bits behind the
+        // interface identifier 0000:5efe (0200:5efe with the u bit, and the g
+        // bit may be set too), under ANY prefix. On an ISATAP site the packet
+        // is tunnelled to that IPv4 address, so it is judged as well; the
+        // prefix is still judged below.
+        // Checked before NAT64 and 6to4, which return early, so a 6to4 prefix
+        // cannot hide an ISATAP address.
+        if (strlen($packed) === 16 && (ord($packed[8]) & 0xFC) === 0 && substr($packed, 9, 3) === "\x00\x5E\xFE") {
+            self::assertPublicAddress((string) inet_ntop(substr($packed, 12, 4)), $host);
+        }
+
         // NAT64 and 6to4 carry an IPv4 address inside an IPv6 one, and that
         // embedded address is where the packet goes: 64:ff9b::a9fe:a9fe IS the
         // metadata endpoint on a NAT64 network. Judge the embedded address. Not
@@ -113,15 +124,6 @@ class PublicUrl
 
                 return;
             }
-        }
-
-        // ISATAP (RFC 5214) puts an IPv4 address in the low 32 bits behind the
-        // interface identifier 0000:5efe (0200:5efe with the u bit, and the g
-        // bit may be set too), under ANY prefix. On an ISATAP site the packet
-        // is tunnelled to that IPv4 address, so it is judged as well; the
-        // prefix is still judged below.
-        if (strlen($packed) === 16 && (ord($packed[8]) & 0xFC) === 0 && substr($packed, 9, 3) === "\x00\x5E\xFE") {
-            self::assertPublicAddress((string) inet_ntop(substr($packed, 12, 4)), $host);
         }
 
         // The explicit list is the contract, spelled identically in all three
