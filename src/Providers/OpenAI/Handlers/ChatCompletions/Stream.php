@@ -137,7 +137,11 @@ class Stream
             if ($this->hasToolCalls($data)) {
                 $toolCalls = $this->extractToolCalls($data, $toolCalls);
 
-                continue;
+                // Some servers send the last fragment and the finish reason in
+                // one chunk; that chunk must still reach the finish handling.
+                if (data_get($data, 'choices.0.finish_reason') === null) {
+                    continue;
+                }
             }
 
             if ($this->mapFinishReason($data) === FinishReason::ToolCalls) {
