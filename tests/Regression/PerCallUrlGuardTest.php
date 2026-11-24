@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Prism\Prism\Exceptions\PrismUrlRefused;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\PrismManager;
+use Prism\Prism\Support\PerCallUrl;
 use Tests\TestDoubles\TestProvider;
 use Throwable;
 
@@ -281,3 +282,50 @@ it('guards a custom provider before its creator runs', function (): void {
     expect(perCallRefusal('custom-guarded', ['url' => 'http://169.254.169.254/'])?->code())->toBe('private_address_refused')
         ->and($built)->toBeFalse();
 });
+
+it('refuses the stock hosts-file names and IPv4-carrying IPv6 forms, before any request', function (string $url, string $fragment): void {
+    $refused = perCallRefusal('openai', ['url' => $url]);
+
+    expect($refused?->code())->toBe('private_address_refused')
+        ->and(strtolower((string) $refused?->getMessage()))->not->toContain(strtolower($fragment));
+
+    Http::assertNothingSent();
+})->with([
+    'localhost4' => ['http://localhost4:8080/v1', 'localhost4'],
+    'localhost4.localdomain4' => ['http://localhost4.localdomain4/v1', 'localdomain4'],
+    'localhost6' => ['http://localhost6:8080/v1', 'localhost6'],
+    'localhost6.localdomain6' => ['http://LOCALHOST6.LOCALDOMAIN6./v1', 'localdomain6'],
+    'ipv6-localhost' => ['http://ipv6-localhost/v1', 'ipv6-localhost'],
+    'broadcasthost' => ['http://broadcasthost/v1', 'broadcasthost'],
+    'name under localhost.localdomain' => ['http://box.localhost.localdomain/v1', 'box.'],
+    'siit loopback' => ['http://[::ffff:0:127.0.0.1]/v1', 'ffff:0'],
+    'siit metadata' => ['http://[::ffff:0:a9fe:a9fe]/v1', 'a9fe'],
+    'isatap loopback' => ['http://[2001:4860::5efe:7f00:1]/v1', '5efe'],
+]);
+
+it('refuses a format, invisible or deviation character in a per-call host, before any request', function (string $url): void {
+    $refused = perCallRefusal('openai', ['url' => $url]);
+
+    expect($refused?->code())->toBe('private_address_refused')
+        ->and($refused?->getMessage())->toBe(PerCallUrl::HOST_MESSAGE);
+
+    Http::assertNothingSent();
+})->with([
+    'soft hyphen inside localhost' => ["http://loca\u{00AD}lhost/v1"],
+    'word joiner after metadata ip' => ["http://169.254.169.254\u{2060}/latest"],
+    'mongolian todo soft hyphen' => ["http://loca\u{1806}lhost/v1"],
+    'variation selector' => ["http://localhost\u{FE0F}/v1"],
+    'sharp s in a public name' => ["https://fa\u{00DF}.example/v1"],
+    'final sigma in a public name' => ["https://\u{03BB}\u{03BF}\u{03B3}\u{03BF}\u{03C2}.example/v1"],
+]);
+
+it('refuses a zero-width joiner in a per-call host before any request', function (string $url): void {
+    expect(fn () => Prism::text()->using('openai', 'fixture-model', ['url' => $url])->withPrompt('hi')->asText())
+        ->toThrow(\InvalidArgumentException::class);
+
+    Http::assertNothingSent();
+})->with([
+    'inside localhost' => ["http://loca\u{200D}lhost/v1"],
+    'after loopback' => ["http://127.0.0.1\u{200D}/v1"],
+    'non-joiner after loopback' => ["http://127.0.0.1\u{200C}/v1"],
+]);
