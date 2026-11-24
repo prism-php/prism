@@ -171,6 +171,9 @@ trait CallsTools
                 toolCall: $toolCall,
                 messageId: $messageId,
                 approvalId: EventID::generate('apr'),
+                // Set here, where the call was parsed by this version, and
+                // nowhere else.
+                argumentsFormat: ToolApprovalRequest::ARGUMENTS_AS_SENT,
             );
         }
     }

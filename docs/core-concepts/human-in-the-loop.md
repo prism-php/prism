@@ -122,6 +122,14 @@ Store each `ToolApprovalRequest` with `toArray()` and read it back with
 `ToolApprovalRequest::fromArray()`. The array includes `arguments_format`, which
 records that the call's arguments were stored exactly as the model sent them.
 When you build a request from a stream event, use `$event->approvalRequest()`.
+Prism sets the marker only on the requests and events it issues. Do not add it
+yourself to a request you rebuild from a stored row that does not have it.
+
+If your application builds requests with `new ToolApprovalRequest($approvalId,
+$toolCallId)`, they have no marker. Change it to keep the requests Prism
+returns, or to store them with `toArray()` and read them back with
+`fromArray()`. Otherwise, on a tool with a parameter named `input` or `raw`,
+every approval of a call with only that one string argument expires.
 
 A request without `arguments_format` expires instead of running when the tool
 has a parameter named `input` or `raw` and the stored call has only that one

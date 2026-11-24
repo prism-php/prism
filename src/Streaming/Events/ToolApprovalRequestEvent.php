@@ -16,18 +16,19 @@ readonly class ToolApprovalRequestEvent extends StreamEvent
         public ToolCall $toolCall,
         public string $messageId,
         public string $approvalId,
+        public ?int $argumentsFormat = null,
     ) {
         parent::__construct($id, $timestamp);
     }
 
     /**
-     * The request to store with the assistant message, marked as issued by
-     * this version. Build it here rather than from the two ids, or the
-     * stored request has no marker and is expired on resume when ambiguous.
+     * The request to store with the assistant message. It carries the marker
+     * only when the event did: Prism sets it on the events it issues, and an
+     * event rebuilt from storage without it stays unmarked.
      */
     public function approvalRequest(): ToolApprovalRequest
     {
-        return ToolApprovalRequest::issue($this->approvalId, $this->toolCall->id);
+        return new ToolApprovalRequest($this->approvalId, $this->toolCall->id, $this->argumentsFormat);
     }
 
     public function type(): StreamEventType

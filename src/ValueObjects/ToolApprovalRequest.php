@@ -16,7 +16,8 @@ use Illuminate\Contracts\Support\Arrayable;
  * under `raw` or `input`. So an unmarked request on a tool that names such a
  * parameter is ambiguous, and it is expired on resume rather than run. Store
  * the marker with the request (toArray() includes it) and read it back with
- * fromArray().
+ * fromArray(). Only Prism sets the marker, on the requests it issues; never
+ * add it to a request rebuilt from a row stored without it.
  *
  * @implements Arrayable<string, mixed>
  */
@@ -32,14 +33,6 @@ readonly class ToolApprovalRequest implements Arrayable
         public string $toolCallId,
         public ?int $argumentsFormat = null,
     ) {}
-
-    /**
-     * A request issued by this version, with the marker set.
-     */
-    public static function issue(string $approvalId, string $toolCallId): self
-    {
-        return new self($approvalId, $toolCallId, self::ARGUMENTS_AS_SENT);
-    }
 
     /**
      * Read a stored request back. A marker other than a known integer is read

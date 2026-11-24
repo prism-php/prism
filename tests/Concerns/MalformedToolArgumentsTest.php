@@ -500,7 +500,7 @@ function resumeStoredApproval(Tool $tool, array $arguments, bool $approved, int 
 
     $history = [
         new UserMessage('p'),
-        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments)], [], [ToolApprovalRequest::issue('apr_1', 'call_1')]),
+        new AssistantMessage('', [new ToolCall('call_1', 'probe', $arguments)], [], [new ToolApprovalRequest('apr_1', 'call_1', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
         new ToolResultMessage([], [new ToolApprovalResponse('apr_1', $approved)]),
     ];
 
