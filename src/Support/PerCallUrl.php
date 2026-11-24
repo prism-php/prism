@@ -21,8 +21,9 @@ use Prism\Prism\Exceptions\PrismUrlRefused;
  * private address is not caught, so this checks what the url says; it does
  * not protect against a caller who chooses a hostname. What is caught is an
  * address literal in the spellings an OS resolver reads (decimal, octal, hex
- * and shortened IPv4, IPv6 including IPv4-mapped, NAT64 and 6to4), and the
- * documented loopback and metadata names. The address ranges are
+ * and shortened IPv4, IPv6 including IPv4-mapped, SIIT-translated, NAT64,
+ * 6to4 and ISATAP), the hosts-file loopback names and the documented
+ * metadata names. Format and invisible characters are refused before IDNA. The address ranges are
  * PublicUrl's, so the two guards cannot drift apart.
  *
  * The host is judged AS WRITTEN and never decoded. Some HTTP clients
@@ -48,18 +49,57 @@ class PerCallUrl
     public const IDN_MESSAGE = 'A per-call provider url with a non-ASCII host can only be checked with the intl extension installed.';
 
     /**
-     * Loopback names from RFC 6761 and common hosts files, and the documented
-     * cloud metadata names. `*.localhost` is matched separately.
+     * Names that reach a non-public address without DNS: RFC 6761's
+     * `localhost`, the names the stock hosts files map to loopback or to an
+     * IPv6 local or multicast address, and the documented cloud metadata
+     * names. Hosts files: Debian, Ubuntu and Docker (`ip6-*`); RHEL, CentOS,
+     * Fedora and Amazon Linux (`localhost4`, `localhost6` and their
+     * `.localdomainN` forms); openSUSE (`ipv6-*`); Alpine
+     * (`localhost.localdomain`); macOS (`broadcasthost`). Windows ships no
+     * active entries. `*.localhost` and `*.localhost.localdomain` (which
+     * nss-myhostname answers) are matched as suffixes.
      */
     protected const NAMES = [
         'localhost',
         'localhost.localdomain',
+        'localhost4',
+        'localhost4.localdomain4',
+        'localhost6',
+        'localhost6.localdomain6',
         'ip6-localhost',
         'ip6-loopback',
+        'ip6-localnet',
+        'ip6-mcastprefix',
+        'ip6-allnodes',
+        'ip6-allrouters',
+        'ipv6-localhost',
+        'ipv6-loopback',
+        'ipv6-localnet',
+        'ipv6-mcastprefix',
+        'ipv6-allnodes',
+        'ipv6-allrouters',
+        'ipv6-allhosts',
+        'broadcasthost',
         'metadata',
         'metadata.google.internal',
         'instance-data',
     ];
+
+    /** Every name under these reaches loopback without DNS. */
+    protected const SUFFIXES = ['.localhost', '.localhost.localdomain'];
+
+    /**
+     * Refused anywhere in the authority, before IDNA: every format or
+     * invisible character (Unicode's default-ignorable code points, the Cf
+     * format controls, the C1 controls and the non-ASCII spaces) and the four
+     * UTS46 deviation characters (U+00DF, U+03C2, U+200C, U+200D). IDNA
+     * implementations disagree on these: an HTTP client that deletes a
+     * zero-width joiner contacts `localhost` where a nontransitional
+     * conversion reads a public name. Spelled code point for code point in
+     * prism-ts (`INVISIBLE`) and prism-py (`_INVISIBLE`). No other check is
+     * relied on.
+     */
+    protected const INVISIBLE = '/[\x{0080}-\x{00A0}\x{00AD}\x{00DF}\x{034F}\x{03C2}\x{0600}-\x{0605}\x{061C}\x{06DD}\x{070F}\x{0890}-\x{0891}\x{08E2}\x{115F}-\x{1160}\x{1680}\x{17B4}-\x{17B5}\x{1806}\x{180B}-\x{180F}\x{2000}-\x{200F}\x{2028}-\x{202F}\x{205F}-\x{206F}\x{2800}\x{3000}\x{3164}\x{FE00}-\x{FE0F}\x{FEFF}\x{FFA0}\x{FFF0}-\x{FFFB}\x{110BD}\x{110CD}\x{13430}-\x{1343F}\x{1BCA0}-\x{1BCA3}\x{1D173}-\x{1D17A}\x{E0000}-\x{E0FFF}]/u';
 
     /**
      * @throws PrismUrlRefused `scheme_not_allowed`, `private_address_refused`
@@ -81,6 +121,11 @@ class PerCallUrl
             throw self::hostRefused();
         }
 
+        // Text that is not valid UTF-8 (false) is refused as well.
+        if (preg_match(self::INVISIBLE, self::authority($url)) !== 0) {
+            throw self::hostRefused();
+        }
+
         $parts = parse_url($url);
 
         if ($parts === false || ! isset($parts['host']) || $parts['host'] === '') {
@@ -98,9 +143,16 @@ class PerCallUrl
                 throw new PrismUrlRefused('idn_unavailable', self::IDN_MESSAGE);
             }
 
-            $ascii = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+            // Nontransitional, with the joiner (CONTEXTJ) and bidi rules, so the
+            // result does not depend on the ICU version. Any error refuses.
+            $ascii = idn_to_ascii(
+                $host,
+                IDNA_NONTRANSITIONAL_TO_ASCII | IDNA_CHECK_CONTEXTJ | IDNA_CHECK_BIDI,
+                INTL_IDNA_VARIANT_UTS46,
+                $info,
+            );
 
-            if (! is_string($ascii)) {
+            if (! is_string($ascii) || ($info['errors'] ?? 1) !== 0) {
                 throw self::refused();
             }
 
@@ -142,8 +194,14 @@ class PerCallUrl
             return;
         }
 
-        if (in_array($host, self::NAMES, true) || str_ends_with($host, '.localhost')) {
+        if (in_array($host, self::NAMES, true)) {
             throw self::refused();
+        }
+
+        foreach (self::SUFFIXES as $suffix) {
+            if (str_ends_with($host, $suffix)) {
+                throw self::refused();
+            }
         }
     }
 
@@ -167,15 +225,23 @@ class PerCallUrl
     }
 
     /**
-     * The host exactly as written. The authority runs from after `//` to the
-     * first `/`, `?` or `#`; the host follows its last `@` and ends at the
-     * port's `:` (or, when bracketed, at the first `]`). Null when the
-     * authority holds a backslash. Nothing is decoded.
+     * The authority as written: from after `//` to the first `/`, `?` or `#`.
+     */
+    protected static function authority(string $url): string
+    {
+        $rest = substr($url, (int) strpos($url, '//') + 2);
+
+        return substr($rest, 0, strcspn($rest, '/?#'));
+    }
+
+    /**
+     * The host exactly as written. The host follows the authority's last `@`
+     * and ends at the port's `:` (or, when bracketed, at the first `]`). Null
+     * when the authority holds a backslash. Nothing is decoded.
      */
     protected static function writtenHost(string $url): ?string
     {
-        $rest = substr($url, (int) strpos($url, '//') + 2);
-        $authority = substr($rest, 0, strcspn($rest, '/?#'));
+        $authority = self::authority($url);
 
         if (str_contains($authority, chr(92))) {
             return null;

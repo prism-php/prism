@@ -104,3 +104,84 @@ it('refuses a host that IDNA maps to an escape, after mapping', function (string
 it('does not resolve names: a public name that points at loopback is accepted (known limit)', function (): void {
     expect(perCallCode('http://127.0.0.1.nip.io/v1'))->toBeNull();
 });
+
+it('refuses the loopback and local names the stock hosts files carry', function (string $url): void {
+    expect(perCallCode($url))->toBe('private_address_refused');
+})->with([
+    'http://localhost4/',                  // RHEL, CentOS, Fedora, Amazon Linux
+    'http://localhost4.localdomain4/',
+    'http://LOCALHOST6./',
+    'http://localhost6.localdomain6/',
+    'http://ipv6-localhost/',              // openSUSE
+    'http://ipv6-loopback/',
+    'http://ipv6-localnet/',
+    'http://ipv6-allhosts/',
+    'http://ip6-localnet/',                // Debian, Ubuntu, Docker
+    'http://ip6-mcastprefix/',
+    'http://ip6-allnodes/',
+    'http://ip6-allrouters/',
+    'http://broadcasthost/',               // macOS
+    'http://box.localhost.localdomain/',   // nss-myhostname
+]);
+
+it('refuses IPv6 forms that carry a private IPv4 address', function (string $url): void {
+    expect(perCallCode($url))->toBe('private_address_refused');
+})->with([
+    'http://[::ffff:0:127.0.0.1]/',        // SIIT IPv4-translated
+    'http://[::ffff:0:7f00:1]/',
+    'http://[::ffff:0:a9fe:a9fe]/',
+    'http://[::ffff:0:8.8.8.8]/',          // the whole translated range is refused
+    'http://[2001:4860::5efe:7f00:1]/',    // ISATAP, behind a public prefix
+    'http://[2001:4860::200:5efe:a9fe:a9fe]/',
+    'http://[2001:4860::5efe:10.0.0.5]/',
+]);
+
+it('allows an ISATAP address that embeds a public IPv4 behind a public prefix', function (): void {
+    expect(perCallCode('http://[2001:4860::5efe:808:808]/v1'))->toBeNull()
+        ->and(perCallCode('https://localhost4.example/v1'))->toBeNull()
+        ->and(perCallCode('https://xlocalhost6/v1'))->toBeNull();
+});
+
+/*
+ * The guard on its own refuses a format or invisible character, or a UTS46
+ * deviation character, anywhere in the authority. IDNA implementations do not
+ * agree on these: an HTTP client that deletes a zero-width joiner contacts
+ * `localhost` while a nontransitional conversion reads a public name. No
+ * other check is relied on.
+ */
+it('refuses a format, invisible or deviation character in the host when called directly', function (string $url): void {
+    try {
+        PerCallUrl::assert($url);
+        $refused = null;
+    } catch (PrismUrlRefused $error) {
+        $refused = $error;
+    }
+
+    expect($refused?->code())->toBe('private_address_refused')
+        ->and($refused?->getMessage())->toBe(PerCallUrl::HOST_MESSAGE);
+})->with([
+    'joiner inside localhost' => ["http://loca\u{200D}lhost/"],
+    'non-joiner inside localhost' => ["http://loca\u{200C}lhost/"],
+    'joiner after localhost' => ["http://localhost\u{200D}/"],
+    'joiner before localhost' => ["http://\u{200D}localhost/"],
+    'joiner after loopback' => ["http://127.0.0.1\u{200D}/"],
+    'joiner inside loopback' => ["http://127.0.0.\u{200D}1/"],
+    'non-joiner after loopback' => ["http://127.0.0.1\u{200C}/"],
+    'joiner after metadata ip' => ["http://169.254.169.254\u{200D}/"],
+    'joiner after private ip' => ["http://10.0.0.5\u{200D}/"],
+    'joiner after metadata name' => ["http://metadata.google.internal\u{200D}/"],
+    'joiner in a public name' => ["https://gate\u{200D}way.example/v1"],
+    'soft hyphen' => ["http://loca\u{00AD}lhost/"],
+    'word joiner' => ["http://localhost\u{2060}/"],
+    'mongolian todo soft hyphen' => ["http://loca\u{1806}lhost/"],
+    'mongolian vowel separator' => ["http://localhost\u{180E}/"],
+    'variation selector' => ["http://localhost\u{FE0F}/"],
+    'byte order mark' => ["http://127.0.0.1\u{FEFF}/"],
+    'left-to-right mark' => ["http://localhost\u{200E}/"],
+    'hangul filler' => ["http://localhost\u{3164}/"],
+    'tag character' => ["http://localhost\u{E0001}/"],
+    'no-break space' => ["http://localhost\u{00A0}/"],
+    'sharp s (deviation)' => ["https://fa\u{00DF}.example/v1"],
+    'final sigma (deviation)' => ["https://\u{03BB}\u{03BF}\u{03B3}\u{03BF}\u{03C2}.example/v1"],
+    'joiner in userinfo' => ["http://user\u{200D}@gateway.example/v1"],
+]);

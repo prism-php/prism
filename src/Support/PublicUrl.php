@@ -115,6 +115,15 @@ class PublicUrl
             }
         }
 
+        // ISATAP (RFC 5214) puts an IPv4 address in the low 32 bits behind the
+        // interface identifier 0000:5efe (0200:5efe with the u bit, and the g
+        // bit may be set too), under ANY prefix. On an ISATAP site the packet
+        // is tunnelled to that IPv4 address, so it is judged as well; the
+        // prefix is still judged below.
+        if (strlen($packed) === 16 && (ord($packed[8]) & 0xFC) === 0 && substr($packed, 9, 3) === "\x00\x5E\xFE") {
+            self::assertPublicAddress((string) inet_ntop(substr($packed, 12, 4)), $host);
+        }
+
         // The explicit list is the contract, spelled identically in all three
         // languages (G-89). filter_var stays as a second layer, but it cannot be
         // the only one: its flags do not cover CGNAT, where Alibaba Cloud's
@@ -133,14 +142,15 @@ class PublicUrl
     /**
      * Every range a guarded fetch refuses: private, loopback, link-local,
      * shared (CGNAT), documentation, benchmarking, multicast, reserved, and the
-     * IPv6 spellings that reach them.
+     * IPv6 spellings that reach them: IPv4-compatible, IPv4-mapped, SIIT
+     * IPv4-translated (`::ffff:0:0:0/96`), local-use NAT64 and Teredo.
      */
     protected const BLOCKED = [
         ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
         ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
         ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
         ['224.0.0.0', 4], ['240.0.0.0', 4],
-        ['::', 96], ['::ffff:0:0', 96], ['64:ff9b:1::', 48], ['100::', 64],
+        ['::', 96], ['::ffff:0:0', 96], ['::ffff:0:0:0', 96], ['64:ff9b:1::', 48], ['100::', 64],
         ['2001::', 32], ['2001:db8::', 32], ['fc00::', 7], ['fe80::', 10],
         ['fec0::', 10], ['ff00::', 8],
     ];
