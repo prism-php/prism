@@ -102,10 +102,10 @@ A trailing slash, or a difference in the case of the scheme or host, is the same
 
 A `url` in `config/prism.php` may point anywhere, including a model server on `localhost` or the local network. A `url` passed for one call may not. Before any request is made, a per-call `url` is refused with `PrismUrlRefused` (code `private_address_refused`) when its host is:
 
-- a loopback, private (RFC 1918), link-local, shared (CGNAT), unique-local IPv6 or unspecified address written as a literal, including the decimal (`2130706433`), octal (`0177.0.0.1`), hex (`0x7f000001`), shortened (`127.1`), IPv6 and IPv4-mapped IPv6 (`[::ffff:127.0.0.1]`) forms;
+- a loopback, private (RFC 1918), link-local, shared (CGNAT), unique-local IPv6 or unspecified address written as a literal, including the decimal (`2130706433`), octal (`0177.0.0.1`), hex (`0x7f000001`), shortened (`127.1`), IPv6 and IPv4-mapped IPv6 (`[::ffff:127.0.0.1]`) forms, and IPv6 forms that carry a private IPv4 address (IPv4-translated `[::ffff:0:127.0.0.1]`, NAT64, 6to4 and ISATAP);
 - a cloud metadata address such as `169.254.169.254` or `100.100.100.200`;
-- `localhost`, a `*.localhost` name, or a documented metadata name (`metadata.google.internal`, `metadata`, `instance-data`);
-- a host that holds anything other than letters, digits, `-` and `.` (or an IPv6 address in brackets). A percent escape is refused, not decoded, and so is a backslash before the path.
+- `localhost`, a `*.localhost` name, a loopback name from a stock hosts file (`localhost.localdomain`, `localhost4`, `localhost6`, `ip6-localhost`, `ipv6-localhost` and similar), or a documented metadata name (`metadata.google.internal`, `metadata`, `instance-data`);
+- a host that holds anything other than letters, digits, `-` and `.` (or an IPv6 address in brackets). A percent escape is refused, not decoded, and so is a backslash before the path. Invisible and formatting characters (such as zero-width joiners and soft hyphens) and the characters `ß` and `ς`, which IDNA converters handle differently, are refused anywhere before the path.
 
 Trailing dots are ignored, so `localhost.` and `127.0.0.1.` are refused like `localhost` and `127.0.0.1`. A non-ASCII host is converted to its ASCII form first; on PHP without the `intl` extension it cannot be checked and is refused with code `idn_unavailable`.
 
