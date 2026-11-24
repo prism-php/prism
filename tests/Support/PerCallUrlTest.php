@@ -46,7 +46,6 @@ it('refuses every address spelling that is private', function (string $url): voi
     'http://[0:0:0:0:0:0:0:1]/',
     'http://[::ffff:a9fe:a9fe]/',
     'http://[2002:a9fe:a9fe::]/',
-    'http://１２７.０.０.１/',         // full-width digits
 ]);
 
 it('refuses a numeric-looking host it cannot read as an address, rather than resolve it', function (string $url): void {
@@ -73,33 +72,43 @@ it('refuses what is not an absolute http or https url', function (string $url): 
     'http://',
 ]);
 
-it('refuses a non-ASCII host with its own code when ext-intl is missing', function (): void {
-    $withoutIntl = new class extends PerCallUrl
-    {
-        protected static function intlAvailable(): bool
-        {
-            return false;
-        }
-    };
-
+it('refuses every non-ASCII host with its own code and never converts it', function (string $url): void {
     try {
-        $withoutIntl::assert('https://bücher.example/v1');
-        $code = null;
-    } catch (PrismUrlRefused $refused) {
-        $code = $refused->code();
-        expect($refused->getMessage())->not->toContain('bücher');
+        PerCallUrl::assert($url);
+        $refused = null;
+    } catch (PrismUrlRefused $error) {
+        $refused = $error;
     }
 
-    expect($code)->toBe('idn_unavailable')
-        ->and(fn () => $withoutIntl::assert('https://gateway.example/v1'))->not->toThrow(PrismUrlRefused::class);
-});
-
-it('refuses a host that IDNA maps to an escape, after mapping', function (string $url): void {
-    expect(perCallCode($url))->toBe('private_address_refused');
+    expect($refused?->code())->toBe('non_ascii_host_use_punycode')
+        ->and($refused?->getMessage())->toBe(PerCallUrl::PUNYCODE_MESSAGE);
 })->with([
-    'http://ｌｏｃ％６１ｌｈｏｓｔ/',  // full-width letters and percent sign
-    'http://loc％61lhost/',
+    'international name' => ["https://b\u{00FC}cher.example/v1"],
+    'full-width digits' => ["http://\u{FF11}\u{FF12}\u{FF17}.\u{FF10}.\u{FF10}.\u{FF11}/"],
+    'full-width letters and percent sign' => ["http://\u{FF4C}\u{FF4F}\u{FF43}\u{FF05}\u{FF16}\u{FF11}\u{FF4C}\u{FF48}\u{FF4F}\u{FF53}\u{FF54}/"],
+    'full-width percent sign' => ["http://loc\u{FF05}61lhost/"],
+    'arabic label beside a digit-led label' => ["https://\u{0645}\u{062B}\u{0627}\u{0644}.3com.example/v1"],
+    'hyphens in positions 3 and 4' => ["https://b\u{00FC}cher.ab--cd.example/v1"],
 ]);
+
+it('accepts an international name in punycode, and non-ASCII userinfo before an ASCII host', function (string $url): void {
+    expect(perCallCode($url))->toBeNull();
+})->with([
+    'https://xn--bcher-kva.example/v1',
+    'https://xn--strae-oqa.de/v1',
+    'https://xn--mgbh0fb.3com.example/v1',
+    'https://xn--bcher-kva.ab--cd.example/v1',
+    "https://b\u{00FC}@gateway.example/v1",
+]);
+
+it('judges an IPv6 literal with a dotted IPv4 tail like its hex spelling', function (): void {
+    expect(perCallCode('http://[2606:4700::8.8.8.8]/v1'))->toBeNull()
+        ->and(perCallCode('http://[2606:4700::1:8.8.8.8]/v1'))->toBeNull()
+        ->and(perCallCode('http://[2606:4700::5efe:8.8.8.8]/v1'))->toBeNull()
+        ->and(perCallCode('http://[2606:4700::5efe:127.0.0.1]/v1'))->toBe('private_address_refused')
+        ->and(perCallCode('http://[64:ff9b::169.254.169.254]/v1'))->toBe('private_address_refused')
+        ->and(perCallCode('http://[::127.0.0.1]/v1'))->toBe('private_address_refused');
+});
 
 it('does not resolve names: a public name that points at loopback is accepted (known limit)', function (): void {
     expect(perCallCode('http://127.0.0.1.nip.io/v1'))->toBeNull();
@@ -182,6 +191,8 @@ it('refuses a format, invisible or deviation character in the host when called d
     'tag character' => ["http://localhost\u{E0001}/"],
     'no-break space' => ["http://localhost\u{00A0}/"],
     'sharp s (deviation)' => ["https://fa\u{00DF}.example/v1"],
+    'capital sharp s (maps to a deviation)' => ["http://loca\u{1E9E}lhost/"],
+    'capital sharp s after loopback' => ["http://127.0.0.1\u{1E9E}/"],
     'final sigma (deviation)' => ["https://\u{03BB}\u{03BF}\u{03B3}\u{03BF}\u{03C2}.example/v1"],
     'joiner in userinfo' => ["http://user\u{200D}@gateway.example/v1"],
 ]);

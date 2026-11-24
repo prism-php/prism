@@ -138,13 +138,17 @@ it('reads a trailing dot as the host the client contacts', function (string $url
     'metadata ip' => ['http://169.254.169.254./latest'],
 ]);
 
-it('sends to a public per-call host with a trailing dot or an international name', function (string $url, string $prefix): void {
+it('sends to a public per-call host with a trailing dot or an international name in punycode', function (string $url): void {
     expect(perCallRefusal('openai', ['url' => $url]))->toBeNull();
 
-    Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), $prefix));
+    Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), $url));
 })->with([
-    'trailing dot' => ['https://gateway.example./v1', 'https://gateway.example./v1'],
-    'international name' => ['https://bücher.example/v1', 'https://b'],
+    'trailing dot' => ['https://gateway.example./v1'],
+    'international name in punycode' => ['https://xn--bcher-kva.example/v1'],
+    'sharp s name in punycode' => ['https://xn--strae-oqa.de/v1'],
+    'persian name with a non-joiner, in punycode' => ['https://xn--mgbn2ecje63gr19l.ir/v1'],
+    'arabic label beside a digit-led label, in punycode' => ['https://xn--mgbh0fb.3com.example/v1'],
+    'hyphens in positions 3 and 4' => ['https://xn--bcher-kva.ab--cd.example/v1'],
 ]);
 
 it('refuses a per-call url that is not http or https', function (): void {
@@ -328,4 +332,65 @@ it('refuses a zero-width joiner in a per-call host before any request', function
     'inside localhost' => ["http://loca\u{200D}lhost/v1"],
     'after loopback' => ["http://127.0.0.1\u{200D}/v1"],
     'non-joiner after loopback' => ["http://127.0.0.1\u{200C}/v1"],
+]);
+
+/*
+ * A per-call host is ASCII. IDNA converters disagree on which name some
+ * characters spell, so an international name is given in its punycode form,
+ * which every client sends unchanged. The unicode spelling is refused with its
+ * own code, in all three languages, whatever the name.
+ */
+it('refuses a non-ASCII per-call host with its own code, before any request', function (string $url, string $fragment): void {
+    $refused = perCallRefusal('openai', ['url' => $url]);
+
+    expect($refused?->code())->toBe('non_ascii_host_use_punycode')
+        ->and($refused?->getMessage())->toBe(PerCallUrl::PUNYCODE_MESSAGE)
+        ->and((string) $refused?->getMessage())->not->toContain($fragment);
+
+    Http::assertNothingSent();
+})->with([
+    'international name' => ["https://b\u{00FC}cher.example/v1", "b\u{00FC}cher"],
+    'cyrillic name' => ["https://\u{043F}\u{0440}\u{0438}\u{043C}\u{0435}\u{0440}.\u{0440}\u{0444}/v1", "\u{0440}\u{0444}"],
+    'arabic label beside a digit-led label' => ["https://\u{0645}\u{062B}\u{0627}\u{0644}.3com.example/v1", '3com'],
+    'hyphens in positions 3 and 4' => ["https://b\u{00FC}cher.ab--cd.example/v1", 'ab--cd'],
+    'full-width loopback' => ["http://\u{FF11}\u{FF12}\u{FF17}.\u{FF10}.\u{FF10}.\u{FF11}/v1", "\u{FF11}"],
+]);
+
+it('refuses a capital sharp s in a per-call host, before any request', function (string $url): void {
+    $refused = perCallRefusal('openai', ['url' => $url]);
+
+    expect($refused?->code())->toBe('private_address_refused')
+        ->and($refused?->getMessage())->toBe(PerCallUrl::HOST_MESSAGE);
+
+    Http::assertNothingSent();
+})->with([
+    'inside localhost' => ["http://loca\u{1E9E}lhost/v1"],
+    'after loopback' => ["http://127.0.0.1\u{1E9E}/v1"],
+    'in a public name' => ["https://gateway\u{1E9E}.example/v1"],
+]);
+
+/*
+ * An IPv6 literal may end in a dotted IPv4 address. It is the same address as
+ * its hex spelling and is judged the same way: refused when it, or the IPv4
+ * address it carries, is private.
+ */
+it('sends to a public IPv6 literal written with a dotted IPv4 tail', function (string $url): void {
+    expect(perCallRefusal('openai', ['url' => $url]))->toBeNull();
+
+    Http::assertSentCount(1);
+})->with([
+    'plain' => ['http://[2606:4700::8.8.8.8]/v1'],
+    'after a group' => ['http://[2606:4700::1:8.8.8.8]/v1'],
+    'isatap embedding a public ipv4' => ['http://[2606:4700::5efe:8.8.8.8]/v1'],
+]);
+
+it('refuses an IPv6 literal whose dotted IPv4 tail is private, before any request', function (string $url): void {
+    expect(perCallRefusal('openai', ['url' => $url])?->code())->toBe('private_address_refused');
+
+    Http::assertNothingSent();
+})->with([
+    'isatap loopback' => ['http://[2606:4700::5efe:127.0.0.1]/v1'],
+    'nat64 metadata' => ['http://[64:ff9b::169.254.169.254]/latest'],
+    'siit private' => ['http://[::ffff:0:10.0.0.5]/v1'],
+    'ipv4-compatible loopback' => ['http://[::127.0.0.1]/v1'],
 ]);
