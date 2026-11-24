@@ -37,17 +37,17 @@ test('it can configure the provider and model', function (): void {
 
 test('it can configure the provider and model with custom config via using', function (): void {
     $request = $this->pendingRequest
-        ->using(Provider::OpenAI, 'gpt-4', ['url' => 'value']);
+        ->using(Provider::OpenAI, 'gpt-4', ['url' => 'https://gateway.example/v1']);
 
-    expect($request->provider()->url)->toBe('value');
+    expect($request->provider()->url)->toBe('https://gateway.example/v1');
 });
 
 test('it can configure the provider and model with custom config via withProviderConfig', function (): void {
     $request = $this->pendingRequest
         ->using(Provider::OpenAI, 'gpt-4')
-        ->usingProviderConfig(['url' => 'value']);
+        ->usingProviderConfig(['url' => 'https://gateway.example/v1']);
 
-    expect($request->provider()->url)->toBe('value');
+    expect($request->provider()->url)->toBe('https://gateway.example/v1');
 });
 
 test('it sets provider options', function (): void {

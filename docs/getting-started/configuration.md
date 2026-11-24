@@ -98,6 +98,31 @@ $response = Prism::text()
 
 A trailing slash, or a difference in the case of the scheme or host, is the same endpoint. A different scheme, host, port, path or query is not. A Vertex `region` must contain only lowercase letters, digits and hyphens. A `url`, configured or per call, that contains whitespace or a control character anywhere, including at either end, is refused with `InvalidArgumentException` before any request is made; it is not trimmed.
 
+### Per-call urls may not choose a private address
+
+A `url` in `config/prism.php` may point anywhere, including a model server on `localhost` or the local network. A `url` passed for one call may not. Before any request is made, a per-call `url` is refused with `PrismUrlRefused` (code `private_address_refused`) when its host is:
+
+- a loopback, private (RFC 1918), link-local, shared (CGNAT), unique-local IPv6 or unspecified address, in any spelling an HTTP client accepts: decimal (`2130706433`), octal (`0177.0.0.1`), hex (`0x7f000001`), shortened (`127.1`), IPv6 and IPv4-mapped IPv6 (`[::ffff:127.0.0.1]`);
+- a cloud metadata address such as `169.254.169.254` or `100.100.100.200`;
+- `localhost`, a `*.localhost` name, or a documented metadata name (`metadata.google.internal`, `metadata`, `instance-data`).
+
+A per-call `url` that is not an absolute `http` or `https` URL is refused with code `scheme_not_allowed`. Neither message contains the url. A per-call `url` that names the configured endpoint is not a new address and is accepted.
+
+The check reads the url only. It does not resolve a hostname, so a public name that resolves to a private address is not refused.
+
+To allow private per-call urls for one provider, set its `allow_private_per_call_url` to `true` in the configuration. The shipped config reads it from `<PROVIDER>_ALLOW_PRIVATE_PER_CALL_URL` (for example `OPENAI_ALLOW_PRIVATE_PER_CALL_URL=true`) and it is off by default. Only `true` turns it on, and the same key passed in a per-call override is ignored.
+
+```php
+// config/prism.php
+'providers' => [
+    'openai' => [
+        'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+        'allow_private_per_call_url' => env('OPENAI_ALLOW_PRIVATE_PER_CALL_URL', false),
+        // ...
+    ],
+],
+```
+
 ## Telemetry
 
 Telemetry is disabled by default. The configuration keys and environment variables are:

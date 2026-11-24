@@ -76,6 +76,22 @@ class PublicUrl
     }
 
     /**
+     * Whether a numeric address (IPv4 dotted quad or IPv6, no brackets) is one
+     * a public client could reach. The same ranges as assert(), so a second
+     * guard (PerCallUrl) never carries its own copy of the list.
+     */
+    public static function isPublicAddress(string $address): bool
+    {
+        try {
+            self::assertPublicAddress($address, '');
+        } catch (PrismUrlRefused) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * @throws PrismUrlRefused
      */
     protected static function assertPublicAddress(string $address, string $host): void
