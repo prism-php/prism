@@ -5,6 +5,9 @@
         "Laravel\\Mcp\\ResponseFactory",
         "Laravel\\Mcp\\Server\\Tool",
         "Laravel\\Mcp\\Support\\ValidationMessages",
-        "PHPUnit\\Framework\\Assert"
+        "PHPUnit\\Framework\\Assert",
+        "IDNA_DEFAULT",
+        "INTL_IDNA_VARIANT_UTS46",
+        "idn_to_ascii"
     ]
 }
