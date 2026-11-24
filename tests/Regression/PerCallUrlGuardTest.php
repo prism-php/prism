@@ -87,6 +87,65 @@ it('refuses a per-call url that points at a private address, before any request'
     Http::assertNothingSent();
 })->with(refusedPerCallUrls());
 
+/**
+ * A host is judged as written. Some HTTP clients percent-decode a host before
+ * they connect, so an escape could carry a private address past a check that
+ * reads the text; the guard never decodes, it refuses. Any character a
+ * hostname or address literal may not hold is refused the same way, and so is
+ * a backslash in the authority, which URL parsers split in different places.
+ *
+ * @return array<string, array{0: string, 1: string}>
+ */
+function escapedOrIllegalPerCallHosts(): array
+{
+    return [
+        'escaped letter in localhost' => ['http://loc%61lhost:8080/admin', 'loc%61lhost'],
+        'escaped letter, upper case' => ['http://LOC%41LHOST/v1', 'loc%41lhost'],
+        'localhost, escaped trailing dot' => ['http://localhost%2e/v1', 'localhost%2e'],
+        'loopback, escaped trailing dot' => ['http://127.0.0.1%2e/v1', '127.0.0.1%2e'],
+        'loopback, escaped NUL before a public suffix' => ['http://127.0.0.1%00.evil.com/v1', '%00'],
+        'loopback, every digit escaped' => ['http://%31%32%37.0.0.1/v1', '%31'],
+        'metadata ip, escaped trailing dot' => ['http://169.254.169.254%2e/latest/meta-data/', '169.254'],
+        'metadata name, escaped trailing dot' => ['http://metadata.google.internal%2e/x', 'metadata.google'],
+        'public name with an escaped dot' => ['https://gateway%2eexample/v1', 'gateway'],
+        'underscore in a name' => ['https://gate_way.example/v1', 'gate_way'],
+        'backslash before userinfo' => ['http://127.0.0.1\@gateway.example/v1', 'gateway.example'],
+        'backslash after a public name' => ['http://gateway.example\@127.0.0.1/v1', '127.0.0.1'],
+        'ipv6 zone id' => ['http://[fe80::1%25eth0]/v1', 'eth0'],
+        'escaped ipv6 digit' => ['http://[::%31]/v1', '%31'],
+    ];
+}
+
+it('refuses a per-call host that holds an escape or a character no host may hold, before any request', function (string $url, string $fragment): void {
+    $refused = perCallRefusal('openai', ['url' => $url]);
+
+    expect($refused)->toBeInstanceOf(PrismUrlRefused::class)
+        ->and($refused?->code())->toBe('private_address_refused')
+        ->and(strtolower((string) $refused?->getMessage()))->not->toContain(strtolower($fragment));
+
+    Http::assertNothingSent();
+})->with(escapedOrIllegalPerCallHosts());
+
+it('reads a trailing dot as the host the client contacts', function (string $url): void {
+    expect(perCallRefusal('openai', ['url' => $url])?->code())->toBe('private_address_refused');
+
+    Http::assertNothingSent();
+})->with([
+    'loopback' => ['http://127.0.0.1./v1'],
+    'hex loopback' => ['http://0x7f000001./v1'],
+    'localhost, two dots' => ['http://localhost../v1'],
+    'metadata ip' => ['http://169.254.169.254./latest'],
+]);
+
+it('sends to a public per-call host with a trailing dot or an international name', function (string $url, string $prefix): void {
+    expect(perCallRefusal('openai', ['url' => $url]))->toBeNull();
+
+    Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), $prefix));
+})->with([
+    'trailing dot' => ['https://gateway.example./v1', 'https://gateway.example./v1'],
+    'international name' => ['https://bücher.example/v1', 'https://b'],
+]);
+
 it('refuses a per-call url that is not http or https', function (): void {
     $refused = perCallRefusal('openai', ['url' => 'ftp://example.com/v1']);
 

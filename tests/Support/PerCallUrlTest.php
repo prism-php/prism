@@ -72,3 +72,24 @@ it('refuses what is not an absolute http or https url', function (string $url): 
     '//example.com/v1',
     'http://',
 ]);
+
+it('refuses a non-ASCII host with its own code when ext-intl is missing', function (): void {
+    $withoutIntl = new class extends PerCallUrl
+    {
+        protected static function intlAvailable(): bool
+        {
+            return false;
+        }
+    };
+
+    try {
+        $withoutIntl::assert('https://bücher.example/v1');
+        $code = null;
+    } catch (PrismUrlRefused $refused) {
+        $code = $refused->code();
+        expect($refused->getMessage())->not->toContain('bücher');
+    }
+
+    expect($code)->toBe('idn_unavailable')
+        ->and(fn () => $withoutIntl::assert('https://gateway.example/v1'))->not->toThrow(PrismUrlRefused::class);
+});
