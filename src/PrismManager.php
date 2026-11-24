@@ -42,6 +42,23 @@ class PrismManager
     protected array $customCreators = [];
 
     /**
+     * Lower-cased names a custom creator was registered over on purpose
+     * (`extend(..., replace: true)`).
+     *
+     * @var array<string, true>
+     */
+    protected array $replaced = [];
+
+    /**
+     * The `driver` of a `prism.providers.<name>` entry that declares a named
+     * OpenAI-compatible endpoint.
+     */
+    protected const COMPATIBLE_DRIVER = 'openai-compatible';
+
+    /** @var list<string> */
+    protected const API_FORMATS = ['chat_completions', 'responses'];
+
+    /**
      * A provider name: ASCII, starting with a letter or digit, at most 64
      * characters. A positive allow-list rather than a list of forbidden
      * characters, so it needs no Unicode tables and reads the same in prism-ts
@@ -70,6 +87,12 @@ class PrismManager
     public function resolve(ProviderEnum|string $name, array $providerConfig = []): Provider
     {
         $name = $this->resolveName($name);
+
+        $compatible = $this->compatibleEntry($name);
+
+        if ($compatible !== null) {
+            return $this->createCompatibleProvider(...$compatible, overrides: $providerConfig);
+        }
 
         $configured = $this->getConfig($name);
 
@@ -130,6 +153,10 @@ class PrismManager
 
         $this->customCreators[$provider] = $callback;
 
+        if ($replace) {
+            $this->replaced[strtolower($provider)] = true;
+        }
+
         return $this;
     }
 
@@ -143,7 +170,179 @@ class PrismManager
             }
         }
 
-        return method_exists($this, sprintf('create%sProvider', ucfirst($name)));
+        if ($this->compatibleKeys($name) !== []) {
+            return true;
+        }
+
+        return $this->isBuiltIn($name);
+    }
+
+    protected function isBuiltIn(string $name): bool
+    {
+        return method_exists($this, sprintf('create%sProvider', ucfirst(strtolower($name))));
+    }
+
+    /**
+     * The configured keys under `prism.providers` that declare
+     * `driver: openai-compatible` and match `$name` ASCII case-insensitively.
+     *
+     * @return list<string>
+     */
+    protected function compatibleKeys(string $name): array
+    {
+        $providers = config('prism.providers', []);
+
+        if (! is_array($providers)) {
+            return [];
+        }
+
+        $keys = [];
+
+        foreach ($providers as $key => $entry) {
+            if (is_string($key)
+                && strtolower($key) === $name
+                && is_array($entry)
+                && ($entry['driver'] ?? null) === self::COMPATIBLE_DRIVER) {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The openai-compatible entry `$name` resolves to, or null when it is not
+     * one. A compatible entry is held to the registration rules before it is
+     * built: a readable name, no built-in taken over, no second entry or
+     * custom creator under the same name.
+     *
+     * @return array{0: string, 1: array<string, mixed>}|null
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function compatibleEntry(string $name): ?array
+    {
+        $keys = $this->compatibleKeys($name);
+
+        if ($keys === []) {
+            return null;
+        }
+
+        $key = $keys[0];
+
+        if (! $this->isValidProviderName($key)) {
+            throw new InvalidArgumentException(
+                'That is not a valid provider name: a provider name must start with an ASCII letter or digit, contain only ASCII letters, digits, ".", "_" and "-", and be at most 64 characters long.'
+            );
+        }
+
+        if ($this->isBuiltIn($name)) {
+            throw new InvalidArgumentException(
+                "Provider [{$name}] is already registered: an openai-compatible provider may not take the name of a built-in provider."
+            );
+        }
+
+        if (count($keys) > 1) {
+            throw new InvalidArgumentException(
+                "Provider [{$name}] is already registered: more than one openai-compatible entry has this name."
+            );
+        }
+
+        foreach (array_keys($this->customCreators) as $registered) {
+            if (strtolower($registered) === $name) {
+                if (isset($this->replaced[$name])) {
+                    return null;
+                }
+
+                throw new InvalidArgumentException(
+                    "Provider [{$name}] is already registered: a custom provider and an openai-compatible entry share this name. Pass replace: true to extend() to choose the custom provider."
+                );
+            }
+        }
+
+        /** @var array<string, mixed> $entry */
+        $entry = config('prism.providers')[$key];
+
+        return [$key, $entry];
+    }
+
+    /**
+     * Build an OpenAI-shaped provider from ONE configuration entry.
+     *
+     * It authenticates with that entry's `api_key`, `organization` and
+     * `project` and nothing else: never the `openai` provider's, never an
+     * OPENAI_* environment variable. With no key, no Authorization header is
+     * sent. A per-call url that names a different endpoint drops the entry's
+     * credentials, as for every provider.
+     *
+     * The url is operator configuration, so private and loopback addresses
+     * are allowed (a vLLM on the local network is the common case). It must
+     * be an absolute http or https url. No message names the url or the key.
+     *
+     * @param  array<string, mixed>  $entry
+     * @param  array<string, mixed>  $overrides
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function createCompatibleProvider(string $key, array $entry, array $overrides): OpenAI
+    {
+        $this->assertUrlIsClean($entry['url'] ?? null);
+        $this->assertUrlIsClean($overrides['url'] ?? null);
+
+        $config = $this->mergeConfig($entry, $overrides);
+
+        $url = $config['url'] ?? null;
+
+        if (! is_string($url) || ! $this->isAbsoluteHttpUrl($url)) {
+            throw new InvalidArgumentException(
+                "That is not a valid provider url: the openai-compatible provider [{$key}] needs an absolute http or https url."
+            );
+        }
+
+        $format = $config['api_format'] ?? null;
+        $format ??= 'chat_completions';
+
+        if (! in_array($format, self::API_FORMATS, true)) {
+            throw new InvalidArgumentException(
+                "That is not a valid api format for the openai-compatible provider [{$key}]: use chat_completions or responses."
+            );
+        }
+
+        return new OpenAI(
+            apiKey: $this->optionalString($config, 'api_key', $key) ?? '',
+            url: $url,
+            organization: $this->optionalString($config, 'organization', $key),
+            project: $this->optionalString($config, 'project', $key),
+            apiFormat: $format,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function optionalString(array $config, string $field, string $provider): ?string
+    {
+        $value = $config[$field] ?? null;
+
+        if ($value !== null && ! is_string($value)) {
+            throw new InvalidArgumentException(
+                "The openai-compatible provider [{$provider}] needs {$field} to be a string or null."
+            );
+        }
+
+        return $value === '' ? null : $value;
+    }
+
+    protected function isAbsoluteHttpUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        return is_array($parts)
+            && isset($parts['scheme'], $parts['host'])
+            && in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+            && $parts['host'] !== '';
     }
 
     /**

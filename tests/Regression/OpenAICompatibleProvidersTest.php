@@ -12,9 +12,11 @@ use InvalidArgumentException;
 use Prism\Prism\Events\Telemetry\GenerationStarted;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\PrismManager;
+use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Throwable;
 
 /**
@@ -342,7 +344,7 @@ it('refuses an extend() over a configured compatible name unless replaced', func
 
     app(PrismManager::class)->extend('my-vllm', $stub, replace: true);
 
-    expect(app(PrismManager::class)->resolve('my-vllm'))->not->toBeInstanceOf(\Prism\Prism\Providers\OpenAI\OpenAI::class);
+    expect(app(PrismManager::class)->resolve('my-vllm'))->not->toBeInstanceOf(OpenAI::class);
 });
 
 it('refuses a compatible entry that a custom creator registered earlier would shadow', function (): void {
@@ -410,7 +412,7 @@ it('streams through a compatible provider', function (): void {
 
     $text = '';
     foreach (Prism::text()->using('my-vllm', 'fixture-model')->withPrompt('hi')->asStream() as $event) {
-        if ($event instanceof \Prism\Prism\Streaming\Events\TextDeltaEvent) {
+        if ($event instanceof TextDeltaEvent) {
             $text .= $event->delta;
         }
     }

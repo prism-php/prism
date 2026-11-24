@@ -53,6 +53,56 @@ Groq, Mistral, DeepSeek, xAI, OpenRouter, Requesty, Qwen, Ollama, Azure — pref
 that provider. Each one maps the quirks its API actually has, which the generic
 OpenAI provider will not do for you.
 
+### Several compatible endpoints, each under its own name
+
+Changing `OPENAI_URL` gives you one endpoint. To use several at once — a local
+vLLM for one agent, a gateway for another, OpenAI itself for a third — declare
+each one as a named provider with the `openai-compatible` driver:
+
+```php
+// config/prism.php
+'providers' => [
+    // ...
+    'my-vllm' => [
+        'driver' => 'openai-compatible',
+        'url' => env('MY_VLLM_URL'),
+        'api_key' => env('MY_VLLM_KEY'),
+        'api_format' => 'chat_completions',
+    ],
+],
+```
+
+```php
+$response = Prism::text()
+    ->using('my-vllm', 'the-model-name-your-endpoint-exposes')
+    ->withPrompt('Summarise the release risk for this change.')
+    ->asText();
+```
+
+How an entry behaves:
+
+- **It uses only its own credentials.** `api_key`, `organization` and
+  `project` come from that entry and nowhere else — never from the `openai`
+  provider and never from an `OPENAI_*` environment variable. Leave `api_key`
+  out and no `Authorization` header is sent at all, which is what most local
+  servers expect.
+- **`url` is required** and must be an absolute `http` or `https` URL. Private
+  and loopback addresses are allowed, because this is your configuration. A
+  per-call `url` passed to `using()` that names a different endpoint drops the
+  entry's key, as it does for every provider; pass `api_key` with it if that
+  endpoint needs one.
+- **`api_format`** is `chat_completions` (the default, and what vLLM, LM Studio,
+  llama.cpp and most gateways speak) or `responses`.
+- **The name is yours, and it cannot take over a built-in.** It must start with
+  an ASCII letter or digit and contain only ASCII letters, digits, `.`, `_` and
+  `-`, up to 64 characters. An entry named after a built-in provider (`openai`,
+  `OpenAI`, `anthropic`, ...) is refused rather than silently redirecting that
+  provider, and so is a custom provider registered with `extend()` under the
+  same name unless you pass `replace: true`.
+- **The entry name is the provider name.** Telemetry events carry `my-vllm` as
+  the provider, not `openai`, and so does anything keyed by provider name, such
+  as prism-harness pricing.
+
 ## Chat Completions refusals
 
 With `api_format` set to `chat_completions`, text, structured and streaming
