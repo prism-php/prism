@@ -38,7 +38,8 @@ class PrismUrlRefused extends PrismException
 
     /**
      * One of: `scheme_not_allowed`, `private_address_refused`,
-     * `host_did_not_resolve`, `redirect_refused`, `too_many_redirects`.
+     * `host_did_not_resolve`, `redirect_refused`, `too_many_redirects`,
+     * `idn_unavailable`.
      */
     public function code(): string
     {
