@@ -75,6 +75,8 @@ Some audio operations and input validation can throw generic exceptions, `Invali
 | `too_many_redirects` | The redirect limit was exceeded |
 | `media_too_large` | Declared or streamed content exceeded the byte limit |
 
+Provider requests follow a redirect only when its target has the same scheme, host and port as the request. A provider endpoint that redirects anywhere else throws `PrismUrlRefused` with `redirect_refused`, and the redirect target receives no request. If your endpoint has moved, configure its new URL instead.
+
 Do not substitute the unguarded fetch after a refusal. See [remote media](/input-modalities/images#fetching-remote-media) for limits and DNS-boundary details.
 
 `PrismRefusalException::code()` returns `response_refused`; `refusal()` exposes the provider's refusal text explicitly. `PrismRunException::code()` identifies `run_incomplete`, `run_failed` or `run_cancelled`. Its accessors include `status()`, `runId()`, `incompleteReason()`, `incompleteDetails()`, `output()`, `citations()`, `usage()` and `usageDetails()`. These diagnostics can contain partial answers and sensitive content. See [Perplexity run failures](/providers/perplexity#failures-arrive-as-http-200).
