@@ -72,3 +72,35 @@ it('refuses what is not an absolute http or https url', function (string $url): 
     '//example.com/v1',
     'http://',
 ]);
+
+it('refuses a non-ASCII host with its own code when ext-intl is missing', function (): void {
+    $withoutIntl = new class extends PerCallUrl
+    {
+        protected static function intlAvailable(): bool
+        {
+            return false;
+        }
+    };
+
+    try {
+        $withoutIntl::assert('https://bücher.example/v1');
+        $code = null;
+    } catch (PrismUrlRefused $refused) {
+        $code = $refused->code();
+        expect($refused->getMessage())->not->toContain('bücher');
+    }
+
+    expect($code)->toBe('idn_unavailable')
+        ->and(fn () => $withoutIntl::assert('https://gateway.example/v1'))->not->toThrow(PrismUrlRefused::class);
+});
+
+it('refuses a host that IDNA maps to an escape, after mapping', function (string $url): void {
+    expect(perCallCode($url))->toBe('private_address_refused');
+})->with([
+    'http://ｌｏｃ％６１ｌｈｏｓｔ/',  // full-width letters and percent sign
+    'http://loc％61lhost/',
+]);
+
+it('does not resolve names: a public name that points at loopback is accepted (known limit)', function (): void {
+    expect(perCallCode('http://127.0.0.1.nip.io/v1'))->toBeNull();
+});

@@ -18,11 +18,21 @@ use Prism\Prism\Exceptions\PrismUrlRefused;
  * the address for a single call."
  *
  * NO NETWORK. Nothing here resolves a name: a hostname that RESOLVES to a
- * private address is not caught. What is caught is every spelling of an
- * address literal an HTTP client or OS resolver would accept (decimal, octal,
- * hex and shortened IPv4, IPv6 including IPv4-mapped, NAT64 and 6to4), and
- * the documented loopback and metadata names. The address ranges are
+ * private address is not caught, so this checks what the url says; it does
+ * not protect against a caller who chooses a hostname. What is caught is an
+ * address literal in the spellings an OS resolver reads (decimal, octal, hex
+ * and shortened IPv4, IPv6 including IPv4-mapped, NAT64 and 6to4), and the
+ * documented loopback and metadata names. The address ranges are
  * PublicUrl's, so the two guards cannot drift apart.
+ *
+ * The host is judged AS WRITTEN and never decoded. Some HTTP clients
+ * percent-decode a host before they connect, so a check that read the text
+ * and a client that decoded it would judge different hosts. A host holding
+ * anything but letters, digits, `-` and `.` (and, inside brackets, an IPv6
+ * literal's `:`) is refused, `%` included, and so is a backslash anywhere in
+ * the authority, which URL parsers split in different places. Trailing dots
+ * are removed before the address step, because a resolver reads `localhost.`
+ * as `localhost`.
  *
  * Spelled identically, rule for rule, in prism-ts (`assertPerCallUrl`) and
  * prism-py (`assert_per_call_url`). No message names the url or the address.
@@ -32,6 +42,10 @@ class PerCallUrl
     public const PRIVATE_MESSAGE = 'A per-call provider url may not point at a loopback, private, link-local or metadata address. Allow it in the provider config with allow_private_per_call_url.';
 
     public const SCHEME_MESSAGE = 'A per-call provider url must be an absolute http or https url.';
+
+    public const HOST_MESSAGE = 'A per-call provider url host may hold only letters, digits, hyphens and dots, or an IPv6 address in brackets.';
+
+    public const IDN_MESSAGE = 'A per-call provider url with a non-ASCII host can only be checked with the intl extension installed.';
 
     /**
      * Loopback names from RFC 6761 and common hosts files, and the documented
@@ -48,12 +62,23 @@ class PerCallUrl
     ];
 
     /**
-     * @throws PrismUrlRefused `scheme_not_allowed` or `private_address_refused`
+     * @throws PrismUrlRefused `scheme_not_allowed`, `private_address_refused`
+     *                         or `idn_unavailable`
      */
     public static function assert(string $url): void
     {
         if (preg_match('#\Ahttps?://#i', $url) !== 1) {
             throw new PrismUrlRefused('scheme_not_allowed', self::SCHEME_MESSAGE);
+        }
+
+        $written = self::writtenHost($url);
+
+        if ($written === '') {
+            throw new PrismUrlRefused('scheme_not_allowed', self::SCHEME_MESSAGE);
+        }
+
+        if ($written === null || preg_match('/\A(?:[A-Za-z0-9.\-\x80-\xFF]+|\[[A-Za-z0-9.:\-]+\])\z/', $written) !== 1) {
+            throw self::hostRefused();
         }
 
         $parts = parse_url($url);
@@ -69,9 +94,11 @@ class PerCallUrl
         }
 
         if (preg_match('/[^\x00-\x7F]/', $host) === 1) {
-            $ascii = function_exists('idn_to_ascii')
-                ? idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46)
-                : false;
+            if (! static::intlAvailable()) {
+                throw new PrismUrlRefused('idn_unavailable', self::IDN_MESSAGE);
+            }
+
+            $ascii = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
 
             if (! is_string($ascii)) {
                 throw self::refused();
@@ -84,6 +111,11 @@ class PerCallUrl
 
         if ($host === '') {
             throw new PrismUrlRefused('scheme_not_allowed', self::SCHEME_MESSAGE);
+        }
+
+        // Again after IDNA, which can map a non-ASCII character to `%` or `/`.
+        if (preg_match('/\A[a-z0-9.:\-]+\z/', $host) !== 1) {
+            throw self::hostRefused();
         }
 
         if (str_contains($host, ':')) {
@@ -118,6 +150,49 @@ class PerCallUrl
     protected static function refused(): PrismUrlRefused
     {
         return new PrismUrlRefused('private_address_refused', self::PRIVATE_MESSAGE);
+    }
+
+    /**
+     * The private-address code: a host that cannot be read safely is refused
+     * under the rule it might be evading.
+     */
+    protected static function hostRefused(): PrismUrlRefused
+    {
+        return new PrismUrlRefused('private_address_refused', self::HOST_MESSAGE);
+    }
+
+    protected static function intlAvailable(): bool
+    {
+        return function_exists('idn_to_ascii');
+    }
+
+    /**
+     * The host exactly as written. The authority runs from after `//` to the
+     * first `/`, `?` or `#`; the host follows its last `@` and ends at the
+     * port's `:` (or, when bracketed, at the first `]`). Null when the
+     * authority holds a backslash. Nothing is decoded.
+     */
+    protected static function writtenHost(string $url): ?string
+    {
+        $rest = substr($url, (int) strpos($url, '//') + 2);
+        $authority = substr($rest, 0, strcspn($rest, '/?#'));
+
+        if (str_contains($authority, chr(92))) {
+            return null;
+        }
+
+        $at = strrpos($authority, '@');
+        $hostPort = $at === false ? $authority : substr($authority, $at + 1);
+
+        if (str_starts_with($hostPort, '[')) {
+            $end = strpos($hostPort, ']');
+
+            return $end === false ? $hostPort : substr($hostPort, 0, $end + 1);
+        }
+
+        $colon = strpos($hostPort, ':');
+
+        return $colon === false ? $hostPort : substr($hostPort, 0, $colon);
     }
 
     /**

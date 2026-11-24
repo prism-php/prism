@@ -102,13 +102,16 @@ A trailing slash, or a difference in the case of the scheme or host, is the same
 
 A `url` in `config/prism.php` may point anywhere, including a model server on `localhost` or the local network. A `url` passed for one call may not. Before any request is made, a per-call `url` is refused with `PrismUrlRefused` (code `private_address_refused`) when its host is:
 
-- a loopback, private (RFC 1918), link-local, shared (CGNAT), unique-local IPv6 or unspecified address, in any spelling an HTTP client accepts: decimal (`2130706433`), octal (`0177.0.0.1`), hex (`0x7f000001`), shortened (`127.1`), IPv6 and IPv4-mapped IPv6 (`[::ffff:127.0.0.1]`);
+- a loopback, private (RFC 1918), link-local, shared (CGNAT), unique-local IPv6 or unspecified address written as a literal, including the decimal (`2130706433`), octal (`0177.0.0.1`), hex (`0x7f000001`), shortened (`127.1`), IPv6 and IPv4-mapped IPv6 (`[::ffff:127.0.0.1]`) forms;
 - a cloud metadata address such as `169.254.169.254` or `100.100.100.200`;
-- `localhost`, a `*.localhost` name, or a documented metadata name (`metadata.google.internal`, `metadata`, `instance-data`).
+- `localhost`, a `*.localhost` name, or a documented metadata name (`metadata.google.internal`, `metadata`, `instance-data`);
+- a host that holds anything other than letters, digits, `-` and `.` (or an IPv6 address in brackets). A percent escape is refused, not decoded, and so is a backslash before the path.
 
-A per-call `url` that is not an absolute `http` or `https` URL is refused with code `scheme_not_allowed`. Neither message contains the url. A per-call `url` that names the configured endpoint is not a new address and is accepted.
+Trailing dots are ignored, so `localhost.` and `127.0.0.1.` are refused like `localhost` and `127.0.0.1`. A non-ASCII host is converted to its ASCII form first; on PHP without the `intl` extension it cannot be checked and is refused with code `idn_unavailable`.
 
-The check reads the url only. It does not resolve a hostname, so a public name that resolves to a private address is not refused.
+A per-call `url` that is not an absolute `http` or `https` URL is refused with code `scheme_not_allowed`. No message contains the url. A per-call `url` that names the configured endpoint is not a new address and is accepted.
+
+The check reads the url only. **It does not resolve DNS.** A public hostname that resolves to a private address, including wildcard-DNS names such as `127.0.0.1.nip.io`, is not refused. The check stops mistakes and literal addresses. It does not stop someone who can choose the hostname. If a per-call url can come from a user, do not rely on this check alone: allow only known hosts, or restrict outbound traffic at the network level.
 
 To allow private per-call urls for one provider, set its `allow_private_per_call_url` to `true` in the configuration. The shipped config reads it from `<PROVIDER>_ALLOW_PRIVATE_PER_CALL_URL` (for example `OPENAI_ALLOW_PRIVATE_PER_CALL_URL=true`) and it is off by default. Only `true` turns it on, and the same key passed in a per-call override is ignored.
 
