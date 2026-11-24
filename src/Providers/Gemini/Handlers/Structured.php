@@ -285,6 +285,7 @@ class Structured
                 toolCalls: $finishReason === FinishReason::ToolCalls ? ToolCallMap::map(data_get($data, 'candidates.0.content.parts', [])) : [],
                 toolResults: $toolResults,
                 raw: $data,
+                toolApprovalRequests: $this->approvalRequestsForStep(),
             )
         );
     }

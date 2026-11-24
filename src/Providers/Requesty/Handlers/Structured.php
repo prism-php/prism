@@ -105,8 +105,6 @@ class Structured
         $approvalRequests = [];
         $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $this->addStep($data, $request, $toolResults);
-
         $request = $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
@@ -115,6 +113,10 @@ class Structured
         ));
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
+
+        // The step ends with the assistant message and its results, as the
+        // Anthropic handler's does, so a resume can start from its messages.
+        $this->addStep($data, $request, $toolResults);
 
         if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
@@ -174,6 +176,7 @@ class Structured
             providerToolCalls: [],
             toolResults: $toolResults,
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }

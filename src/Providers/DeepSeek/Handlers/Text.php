@@ -153,6 +153,7 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: $reasoningContent ? ['reasoning_content' => $reasoningContent] : [],
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }

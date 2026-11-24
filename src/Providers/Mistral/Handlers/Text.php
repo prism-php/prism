@@ -130,6 +130,7 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: $this->extractThinking(data_get($data, 'choices.0.message', [])),
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 

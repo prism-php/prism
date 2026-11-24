@@ -171,6 +171,7 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }
