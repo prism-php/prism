@@ -134,7 +134,15 @@ class PublicUrl
             }
         }
 
-        if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+        // On a hex spelling: filter_var refuses an IPv6 address written with a
+        // dotted IPv4 tail as reserved, even a public one, while its hex
+        // spelling passes. Any IPv4 such a tail carries was judged above.
+        // inet_ntop() is not used, because some platforms print a dotted tail.
+        $canonical = strlen($packed) === 16
+            ? implode(':', str_split(bin2hex($packed), 4))
+            : (string) inet_ntop($packed);
+
+        if (filter_var($canonical, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
             throw new PrismUrlRefused('private_address_refused', $host.' is a private or reserved address, which a guarded fetch will not request.');
         }
     }
