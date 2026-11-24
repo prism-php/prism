@@ -172,6 +172,7 @@ class Text
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }

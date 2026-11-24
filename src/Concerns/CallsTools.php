@@ -38,6 +38,9 @@ use Throwable;
 
 trait CallsTools
 {
+    /** @var ToolApprovalRequest[] */
+    private array $stepApprovalRequests = [];
+
     /**
      * Execute tools and return results (for non-streaming handlers).
      *
@@ -95,7 +98,31 @@ trait CallsTools
             }
         }
 
+        $this->stepApprovalRequests = $approvalRequests;
+
         return $toolResults;
+    }
+
+    /**
+     * The approval requests the last callToolsWithPending() issued, for the
+     * Step the handler builds next. Taking them clears them, so a later step
+     * of the same run cannot carry them again.
+     *
+     * A non-streaming response hands pending approvals back on its last step
+     * (and, for text, on the assistant message the ResponseBuilder appends to
+     * $response->messages). A handler that built its Step without them made
+     * the documented resume find no request, so every approval was denied by
+     * default and the approved tool never ran (G-352). Every non-streaming
+     * handler that calls callToolsWithPending() passes this to its Step.
+     *
+     * @return ToolApprovalRequest[]
+     */
+    protected function approvalRequestsForStep(): array
+    {
+        $approvalRequests = $this->stepApprovalRequests;
+        $this->stepApprovalRequests = [];
+
+        return $approvalRequests;
     }
 
     /**

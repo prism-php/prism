@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
@@ -264,3 +265,26 @@ it('hands back the pending approval on a non-streaming structured response, and 
 
     expect($ran)->toBe($approved ? 1 : 0);
 })->with(g352StructuredProviders())->with('g352 approval decisions');
+
+it('leaves no non-streaming handler that can stop for an approval without handing it back', function (): void {
+    // A provider added later is not in the lists above. Any non-streaming
+    // handler that can stop for an approval must put the requests on its Step.
+    $root = dirname(__DIR__, 2);
+
+    $handlers = collect(File::allFiles($root.'/src/Providers'))
+        ->filter(fn (SplFileInfo $file): bool => in_array($file->getFilename(), ['Text.php', 'Structured.php'], true))
+        ->mapWithKeys(fn (SplFileInfo $file): array => [
+            str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($root) + 1)) => (string) file_get_contents($file->getPathname()),
+        ])
+        ->filter(fn (string $source): bool => str_contains($source, 'callToolsWithPending('));
+
+    $without = $handlers
+        ->reject(fn (string $source): bool => str_contains($source, 'toolApprovalRequests: $this->approvalRequestsForStep()')
+            || str_contains($source, 'toolApprovalRequests: $toolApprovalRequests'))
+        ->keys()
+        ->all();
+
+    // 18 fixed here, plus Anthropic and OpenAI Responses text and structured.
+    expect($handlers)->toHaveCount(22)
+        ->and($without)->toBe([]);
+});

@@ -212,6 +212,7 @@ class Text
                 'thoughtSummaries' => $thoughtSummaries !== [] ? $thoughtSummaries : null,
             ]),
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 

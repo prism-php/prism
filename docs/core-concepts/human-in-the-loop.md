@@ -116,6 +116,20 @@ $final = Prism::text()
     ->asText();
 ```
 
+A structured response has no `messages` list. Resume it from the last step,
+whose messages end with the assistant's tool calls and their approval requests:
+
+```php
+$step = $response->steps->last();
+
+$final = Prism::structured()
+    ->using('anthropic', 'claude-sonnet-5-5')
+    ->withSchema($schema)
+    ->withTools([$deleteTool])
+    ->withMessages([...$step->messages, $decisions])
+    ->asStructured();
+```
+
 ### Storing approval requests
 
 Store each `ToolApprovalRequest` with `toArray()` and read it back with

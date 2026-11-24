@@ -138,6 +138,7 @@ class Text
             systemPrompts: $request->systemPrompts(),
             additionalContent: [...$this->extractReasoning($data), 'openrouter_billing' => Billing::fromUsage((array) data_get($data, 'usage', []))],
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }
