@@ -6,7 +6,9 @@
         "Laravel\\Mcp\\Server\\Tool",
         "Laravel\\Mcp\\Support\\ValidationMessages",
         "PHPUnit\\Framework\\Assert",
-        "IDNA_DEFAULT",
+        "IDNA_CHECK_BIDI",
+        "IDNA_CHECK_CONTEXTJ",
+        "IDNA_NONTRANSITIONAL_TO_ASCII",
         "INTL_IDNA_VARIANT_UTS46",
         "idn_to_ascii"
     ]
