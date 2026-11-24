@@ -213,13 +213,20 @@ it('records the expiry in telemetry without the arguments', function (): void {
         ->and($invoked->first()->toolResult?->args ?? [])->toBe([]);
 });
 
-it('marks every approval it issues, on the text and the streaming path', function (): void {
+it('marks every approval it issues on the text path', function (): void {
     Http::fake(['*' => Http::response(legacyChatToolCall('{"input":"Paris"}'))]);
     $runs = 0;
 
     $text = Prism::text()->using('anthropic', 'm')->withPrompt('p')
         ->withTools([legacyApprovalTool('input', $runs)])->withMaxSteps(3)->asText();
 
+    expect($runs)->toBe(0)
+        ->and(legacyPendingApprovals($text))->toHaveCount(1)
+        ->and(legacyPendingApprovals($text)[0]->toArray())->toHaveKey('arguments_format');
+});
+
+it('marks every approval it issues on the streaming path', function (): void {
+    $runs = 0;
     $line = fn (array $choice): string => 'data: '.json_encode(['id' => 'c1', 'model' => 'm', 'choices' => [$choice]])."\n\n";
     Http::fake(['*' => Http::response(
         $line(['index' => 0, 'delta' => ['role' => 'assistant', 'tool_calls' => [['index' => 0, 'id' => 'call_3', 'type' => 'function', 'function' => ['name' => 'probe', 'arguments' => '{"input":"Paris"}']]]], 'finish_reason' => null])
@@ -233,7 +240,7 @@ it('marks every approval it issues, on the text and the streaming path', functio
     $assistant = $streamed->first(fn ($m): bool => $m instanceof AssistantMessage && $m->toolApprovalRequests !== []);
 
     expect($runs)->toBe(0)
-        ->and(legacyPendingApprovals($text)[0]->toArray())->toHaveKey('arguments_format')
+        ->and($assistant)->not->toBeNull()
         ->and($assistant?->toolApprovalRequests[0]->toArray() ?? [])->toHaveKey('arguments_format');
 });
 
