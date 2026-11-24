@@ -49,13 +49,6 @@ class Text
 
         $data = $response->json();
 
-        $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
-
-        $request->addMessage($responseMessage);
-
         $finishReason = $this->mapFinishReason($data);
 
         return match ($finishReason) {
@@ -81,22 +74,16 @@ class Text
         $approvalRequests = [];
         $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        if ($approvalRequests !== []) {
-            // Replace the assistant message appended in handle() with one
-            // carrying the approval requests so the resume pass correlates them.
-            $messages = $request->messages();
-            array_pop($messages);
-            $request->setMessages($messages);
-            $request->addMessage(new AssistantMessage(
-                data_get($data, 'choices.0.message.content') ?? '',
-                $toolCalls,
-                toolApprovalRequests: $approvalRequests,
-            ));
-        }
-
-        $request->addMessage(new ToolResultMessage($toolResults));
-
+        // The step records the conversation as this request carried it; the
+        // response builder appends the step's assistant message and results.
         $this->addStep($data, $request, $toolResults);
+
+        $request->addMessage(new AssistantMessage(
+            data_get($data, 'choices.0.message.content') ?? '',
+            $toolCalls,
+            toolApprovalRequests: $approvalRequests,
+        ));
+        $request->addMessage(new ToolResultMessage($toolResults));
 
         if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
