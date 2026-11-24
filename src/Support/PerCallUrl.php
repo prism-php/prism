@@ -22,8 +22,8 @@ use Prism\Prism\Exceptions\PrismUrlRefused;
  * not protect against a caller who chooses a hostname. What is caught is an
  * address literal in the spellings an OS resolver reads (decimal, octal, hex
  * and shortened IPv4, IPv6 including IPv4-mapped, SIIT-translated, NAT64,
- * 6to4 and ISATAP), the hosts-file loopback names and the documented
- * metadata names. Format and invisible characters are refused before IDNA. The address ranges are
+ * 6to4 and ISATAP, with or without a dotted IPv4 tail), the hosts-file
+ * loopback names and the documented metadata names. The address ranges are
  * PublicUrl's, so the two guards cannot drift apart.
  *
  * The host is judged AS WRITTEN and never decoded. Some HTTP clients
@@ -34,6 +34,14 @@ use Prism\Prism\Exceptions\PrismUrlRefused;
  * the authority, which URL parsers split in different places. Trailing dots
  * are removed before the address step, because a resolver reads `localhost.`
  * as `localhost`.
+ *
+ * The host must be ASCII. IDNA converters disagree on which name some
+ * characters spell (deviation characters, joiners, characters that map to
+ * one), so no conversion is trusted: an international name is given in its
+ * punycode (`xn--`) form, which every client sends unchanged, and a non-ASCII
+ * host is refused with `non_ascii_host_use_punycode`. A format, invisible or
+ * deviation character anywhere in the authority is refused first, as
+ * `private_address_refused`.
  *
  * Spelled identically, rule for rule, in prism-ts (`assertPerCallUrl`) and
  * prism-py (`assert_per_call_url`). No message names the url or the address.
@@ -46,7 +54,7 @@ class PerCallUrl
 
     public const HOST_MESSAGE = 'A per-call provider url host may hold only letters, digits, hyphens and dots, or an IPv6 address in brackets.';
 
-    public const IDN_MESSAGE = 'A per-call provider url with a non-ASCII host can only be checked with the intl extension installed.';
+    public const PUNYCODE_MESSAGE = 'A per-call provider url host must be ASCII. Give an international name in its punycode (xn--) form.';
 
     /**
      * Names that reach a non-public address without DNS: RFC 6761's
@@ -89,21 +97,20 @@ class PerCallUrl
     protected const SUFFIXES = ['.localhost', '.localhost.localdomain'];
 
     /**
-     * Refused anywhere in the authority, before IDNA: every format or
+     * Refused anywhere in the authority, userinfo included: every format or
      * invisible character (Unicode's default-ignorable code points, the Cf
-     * format controls, the C1 controls and the non-ASCII spaces) and the four
-     * UTS46 deviation characters (U+00DF, U+03C2, U+200C, U+200D). IDNA
-     * implementations disagree on these: an HTTP client that deletes a
-     * zero-width joiner contacts `localhost` where a nontransitional
-     * conversion reads a public name. Spelled code point for code point in
-     * prism-ts (`INVISIBLE`) and prism-py (`_INVISIBLE`). No other check is
-     * relied on.
+     * format controls, the C1 controls and the non-ASCII spaces), the four
+     * UTS46 deviation characters (U+00DF, U+03C2, U+200C, U+200D) and U+1E9E,
+     * which UTS46 maps to U+00DF. IDNA implementations disagree on these: an
+     * HTTP client that deletes a zero-width joiner contacts `localhost` where
+     * a nontransitional conversion reads a public name. Spelled code point for
+     * code point in prism-ts (`INVISIBLE`) and prism-py (`_INVISIBLE`).
      */
-    protected const INVISIBLE = '/[\x{0080}-\x{00A0}\x{00AD}\x{00DF}\x{034F}\x{03C2}\x{0600}-\x{0605}\x{061C}\x{06DD}\x{070F}\x{0890}-\x{0891}\x{08E2}\x{115F}-\x{1160}\x{1680}\x{17B4}-\x{17B5}\x{1806}\x{180B}-\x{180F}\x{2000}-\x{200F}\x{2028}-\x{202F}\x{205F}-\x{206F}\x{2800}\x{3000}\x{3164}\x{FE00}-\x{FE0F}\x{FEFF}\x{FFA0}\x{FFF0}-\x{FFFB}\x{110BD}\x{110CD}\x{13430}-\x{1343F}\x{1BCA0}-\x{1BCA3}\x{1D173}-\x{1D17A}\x{E0000}-\x{E0FFF}]/u';
+    protected const INVISIBLE = '/[\x{0080}-\x{00A0}\x{00AD}\x{00DF}\x{034F}\x{03C2}\x{0600}-\x{0605}\x{061C}\x{06DD}\x{070F}\x{0890}-\x{0891}\x{08E2}\x{115F}-\x{1160}\x{1680}\x{17B4}-\x{17B5}\x{1806}\x{180B}-\x{180F}\x{1E9E}\x{2000}-\x{200F}\x{2028}-\x{202F}\x{205F}-\x{206F}\x{2800}\x{3000}\x{3164}\x{FE00}-\x{FE0F}\x{FEFF}\x{FFA0}\x{FFF0}-\x{FFFB}\x{110BD}\x{110CD}\x{13430}-\x{1343F}\x{1BCA0}-\x{1BCA3}\x{1D173}-\x{1D17A}\x{E0000}-\x{E0FFF}]/u';
 
     /**
      * @throws PrismUrlRefused `scheme_not_allowed`, `private_address_refused`
-     *                         or `idn_unavailable`
+     *                         or `non_ascii_host_use_punycode`
      */
     public static function assert(string $url): void
     {
@@ -126,6 +133,10 @@ class PerCallUrl
             throw self::hostRefused();
         }
 
+        if (preg_match('/[^\x00-\x7F]/', $written) === 1) {
+            throw new PrismUrlRefused('non_ascii_host_use_punycode', self::PUNYCODE_MESSAGE);
+        }
+
         $parts = parse_url($url);
 
         if ($parts === false || ! isset($parts['host']) || $parts['host'] === '') {
@@ -138,34 +149,12 @@ class PerCallUrl
             $host = substr($host, 1, -1);
         }
 
-        if (preg_match('/[^\x00-\x7F]/', $host) === 1) {
-            if (! static::intlAvailable()) {
-                throw new PrismUrlRefused('idn_unavailable', self::IDN_MESSAGE);
-            }
-
-            // Nontransitional, with the joiner (CONTEXTJ) and bidi rules, so the
-            // result does not depend on the ICU version. Any error refuses.
-            $ascii = idn_to_ascii(
-                $host,
-                IDNA_NONTRANSITIONAL_TO_ASCII | IDNA_CHECK_CONTEXTJ | IDNA_CHECK_BIDI,
-                INTL_IDNA_VARIANT_UTS46,
-                $info,
-            );
-
-            if (! is_string($ascii) || ($info['errors'] ?? 1) !== 0) {
-                throw self::refused();
-            }
-
-            $host = $ascii;
-        }
-
         $host = rtrim(strtolower($host), '.');
 
         if ($host === '') {
             throw new PrismUrlRefused('scheme_not_allowed', self::SCHEME_MESSAGE);
         }
 
-        // Again after IDNA, which can map a non-ASCII character to `%` or `/`.
         if (preg_match('/\A[a-z0-9.:\-]+\z/', $host) !== 1) {
             throw self::hostRefused();
         }
@@ -217,11 +206,6 @@ class PerCallUrl
     protected static function hostRefused(): PrismUrlRefused
     {
         return new PrismUrlRefused('private_address_refused', self::HOST_MESSAGE);
-    }
-
-    protected static function intlAvailable(): bool
-    {
-        return function_exists('idn_to_ascii');
     }
 
     /**

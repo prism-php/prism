@@ -73,7 +73,7 @@ Some audio operations and input validation can throw generic exceptions, `Invali
 | `host_did_not_resolve` | No public address could be resolved |
 | `redirect_refused` | A redirected destination was refused |
 | `too_many_redirects` | The redirect limit was exceeded |
-| `idn_unavailable` | A per-call url has a non-ASCII host and the `intl` extension is not installed to check it |
+| `non_ascii_host_use_punycode` | A per-call url has a non-ASCII host; give an international name in its punycode (`xn--`) form |
 | `media_too_large` | Declared or streamed content exceeded the byte limit |
 
 Provider requests follow a redirect only when its target has the same scheme, host and port as the request. A provider endpoint that redirects anywhere else throws `PrismUrlRefused` with `redirect_refused`, and the redirect target receives no request. If your endpoint has moved, configure its new URL instead.
