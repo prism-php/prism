@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Contracts\Foundation\Application;
 use InvalidArgumentException;
 use Prism\Prism\Enums\Provider as ProviderEnum;
+use Prism\Prism\Exceptions\PrismUrlRefused;
 use Prism\Prism\Providers\Anthropic\Anthropic;
 use Prism\Prism\Providers\Azure\Azure;
 use Prism\Prism\Providers\DeepSeek\DeepSeek;
@@ -27,6 +28,7 @@ use Prism\Prism\Providers\Vertex\Vertex;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
 use Prism\Prism\Providers\Z\Z;
+use Prism\Prism\Support\PerCallUrl;
 
 class PrismManager
 {
@@ -100,6 +102,7 @@ class PrismManager
         // url is a misconfiguration even when this call overrides it.
         $this->assertUrlIsClean($configured['url'] ?? null);
         $this->assertUrlIsClean($providerConfig['url'] ?? null);
+        $this->assertPerCallUrlAllowed($configured, $providerConfig);
 
         $config = $this->mergeConfig($configured, $providerConfig);
 
@@ -275,8 +278,10 @@ class PrismManager
      * sent. A per-call url that names a different endpoint drops the entry's
      * credentials, as for every provider.
      *
-     * The url is operator configuration, so private and loopback addresses
-     * are allowed (a vLLM on the local network is the common case). It must
+     * The CONFIGURED url is operator configuration, so private and loopback
+     * addresses are allowed there (a vLLM on the local network is the common
+     * case). A PER-CALL url may not point at one unless the entry sets
+     * `allow_private_per_call_url => true`: see assertPerCallUrlAllowed(). It must
      * be an absolute http or https url. No message names the url or the key.
      *
      * @param  array<string, mixed>  $entry
@@ -298,6 +303,8 @@ class PrismManager
                 "That is not a valid provider url: the openai-compatible provider [{$key}] needs an absolute http or https url."
             );
         }
+
+        $this->assertPerCallUrlAllowed($entry, $overrides);
 
         $format = $config['api_format'] ?? null;
         $format ??= 'chat_completions';
@@ -343,6 +350,40 @@ class PrismManager
             && isset($parts['scheme'], $parts['host'])
             && in_array(strtolower($parts['scheme']), ['http', 'https'], true)
             && $parts['host'] !== '';
+    }
+
+    /**
+     * Refuse a per-call url that points at a loopback, private, link-local or
+     * metadata address, before anything is built and so before any request.
+     *
+     * The CONFIGURED url is never checked here: it is the operator's, and may
+     * point at a local model server. A per-call url naming that same endpoint
+     * is not a new address and passes. The only way to allow a private
+     * per-call url is `allow_private_per_call_url => true` in the provider's
+     * CONFIG; the same key in the per-call config is never read.
+     *
+     * @param  array<string, mixed>  $configured
+     * @param  array<string, mixed>  $overrides
+     *
+     * @throws PrismUrlRefused
+     */
+    protected function assertPerCallUrlAllowed(array $configured, array $overrides): void
+    {
+        $url = $overrides['url'] ?? null;
+
+        if (! is_string($url)) {
+            return;
+        }
+
+        if (($configured['allow_private_per_call_url'] ?? false) === true) {
+            return;
+        }
+
+        if ($this->sameEndpoint($configured['url'] ?? null, $url)) {
+            return;
+        }
+
+        PerCallUrl::assert($url);
     }
 
     /**

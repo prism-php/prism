@@ -90,7 +90,9 @@ How an entry behaves:
   and loopback addresses are allowed, because this is your configuration. A
   per-call `url` passed to `using()` that names a different endpoint drops the
   entry's key, as it does for every provider; pass `api_key` with it if that
-  endpoint needs one.
+  endpoint needs one. A per-call `url` may not point at a private, loopback or
+  metadata address unless the entry sets `'allow_private_per_call_url' => true`
+  (see [per-call urls](/getting-started/configuration#per-call-urls-may-not-choose-a-private-address)).
 - **`api_format`** is `chat_completions` (the default, and what vLLM, LM Studio,
   llama.cpp and most gateways speak) or `responses`.
 - **The name is yours, and it cannot take over a built-in.** It must start with

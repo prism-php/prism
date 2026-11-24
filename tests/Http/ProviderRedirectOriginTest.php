@@ -58,6 +58,12 @@ function redirectProviderConfig(ProviderName $provider, string $base): array
         }, replace: true);
     }
 
+    // The loopback servers are reached through a PER-CALL url, which is refused
+    // for a private address unless the provider's config opts in. This file is
+    // about redirects, not that policy, so it opts in (PerCallUrlGuardTest
+    // covers the policy).
+    config()->set("prism.providers.{$provider->value}.allow_private_per_call_url", true);
+
     return match ($provider) {
         ProviderName::Azure => ['url' => $base.'/openai/deployments/test', 'api_key' => REDIRECT_TEST_KEY, 'deployment_name' => 'test'],
         ProviderName::Vertex => ['url' => $base, 'access_token' => REDIRECT_TEST_KEY, 'project_id' => 'test-project', 'region' => 'us-central1'],
