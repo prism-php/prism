@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Events\Telemetry\ToolInvoked;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\ToolApprovalRequestEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\Streaming\StreamedMessages;
 use Prism\Prism\Text\Response as TextResponse;
@@ -338,4 +339,42 @@ it('leaves a denied legacy approval denied', function (): void {
     $result = collect($response->messages)->first(fn ($m): bool => $m instanceof ToolResultMessage && $m->toolResults !== [])?->toolResults[0];
 
     expect($runs)->toBe(0)->and($result?->result)->toBe('User denied tool execution');
+});
+
+it('does not mark a request rebuilt from a stored event, so the legacy call still expires', function (): void {
+    // An app that kept the approval events from before the upgrade and
+    // rebuilds them afterwards. The rebuilt event was not issued by this
+    // version, so neither it nor the messages built from it may carry the
+    // marker.
+    $row = legacyApprovalRow('v0.151.1-input.json');
+    $call = new ToolCall($row['tool_calls'][0]['id'], $row['tool_calls'][0]['name'], $row['tool_calls'][0]['arguments']);
+    $event = new ToolApprovalRequestEvent(
+        id: 'evt_1',
+        timestamp: 1,
+        toolCall: $call,
+        messageId: 'msg_1',
+        approvalId: $row['tool_approval_requests'][0]['approval_id'],
+    );
+
+    $assistant = StreamedMessages::fromEvents([$event])
+        ->first(fn ($m): bool => $m instanceof AssistantMessage && $m->toolApprovalRequests !== []);
+
+    expect($event->approvalRequest()->toArray())->not->toHaveKey('arguments_format')
+        ->and($assistant)->not->toBeNull()
+        ->and($assistant?->toolApprovalRequests[0]->toArray() ?? [])->not->toHaveKey('arguments_format');
+
+    Http::fake(['*' => Http::response(legacyChatText('done'))]);
+    $runs = 0;
+    Prism::text()->using('anthropic', 'm')
+        ->withMessages([
+            new UserMessage('p'),
+            new AssistantMessage('', [$call], [], $assistant?->toolApprovalRequests ?? []),
+            new ToolResultMessage([], [new ToolApprovalResponse($row['tool_approval_requests'][0]['approval_id'], true)]),
+        ])
+        ->withTools([legacyApprovalTool('input', $runs)])
+        ->withMaxSteps(3)
+        ->asText();
+
+    expect($runs)->toBe(0)
+        ->and(legacySentBody())->toContain('has expired');
 });
