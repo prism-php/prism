@@ -24,7 +24,7 @@ it('parses succeeded JSONL results', function (): void {
                 'type' => 'succeeded',
                 'message' => [
                     'id' => 'msg_001',
-                    'model' => 'claude-sonnet-4-20250514',
+                    'model' => 'claude-sonnet-5-5',
                     'content' => [['type' => 'text', 'text' => 'Hello there!']],
                     'usage' => ['input_tokens' => 10, 'output_tokens' => 16],
                 ],
@@ -36,7 +36,7 @@ it('parses succeeded JSONL results', function (): void {
                 'type' => 'succeeded',
                 'message' => [
                     'id' => 'msg_002',
-                    'model' => 'claude-sonnet-4-20250514',
+                    'model' => 'claude-sonnet-5-5',
                     'content' => [['type' => 'text', 'text' => 'Hi again!']],
                     'usage' => ['input_tokens' => 8, 'output_tokens' => 12],
                 ],
@@ -58,7 +58,7 @@ it('parses succeeded JSONL results', function (): void {
         ->and($items[0]->usage->promptTokens)->toBe(10)
         ->and($items[0]->usage->completionTokens)->toBe(16)
         ->and($items[0]->messageId)->toBe('msg_001')
-        ->and($items[0]->model)->toBe('claude-sonnet-4-20250514')
+        ->and($items[0]->model)->toBe('claude-sonnet-5-5')
         ->and($items[1]->customId)->toBe('request-2')
         ->and($items[1]->status)->toBe(BatchResultStatus::Succeeded)
         ->and($items[1]->text)->toBe('Hi again!');
@@ -132,7 +132,7 @@ it('skips blank lines in streamed JSONL', function (): void {
             'type' => 'succeeded',
             'message' => [
                 'id' => 'msg_001',
-                'model' => 'claude-sonnet-4-20250514',
+                'model' => 'claude-sonnet-5-5',
                 'content' => [['type' => 'text', 'text' => 'Hi']],
                 'usage' => ['input_tokens' => 5, 'output_tokens' => 3],
             ],

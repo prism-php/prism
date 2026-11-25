@@ -66,7 +66,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 $items = collect($yourData)->map(fn ($row) => new BatchRequestItem(
     customId: "row-{$row->id}",
     request: new TextRequest(
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5-5',
         messages: [new UserMessage("Summarise: {$row->content}")],
     ),
 ))->all();

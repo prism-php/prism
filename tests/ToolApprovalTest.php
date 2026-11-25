@@ -1341,12 +1341,12 @@ describe('the documented resume, through a real provider handler', function (): 
         FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-multiple-tools');
         $ran = ['weather' => 0, 'search' => 0];
 
-        $response = Prism::text()->using('anthropic', 'claude-sonnet-4-6')->withTools(approvalTools($ran))->withMaxSteps(3)
+        $response = Prism::text()->using('anthropic', 'claude-sonnet-5-5')->withTools(approvalTools($ran))->withMaxSteps(3)
             ->withPrompt('What time is the tigers game today and should I wear a coat?')->asText();
 
         $request = $response->steps->last()->toolApprovalRequests[0];
 
-        Prism::text()->using('anthropic', 'claude-sonnet-4-6')->withTools(approvalTools($ran))->withMaxSteps(3)
+        Prism::text()->using('anthropic', 'claude-sonnet-5-5')->withTools(approvalTools($ran))->withMaxSteps(3)
             ->withMessages([...$response->messages, new ToolResultMessage([], [new ToolApprovalResponse($request->approvalId, true)])])
             ->asText();
 

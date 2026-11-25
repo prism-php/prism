@@ -222,7 +222,7 @@ describe('tool calling mode', function (): void {
 
     it('omits tool_choice when manual thinking is requested through thinking.type', function (): void {
         $request = Prism::structured()
-            ->using('anthropic', 'claude-sonnet-4-5')
+            ->using('anthropic', 'claude-sonnet-5-5')
             ->withSchema(anthropicLoopSchema())
             ->withPrompt('Total?')
             ->withProviderOptions(['use_tool_calling' => true, 'thinking' => ['type' => 'enabled', 'budget_tokens' => 2048]]);

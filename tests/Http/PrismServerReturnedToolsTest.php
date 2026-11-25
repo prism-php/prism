@@ -225,7 +225,7 @@ it('serialises empty arguments as "{}", never "[]", when the provider decoded th
         'id' => 'msg_01',
         'type' => 'message',
         'role' => 'assistant',
-        'model' => 'claude-sonnet-4-5',
+        'model' => 'claude-sonnet-5-5',
         'content' => [
             ['type' => 'tool_use', 'id' => 'toolu_01', 'name' => 'finish', 'input' => new \stdClass],
         ],
@@ -235,7 +235,7 @@ it('serialises empty arguments as "{}", never "[]", when the provider decoded th
     ])]);
 
     PrismServer::register('claude', fn (): PendingRequest => Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withTools([(new Tool)->as('finish')->for('End the conversation')->clientExecuted()]));
 
     $response = $this->postJson('prism/openai/v1/chat/completions', [

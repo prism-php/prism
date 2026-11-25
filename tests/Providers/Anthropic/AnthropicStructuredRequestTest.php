@@ -154,7 +154,7 @@ it('does not force the structured output tool beside a thinking shape Prism does
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured');
 
     Prism::structured()
-        ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withMessages([new UserMessage('What is the weather?')])
         ->withSchema(new ObjectSchema('weather', 'Weather information', [new StringSchema('condition', 'Weather condition')], ['condition']))
         ->withProviderOptions([

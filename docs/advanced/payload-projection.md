@@ -10,7 +10,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 $generation = Prism::text()
-    ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+    ->using(Provider::Anthropic, 'claude-sonnet-5-5')
     ->withPrompt('Describe the purpose of a queue.');
 
 $payload = $generation->provider()->projectPayload(

@@ -69,7 +69,7 @@ it('asText callback can be an invokable class', function (): void {
     };
 
     Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Test')
         ->asText($invokable);
 
@@ -111,7 +111,7 @@ it('asText callback receives response with tool calls', function (): void {
 
     $receivedResponse = null;
     Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Search something')
         ->asText(function (PendingRequest $request, Response $response) use (&$receivedResponse): void {
             $receivedResponse = $response;
@@ -176,7 +176,7 @@ it('asEventStreamResponse calls callback with collected events at completion', f
     $receivedEvents = null;
 
     $response = Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Test')
         ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use (&$receivedRequest, &$receivedEvents): void {
             $receivedRequest = $request;
@@ -290,7 +290,7 @@ it('asEventStreamResponse callback receives tool call events', function (): void
     $hasToolCallEvent = false;
 
     $response = Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Search something')
         ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use (&$hasToolCallEvent): void {
             $hasToolCallEvent = $events->contains(
@@ -358,7 +358,7 @@ it('asEventStreamResponse callback can be an invokable class', function (): void
     };
 
     $response = Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Test')
         ->asEventStreamResponse($invokable);
 
@@ -382,7 +382,7 @@ it('handles empty response with streaming callback', function (): void {
     $receivedEvents = null;
 
     $response = Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Test')
         ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use (&$receivedEvents): void {
             $receivedEvents = $events;
@@ -405,7 +405,7 @@ it('works with unicode and special characters in streaming callback', function (
     $receivedText = '';
 
     $response = Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-5-20250929')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt('Unicode test')
         ->asEventStreamResponse(function (PendingRequest $request, Collection $events) use (&$receivedText): void {
             $receivedText = $events

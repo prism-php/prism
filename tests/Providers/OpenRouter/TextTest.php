@@ -287,7 +287,7 @@ describe('usage normalization', function (): void {
         Http::fake([
             '*' => Http::response([
                 'id' => 'gen-usage',
-                'model' => 'anthropic/claude-sonnet-4.5',
+                'model' => 'anthropic/claude-sonnet-5.5',
                 'choices' => [[
                     'index' => 0,
                     'message' => ['role' => 'assistant', 'content' => 'Hello!'],
@@ -298,7 +298,7 @@ describe('usage normalization', function (): void {
         ])->preventStrayRequests();
 
         $response = Prism::text()
-            ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4.5')
+            ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-5.5')
             ->withPrompt('Hello!')
             ->asText();
 

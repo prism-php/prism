@@ -427,7 +427,7 @@ it('over a real multi-step tool stream, hands the harness the same messages Stre
 it('builds the callback response from the steps\' usage when the stream end reports none', function (): void {
     $response = null;
     $events = [
-        new StreamStartEvent('evt-1', 1640995200, 'claude-sonnet-4-5', 'anthropic'),
+        new StreamStartEvent('evt-1', 1640995200, 'claude-sonnet-5-5', 'anthropic'),
         new TextStartEvent('evt-2', 1640995201, 'msg-1'),
         new TextDeltaEvent('evt-3', 1640995202, 'Sunny', 'msg-1'),
         new StepFinishEvent('evt-4', 1640995203, new Usage(11, 1), finishReason: FinishReason::Error),
