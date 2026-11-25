@@ -263,7 +263,7 @@ it('can use tool_result_cache_type with multi-step tool calls via real API', fun
     ];
 
     $response = Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-20250514')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withTools($tools)
         ->withMaxSteps(3)
         ->withPrompt('Search for what time the Detroit Tigers baseball game is today, then check the weather in Detroit to tell me if I should wear a coat.')

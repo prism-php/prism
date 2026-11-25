@@ -808,7 +808,7 @@ describe('Anthropic thinking', function (): void {
             FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking');
 
             $response = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
                 ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
                 ->asText();
@@ -834,7 +834,7 @@ describe('Anthropic thinking', function (): void {
             ];
 
             $response = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withTools($tools)
                 ->withMaxSteps(3)
                 ->withPrompt('What time is the tigers game today and should I wear a coat?')
@@ -852,7 +852,7 @@ describe('Anthropic thinking', function (): void {
 
         it('sends adaptive thinking payload', function (): void {
             $response = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withPrompt('Test')
                 ->withProviderOptions(['thinking' => ['type' => 'adaptive']]);
 
@@ -863,7 +863,7 @@ describe('Anthropic thinking', function (): void {
 
         it('sends effort via output_config', function (): void {
             $response = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withPrompt('Test')
                 ->withProviderOptions(['effort' => 'medium']);
 
@@ -955,7 +955,7 @@ describe('Anthropic thinking', function (): void {
         // TypeScript and Python ports send them.
         it('sends the thinking option it is given', function (mixed $thinking, mixed $expected): void {
             $request = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withPrompt('Test')
                 ->withProviderOptions(['thinking' => $thinking])
                 ->toRequest();
@@ -974,7 +974,7 @@ describe('Anthropic thinking', function (): void {
 
         it('lets withReasoning(false) win over any thinking shape', function (): void {
             $request = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withPrompt('Test')
                 ->withProviderOptions(['thinking' => ['type' => 'enabled', 'budget_tokens' => 2048]])
                 ->withReasoning(false)
@@ -990,7 +990,7 @@ describe('Anthropic thinking', function (): void {
             FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/text-with-extending-thinking');
 
             $response = Prism::text()
-                ->using('anthropic', 'claude-sonnet-4-6')
+                ->using('anthropic', 'claude-sonnet-5-5')
                 ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
                 ->withProviderOptions(['thinking' => ['type' => 'enabled', 'budget_tokens' => 2048]])
                 ->asText();

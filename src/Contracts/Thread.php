@@ -21,7 +21,7 @@ namespace Prism\Prism\Contracts;
  * History composes with a new turn rather than replacing it:
  *
  *     Prism::text()
- *         ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+ *         ->using(Provider::Anthropic, 'claude-sonnet-5-5')
  *         ->withThread($thread)          // everything said so far
  *         ->withPrompt('And after that?') // the turn being taken now
  *         ->asText();

@@ -291,7 +291,7 @@ it('passes current Agent API controls without flattening them', function (): voi
 
     Prism::text()->using(Provider::Perplexity, 'sonar')->withProviderOptions([
         'max_steps' => 9,
-        'models' => ['openai/gpt-5.4', 'anthropic/claude-sonnet-4-6'],
+        'models' => ['openai/gpt-5.4', 'anthropic/claude-sonnet-5-5'],
         'previous_response_id' => 'resp_prior',
         'store' => true,
         'reasoning' => ['effort' => 'high'],
@@ -301,7 +301,7 @@ it('passes current Agent API controls without flattening them', function (): voi
     Http::assertSent(function ($request): bool {
         expect($request->data())->toMatchArray([
             'max_steps' => 9,
-            'models' => ['openai/gpt-5.4', 'anthropic/claude-sonnet-4-6'],
+            'models' => ['openai/gpt-5.4', 'anthropic/claude-sonnet-5-5'],
             'previous_response_id' => 'resp_prior',
             'store' => true,
             'reasoning' => ['effort' => 'high'],

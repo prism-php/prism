@@ -129,7 +129,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
-    ->using(Provider::Requesty, 'anthropic/claude-sonnet-4')
+    ->using(Provider::Requesty, 'anthropic/claude-sonnet-5.5')
     ->withPrompt('Summarize this document.', [
         Document::fromUrl('https://example.com/report.pdf', 'report.pdf'),
     ])
@@ -303,7 +303,7 @@ $response = Prism::text()
     ->withPrompt('Draft a concise product changelog entry.')
     ->withProviderOptions([
         'models' => [
-            'anthropic/claude-sonnet-4.5',
+            'anthropic/claude-sonnet-5.5',
             'openai/gpt-4o-mini',
         ],
         'top_k' => 40,
@@ -321,7 +321,7 @@ echo $response->text;
 Requesty supports many models from different providers using the `provider/model` naming convention. Some popular options include:
 
 - `openai/gpt-4o`
-- `anthropic/claude-sonnet-4.5`
+- `anthropic/claude-sonnet-5.5`
 - `google/gemini-2.5-flash`
 - `deepseek/deepseek-chat`
 

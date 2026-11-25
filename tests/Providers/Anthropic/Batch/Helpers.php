@@ -12,7 +12,7 @@ use Prism\Prism\Text\Request as TextRequest;
 function createTextRequest(string $prompt): TextRequest
 {
     return Prism::text()
-        ->using('anthropic', 'claude-sonnet-4-20250514')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withPrompt($prompt)
         ->toRequest();
 }

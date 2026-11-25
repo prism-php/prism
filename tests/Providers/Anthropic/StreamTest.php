@@ -592,7 +592,7 @@ describe('thinking', function (): void {
             FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
             $response = Prism::text()
-                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->using(Provider::Anthropic, 'claude-sonnet-5-5')
                 ->withPrompt('What is the meaning of life?')
                 ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
                 ->asStream();
@@ -623,7 +623,7 @@ describe('thinking', function (): void {
             FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
             $response = Prism::text()
-                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->using(Provider::Anthropic, 'claude-sonnet-5-5')
                 ->withPrompt('What is the meaning of life?')
                 ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
                 ->asStream();
@@ -643,7 +643,7 @@ describe('thinking', function (): void {
             FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
             $response = Prism::text()
-                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->using(Provider::Anthropic, 'claude-sonnet-5-5')
                 ->withPrompt('What is the meaning of life?')
                 ->withProviderOptions([
                     'thinking' => ['type' => 'adaptive'],
@@ -665,7 +665,7 @@ describe('thinking', function (): void {
             FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-extended-thinking');
 
             $response = Prism::text()
-                ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+                ->using(Provider::Anthropic, 'claude-sonnet-5-5')
                 ->withPrompt('What is the meaning of life?')
                 ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
                 ->asStream();
@@ -1236,7 +1236,7 @@ function anthropicBlockSse(array ...$events): string
 function anthropicThinkingThenTextEvents(): array
 {
     return [
-        ['type' => 'message_start', 'message' => ['id' => 'msg_blocks', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-4-5', 'content' => [], 'usage' => ['input_tokens' => 11, 'output_tokens' => 1]]],
+        ['type' => 'message_start', 'message' => ['id' => 'msg_blocks', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-5-5', 'content' => [], 'usage' => ['input_tokens' => 11, 'output_tokens' => 1]]],
         ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'thinking', 'thinking' => '', 'signature' => '']],
         ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'thinking_delta', 'thinking' => 'Thinking it over.']],
         ['type' => 'content_block_stop', 'index' => 0],
@@ -1255,7 +1255,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
@@ -1284,7 +1284,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
@@ -1298,7 +1298,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
@@ -1320,7 +1320,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
@@ -1339,7 +1339,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
@@ -1359,7 +1359,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 
@@ -1372,7 +1372,7 @@ describe('unfinished streams', function (): void {
     it('reports no usage rather than zeros when the provider sent none', function (): void {
         Http::fake([
             '*' => Http::response(anthropicBlockSse(
-                ['type' => 'message_start', 'message' => ['id' => 'msg_none', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-4-5', 'content' => []]],
+                ['type' => 'message_start', 'message' => ['id' => 'msg_none', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-5-5', 'content' => []]],
                 ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'text', 'text' => '']],
                 ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'Sunny']],
                 ['type' => 'content_block_stop', 'index' => 0],
@@ -1382,7 +1382,7 @@ describe('unfinished streams', function (): void {
         ])->preventStrayRequests();
 
         $events = collect(iterator_to_array(Prism::text()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('What is the weather?')
             ->asStream(), false));
 

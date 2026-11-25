@@ -100,7 +100,7 @@ it('can use adaptive thinking', function (): void {
     FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/structured-with-extending-thinking');
 
     $response = Prism::structured()
-        ->using('anthropic', 'claude-sonnet-4-6')
+        ->using('anthropic', 'claude-sonnet-5-5')
         ->withSchema(new ObjectSchema('output', 'the output object', [new StringSchema('text', 'the output text')], ['text']))
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
         ->withProviderOptions(['thinking' => ['type' => 'adaptive']])
@@ -123,7 +123,7 @@ it('works with adaptive thinking when use_tool_calling is true', function (): vo
 
     $response = Prism::structured()
         ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withSystemPrompt('You are a helpful assistant.')
         ->withPrompt('What is the meaning of life, the universe and everything in popular fiction?')
         ->withProviderOptions(['thinking' => ['type' => 'adaptive'], 'use_tool_calling' => true])
@@ -153,7 +153,7 @@ it('merges effort with output_config.format in the request payload', function ()
 
     $request = Prism::structured()
         ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withPrompt('What is the weather?')
         ->withProviderOptions(['effort' => 'high']);
 
@@ -285,7 +285,7 @@ it('uses native output format by default', function (): void {
 
     $response = Prism::structured()
         ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStructured();
@@ -314,7 +314,7 @@ it('uses native output format for complex nested structures', function (): void 
 
     $response = Prism::structured()
         ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withPrompt('Extract the key information from this email: John Smith (john@example.com) is interested in our Enterprise plan and wants to schedule a demo for next Tuesday at 2pm.')
         ->asStructured();
 
@@ -340,7 +340,7 @@ it('sends output_config.format instead of deprecated output_format in the reques
 
     $request = Prism::structured()
         ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withPrompt('What is the weather?');
 
     $payload = Structured::buildHttpRequestPayload($request->toRequest());
@@ -362,7 +362,7 @@ it('throws error when citations and native output format are used together', fun
 
     expect(fn (): Response => Prism::structured()
         ->withSchema($schema)
-        ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->using(Provider::Anthropic, 'claude-sonnet-5-5')
         ->withPrompt('What is the answer?')
         ->withProviderOptions(['citations' => true])
         ->asStructured()

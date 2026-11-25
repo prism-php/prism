@@ -127,7 +127,7 @@ use Prism\Prism\Enums\Provider;
 use Prism\Prism\ValueObjects\Media\Document;
 
 $response = Prism::text()
-    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4')
+    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-5.5')
     ->withPrompt('Summarize this document.', [
         Document::fromUrl('https://example.com/report.pdf', 'report.pdf'),
     ])
@@ -264,7 +264,7 @@ Reasoning content is available via the `additionalContent` property on the respo
 
 ```php
 $response = Prism::text()
-    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4.5')
+    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-5.5')
     ->withPrompt('What is the derivative of x^3 + 2x^2 - 5x + 1?')
     ->withProviderOptions([
         'reasoning' => ['max_tokens' => 4000]
@@ -292,7 +292,7 @@ When streaming, reasoning tokens arrive as `ThinkingDelta` events before the tex
 use Prism\Prism\Enums\StreamEventType;
 
 $stream = Prism::text()
-    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-4.5')
+    ->using(Provider::OpenRouter, 'anthropic/claude-sonnet-5.5')
     ->withPrompt('Solve this complex math problem step by step.')
     ->withProviderOptions([
         'reasoning' => ['max_tokens' => 4000]
@@ -405,7 +405,7 @@ $response = Prism::text()
     ->withProviderOptions([
         // https://openrouter.ai/docs/model-routing
         'models' => [
-            'anthropic/claude-sonnet-4.5',
+            'anthropic/claude-sonnet-5.5',
             'openai/gpt-4o-mini',
         ],
         'top_k' => 40,
@@ -426,7 +426,7 @@ The single `model` parameter and the fallback `models` array work together. When
 OpenRouter supports many models from different providers. The [Models API](https://openrouter.ai/docs/overview/models) returns structured metadata—`supported_parameters`, context length, pricing, and more—so you can verify capabilities programmatically before issuing requests. Some popular options include:
 
 - `x-ai/grok-code-fast-1`
-- `anthropic/claude-sonnet-4.5`
+- `anthropic/claude-sonnet-5.5`
 - `google/gemini-2.5-flash`
 - `deepseek/deepseek-chat-v3-0324`
 - `z-ai/glm-4.6`

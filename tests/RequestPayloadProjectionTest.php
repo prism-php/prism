@@ -97,7 +97,7 @@ it('keeps billed signatures and tool content while mapping only the canonical re
     Http::fake();
     $signature = str_repeat('opaque-signature', 3000);
     $arguments = ['payload' => str_repeat('argument', 5000)];
-    $generation = Prism::text()->using(Provider::Anthropic, 'claude-sonnet-4-6')->withMessages([
+    $generation = Prism::text()->using(Provider::Anthropic, 'claude-sonnet-5-5')->withMessages([
         new UserMessage('Question'),
         new AssistantMessage('', [new ToolCall('call-1', 'search', $arguments)], [
             'content_blocks' => [
