@@ -86,7 +86,7 @@ class Telemetry
 
         self::stack()->push($context);
 
-        event(new GenerationStarted(
+        self::dispatch(new GenerationStarted(
             $context,
             self::capturesContent() ? $request : null,
             self::advertisedTools($request),
@@ -105,7 +105,7 @@ class Telemetry
             $index = 0;
 
             foreach ($response->steps as $step) {
-                event(new StepCompleted(
+                self::dispatch(new StepCompleted(
                     $context->withStep($index),
                     $step->finishReason,
                     $step->usage,
@@ -117,7 +117,7 @@ class Telemetry
             }
         }
 
-        event(new GenerationCompleted(
+        self::dispatch(new GenerationCompleted(
             $context,
             $context->elapsedMs(),
             $finishReason,
@@ -133,7 +133,7 @@ class Telemetry
             return;
         }
 
-        event(new GenerationFailed($context, $context->elapsedMs(), $exception, $exception instanceof PrismException ? $exception->streamFailureUsage() : null));
+        self::dispatch(new GenerationFailed($context, $context->elapsedMs(), $exception, $exception instanceof PrismException ? $exception->streamFailureUsage() : null));
     }
 
     public static function end(?TelemetryContext $context): void
@@ -176,7 +176,7 @@ class Telemetry
             $eventContext = $eventContext->withTool($toolIndex);
         }
 
-        event(new ToolInvoked(
+        self::dispatch(new ToolInvoked(
             $eventContext,
             $toolCall->name,
             $toolCall->id,
@@ -233,7 +233,7 @@ class Telemetry
                     self::appendItem($messages, ['type' => 'tool_result', 'tool_results' => [$event->toolResult->toArray()]], $maxItems, $itemsTruncated);
                 } elseif ($event instanceof StepFinishEvent) {
                     $content = $capturesContent ? new StreamContent($stepText, $systemPrompts, $messages, $toolCalls, $stepTruncated || $itemsTruncated) : null;
-                    event(new StepCompleted($context->withStep($stepIndex), $event->finishReason, $event->usage, $content));
+                    self::dispatch(new StepCompleted($context->withStep($stepIndex), $event->finishReason, $event->usage, $content));
 
                     if ($capturesContent) {
                         self::appendItem($messages, ['type' => 'assistant', 'content' => $stepText, 'tool_calls' => $toolCalls], $maxItems, $itemsTruncated);
@@ -252,7 +252,7 @@ class Telemetry
         } catch (Throwable $exception) {
             try {
                 if ($lastError instanceof ErrorEvent) {
-                    event(new GenerationErrored($context, $context->elapsedMs(), failureUsage: $lastError->failureUsage));
+                    self::dispatch(new GenerationErrored($context, $context->elapsedMs(), failureUsage: $lastError->failureUsage));
                 }
             } finally {
                 throw $exception;
@@ -260,13 +260,40 @@ class Telemetry
         }
 
         if ($lastError instanceof ErrorEvent || $lastEnd?->finishReason === FinishReason::Error) {
-            event(new GenerationErrored($context, $context->elapsedMs(), failureUsage: $lastError?->failureUsage));
+            self::dispatch(new GenerationErrored($context, $context->elapsedMs(), failureUsage: $lastError?->failureUsage));
         }
         if ($failed || $lastEnd?->finishReason === FinishReason::Error) {
             return;
         }
 
         self::completed($context, $capturesContent ? new StreamContent($fullText, $systemPrompts, $messages, truncated: $fullTruncated || $itemsTruncated) : null, $lastEnd?->finishReason, $lastEnd?->usage);
+    }
+
+    /**
+     * Dispatch one telemetry event. A listener that throws never reaches the
+     * caller: its exception goes to Laravel's exception handler instead.
+     *
+     * Every event in this class is dispatched while a generation is in
+     * flight, and several of them after a tool has already run but before the
+     * caller has its result. Telemetry observes execution; it may not change
+     * it, so no listener exception is allowed to replace that result.
+     *
+     * Laravel stops dispatching an event at the first listener that throws, so
+     * later listeners of that one event do not see it. Reporting is guarded as
+     * well: a handler that itself throws is not allowed to undo the guarantee.
+     */
+    protected static function dispatch(object $event): void
+    {
+        try {
+            event($event);
+        } catch (Throwable $failure) {
+            try {
+                report($failure);
+            } catch (Throwable) {
+                // The exception handler failed too. There is no channel left
+                // that cannot reach the caller, so the failure stops here.
+            }
+        }
     }
 
     /**

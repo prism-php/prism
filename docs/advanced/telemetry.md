@@ -83,6 +83,16 @@ Event::listen(function (GenerationCompleted $event): void {
 For anything more involved, register a listener class in your application's event
 service provider.
 
+### When a listener throws
+
+A telemetry listener cannot interrupt a generation or a tool call. If a listener
+throws, Prism passes the exception to your application's exception handler with
+`report()` and the generation carries on: tools run once, the response is
+returned in full, and the events keep their order.
+
+Laravel stops dispatching an event at the first listener that throws, so
+listeners registered after it do not receive that one event.
+
 ## Tool failures
 
 `ToolInvoked.failed` and `ToolInvoked.failure` are always available, including
