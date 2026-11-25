@@ -196,3 +196,15 @@ it('refuses a format, invisible or deviation character in the host when called d
     'final sigma (deviation)' => ["https://\u{03BB}\u{03BF}\u{03B3}\u{03BF}\u{03C2}.example/v1"],
     'joiner in userinfo' => ["http://user\u{200D}@gateway.example/v1"],
 ]);
+
+it('judges an ISATAP address behind a 6to4 prefix by the IPv4 it carries', function (): void {
+    expect(perCallCode('http://[2002:808:808::5efe:7f00:1]/v1'))->toBe('private_address_refused')
+        ->and(perCallCode('http://[2002:808:808::5efe:169.254.169.254]/v1'))->toBe('private_address_refused')
+        ->and(perCallCode('http://[2002:808:808::200:5efe:a9fe:a9fe]/v1'))->toBe('private_address_refused')
+        ->and(perCallCode('http://[2002:808:808::5efe:808:808]/v1'))->toBeNull();
+});
+
+it('refuses a trailing dot inside brackets', function (): void {
+    expect(perCallCode('http://[2606:4700::127.0.0.1.]/v1'))->toBe('private_address_refused')
+        ->and(perCallCode('http://[2606:4700::1.]/v1'))->toBe('private_address_refused');
+});

@@ -394,3 +394,13 @@ it('refuses an IPv6 literal whose dotted IPv4 tail is private, before any reques
     'siit private' => ['http://[::ffff:0:10.0.0.5]/v1'],
     'ipv4-compatible loopback' => ['http://[::127.0.0.1]/v1'],
 ]);
+
+it('refuses an ISATAP address behind a 6to4 prefix that carries a private IPv4, before any request', function (string $url): void {
+    expect(perCallRefusal('openai', ['url' => $url])?->code())->toBe('private_address_refused');
+
+    Http::assertNothingSent();
+})->with([
+    'loopback' => ['http://[2002:808:808::5efe:7f00:1]/v1'],
+    'metadata, dotted' => ['http://[2002:808:808::5efe:169.254.169.254]/latest'],
+    'trailing dot inside brackets' => ['http://[2606:4700::127.0.0.1.]/v1'],
+]);

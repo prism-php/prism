@@ -128,6 +128,11 @@ class PerCallUrl
             throw self::hostRefused();
         }
 
+        // An address literal has no trailing dot; only a name does.
+        if (str_ends_with($written, '.]')) {
+            throw self::hostRefused();
+        }
+
         // Text that is not valid UTF-8 (false) is refused as well.
         if (preg_match(self::INVISIBLE, self::authority($url)) !== 0) {
             throw self::hostRefused();

@@ -264,6 +264,11 @@ dataset('non-public addresses', [
     'IPv6 multicast' => ['ff02::1'],
     'IPv4-mapped loopback, compressed' => ['::ffff:7f00:1'],
     'IPv4-compatible loopback, compressed' => ['::7f00:1'],
+    'ISATAP of loopback behind a 6to4 prefix' => ['2002:808:808::5efe:7f00:1'],
+    'ISATAP of the metadata endpoint behind a 6to4 prefix, dotted' => ['2002:808:808::5efe:169.254.169.254'],
+    'ISATAP with the u bit behind a 6to4 prefix' => ['2002:808:808::200:5efe:a9fe:a9fe'],
+    'ISATAP of a private address, dotted' => ['2001:4860::5efe:10.0.0.5'],
+    'ISATAP of loopback, dotted' => ['2606:4700::5efe:127.0.0.1'],
 ]);
 
 it('refuses a non-public address written as a literal', function (string $address): void {
@@ -301,6 +306,9 @@ it('still fetches public addresses, including through NAT64 and 6to4', function 
     'NAT64 of a public IPv4' => ['64:ff9b::808:808'],
     '6to4 of a public IPv4' => ['2002:808:808::1'],
     'public IPv6' => ['2606:4700:4700::1111'],
+    'public IPv6, dotted tail' => ['2606:4700::8.8.8.8'],
+    'ISATAP of a public IPv4, dotted' => ['2606:4700::5efe:8.8.8.8'],
+    'ISATAP of a public IPv4 behind a 6to4 prefix' => ['2002:808:808::5efe:808:808'],
 ]);
 
 /*
