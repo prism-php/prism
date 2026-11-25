@@ -1,0 +1,37 @@
+{
+    "id": "4f7c2c9e8b1a4d0f9e6a3b5c7d8e9f01",
+    "object": "chat.completion",
+    "created": 1762300000,
+    "model": "mistral-large-4",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "tool_calls": null,
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": [
+                            {
+                                "type": "text",
+                                "text": "The game is at 3pm and it will be 75º, so a coat is not needed."
+                            }
+                        ],
+                        "closed": true
+                    },
+                    {
+                        "type": "text",
+                        "text": "{\n  \"weather\": \"75º\",\n  \"game_time\": \"3pm\",\n  \"coat_required\": false\n}"
+                    }
+                ]
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 52,
+        "total_tokens": 118,
+        "completion_tokens": 66
+    }
+}

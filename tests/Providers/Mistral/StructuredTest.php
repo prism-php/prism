@@ -54,6 +54,36 @@ it('returns structured output', function (): void {
     expect($response->usage->completionTokens)->toBe(34);
 });
 
+it('returns structured output from a reasoning model whose content is an array of parts', function (): void {
+    FixtureResponse::fakeResponseSequence('chat/completions', 'mistral/structured-with-reasoning-model');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using(Provider::Mistral, 'mistral-large-4')
+        ->withSystemPrompt('The tigers game is at 3pm in Detroit, the temperature is expected to be 75º')
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->asStructured();
+
+    expect($response->structured)->toBe([
+        'weather' => '75º',
+        'game_time' => '3pm',
+        'coat_required' => false,
+    ]);
+    expect($response->text)->toBe("{\n  \"weather\": \"75º\",\n  \"game_time\": \"3pm\",\n  \"coat_required\": false\n}");
+    expect($response->meta->model)->toBe('mistral-large-4');
+});
+
 it('forwards reasoning_effort provider option for structured requests', function (): void {
     FixtureResponse::fakeResponseSequence('chat/completions', 'mistral/structured');
 
