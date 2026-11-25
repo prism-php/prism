@@ -279,6 +279,99 @@
             },
             "agrees": true,
             "notes": "G-89's control. A DNS64 resolver hands an IPv6-only host 64:ff9b:: addresses for public sites (this is 93.184.216.34). A guard that refused NAT64 outright would pass url-0014 and url-0016 and break every fetch on such a network; this row fails it."
+        },
+        {
+            "id": "url-0018",
+            "title": "an ISATAP literal carrying loopback behind a public 6to4 prefix",
+            "since": "0.1.29",
+            "url": "http://[2002:808:808::5efe:7f00:1]/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-366. The 6to4 rule judges the IPv4 after 2002: (public here) and used to return before the ISATAP rule ran, so the loopback address the interface identifier carries was never judged, in all three languages at once."
+        },
+        {
+            "id": "url-0019",
+            "title": "an ISATAP literal carrying the metadata address, written dotted, behind a 6to4 prefix",
+            "since": "0.1.29",
+            "url": "http://[2002:808:808::5efe:169.254.169.254]/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-366. The same address as url-0018's shape with a dotted IPv4 tail: a dotted tail is the same address as its hex spelling and must be judged the same way."
+        },
+        {
+            "id": "url-0020",
+            "title": "a public NAME whose DNS answer is ISATAP of the metadata address behind a 6to4 prefix",
+            "since": "0.1.29",
+            "url": "http://isatap.test/latest/meta-data/",
+            "resolves": {
+                "isatap.test": [
+                    "2002:808:808::200:5efe:a9fe:a9fe"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-366. The check runs on every DNS answer, where an attacker who owns the record chooses the spelling; the u bit is set in the interface identifier."
+        },
+        {
+            "id": "url-0021",
+            "title": "the NAT64 metadata address written with a dotted tail",
+            "since": "0.1.29",
+            "url": "http://[64:ff9b::169.254.169.254]/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "A dotted IPv4 tail on a NAT64 literal. Judged by the embedded address, like url-0014's hex spelling."
+        },
+        {
+            "id": "url-0022",
+            "title": "a public host redirecting into a dotted-tail ISATAP loopback literal",
+            "since": "0.1.29",
+            "url": "http://public.test/x.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "redirects_to": "http://[2606:4700::5efe:127.0.0.1]/x.png",
+            "refusal": {
+                "php": "redirect_refused",
+                "ts": "redirect_refused",
+                "py": "redirect_refused"
+            },
+            "agrees": true,
+            "notes": "A redirect hop is judged like the first request. The target carries loopback in a dotted IPv4 tail behind an ISATAP interface identifier."
+        },
+        {
+            "id": "url-0023",
+            "title": "a public IPv6 literal written with a dotted tail still fetches",
+            "since": "0.1.29",
+            "url": "https://[2606:4700::8.8.8.8]/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": true,
+            "notes": "The control for the dotted-tail rows. The reference used to refuse every dotted-tail IPv6 literal as reserved, even a public one, while the ports fetched it. A guard that refused every dotted tail would pass url-0019, url-0021 and url-0022 and fail this row."
         }
     ]
 }

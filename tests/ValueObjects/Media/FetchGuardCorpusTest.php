@@ -127,7 +127,7 @@ it('refuses something, so the corpus is not agreeing about nothing', function ()
         ]);
 });
 
-it('still has the three controls that stop this suite passing vacuously', function (): void {
+it('still has the four controls that stop this suite passing vacuously', function (): void {
     $controls = array_values(array_filter(
         fetchGuardCorpus(),
         fn (array $case): bool => $case['refusal']['php'] === null,
@@ -137,6 +137,7 @@ it('still has the three controls that stop this suite passing vacuously', functi
     // still unguarded, and one public NAT64 answer that must FETCH (G-89). Lose
     // any and a guard that refuses everything, one applied to the wrong
     // method, or one that refuses NAT64 outright would score full marks here.
-    expect(array_column($controls, 'id'))->toBe(['url-0001', 'url-0009', 'url-0017'])
+    // A public IPv6 literal with a dotted tail must FETCH too (G-366).
+    expect(array_column($controls, 'id'))->toBe(['url-0001', 'url-0009', 'url-0017', 'url-0023'])
         ->and(array_column($controls, 'guarded'))->toContain(false);
 });
