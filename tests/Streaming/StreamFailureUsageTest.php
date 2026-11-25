@@ -7,6 +7,7 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Events\Broadcasting\ErrorBroadcast;
@@ -368,7 +369,8 @@ it('normalizes provider cache reasoning and cost reports without changing succes
     ['openrouter', ['usage' => ['prompt_tokens' => 11, 'completion_tokens' => 3, 'cost' => 0.1, 'is_byok' => true, 'cost_details' => ['upstream_inference_cost' => 0.2]]], ['prompt_tokens' => 11, 'cost' => 0.30000000000000004]],
 ]);
 
-it('preserves native public RequestException mapping and listener exception precedence', function (bool $reported, bool $listenerThrows): void {
+it('preserves native public RequestException mapping, and reports a throwing GenerationFailed listener instead of throwing it', function (bool $reported, bool $listenerThrows): void {
+    Exceptions::fake();
     Http::preventStrayRequests();
     config()->set('prism.providers.anthropic.api_key', 'owned-fake');
     config()->set('prism.telemetry.enabled', true);
@@ -417,12 +419,11 @@ it('preserves native public RequestException mapping and listener exception prec
         $caught = $exception;
     }
     $errors = array_values(array_filter($events, fn (StreamEvent $e): bool => $e instanceof ErrorEvent));
+    // A listener observes the failure; it may not replace it.
     if ($listenerThrows) {
-        expect($caught)->toBe($listenerFailure)
-            ->and($errors)->toHaveCount($reported ? 1 : 0)
-            ->and($telemetry)->toHaveCount($reported ? 1 : 0);
-
-        return;
+        Exceptions::assertReported(fn (LogicException $failure): bool => $failure === $listenerFailure);
+    } else {
+        Exceptions::assertNothingReported();
     }
     expect($caught)->toBeInstanceOf(PrismException::class)
         ->and($caught::class)->toBe(PrismException::class)
