@@ -19,6 +19,7 @@ use Prism\Prism\Providers\OpenAI\OpenAI;
 use Prism\Prism\Providers\OpenRouter\OpenRouter;
 use Prism\Prism\Providers\Perplexity\Perplexity;
 use Prism\Prism\Providers\Provider;
+use Prism\Prism\Providers\Vertex\Vertex;
 use Prism\Prism\Providers\VoyageAI\VoyageAI;
 use Prism\Prism\Providers\XAI\XAI;
 use Prism\Prism\Providers\Z\Z;
@@ -223,6 +224,19 @@ class PrismManager
         return new ElevenLabs(
             apiKey: $config['api_key'] ?? '',
             url: $config['url'] ?? 'https://api.elevenlabs.io/v1/',
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $config
+     */
+    protected function createVertexProvider(array $config): Vertex
+    {
+        return new Vertex(
+            projectId: $config['project_id'] ?? '',
+            region: $config['region'] ?? 'us-central1',
+            accessToken: $config['access_token'] ?? null,
+            credentialsPath: $config['credentials_path'] ?? null,
         );
     }
 

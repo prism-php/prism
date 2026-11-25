@@ -65,6 +65,12 @@ return [
             'api_key' => env('PERPLEXITY_API_KEY', ''),
             'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
         ],
+        'vertex' => [
+            'project_id' => env('VERTEX_PROJECT_ID', ''),
+            'region' => env('VERTEX_REGION', 'us-central1'),
+            'access_token' => env('VERTEX_ACCESS_TOKEN', null),
+            'credentials_path' => env('VERTEX_CREDENTIALS_PATH', null),
+        ],
         'z' => [
             'url' => env('Z_URL', 'https://api.z.ai/api/paas/v4'),
             'api_key' => env('Z_API_KEY', ''),

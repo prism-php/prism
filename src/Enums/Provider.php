@@ -18,5 +18,6 @@ enum Provider: string
     case VoyageAI = 'voyageai';
     case ElevenLabs = 'elevenlabs';
     case Perplexity = 'perplexity';
+    case Vertex = 'vertex';
     case Z = 'z';
 }
