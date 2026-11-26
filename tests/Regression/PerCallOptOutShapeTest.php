@@ -55,6 +55,7 @@ function optOutShapeUrls(): array
         'percent-escaped name' => ['http://loc%61lhost/v1', 'private_address_refused'],
         'non-ascii host' => ['http://ex'."\u{00E4}".'mple.test/v1', 'non_ascii_host_use_punycode'],
         'zone id' => ['http://[fe80::1%25eth0]/v1', 'private_address_refused'],
+        'underscore' => ['http://my_service:8000/v1', 'private_address_refused'],
     ];
 }
 
