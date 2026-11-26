@@ -86,8 +86,33 @@ class PublicUrl
             throw new PrismUrlRefused('private_address_refused', 'A guarded fetch refuses a host written with escapes or a backslash.');
         }
 
+        // Older Guzzle releases pass a non-ASCII host to libcurl, which may map
+        // it to an ASCII address this check never judged. A name is given in
+        // its punycode (xn--) form; nothing else outside printable ASCII is read.
+        if (preg_match('/[^\x21-\x7E]/', $host) === 1) {
+            throw new PrismUrlRefused('private_address_refused', 'A guarded fetch refuses a host that is not printable ASCII. Give an international name in its punycode (xn--) form.');
+        }
+
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
             self::assertPublicAddress($host, $host);
+
+            return;
+        }
+
+        // The client reads every IPv4 spelling a resolver accepts (hex, octal,
+        // decimal, shortened, with trailing dots) as the address it spells, so
+        // a host whose last label is a number is judged as that address and
+        // never resolved as a name. One that is not a valid spelling is refused.
+        $labels = explode('.', rtrim(strtolower($host), '.'));
+
+        if (! str_contains($host, ':') && preg_match('/\A(0x[0-9a-f]*|\d+)\z/', (string) end($labels)) === 1) {
+            $address = PerCallUrl::ipv4($labels);
+
+            if ($address === null) {
+                throw new PrismUrlRefused('private_address_refused', 'A guarded fetch refuses a host that reads as an address but is not a valid one.');
+            }
+
+            self::assertPublicAddress($address, $address);
 
             return;
         }
