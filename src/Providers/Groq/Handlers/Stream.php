@@ -265,7 +265,11 @@ class Stream
             if ($name = data_get($toolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
-                $toolCalls[$index]['id'] = data_get($toolCall, 'id');
+            }
+
+            // The id can arrive in a different chunk than the name, so keep it from whichever chunk carries it.
+            if ($id = data_get($toolCall, 'id')) {
+                $toolCalls[$index]['id'] = $id;
             }
 
             $arguments = data_get($toolCall, 'function.arguments');
@@ -357,7 +361,8 @@ class Stream
                 }
 
                 return new ToolCall(
-                    data_get($toolCall, 'id'),
+                    // Groq does not always send an id while streaming; the call and its result share this one.
+                    data_get($toolCall, 'id') ?? EventID::generate('call'),
                     data_get($toolCall, 'name'),
                     $arguments,
                 );
