@@ -36,6 +36,28 @@ use Prism\Prism\Exceptions\PrismUrlRefused;
 class PublicUrl
 {
     /**
+     * Every range a guarded fetch refuses: private, loopback, link-local,
+     * shared (CGNAT), documentation, benchmarking, multicast, reserved, and the
+     * IPv6 spellings that reach them: IPv4-compatible, IPv4-mapped, SIIT
+     * IPv4-translated (`::ffff:0:0:0/96`), local-use NAT64 and Teredo.
+     */
+    protected const BLOCKED = [
+        ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+        ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
+        ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
+        ['224.0.0.0', 4], ['240.0.0.0', 4],
+        ['::', 96], ['::ffff:0:0', 96], ['::ffff:0:0:0', 96], ['64:ff9b:1::', 48], ['100::', 64],
+        ['2001::', 32], ['2001:db8::', 32], ['fc00::', 7], ['fe80::', 10],
+        ['fec0::', 10], ['ff00::', 8],
+    ];
+
+    /** Prefixes that embed an IPv4 address: [prefix, bits, byte offset]. */
+    protected const EMBEDDING = [
+        ['64:ff9b::', 96, 12],
+        ['2002::', 16, 2],
+    ];
+
+    /**
      * @throws PrismUrlRefused when the URL is not one a public client could reach
      */
     public static function assert(string $url, HostResolver $resolver): void
@@ -54,6 +76,14 @@ class PublicUrl
 
         if ($host === '') {
             throw new PrismUrlRefused('scheme_not_allowed', 'A guarded fetch needs an absolute http or https URL.');
+        }
+
+        // parse_url() never decodes a percent escape in the host, and libcurl
+        // decodes one before it connects; URL parsers also split a backslash in
+        // different places. A host holding either would be checked as one name
+        // and contacted as another, so it is refused before it is resolved.
+        if (strpbrk(self::writtenHostPort($url), '%'.chr(92)) !== false) {
+            throw new PrismUrlRefused('private_address_refused', 'A guarded fetch refuses a host written with escapes or a backslash.');
         }
 
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
@@ -89,6 +119,19 @@ class PublicUrl
         }
 
         return true;
+    }
+
+    /**
+     * The authority as written, after its last `@`: from after `//` to the
+     * first `/`, `?` or `#`. Nothing is decoded.
+     */
+    protected static function writtenHostPort(string $url): string
+    {
+        $rest = substr($url, (int) strpos($url, '//') + 2);
+        $authority = substr($rest, 0, strcspn($rest, '/?#'));
+        $at = strrpos($authority, '@');
+
+        return $at === false ? $authority : substr($authority, $at + 1);
     }
 
     /**
@@ -148,28 +191,6 @@ class PublicUrl
             throw new PrismUrlRefused('private_address_refused', $host.' is a private or reserved address, which a guarded fetch will not request.');
         }
     }
-
-    /**
-     * Every range a guarded fetch refuses: private, loopback, link-local,
-     * shared (CGNAT), documentation, benchmarking, multicast, reserved, and the
-     * IPv6 spellings that reach them: IPv4-compatible, IPv4-mapped, SIIT
-     * IPv4-translated (`::ffff:0:0:0/96`), local-use NAT64 and Teredo.
-     */
-    protected const BLOCKED = [
-        ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
-        ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
-        ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
-        ['224.0.0.0', 4], ['240.0.0.0', 4],
-        ['::', 96], ['::ffff:0:0', 96], ['::ffff:0:0:0', 96], ['64:ff9b:1::', 48], ['100::', 64],
-        ['2001::', 32], ['2001:db8::', 32], ['fc00::', 7], ['fe80::', 10],
-        ['fec0::', 10], ['ff00::', 8],
-    ];
-
-    /** Prefixes that embed an IPv4 address: [prefix, bits, byte offset]. */
-    protected const EMBEDDING = [
-        ['64:ff9b::', 96, 12],
-        ['2002::', 16, 2],
-    ];
 
     protected static function inRange(string $packed, string $network, int $bits): bool
     {

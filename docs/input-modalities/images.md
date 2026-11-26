@@ -139,6 +139,6 @@ $image = Image::fromUrl('https://example.com/diagram.png')
     ->fetchPublicUrlContent();
 ```
 
-`fetchPublicUrlContent()` rejects non-HTTP schemes, private, loopback and reserved addresses, including hostnames resolving to those addresses. It checks redirect destinations and defaults to five redirects and a 32 MiB response limit. It throws `Prism\Prism\Exceptions\PrismUrlRefused` when a URL, redirect or response size is refused. These checks do not pin DNS results to the eventual connection; use network egress restrictions where that boundary matters.
+`fetchPublicUrlContent()` rejects non-HTTP schemes, private, loopback and reserved addresses, including hostnames resolving to those addresses, and a host written with a percent escape or a backslash. It checks redirect destinations and defaults to five redirects and a 32 MiB response limit. It throws `Prism\Prism\Exceptions\PrismUrlRefused` when a URL, redirect or response size is refused. These checks do not pin DNS results to the eventual connection; use network egress restrictions where that boundary matters.
 
 Use `fetchUrlContent()` only for a URL your application explicitly trusts. It performs an unguarded HTTP fetch, with no public-address, redirect or response-size checks. Neither method runs automatically. The same fetch methods are available on documents, audio and video.

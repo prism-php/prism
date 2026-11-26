@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Regression;
 
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use Prism\Prism\Exceptions\PrismUrlRefused;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\PrismManager;
@@ -72,7 +73,21 @@ it('keeps the scheme and host rules with the opt-out on, for an openai-compatibl
         'allow_private_per_call_url' => true,
     ]);
 
-    expect(optOutRefusal('my-vllm', $url)?->code())->toBe($code);
+    $thrown = null;
+    try {
+        Prism::text()->using('my-vllm', 'fixture-model', ['url' => $url])->withPrompt('hi')->asText();
+    } catch (Throwable $error) {
+        $thrown = $error;
+    }
+
+    // A compatible entry already refused a url that is not absolute http(s)
+    // before the guard runs, with its own "not a valid provider url" error.
+    if ($code === 'scheme_not_allowed' && $thrown instanceof InvalidArgumentException) {
+        expect($thrown->getMessage())->toContain('not a valid provider url');
+    } else {
+        expect($thrown)->toBeInstanceOf(PrismUrlRefused::class)
+            ->and($thrown->code())->toBe($code);
+    }
 
     Http::assertNothingSent();
 })->with(optOutShapeUrls());

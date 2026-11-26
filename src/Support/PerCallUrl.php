@@ -109,10 +109,17 @@ class PerCallUrl
     protected const INVISIBLE = '/[\x{0080}-\x{00A0}\x{00AD}\x{00DF}\x{034F}\x{03C2}\x{0600}-\x{0605}\x{061C}\x{06DD}\x{070F}\x{0890}-\x{0891}\x{08E2}\x{115F}-\x{1160}\x{1680}\x{17B4}-\x{17B5}\x{1806}\x{180B}-\x{180F}\x{1E9E}\x{2000}-\x{200F}\x{2028}-\x{202F}\x{205F}-\x{206F}\x{2800}\x{3000}\x{3164}\x{FE00}-\x{FE0F}\x{FEFF}\x{FFA0}\x{FFF0}-\x{FFFB}\x{110BD}\x{110CD}\x{13430}-\x{1343F}\x{1BCA0}-\x{1BCA3}\x{1D173}-\x{1D17A}\x{E0000}-\x{E0FFF}]/u';
 
     /**
+     * `$allowPrivate` is the provider config's opt-out
+     * (`allow_private_per_call_url`). It skips only the address and local-name
+     * rules. The scheme, the host as written, the invisible characters and the
+     * ASCII rule hold either way: the opt-out lets a call name a private
+     * address, never another scheme or a host the HTTP client would read
+     * differently from this check.
+     *
      * @throws PrismUrlRefused `scheme_not_allowed`, `private_address_refused`
      *                         or `non_ascii_host_use_punycode`
      */
-    public static function assert(string $url): void
+    public static function assert(string $url, bool $allowPrivate = false): void
     {
         if (preg_match('#\Ahttps?://#i', $url) !== 1) {
             throw new PrismUrlRefused('scheme_not_allowed', self::SCHEME_MESSAGE);
@@ -162,6 +169,10 @@ class PerCallUrl
 
         if (preg_match('/\A[a-z0-9.:\-]+\z/', $host) !== 1) {
             throw self::hostRefused();
+        }
+
+        if ($allowPrivate) {
+            return;
         }
 
         if (str_contains($host, ':')) {

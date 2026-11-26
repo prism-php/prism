@@ -360,7 +360,9 @@ class PrismManager
      * point at a local model server. A per-call url naming that same endpoint
      * is not a new address and passes. The only way to allow a private
      * per-call url is `allow_private_per_call_url => true` in the provider's
-     * CONFIG; the same key in the per-call config is never read.
+     * CONFIG; the same key in the per-call config is never read. The opt-out
+     * allows a private address and nothing else: the url must still be an
+     * absolute http or https url whose host this check can read.
      *
      * @param  array<string, mixed>  $configured
      * @param  array<string, mixed>  $overrides
@@ -375,15 +377,14 @@ class PrismManager
             return;
         }
 
-        if (($configured['allow_private_per_call_url'] ?? false) === true) {
-            return;
-        }
-
         if ($this->sameEndpoint($configured['url'] ?? null, $url)) {
             return;
         }
 
-        PerCallUrl::assert($url);
+        // The opt-out allows a private ADDRESS only. The scheme and host rules
+        // still apply: a custom creator gets the url as given, and the default
+        // client reads some hosts differently from this check.
+        PerCallUrl::assert($url, allowPrivate: ($configured['allow_private_per_call_url'] ?? false) === true);
     }
 
     /**
