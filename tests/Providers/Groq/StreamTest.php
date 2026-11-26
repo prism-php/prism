@@ -584,6 +584,44 @@ it('keeps parallel tool calls apart when their deltas arrive in separate chunks'
         ->toBe([['city' => 'Detroit'], ['city' => 'Paris']]);
 });
 
+it('takes a tool call id from a later chunk than the function name', function (): void {
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(groqGatingSse(
+                groqToolCallDeltaChunk(['index' => 0, 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '']]),
+                groqToolCallDeltaChunk(['index' => 0, 'id' => 'call_late', 'function' => ['arguments' => '{"city":"Detroit"}']]),
+                groqGatingFinishChunk('tool_calls'),
+            ), 200, ['Content-Type' => 'text/event-stream'])
+            ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $events = groqGatingStream($calls);
+
+    expect($calls)->toBe(1)
+        ->and($events->whereInstanceOf(ToolCallEvent::class)->sole()->toolCall->id)->toBe('call_late');
+});
+
+it('runs a streamed tool call that never receives an id', function (): void {
+    Http::fake([
+        '*' => Http::sequence()
+            ->push(groqGatingSse(
+                groqToolCallDeltaChunk(['index' => 0, 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '']]),
+                groqToolCallDeltaChunk(['index' => 0, 'function' => ['arguments' => '{"city":"Detroit"}']]),
+                groqGatingFinishChunk('tool_calls'),
+            ), 200, ['Content-Type' => 'text/event-stream'])
+            ->push(groqGatingSse(groqGatingFinishChunk('stop')), 200, ['Content-Type' => 'text/event-stream']),
+    ])->preventStrayRequests();
+
+    $calls = 0;
+    $events = groqGatingStream($calls);
+    $toolCall = $events->whereInstanceOf(ToolCallEvent::class)->sole()->toolCall;
+
+    expect($calls)->toBe(1)
+        ->and($toolCall->id)->toBeString()->not->toBeEmpty()
+        ->and($events->whereInstanceOf(ToolResultEvent::class)->sole()->toolResult->toolCallId)->toBe($toolCall->id);
+});
+
 describe('tool execution gating', function (): void {
     it('never runs buffered tool calls when the step does not finish with tool calls', function (array $chunks, FinishReason $finishReason): void {
         Http::fake([
