@@ -117,7 +117,7 @@ The check reads the url only. **It does not resolve DNS.** A public hostname tha
 
 To allow private per-call urls for one provider, set its `allow_private_per_call_url` to `true` in the configuration. The shipped config reads it from `<PROVIDER>_ALLOW_PRIVATE_PER_CALL_URL` (for example `OPENAI_ALLOW_PRIVATE_PER_CALL_URL=true`) and it is off by default. Only `true` turns it on, and the same key passed in a per-call override is ignored.
 
-The setting allows private addresses only. With it on, a per-call url must still be an absolute `http` or `https` url, and its host is still refused if it holds a percent escape, a backslash, an invisible character or a non-ASCII character (give an international name in its punycode `xn--` form).
+The setting allows private addresses only. With it on, a per-call url must still be an absolute `http` or `https` url, and its host may still hold only ASCII letters, digits, hyphens and dots, or an IPv6 address in brackets. A host with a percent escape, a backslash, an underscore, an IPv6 zone id, an invisible character or a non-ASCII character is still refused (give an international name in its punycode `xn--` form).
 
 ```php
 // config/prism.php

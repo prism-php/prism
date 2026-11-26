@@ -210,6 +210,57 @@ class PerCallUrl
         }
     }
 
+    /**
+     * The dotted quad an OS resolver reads these labels as, or null when they
+     * are not a valid IPv4 spelling (which is then refused, not resolved).
+     * PublicUrl reads a guarded-fetch host with this too, so the two guards
+     * read the same spellings.
+     *
+     * @internal
+     *
+     * @param  list<string>  $labels
+     */
+    public static function ipv4(array $labels): ?string
+    {
+        $count = count($labels);
+
+        if ($count > 4) {
+            return null;
+        }
+
+        $values = [];
+
+        foreach ($labels as $label) {
+            $value = self::number($label);
+
+            if ($value === null) {
+                return null;
+            }
+
+            $values[] = $value;
+        }
+
+        $last = array_pop($values);
+
+        foreach ($values as $value) {
+            if ($value > 255) {
+                return null;
+            }
+        }
+
+        if ($last > (256 ** (5 - $count)) - 1) {
+            return null;
+        }
+
+        $total = $last;
+
+        foreach ($values as $index => $value) {
+            $total += $value * (256 ** (3 - $index));
+        }
+
+        return implode('.', [($total >> 24) & 0xFF, ($total >> 16) & 0xFF, ($total >> 8) & 0xFF, $total & 0xFF]);
+    }
+
     protected static function refused(): PrismUrlRefused
     {
         return new PrismUrlRefused('private_address_refused', self::PRIVATE_MESSAGE);
@@ -259,53 +310,6 @@ class PerCallUrl
         $colon = strpos($hostPort, ':');
 
         return $colon === false ? $hostPort : substr($hostPort, 0, $colon);
-    }
-
-    /**
-     * The dotted quad an OS resolver reads these labels as, or null when they
-     * are not a valid IPv4 spelling (which is then refused, not resolved).
-     *
-     * @param  list<string>  $labels
-     */
-    protected static function ipv4(array $labels): ?string
-    {
-        $count = count($labels);
-
-        if ($count > 4) {
-            return null;
-        }
-
-        $values = [];
-
-        foreach ($labels as $label) {
-            $value = self::number($label);
-
-            if ($value === null) {
-                return null;
-            }
-
-            $values[] = $value;
-        }
-
-        $last = array_pop($values);
-
-        foreach ($values as $value) {
-            if ($value > 255) {
-                return null;
-            }
-        }
-
-        if ($last > (256 ** (5 - $count)) - 1) {
-            return null;
-        }
-
-        $total = $last;
-
-        foreach ($values as $index => $value) {
-            $total += $value * (256 ** (3 - $index));
-        }
-
-        return implode('.', [($total >> 24) & 0xFF, ($total >> 16) & 0xFF, ($total >> 8) & 0xFF, $total & 0xFF]);
     }
 
     /**
