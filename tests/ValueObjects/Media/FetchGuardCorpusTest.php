@@ -32,6 +32,19 @@ function fetchGuardCorpus(): array
         JSON_THROW_ON_ERROR,
     )['cases'];
 
+    // A `transport: default` row (corpus 0.1.44, G-386) names `{port}` and is
+    // fetched over the REAL client against a loopback server, reading what
+    // arrived off the server: prism-parity's tools/media-fetch-guard.mjs runs
+    // those against this package's default branch. Http::fake() here records
+    // what the guard decided, not where the client would have connected, which
+    // is the blind spot the wire rows close. Every other row runs here.
+    foreach ($cases as $case) {
+        if (array_key_exists('transport', $case) && $case['transport'] !== 'default') {
+            throw new \InvalidArgumentException('Unknown media-fetch-guard transport.');
+        }
+    }
+    $cases = array_values(array_filter($cases, fn (array $case): bool => ! array_key_exists('transport', $case)));
+
     foreach ($cases as $case) {
         if (array_key_exists('redirects_always', $case) && ! is_bool($case['redirects_always'])) {
             throw new \InvalidArgumentException('redirects_always must be a boolean.');
