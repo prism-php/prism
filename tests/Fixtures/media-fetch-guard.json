@@ -372,6 +372,442 @@
             },
             "agrees": true,
             "notes": "The control for the dotted-tail rows. The reference used to refuse every dotted-tail IPv6 literal as reserved, even a public one, while the ports fetched it. A guard that refused every dotted tail would pass url-0019, url-0021 and url-0022 and fail this row."
+        },
+        {
+            "id": "url-0024",
+            "title": "a percent-escaped loopback literal",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://%31%32%37.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. The PHP guard judged the host as written and asked the resolver for it, while libcurl decodes a percent escape and connects to the address it spells; Guzzle 7.15.2 and later refuse such a host themselves, earlier releases the framework allows do not. prism-py checked the escaped host and its pinned connect fell back to a fresh lookup of the decoded one (prism-py#62). A stubbed client cannot see this: only the server knows where the client went."
+        },
+        {
+            "id": "url-0025",
+            "title": "a loopback literal with one percent-escaped digit",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.0.0.%31:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. The PHP guard judged the host as written and asked the resolver for it, while libcurl decodes a percent escape and connects to the address it spells; Guzzle 7.15.2 and later refuse such a host themselves, earlier releases the framework allows do not. prism-py checked the escaped host and its pinned connect fell back to a fresh lookup of the decoded one (prism-py#62). A stubbed client cannot see this: only the server knows where the client went."
+        },
+        {
+            "id": "url-0026",
+            "title": "a percent-escaped localhost",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://loc%61lhost:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. The PHP guard judged the host as written and asked the resolver for it, while libcurl decodes a percent escape and connects to the address it spells; Guzzle 7.15.2 and later refuse such a host themselves, earlier releases the framework allows do not. prism-py checked the escaped host and its pinned connect fell back to a fresh lookup of the decoded one (prism-py#62). A stubbed client cannot see this: only the server knows where the client went."
+        },
+        {
+            "id": "url-0027",
+            "title": "a backslash inside the host",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.0.0.1\\public.test:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. A WHATWG client reads a backslash as a path separator, so this host is 127.0.0.1 to one parser and `127.0.0.1\\public.test` to another. prism#185 refuses a backslash in the written host before it resolves."
+        },
+        {
+            "id": "url-0028",
+            "title": "loopback as two-part hex",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://0x7f.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0029",
+            "title": "loopback as one decimal number",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://2130706433:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0030",
+            "title": "loopback in octal",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://0177.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0031",
+            "title": "loopback shortened to two parts",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0032",
+            "title": "loopback as one hex number",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://0x7f000001:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0033",
+            "title": "loopback in full-width digits",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://１２７.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386)."
+        },
+        {
+            "id": "url-0034",
+            "title": "loopback with ideographic full stops",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127。0。0。1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386)."
+        },
+        {
+            "id": "url-0035",
+            "title": "loopback with a Latin-1 superscript digit",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://1²7.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386). Python's HTTP client cannot encode the full-width hosts beside this one and fails before it connects; it can encode this one, so this is the row where the Python column shows its connection pin at work."
+        },
+        {
+            "id": "url-0036",
+            "title": "localhost in full-width letters",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://ｌｏｃａｌｈｏｓｔ:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386)."
+        },
+        {
+            "id": "url-0037",
+            "title": "control: localhost, which the resolver answers honestly, is refused",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://localhost:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "The resolver lies only about spellings: the plain name the client will connect to resolves to what it is. Without this, a row above would measure that a guard trusts its resolver -- which every unpinned guard does by design, and which is DNS rebinding, not a spelling -- rather than whether it reads the host the way its client does."
+        },
+        {
+            "id": "url-0038",
+            "title": "control: the canonical loopback literal is refused over the real transport",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "The baseline every spelling above is measured against: the same server, the same transport, the address written the one way every guard already knew."
+        },
+        {
+            "id": "url-0039",
+            "title": "control: the UNGUARDED fetch reaches the loopback server",
+            "since": "0.1.44",
+            "transport": "default",
+            "guarded": false,
+            "url": "http://127.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "dispatched": {
+                "php": true,
+                "ts": true,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "Proves the wire is live: the server sees a connection when a client is allowed to make one, so `dispatched: false` on a row above is a measurement, not a dead socket. Python has no unguarded media fetch, as on url-0009.",
+            "skip": {
+                "py": "Python has no unguarded fetch method by design; there is no legacy path to assert."
+            }
         }
     ]
 }
