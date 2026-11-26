@@ -407,6 +407,71 @@ it('refuses a host written with a percent escape or a backslash, before resolvin
     'zone id' => ['http://[fe80::1%25eth0]/x.png'],
 ]);
 
+/*
+ * G-382, audit 6. filter_var() reads only the canonical dotted quad, so the
+ * other IPv4 spellings were resolved as NAMES, judged by that answer, and then
+ * contacted by libcurl as the address they spell. A host that is not
+ * printable ASCII is refused too: older Guzzle releases pass one to libcurl,
+ * which may map it to an ASCII address the guard never judged.
+ */
+it('reads every IPv4 spelling as the address it spells, and refuses a non-ASCII host, before resolving', function (string $url): void {
+    $asked = [];
+    app()->instance(HostResolver::class, new class($asked) implements HostResolver
+    {
+        /** @param  list<string>  $asked */
+        public function __construct(private array &$asked) {}
+
+        public function resolve(string $host): array
+        {
+            $this->asked[] = $host;
+
+            return ['93.184.216.34'];
+        }
+    });
+    Http::fake();
+
+    $refused = null;
+    try {
+        Image::fromUrl($url)->fetchPublicUrlContent();
+    } catch (PrismUrlRefused $error) {
+        $refused = $error;
+    }
+
+    expect($refused?->code())->toBe('private_address_refused')
+        ->and($asked)->toBe([]);
+    Http::assertNothingSent();
+})->with([
+    'two-part hex' => ['http://0x7f.1/x.png'],
+    'decimal' => ['http://2130706433/x.png'],
+    'octal' => ['http://0177.0.0.1/x.png'],
+    'shortened' => ['http://127.1/x.png'],
+    'one hex number' => ['http://0x7f000001/x.png'],
+    'upper-case hex' => ['http://0X7F.0.0.1/x.png'],
+    'metadata as one hex number' => ['http://0xa9fea9fe/latest/meta-data/'],
+    'trailing dot' => ['http://127.0.0.1./x.png'],
+    'numeric trailing dot' => ['http://2130706433./x.png'],
+    'invalid numeric spelling' => ['http://1.2.3.4.5/x.png'],
+    'number out of range' => ['http://4294967296/x.png'],
+    'name ending in a number' => ['http://public.test.123/x.png'],
+    'full-width digits' => ["http://\u{FF11}\u{FF12}\u{FF17}.0.0.1/x.png"],
+    'ideographic full stop' => ["http://127\u{3002}0\u{3002}0\u{3002}1/x.png"],
+    'non-ascii name' => ["http://ex\u{00E4}mple.test/x.png"],
+]);
+
+it('still fetches a public address in any spelling, and a punycode name (the control)', function (string $url, string $name): void {
+    resolvesTo(['xn--exmple-cua.test' => ['93.184.216.34']]);
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    Http::fake(['*' => Http::response($png, 200)]);
+
+    expect(Image::fromUrl($url)->fetchPublicUrlContent()->hasRawContent())->toBeTrue();
+})->with([
+    'public hex' => ['http://0x5db8d822/x.png', 'hex'],
+    'public decimal' => ['http://1572395042/x.png', 'decimal'],
+    'public shortened' => ['http://93.184.55330/x.png', 'shortened'],
+    'public dotted quad, trailing dot' => ['http://93.184.216.34./x.png', 'trailing dot'],
+    'punycode name' => ['http://xn--exmple-cua.test/x.png', 'punycode'],
+]);
+
 it('refuses a redirect to a host written with a percent escape', function (): void {
     resolvesTo(['public.test' => ['93.184.216.34'], '%31%32%37.0.0.1' => ['93.184.216.34']]);
     Http::fake([
