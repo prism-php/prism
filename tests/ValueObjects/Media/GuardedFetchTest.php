@@ -361,3 +361,76 @@ it('caps at 32 MiB by default, the largest inline document the providers take', 
 
     expect($parameter?->getDefaultValue())->toBe(32 * 1024 * 1024);
 });
+
+/*
+ * G-382. The guard reads the host as parse_url() returns it, which never
+ * decodes a percent escape; libcurl decodes one before it connects (Guzzle
+ * from 7.15.2 refuses it first, earlier releases do not). So
+ * `%31%32%37.0.0.1` was checked as a name, resolved, and then contacted as
+ * 127.0.0.1. A host holding `%` or a backslash is refused before it is
+ * resolved, on the first url and on every redirect hop.
+ */
+it('refuses a host written with a percent escape or a backslash, before resolving it', function (string $url): void {
+    $asked = [];
+    app()->instance(HostResolver::class, new class($asked) implements HostResolver
+    {
+        /** @param  list<string>  $asked */
+        public function __construct(private array &$asked) {}
+
+        public function resolve(string $host): array
+        {
+            $this->asked[] = $host;
+
+            return ['93.184.216.34'];
+        }
+    });
+    Http::fake();
+
+    $refused = null;
+    try {
+        Image::fromUrl($url)->fetchPublicUrlContent();
+    } catch (PrismUrlRefused $error) {
+        $refused = $error;
+    }
+
+    expect($refused?->code())->toBe('private_address_refused')
+        ->and($asked)->toBe([]);
+    Http::assertNothingSent();
+})->with([
+    'escaped loopback literal' => ['http://%31%32%37.0.0.1/x.png'],
+    'one escaped digit' => ['http://127.0.0.%31/x.png'],
+    'escaped dot' => ['http://127.0.0.1%2eexample.test/x.png'],
+    'escaped name' => ['http://loc%61lhost/x.png'],
+    'upper-case escape' => ['http://LOC%41LHOST/x.png'],
+    'escaped nul' => ['http://public.test%00/x.png'],
+    'backslash in the host' => ['http://127.0.0.1\\public.test/x.png'],
+    'zone id' => ['http://[fe80::1%25eth0]/x.png'],
+]);
+
+it('refuses a redirect to a host written with a percent escape', function (): void {
+    resolvesTo(['public.test' => ['93.184.216.34'], '%31%32%37.0.0.1' => ['93.184.216.34']]);
+    Http::fake([
+        'public.test/*' => Http::response('', 302, ['Location' => 'http://%31%32%37.0.0.1/x.png']),
+        '*' => Http::response('INTERNAL', 200),
+    ]);
+
+    $refused = null;
+    try {
+        Image::fromUrl('http://public.test/x.png')->fetchPublicUrlContent();
+    } catch (PrismUrlRefused $error) {
+        $refused = $error->code();
+    }
+
+    expect($refused)->toBe('redirect_refused');
+    Http::assertSentCount(1);
+});
+
+it('still fetches a url whose userinfo, path and query hold escapes (the control)', function (): void {
+    resolvesTo(['public.test' => ['93.184.216.34']]);
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    Http::fake(['public.test/*' => Http::response($png, 200)]);
+
+    $image = Image::fromUrl('https://user%40x:p@public.test/a%2Fb.png?q=%40&r=a%5Cb')->fetchPublicUrlContent();
+
+    expect($image->hasRawContent())->toBeTrue();
+});
