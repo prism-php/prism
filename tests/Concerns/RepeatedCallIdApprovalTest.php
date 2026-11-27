@@ -754,3 +754,26 @@ it('keeps a result recorded without arguments with the step it follows', functio
             3 => ['a|gate_x|[]|refused:r'],
         ]);
 })->with(['text', 'structured']);
+
+it('reads every result row of a step together: a later same-id result does not displace another call\'s', function (string $path): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('{"answer":"done"}')));
+    $ran = [];
+    $history = [
+        new UserMessage('Do the things'),
+        new AssistantMessage('', [new ToolCall('a', 'gate_x', ['token' => 't0']), new ToolCall('a', 'gate_x', ['token' => 't1'])], [], [
+            new ToolApprovalRequest('apr_t0', 'a', ToolApprovalRequest::ARGUMENTS_AS_SENT),
+        ]),
+        new ToolResultMessage([new ToolResult('a', 'gate_x', ['token' => 't0'], 'recorded:t0')], []),
+        new ToolResultMessage([], [new ToolApprovalResponse('apr_t0', true)]),
+        new ToolResultMessage([new ToolResult('a', 'gate_x', ['token' => 't1'], 'recorded:t1')], []),
+    ];
+
+    $resumed = $path === 'structured'
+        ? Prism::structured()->using('gemini', 'test-model')->withSchema(g392Schema())->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asStructured()
+        : Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asText();
+
+    expect($ran)->toBe([])
+        ->and(g392ResultsBySegment($resumed->steps->first()->messages))->toBe([
+            1 => ['a|gate_x|{"token":"t0"}|recorded:t0', 'a|gate_x|{"token":"t1"}|recorded:t1'],
+        ]);
+})->with(['text', 'structured']);

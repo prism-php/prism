@@ -235,7 +235,32 @@ function g392pGenerate(G392PropertyRng $rng, int $seed = 0): array
         // resumed through OpenAI (Responses); otherwise either provider.
         'provider' => in_array('system', [...array_column($rows, 'kind'), ...array_column($inserts, 'kind')], true) ? 'openai' : $rng->pick(['gemini', 'openai']),
         'values' => g392pValues(new G392PropertyRng($seed ^ 0x39A39A), $calls, $prior),
+        'spread' => g392pSpread(new G392PropertyRng($seed ^ 0x39B39B), count($prior)),
     ];
+}
+
+/**
+ * Whether the parked step's prior results are recorded one per row instead of
+ * together, and for each (in order) whether its row comes before or after the
+ * decision row and where it sits among the others. Rows of one segment are
+ * read together: a later row's result with the same id must not displace an
+ * earlier row's result of another call.
+ *
+ * @return list<array{when: string, order: int}>|null
+ */
+function g392pSpread(G392PropertyRng $rng, int $count): ?array
+{
+    if ($count < 1 || $rng->chance(0.5)) {
+        return null;
+    }
+
+    $spread = [];
+
+    for ($i = 0; $i < $count; $i++) {
+        $spread[] = ['when' => $rng->pick(['before', 'after']), 'order' => $rng->int(0, 99)];
+    }
+
+    return $spread;
 }
 
 /**
@@ -1333,7 +1358,31 @@ function g392pHistory(array $case): array
     // in its segment rather than the parked step's.
     $split = $case['split'] || array_filter($inserts, fn (array $i): bool => $i['kind'] === 'assistant_call' && $i['when'] === 'before_decision') !== [];
 
-    if ($split && $prior !== []) {
+    $spread = $case['spread'] ?? null;
+
+    if ($spread !== null && $prior !== []) {
+        // One row per prior result, some before the decision row and some
+        // after it, all in the parked step's segment.
+        $rowsFor = function (string $when) use ($spread, $prior): array {
+            $picked = [];
+
+            foreach ($prior as $i => $result) {
+                $at = $spread[$i] ?? ['when' => 'before', 'order' => $i];
+
+                if ($at['when'] === $when) {
+                    $picked[] = [$at['order'], $i, $result];
+                }
+            }
+
+            usort($picked, fn (array $a, array $b): int => [$a[0], $a[1]] <=> [$b[0], $b[1]]);
+
+            return array_map(fn (array $p): ToolResultMessage => new ToolResultMessage([$p[2]], []), $picked);
+        };
+
+        $history = [...$history, ...$rowsFor('before'), ...$rowsAt(1), ...$insertsAt('before_decision')];
+        $history[] = new ToolResultMessage([], $responses);
+        $history = [...$history, ...$rowsFor('after')];
+    } elseif ($split && $prior !== []) {
         $history[] = new ToolResultMessage($prior, []);
         $history = [...$history, ...$rowsAt(1), ...$insertsAt('before_decision')];
         $history[] = new ToolResultMessage([], $responses);
@@ -1440,6 +1489,36 @@ function g392pFormShapes(array $case): array
     }
 
     return array_values(array_unique($shapes));
+}
+
+/**
+ * Whether the parked step repeats a call id, and its prior results for two
+ * calls with that id, carrying different arguments, sit in separate rows of
+ * its segment.
+ *
+ * @param  array<string, mixed>  $case
+ */
+function g392pRowsRepeatedId(array $case): bool
+{
+    if (($case['spread'] ?? null) === null) {
+        return false;
+    }
+
+    $byId = [];
+
+    foreach ($case['calls'] as $call) {
+        if (in_array($call['token'], $case['prior'], true)) {
+            $byId[$call['id']][] = json_encode(g392pSorted(g392pResultArgs($case, $call['token'])));
+        }
+    }
+
+    foreach ($byId as $args) {
+        if (count(array_unique($args)) >= 2) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -1681,6 +1760,7 @@ function g392pRecordShapes(array $case, array $predicted): void
         'args-identical-same-step' => count($mainArgs) !== count(array_unique($mainArgs)),
         'args-identical-across-steps' => array_intersect($mainArgs, $otherArgs) !== [],
         'result-args-diverge' => $lossyUsed !== [],
+        'results-rows-repeated-id' => g392pRowsRepeatedId($case),
         ...array_fill_keys(g392pFormShapes($case), true),
         ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
         ...array_fill_keys(g392pForgedAfterLaterStep($case), true),
@@ -1755,7 +1835,7 @@ function g392pShrink(array $case, callable $check): array
  */
 function g392pDirectShapes(): array
 {
-    $shapes = ['args-identical-across-steps', 'args-identical-same-step', 'args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'result-args-diverge', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
+    $shapes = ['args-identical-across-steps', 'args-identical-same-step', 'args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'result-args-diverge', 'results-rows-repeated-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
 
     foreach (['assistant_text', 'assistant_call', 'user', 'system', 'tool_empty', 'tool_result'] as $kind) {
         foreach (['before_decision', 'after_decision'] as $when) {
