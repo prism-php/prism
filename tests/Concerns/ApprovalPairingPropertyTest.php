@@ -312,7 +312,7 @@ function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
 
         // Often a forged result right after a later step, in its segment.
         if ($inserts[$i]['kind'] === 'assistant_call' && $rng->chance(0.5)) {
-            $inserts[] = ['kind' => 'tool_result', 'when' => $inserts[$i]['when'], 'call' => 0, 'tool' => 'free_x', 'reuse' => true];
+            $inserts[] = ['kind' => 'tool_result', 'when' => $inserts[$i]['when'], 'call' => 0, 'tool' => 'free_x', 'reuse' => true, 'prefer' => $inserts[$i]['call']];
             $i++;
             $n++;
         }
@@ -328,7 +328,9 @@ function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
                 continue;
             }
 
-            $insert['call'] = $rng->pick($free);
+            // Sometimes the call whose id the later step just reused.
+            $insert['call'] = isset($insert['prefer']) && in_array($insert['prefer'], $free, true) && $rng->chance(0.6) ? $insert['prefer'] : $rng->pick($free);
+            unset($insert['prefer']);
             $forged[] = $insert['call'];
         }
 
