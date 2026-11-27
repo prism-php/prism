@@ -433,11 +433,10 @@ trait CallsTools
 
         $toolMessage = new ToolResultMessage($toolResultsSoFar, $approvalResponses);
 
-        // A decision reaches a call through its request's call id, so the id
-        // must name exactly one call. A provider can give two calls in one
-        // step the same id (Gemini uses the function name), and then a map
-        // keyed by it hands one decision to both. Such a step is denied: no
-        // gated call in it runs, whatever was decided.
+        // A decision reaches a call through its request's call id and approval
+        // id, so each must name exactly one call. When the step's call ids, its
+        // requests' call ids or its requests' approval ids repeat, no gated
+        // call in the step runs; each gets the repeated-id denial.
         $repeatedCallIds = self::stepRepeatsCallIds($assistantMessage);
 
         $toolCallIdToApprovalId = [];
@@ -448,26 +447,11 @@ trait CallsTools
         }
 
         $approvalResolvedToolResults = [];
-        $earlierCalls = [];
-
-        foreach (array_slice($messages, 0, $assistantMessageIndex) as $message) {
-            if ($message instanceof AssistantMessage) {
-                $earlierCalls = [...$earlierCalls, ...$message->toolCalls];
-            }
-        }
-
-        $callsWithOwnResult = self::callsWithOwnResult($assistantMessage->toolCalls, $toolMessage->toolResults, $earlierCalls);
+        $callsWithOwnResult = self::callsWithOwnResult($assistantMessage->toolCalls, $toolMessage->toolResults);
 
         foreach ($assistantMessage->toolCalls as $index => $toolCall) {
-            // A call that already has a result is DONE, approved or not. This
-            // check used to run only for calls with no decision, so a call
-            // approved on an earlier request ran again on every later request
-            // whose history still carried the approval: a transfer approved
-            // once executed once per turn after it.
-            //
-            // The result must be the call's OWN. Matched by id alone, the
-            // result of an ungated call that already ran also marked a gated
-            // call with the same id done, and that call got no outcome at all.
+            // A call answered by a result in this step's segment is done,
+            // whatever its decision: it is not run and gets no other result.
             if (isset($callsWithOwnResult[$index])) {
                 continue;
             }
@@ -602,10 +586,8 @@ trait CallsTools
      * replaced it: only the newest step is resumed, so whatever was decided
      * for an earlier step is never applied, to it or to any other.
      *
-     * A call's outcome is a result in its own step's segment, or, recorded
-     * anywhere else, a result naming exactly that call (its id, name and
-     * arguments) that no other call took. Such a result is never given to a
-     * call of the step it was recorded after, so it answers one call only.
+     * A result answers only calls of the step whose segment it is recorded
+     * in, so a call's outcome is always in its own segment.
      *
      * @return Generator<ToolResultEvent>
      */
@@ -624,69 +606,31 @@ trait CallsTools
         $toolsByName = collect($request->tools())->keyBy(fn (Tool $tool): string => $tool->name());
         $insertAfter = [];
         $changed = false;
-        $segments = [];
-        $owned = [];
-        $stray = [];
 
-        // Each step's own results: those in its segment, up to the next step.
-        foreach ($steps as $position => $stepIndex) {
+        foreach (array_slice($steps, 0, -1) as $position => $stepIndex) {
             /** @var AssistantMessage $step */
             $step = $messages[$stepIndex];
-            $end = $steps[$position + 1] ?? count($messages);
             $segment = [];
             $results = [];
-            $otherCalls = [];
 
-            for ($i = $stepIndex + 1; $i < $end; $i++) {
+            // This step's segment: its results, up to the next step.
+            for ($i = $stepIndex + 1; $i < $steps[$position + 1]; $i++) {
                 if ($messages[$i] instanceof ToolResultMessage) {
                     $segment[] = $i;
                     $results = [...$results, ...$messages[$i]->toolResults];
                 }
             }
 
-            foreach ($steps as $other) {
-                if ($other !== $stepIndex) {
-                    /** @var AssistantMessage $otherStep */
-                    $otherStep = $messages[$other];
-                    $otherCalls = [...$otherCalls, ...$otherStep->toolCalls];
-                }
-            }
-
-            $pairing = self::pairResults($step->toolCalls, $results, $otherCalls);
-            $segments[$stepIndex] = $segment;
-            $owned[$stepIndex] = $pairing['owned'];
-
-            // A result without arguments stays with the step it follows.
-            foreach ($results as $at => $result) {
-                if (! isset($pairing['used'][$at]) && $result->args !== []) {
-                    $stray[] = $result;
-                }
-            }
-        }
-
-        foreach (array_slice($steps, 0, -1) as $stepIndex) {
-            /** @var AssistantMessage $step */
-            $step = $messages[$stepIndex];
-            $segment = $segments[$stepIndex];
+            $owned = self::callsWithOwnResult($step->toolCalls, $results);
             $denials = [];
 
             foreach ($step->toolCalls as $index => $toolCall) {
-                if (isset($owned[$stepIndex][$index])) {
+                if (isset($owned[$index])) {
                     continue;
                 }
 
                 if ($toolsByName->get($toolCall->name)?->hasApprovalConfigured() !== true) {
                     continue;
-                }
-
-                // Answered by its own result recorded elsewhere: that is its
-                // one outcome, so it is not also denied.
-                foreach ($stray as $at => $result) {
-                    if (self::isResultOf($toolCall, $result)) {
-                        unset($stray[$at]);
-
-                        continue 2;
-                    }
                 }
 
                 $denial = new ToolResult(
@@ -743,72 +687,34 @@ trait CallsTools
     }
 
     /**
-     * The calls in a step that already have a result of their own, by index.
+     * The calls of a step answered by a result in its segment, by index.
      *
-     * A result belongs to ONE call. When ids are distinct this is the same as
-     * matching by id. When they repeat, a result is given to a call with its
-     * id, name and arguments first, then to one with its id and name, then to
-     * one with its id, in the step's order, and each result to one call only.
-     * Calls left with no identical twin to tell apart are interchangeable, so
-     * the order cannot change what is recorded. More results than calls for an
-     * id (one streamed call per id) still mark that call done. A result that
-     * names exactly a call of another step ($otherCalls) is left to that call.
+     * A result answers one call, and only a call of the step it is recorded
+     * after. In the step's order, a result goes to the call with the same id,
+     * name and arguments first; a result without arguments (a refused stored
+     * call is recorded that way) then goes to a call whose arguments are in
+     * the stored form; then a result goes to a call with the same id and name,
+     * then to one with the same id. When ids are distinct this is the same as
+     * matching by id. More results than calls for an id (one streamed call
+     * per id) still mark that call answered.
      *
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
-     * @param  ToolCall[]  $otherCalls
      * @return array<int, true>
      */
-    protected static function callsWithOwnResult(array $toolCalls, array $toolResults, array $otherCalls = []): array
+    protected static function callsWithOwnResult(array $toolCalls, array $toolResults): array
     {
-        return self::pairResults($toolCalls, $toolResults, $otherCalls)['owned'];
-    }
-
-    /**
-     * Pair a step's calls with the results recorded in its segment: which
-     * calls have one (`owned`, by call index) and which results were taken
-     * (`used`, by result index). A result that names exactly a call of
-     * another step ($otherCalls) and no call of this one is that call's, so
-     * the looser id-and-name and id-only matches never take it.
-     *
-     * A result recorded without arguments (a refused stored call is recorded
-     * that way) cannot name its call, so it belongs to the step it is
-     * recorded after: first to a call of that step whose arguments are in
-     * the stored form, then by id and name, then by id.
-     *
-     * @param  ToolCall[]  $toolCalls
-     * @param  ToolResult[]  $toolResults
-     * @param  ToolCall[]  $otherCalls
-     * @return array{owned: array<int, true>, used: array<int, true>}
-     */
-    protected static function pairResults(array $toolCalls, array $toolResults, array $otherCalls = []): array
-    {
-        $toolResults = array_values($toolResults);
-        $unused = $toolResults;
+        $unused = array_values($toolResults);
         $owned = [];
 
-        $othersOnly = [];
-
-        foreach ($toolResults as $at => $toolResult) {
-            if ($toolResult->args === []) {
-                continue;
-            }
-
-            $names = fn (ToolCall $call): bool => self::isResultOf($call, $toolResult);
-
-            if (array_filter($otherCalls, $names) !== [] && array_filter($toolCalls, $names) === []) {
-                $othersOnly[$at] = true;
-            }
-        }
-
         $matchers = [
-            fn (ToolCall $call, ToolResult $result, int $at): bool => self::isResultOf($call, $result),
-            fn (ToolCall $call, ToolResult $result, int $at): bool => $result->args === []
+            fn (ToolCall $call, ToolResult $result): bool => self::isResultOf($call, $result),
+            fn (ToolCall $call, ToolResult $result): bool => $result->args === []
                 && $result->toolCallId === $call->id
                 && $result->toolName === $call->name
                 && self::storedWrappedKey($call) !== null,
-            fn (ToolCall $call, ToolResult $result, int $at): bool => ! isset($othersOnly[$at]) && $result->toolCallId === $call->id && $result->toolName === $call->name,
-            fn (ToolCall $call, ToolResult $result, int $at): bool => ! isset($othersOnly[$at]) && $result->toolCallId === $call->id,
+            fn (ToolCall $call, ToolResult $result): bool => $result->toolCallId === $call->id && $result->toolName === $call->name,
+            fn (ToolCall $call, ToolResult $result): bool => $result->toolCallId === $call->id,
         ];
 
         foreach ($matchers as $matches) {
@@ -818,7 +724,7 @@ trait CallsTools
                 }
 
                 foreach ($unused as $at => $toolResult) {
-                    if ($matches($toolCall, $toolResult, $at)) {
+                    if ($matches($toolCall, $toolResult)) {
                         $owned[$index] = true;
                         unset($unused[$at]);
 
@@ -828,7 +734,7 @@ trait CallsTools
             }
         }
 
-        return ['owned' => $owned, 'used' => array_fill_keys(array_keys(array_diff_key($toolResults, $unused)), true)];
+        return $owned;
     }
 
     /**

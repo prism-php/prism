@@ -137,10 +137,13 @@ the conversation. Messages recorded after that step, such as an assistant
 note, a user message, a system message or another tool result message, do not
 change which step is resumed.
 
-Every approval-required call ends with exactly one result, and a call that
-already has a result never runs again. A result belongs to the call it names,
-by call id, tool name and arguments, so when calls share an id each one still
-gets its own result. Only the newest step can still change. If a later
+A tool result belongs to one call of the step it is recorded after: the call
+with the same call id, tool name and arguments, otherwise one with the same
+call id and tool name, otherwise one with the same call id. So when calls share
+an id each one still gets its own result, and a result recorded after a later
+step answers that later step's call, never an earlier one. Every
+approval-required call ends with exactly one result, and a call that a result
+answers never runs again. Only the newest step can still change. If a later
 assistant message with tool calls follows a step that was waiting for
 approval, the earlier step can no longer be resumed: each of its
 approval-required calls that has no result is denied once with `Tool call was
