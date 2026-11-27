@@ -314,14 +314,22 @@ it('runs no gated call of an OpenAI Responses step whose two calls share one id 
  */
 function g392SharedIdTools(array &$ran): array
 {
-    $make = fn (string $name) => Tool::as($name)->for("Tool {$name}")->withStringParameter('token', 'Which call')
-        ->using(function (string $token) use (&$ran): string {
-            $ran[] = $token;
+    // A plain loop, not an arrow function: an arrow function captures $ran by
+    // value, and the tools would record into a copy.
+    $tools = [];
 
-            return "ran:{$token}";
-        });
+    foreach (['gate_x', 'gate_y', 'free_x'] as $name) {
+        $tool = Tool::as($name)->for("Tool {$name}")->withStringParameter('token', 'Which call')
+            ->using(function (string $token) use (&$ran): string {
+                $ran[] = $token;
 
-    return [$make('gate_x')->requiresApproval(), $make('gate_y')->requiresApproval(), $make('free_x')];
+                return "ran:{$token}";
+            });
+
+        $tools[] = $name === 'free_x' ? $tool : $tool->requiresApproval();
+    }
+
+    return $tools;
 }
 
 /**
@@ -421,4 +429,115 @@ it('denies a gated call once when an ungated call with the same empty id already
         ->and(g392ResultsByToken($results))->toBe(['t3' => [G392_REASON]])
         ->and($results[0]->toolCallId)->toBe('')
         ->and($results[0]->toolName)->toBe('gate_x');
+});
+
+/*
+ * Decisions apply only to the step being resumed: the newest step with tool
+ * calls. A gated call in an EARLIER step that has no result of its own is
+ * denied, once, whatever was decided for it. And an approval id names one
+ * request: a step whose requests repeat an approval id runs none of its
+ * gated calls.
+ */
+
+const G392_LATER_STEP_REASON = 'Tool call was not run because a later step replaced it';
+
+/**
+ * @return array{0: AssistantMessage, 1: AssistantMessage}
+ */
+function g392OlderAndNewerSteps(): array
+{
+    return [
+        new AssistantMessage('', [new ToolCall('a', 'gate_x', ['token' => 'old'])], [], [new ToolApprovalRequest('apr_old', 'a', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
+        new AssistantMessage('', [new ToolCall('a', 'gate_x', ['token' => 'new'])], [], [new ToolApprovalRequest('apr_new', 'a', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
+    ];
+}
+
+/**
+ * @param  array<int, mixed>  $messages
+ * @return array<string, list<string>>
+ */
+function g392AllResultsByToken(array $messages): array
+{
+    $results = [];
+
+    foreach ($messages as $message) {
+        if ($message instanceof ToolResultMessage) {
+            $results = [...$results, ...$message->toolResults];
+        }
+    }
+
+    return g392ResultsByToken($results);
+}
+
+it('denies, once, a gated call of an earlier step that a later step replaced, whatever was decided for it', function (): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('Done.')));
+    $ran = [];
+    [$older, $newer] = g392OlderAndNewerSteps();
+
+    $resumed = Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
+        ->withMessages([new UserMessage('Do the things'), $older, $newer, new ToolResultMessage([], [new ToolApprovalResponse('apr_old', true)])])
+        ->asText();
+
+    $sent = $resumed->steps->first()->messages;
+
+    expect($ran)->toBe([])
+        ->and(g392AllResultsByToken($sent))->toBe(['new' => ['No approval response provided'], 'old' => [G392_LATER_STEP_REASON]])
+        ->and($sent[2])->toBeInstanceOf(ToolResultMessage::class)
+        ->and($sent[2]->toolResults[0]->args)->toBe(['token' => 'old']);
+
+    // Resumed again, approving everything: nothing runs, and nothing is denied twice.
+    $again = Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
+        ->withMessages([...$resumed->messages->all(), new ToolResultMessage([], [new ToolApprovalResponse('apr_old', true), new ToolApprovalResponse('apr_new', true)])])
+        ->asText();
+
+    expect($ran)->toBe([])
+        ->and(g392AllResultsByToken($again->steps->first()->messages))->toBe(['new' => ['No approval response provided'], 'old' => [G392_LATER_STEP_REASON]]);
+});
+
+it('reports the denial of a replaced earlier call on a streamed resume', function (): void {
+    Http::fake(['*' => Http::response("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Done.\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":1,\"candidatesTokenCount\":1,\"totalTokenCount\":2},\"modelVersion\":\"test-model\"}\n\n", 200, ['Content-Type' => 'text/event-stream'])]);
+    $ran = [];
+    [$older, $newer] = g392OlderAndNewerSteps();
+
+    $events = iterator_to_array(Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
+        ->withMessages([new UserMessage('Do the things'), $older, new ToolResultMessage([], [new ToolApprovalResponse('apr_old', true)]), $newer, new ToolResultMessage([], [new ToolApprovalResponse('apr_new', true)])])
+        ->asStream(), false);
+
+    $results = array_values(array_filter($events, fn (StreamEvent $event): bool => $event instanceof ToolResultEvent));
+
+    expect($ran)->toBe(['new'])
+        ->and(array_map(fn (ToolResultEvent $event): array => [$event->toolResult->args['token'], $event->success], $results))
+        ->toBe([['old', false], ['new', true]])
+        ->and($results[0]->toolResult->result)->toBe(G392_LATER_STEP_REASON);
+});
+
+it('runs no gated call of a step whose requests repeat an approval id (text)', function (): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('Done.')));
+    $ran = [];
+    $step = new AssistantMessage('', [new ToolCall('a', 'gate_x', ['token' => 't0']), new ToolCall('b', 'gate_x', ['token' => 't1'])], [], [
+        new ToolApprovalRequest('apr_same', 'a', ToolApprovalRequest::ARGUMENTS_AS_SENT),
+        new ToolApprovalRequest('apr_same', 'b', ToolApprovalRequest::ARGUMENTS_AS_SENT),
+    ]);
+
+    $resumed = Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
+        ->withMessages([new UserMessage('Do the things'), $step, new ToolResultMessage([], [new ToolApprovalResponse('apr_same', true)])])
+        ->asText();
+
+    expect($ran)->toBe([])
+        ->and(g392AllResultsByToken($resumed->steps->first()->messages))->toBe(['t0' => [G392_REASON], 't1' => [G392_REASON]]);
+});
+
+it('runs no gated call of a step whose requests repeat an approval id (structured)', function (): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('{"answer":"done"}')));
+    $ran = [];
+    $step = new AssistantMessage('', [new ToolCall('a', 'gate_x', ['token' => 't0']), new ToolCall('b', 'gate_y', ['token' => 't1'])], [], [
+        new ToolApprovalRequest('apr_same', 'b', ToolApprovalRequest::ARGUMENTS_AS_SENT),
+        new ToolApprovalRequest('apr_same', 'a', ToolApprovalRequest::ARGUMENTS_AS_SENT),
+    ]);
+
+    Prism::structured()->using('gemini', 'test-model')->withSchema(g392Schema())->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
+        ->withMessages([new UserMessage('Do the things'), $step, new ToolResultMessage([], [new ToolApprovalResponse('apr_same', true)])])
+        ->asStructured();
+
+    expect($ran)->toBe([]);
 });
