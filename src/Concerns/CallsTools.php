@@ -38,6 +38,11 @@ use Throwable;
 
 trait CallsTools
 {
+    /**
+     * The denial a gated call receives when its step repeats a call id.
+     */
+    protected const REPEATED_CALL_ID_REASON = 'Tool call was not run because another call in this step has the same id';
+
     /** @var ToolApprovalRequest[] */
     private array $stepApprovalRequests = [];
 
@@ -417,6 +422,13 @@ trait CallsTools
 
         $toolMessage = new ToolResultMessage($toolResultsSoFar, $approvalResponses);
 
+        // A decision reaches a call through its request's call id, so the id
+        // must name exactly one call. A provider can give two calls in one
+        // step the same id (Gemini uses the function name), and then a map
+        // keyed by it hands one decision to both. Such a step is denied: no
+        // gated call in it runs, whatever was decided.
+        $repeatedCallIds = self::stepRepeatsCallIds($assistantMessage);
+
         $toolCallIdToApprovalId = [];
         $toolCallIdToApprovalRequest = [];
         foreach ($assistantMessage->toolApprovalRequests as $approvalRequest) {
@@ -436,8 +448,16 @@ trait CallsTools
                 continue;
             }
 
-            $approvalId = $toolCallIdToApprovalId[$toolCall->id] ?? null;
-            $approval = $approvalId !== null ? $toolMessage->findByApprovalId($approvalId) : null;
+            if ($repeatedCallIds) {
+                if ($toolsByName->get($toolCall->name)?->hasApprovalConfigured() !== true) {
+                    continue;
+                }
+
+                $approval = new ToolApprovalResponse(EventID::generate('apr'), false, self::REPEATED_CALL_ID_REASON);
+            } else {
+                $approvalId = $toolCallIdToApprovalId[$toolCall->id] ?? null;
+                $approval = $approvalId !== null ? $toolMessage->findByApprovalId($approvalId) : null;
+            }
 
             if (! $approval instanceof ToolApprovalResponse) {
                 if ($toolsByName->get($toolCall->name)?->hasApprovalConfigured() !== true) {
@@ -565,6 +585,19 @@ trait CallsTools
      *
      * @return array{failure: PrismException, kind: ?string}|null
      */
+    /**
+     * Whether the step's calls, or its approval requests, repeat a call id. A
+     * repeated id cannot say which call a decision belongs to.
+     */
+    protected static function stepRepeatsCallIds(AssistantMessage $assistantMessage): bool
+    {
+        $callIds = array_map(fn (ToolCall $toolCall): string => $toolCall->id, $assistantMessage->toolCalls);
+        $requestCallIds = array_map(fn (ToolApprovalRequest $request): string => $request->toolCallId, $assistantMessage->toolApprovalRequests);
+
+        return count($callIds) !== count(array_unique($callIds, SORT_STRING))
+            || count($requestCallIds) !== count(array_unique($requestCallIds, SORT_STRING));
+    }
+
     protected static function storedArgumentsRefusal(Tool $tool, ToolCall $toolCall, ?ToolApprovalRequest $approvalRequest): ?array
     {
         $key = self::storedWrappedKey($toolCall);

@@ -98,7 +98,7 @@ foreach ($step->toolApprovalRequests as $request) {
 Resume with the decisions — approved calls execute, denied calls produce a
 denial result the model sees:
 
-An unanswered approval produces `No approval response provided`. An explicit denial without a reason produces `User denied tool execution`; a supplied reason replaces that default. Approval decisions and the pending call's arguments must be stored and correlated by your application.
+An unanswered approval produces `No approval response provided`. An explicit denial without a reason produces `User denied tool execution`; a supplied reason replaces that default. Each tool call is paired with its own approval through its call id, so a step in which two calls share an id (or two approval requests name one call id) is denied: none of its gated calls run, whatever was decided, and each receives `Tool call was not run because another call in this step has the same id`. Approval decisions and the pending call's arguments must be stored and correlated by your application.
 
 ```php
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
