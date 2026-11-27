@@ -439,6 +439,19 @@ trait CallsTools
         // call in the step runs; each gets the repeated-id denial.
         $repeatedCallIds = self::stepRepeatsCallIds($assistantMessage);
 
+        // An approval id names one request across the conversation. A call
+        // whose request carries an approval id that a request of an earlier
+        // step also carries is not run; it gets the repeated-id denial.
+        $approvalIdsOfEarlierSteps = [];
+
+        foreach (array_slice($messages, 0, $assistantMessageIndex) as $message) {
+            if ($message instanceof AssistantMessage) {
+                foreach ($message->toolApprovalRequests as $earlierRequest) {
+                    $approvalIdsOfEarlierSteps[$earlierRequest->approvalId] = true;
+                }
+            }
+        }
+
         $toolCallIdToApprovalId = [];
         $toolCallIdToApprovalRequest = [];
         foreach ($assistantMessage->toolApprovalRequests as $approvalRequest) {
@@ -456,7 +469,10 @@ trait CallsTools
                 continue;
             }
 
-            if ($repeatedCallIds) {
+            $reusesApprovalId = isset($toolCallIdToApprovalId[$toolCall->id])
+                && isset($approvalIdsOfEarlierSteps[$toolCallIdToApprovalId[$toolCall->id]]);
+
+            if ($repeatedCallIds || $reusesApprovalId) {
                 if ($toolsByName->get($toolCall->name)?->hasApprovalConfigured() !== true) {
                     continue;
                 }
