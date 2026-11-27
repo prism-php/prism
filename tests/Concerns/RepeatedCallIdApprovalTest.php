@@ -543,10 +543,12 @@ it('runs no gated call of a step whose requests repeat an approval id (structure
 });
 
 /*
- * A result answers one call wherever it is recorded. An earlier step's result
- * that sits after a later step still answers its own call, so that call is
- * not also denied as replaced, and it does not answer the later step's call,
- * even when that call has the same id.
+ * A result answers only calls of the step it is recorded after (its
+ * segment): first the call with the same id, name and arguments, then one
+ * with the same id and name, then one with the same id. A result recorded
+ * after a later step therefore answers that later step's call with the same
+ * id, never a call of an earlier step, and the earlier step's open gated
+ * call is denied as replaced.
  */
 
 /**
@@ -562,12 +564,28 @@ function g392ResultAfterLaterStep(string $laterId): array
     ];
 }
 
+/**
+ * The segments expected after one resume of g392ResultAfterLaterStep().
+ *
+ * @return array<int, list<string>>
+ */
+function g392ResultAfterLaterStepSegments(string $laterId): array
+{
+    $later = ['a|gate_x|{"token":"t0"}|recorded:t0'];
+
+    if ($laterId !== 'a') {
+        $later[] = $laterId.'|gate_x|{"token":"l0"}|No approval response provided';
+    }
+
+    return [1 => ['a|gate_x|{"token":"t0"}|'.G392_LATER_STEP_REASON], 3 => $later];
+}
+
 dataset('g392 later step ids', [
     'the later call has another id' => ['b'],
     'the later call reuses the id' => ['a'],
 ]);
 
-it('gives an earlier call whose result sits after a later step that result alone (text)', function (string $laterId): void {
+it('keeps a result with the step it is recorded after, and denies the replaced earlier call (text)', function (string $laterId): void {
     Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('Done.')));
     $ran = [];
 
@@ -576,18 +594,18 @@ it('gives an earlier call whose result sits after a later step that result alone
         ->asText();
 
     expect($ran)->toBe([])
-        ->and(g392AllResultsByToken($resumed->steps->first()->messages))->toBe(['l0' => ['No approval response provided'], 't0' => ['recorded:t0']]);
+        ->and(g392ResultsBySegment($resumed->steps->first()->messages))->toBe(g392ResultAfterLaterStepSegments($laterId));
 
-    // Resumed again, approving everything: still one outcome each, nothing runs.
+    // Resumed again, approving everything: nothing runs and nothing is added.
     $again = Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
         ->withMessages([...$resumed->messages->all(), new ToolResultMessage([], [new ToolApprovalResponse('apr_t0', true)])])
         ->asText();
 
     expect($ran)->toBe([])
-        ->and(g392AllResultsByToken($again->steps->first()->messages))->toBe(['l0' => ['No approval response provided'], 't0' => ['recorded:t0']]);
+        ->and(g392ResultsBySegment($again->steps->first()->messages))->toBe(g392ResultAfterLaterStepSegments($laterId));
 })->with('g392 later step ids');
 
-it('gives an earlier call whose result sits after a later step that result alone (stream)', function (string $laterId): void {
+it('keeps a result with the step it is recorded after, and denies the replaced earlier call (stream)', function (string $laterId): void {
     Http::fake(['*' => Http::response("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Done.\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":1,\"candidatesTokenCount\":1,\"totalTokenCount\":2},\"modelVersion\":\"test-model\"}\n\n", 200, ['Content-Type' => 'text/event-stream'])]);
     $ran = [];
 
@@ -596,11 +614,92 @@ it('gives an earlier call whose result sits after a later step that result alone
         ->asStream(), false);
 
     $results = array_values(array_filter($events, fn (StreamEvent $event): bool => $event instanceof ToolResultEvent));
+    $expected = [['t0', G392_LATER_STEP_REASON, false]];
+
+    if ($laterId !== 'a') {
+        $expected[] = ['l0', 'No approval response provided', false];
+    }
 
     expect($ran)->toBe([])
         ->and(array_map(fn (ToolResultEvent $event): array => [$event->toolResult->args['token'], $event->toolResult->result, $event->success], $results))
-        ->toBe([['l0', 'No approval response provided', false]]);
+        ->toBe($expected);
 })->with('g392 later step ids');
+
+/*
+ * A call is done when its own step's segment holds its result, even when the
+ * stored arguments of that result differ from the call's (stored lossily or
+ * redacted), and whatever an earlier step holds.
+ */
+
+/**
+ * @param  list<string>  $ran
+ */
+function g392TransferTool(array &$ran): \Prism\Prism\Tool
+{
+    return Tool::as('transfer')->for('Transfer')->withStringParameter('to', 'To')->withStringParameter('memo', 'Memo', false)
+        ->using(function (string $to, ?string $memo = null) use (&$ran): string {
+            $ran[] = $to.':'.($memo ?? '-');
+
+            return 'sent';
+        })->requiresApproval();
+}
+
+dataset('g392 earlier same-id call', [
+    'the earlier call has its own result' => [true],
+    'the earlier call has no result' => [false],
+]);
+
+it('does not run again a call whose recorded result differs from its arguments', function (bool $earlierHasResult): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('Done.')));
+    $ran = [];
+    $history = [
+        new UserMessage('Pay'),
+        new AssistantMessage('', [new ToolCall('transfer', 'transfer', ['to' => 'B'])]),
+    ];
+
+    if ($earlierHasResult) {
+        $history[] = new ToolResultMessage([new ToolResult('transfer', 'transfer', ['to' => 'B'], 'sent:B')], []);
+    }
+
+    $history[] = new AssistantMessage('', [new ToolCall('transfer', 'transfer', ['to' => 'B', 'memo' => 'x'])], [], [new ToolApprovalRequest('apr_n', 'transfer', ToolApprovalRequest::ARGUMENTS_AS_SENT)]);
+    $history[] = new ToolResultMessage([new ToolResult('transfer', 'transfer', ['to' => 'B'], 'sent:B:x')], [new ToolApprovalResponse('apr_n', true)]);
+
+    $resumed = Prism::text()->using('gemini', 'test-model')->withTools([g392TransferTool($ran)])->withMaxSteps(3)
+        ->withMessages($history)
+        ->asText();
+
+    $segments = array_values(g392ResultsBySegment($resumed->steps->first()->messages));
+
+    expect($ran)->toBe([])
+        ->and($segments)->toBe([
+            [$earlierHasResult ? 'transfer|transfer|{"to":"B"}|sent:B' : 'transfer|transfer|{"to":"B"}|'.G392_LATER_STEP_REASON],
+            ['transfer|transfer|{"to":"B"}|sent:B:x'],
+        ]);
+})->with('g392 earlier same-id call');
+
+it('runs a later call identical to an earlier one once on its own approval, and not again', function (): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('Done.')));
+    $ran = [];
+    $history = [
+        new UserMessage('Pay'),
+        new AssistantMessage('', [new ToolCall('transfer', 'transfer', ['to' => 'B'])]),
+        new ToolResultMessage([new ToolResult('transfer', 'transfer', ['to' => 'B'], 'sent:B')], []),
+        new AssistantMessage('', [new ToolCall('transfer', 'transfer', ['to' => 'B'])], [], [new ToolApprovalRequest('apr_l', 'transfer', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
+        new ToolResultMessage([], [new ToolApprovalResponse('apr_l', true)]),
+    ];
+
+    $first = Prism::text()->using('gemini', 'test-model')->withTools([g392TransferTool($ran)])->withMaxSteps(3)
+        ->withMessages($history)
+        ->asText();
+
+    expect($ran)->toBe(['B:-']);
+
+    Prism::text()->using('gemini', 'test-model')->withTools([g392TransferTool($ran)])->withMaxSteps(3)
+        ->withMessages([...$first->messages->all(), new ToolResultMessage([], [new ToolApprovalResponse('apr_l', true)])])
+        ->asText();
+
+    expect($ran)->toBe(['B:-']);
+});
 
 /*
  * A result recorded without arguments (a refused stored call is recorded that
