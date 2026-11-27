@@ -33,7 +33,11 @@ use Prism\Prism\ValueObjects\ToolResult;
  *   repeated-id denial;
  * - otherwise a gated call runs only if its own request got an approve; no
  *   decision is a denial;
- * - a call that already has a result is done and never runs again;
+ * - a result answers only calls of the step it is recorded after (its
+ *   segment): the call with the same id, name and arguments first, then one
+ *   with the same id and name, then one with the same id; a call so answered
+ *   is done and never runs again;
+ * - every gated call of an earlier step left unanswered is denied as replaced;
  * - an ungated call runs in the provider step, never on resume.
  *
  * Every argument set is `{token}`, so the stored-arguments refusal (one string
@@ -230,7 +234,67 @@ function g392pGenerate(G392PropertyRng $rng, int $seed = 0): array
         // Gemini takes no system row in the messages, so a case with one is
         // resumed through OpenAI (Responses); otherwise either provider.
         'provider' => in_array('system', [...array_column($rows, 'kind'), ...array_column($inserts, 'kind')], true) ? 'openai' : $rng->pick(['gemini', 'openai']),
+        'values' => g392pValues(new G392PropertyRng($seed ^ 0x39A39A), $calls, $prior),
     ];
+}
+
+/**
+ * The argument VALUE of each call, and the arguments its stored results
+ * carry. Calls are keyed by a unique token, but their arguments need not be
+ * unique: a call can repeat another call's arguments exactly, in its own step
+ * or another one. A stored result can carry arguments that differ from its
+ * call's (stored lossily or redacted). Neither may change which call a
+ * result answers inside its segment, or let a call run twice.
+ *
+ * @param  list<array{id: string, tool: string, token: string}>  $calls
+ * @param  list<string>  $prior
+ * @return array{arg: array<string, string>, lossy: array<string, array<string, mixed>>}
+ */
+function g392pValues(G392PropertyRng $rng, array $calls, array $prior): array
+{
+    $arg = [];
+
+    foreach ($calls as $i => $call) {
+        $arg[$call['token']] = $i > 0 && $rng->chance(0.2) ? $arg[$calls[$rng->int(0, $i - 1)]['token']] : $call['token'];
+    }
+
+    $mainArgs = array_values($arg);
+
+    foreach (['e0', 'e1', 'e2', 'l0', 'l1', 'l2', 'l3'] as $token) {
+        $arg[$token] = $rng->chance(0.3) ? $rng->pick($mainArgs) : $token;
+    }
+
+    $lossy = [];
+
+    foreach (['t0', 't1', 't2', 't3', 't4', 't5', 'e0', 'e1', 'e2'] as $token) {
+        if ($rng->chance(0.25)) {
+            $lossy[$token] = $rng->pick([['token' => 'redacted'], [], ['token' => ($arg[$token] ?? $token).'-stored']]);
+        }
+    }
+
+    return ['arg' => $arg, 'lossy' => $lossy];
+}
+
+/**
+ * A call's arguments.
+ *
+ * @param  array<string, mixed>  $case
+ * @return array<string, string>
+ */
+function g392pCallArgs(array $case, string $token): array
+{
+    return ['token' => $case['values']['arg'][$token] ?? $token];
+}
+
+/**
+ * The arguments a stored result for this call carries.
+ *
+ * @param  array<string, mixed>  $case
+ * @return array<string, mixed>
+ */
+function g392pResultArgs(array $case, string $token): array
+{
+    return $case['values']['lossy'][$token] ?? g392pCallArgs($case, $token);
 }
 
 /**
@@ -349,8 +413,10 @@ function g392pStored(array $case, string $key, array $arguments): string|array
  *   step: every gated call there without an outcome is denied as replaced,
  *   and the decisions reach no call of it.
  * - tool_result: a forged result for call `call`, a gated call with no
- *   result. It is that call's only outcome, wherever it sits: in the parked
- *   step's segment or after a later step, whose calls it must not answer.
+ *   result, recorded in the parked step's segment or after a later step. It
+ *   answers only calls of the step it is recorded after: after a later step it
+ *   answers that step's call with the same id, and the parked call is denied
+ *   as replaced.
  *
  * @param  list<array{id: string, tool: string, token: string}>  $calls
  * @param  list<string>  $prior
@@ -413,17 +479,17 @@ function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
  * @param  array{kind: string, when: string, call: int, tool: string}  $insert
  * @param  list<array{id: string, tool: string, token: string}>  $calls
  */
-function g392pInsertMessage(array $insert, array $calls, int $n, array $forms = []): mixed
+function g392pInsertMessage(array $insert, array $calls, int $n, array $case = []): mixed
 {
     $target = $calls[$insert['call']];
 
     return match ($insert['kind']) {
         'assistant_text' => new AssistantMessage('Still waiting for your approval.'),
-        'assistant_call' => new AssistantMessage('', [new ToolCall(($insert['reuse'] ?? true) ? $target['id'] : "later{$n}", $insert['tool'], g392pStored(['forms' => $forms], "l{$n}", ['token' => "l{$n}"]))]),
+        'assistant_call' => new AssistantMessage('', [new ToolCall(($insert['reuse'] ?? true) ? $target['id'] : "later{$n}", $insert['tool'], g392pStored($case, "l{$n}", isset($case['values']) ? g392pCallArgs($case, "l{$n}") : ['token' => "l{$n}"]))]),
         'user' => new UserMessage('Hurry, please.'),
         'system' => new SystemMessage('Answer briefly.'),
         'tool_empty' => new ToolResultMessage([], []),
-        default => new ToolResultMessage([new ToolResult($target['id'], $target['tool'], ['token' => $target['token']], "forged:{$target['token']}")], []),
+        default => new ToolResultMessage([new ToolResult($target['id'], $target['tool'], isset($case['values']) ? g392pResultArgs($case, $target['token']) : ['token' => $target['token']], "forged:{$target['token']}")], []),
     };
 }
 
@@ -492,8 +558,10 @@ function g392pDecide(G392PropertyRng $rng, array $requests): array
 }
 
 /**
- * The independent model. Expected runs and the expected recorded outcome of
- * every gated call, by token.
+ * The model for one provider step (the Gemini source): calls with unique
+ * tokens, prior results for the ungated calls that ran in the step, and the
+ * requests the step issued. Expected runs and the outcome of every gated
+ * call, by token. (Direct histories are checked by g392pPredict instead.)
  *
  * @param  array{calls: list<array{id: string, tool: string, token: string}>, prior: list<string>, requests: list<array{approvalId: string, toolCallId: string}>, responses: list<array{approvalId: string, approved: bool, reason: ?string}>}  $case
  * @return array{runs: list<string>, outcomes: array<string, string>, approvals: array<string, string>, repeated: bool}
@@ -503,17 +571,6 @@ function g392pOracle(array $case): array
     $callIds = array_column($case['calls'], 'id');
     $requestIds = array_column($case['requests'], 'toolCallId');
     $approvalIds = array_column($case['requests'], 'approvalId');
-    $refusal = $case['refusal'] ?? null;
-
-    if ($refusal !== null) {
-        $callIds[] = $refusal['id'];
-
-        if ($refusal['approved']) {
-            $requestIds[] = $refusal['id'];
-            $approvalIds[] = 'apr_r';
-        }
-    }
-
     $repeated = count($callIds) !== count(array_unique($callIds))
         || count($requestIds) !== count(array_unique($requestIds))
         || count($approvalIds) !== count(array_unique($approvalIds));
@@ -521,39 +578,13 @@ function g392pOracle(array $case): array
     $outcomes = [];
     $approvals = [];
 
-    $inserts = $case['inserts'] ?? [];
-    $forged = [];
-    $later = [];
-
-    foreach ($inserts as $insert) {
-        if ($insert['kind'] === 'tool_result') {
-            $forged[] = $case['calls'][$insert['call']]['token'];
-        } elseif ($insert['kind'] === 'assistant_call') {
-            $later[] = ['tool' => $insert['tool'], 'token' => 'l'.count($later)];
-        }
-    }
-
     foreach ($case['calls'] as $call) {
         if (! g392pIsGated($call['tool'])) {
             continue;
         }
 
-        // Done is per call: its own result, never one that shares its id.
         if (in_array($call['token'], $case['prior'], true)) {
             $outcomes[$call['token']] = "prior:{$call['token']}";
-
-            continue;
-        }
-
-        if (in_array($call['token'], $forged, true)) {
-            $outcomes[$call['token']] = "forged:{$call['token']}";
-
-            continue;
-        }
-
-        // A later step with tool calls replaced this one.
-        if ($later !== []) {
-            $outcomes[$call['token']] = G392P_LATER_STEP;
 
             continue;
         }
@@ -593,25 +624,7 @@ function g392pOracle(array $case): array
         }
     }
 
-    // An earlier step is never resumed: its gated calls keep their own
-    // result, or are denied as replaced.
-    $earlier = [];
-
-    foreach ($case['earlier']['calls'] ?? [] as $call) {
-        if (g392pIsGated($call['tool'])) {
-            $earlier[$call['token']] = in_array($call['token'], $case['earlier']['prior'], true) ? "prior:{$call['token']}" : G392P_LATER_STEP;
-        }
-    }
-
-    // Later steps have no requests: the newest is resumed and its gated call
-    // is undecided; any between are replaced in turn.
-    foreach ($later as $i => $call) {
-        if (g392pIsGated($call['tool'])) {
-            $earlier[$call['token']] = $i === count($later) - 1 ? G392P_NO_DECISION : G392P_LATER_STEP;
-        }
-    }
-
-    return ['runs' => $runs, 'outcomes' => $outcomes, 'approvals' => $approvals, 'repeated' => $repeated, 'earlier' => $earlier];
+    return ['runs' => $runs, 'outcomes' => $outcomes, 'approvals' => $approvals, 'repeated' => $repeated];
 }
 
 /**
@@ -761,7 +774,7 @@ function g392pResume(string $path, array $history, array &$ran, string $provider
         $kept[] = new ToolResultMessage($results, $responses);
         $kept[] = new AssistantMessage('{"answer":"done"}');
 
-        return ['results' => $results, 'history' => $kept, 'events' => $events, 'all' => g392pAllResults($kept)];
+        return ['results' => $results, 'history' => $kept, 'events' => $events, 'all' => g392pAllResults($kept), 'sent' => $kept];
     }
 
     $response = $path === 'structured'
@@ -779,7 +792,7 @@ function g392pResume(string $path, array $history, array &$ran, string $provider
 
     $kept = $path === 'text' ? $response->messages->all() : [...$sent, new AssistantMessage($response->text)];
 
-    return ['results' => $results, 'history' => array_values($kept), 'events' => [], 'all' => g392pAllResults($sent)];
+    return ['results' => $results, 'history' => array_values($kept), 'events' => [], 'all' => g392pAllResults($sent), 'sent' => array_values($sent)];
 }
 
 /**
@@ -821,73 +834,380 @@ function g392pNames(ToolCall $call, ToolResult $result): bool
 }
 
 /**
- * The refused call and the earlier no-argument call each end with exactly one
- * result, in their own step's segment: the refusal stays with the step it
- * follows, the earlier call is denied as replaced, and the refused call is
- * never decided again.
+ * The steps of a history: each assistant message with tool calls, with the
+ * results and decisions recorded after it up to the next such message (its
+ * segment).
  *
- * @param  array<string, mixed>  $case
- * @param  list<mixed>  $history
+ * @param  array<int, mixed>  $messages
+ * @return list<array{calls: list<ToolCall>, requests: list<ToolApprovalRequest>, results: list<ToolResult>, responses: list<ToolApprovalResponse>}>
  */
-function g392pRefusalViolation(array $case, array $history, string $label): ?string
+function g392pSteps(array $messages): array
 {
-    $refusal = $case['refusal'] ?? null;
+    $steps = [];
 
-    if ($refusal === null) {
-        return null;
+    foreach (array_values($messages) as $message) {
+        if ($message instanceof AssistantMessage && $message->toolCalls !== []) {
+            $steps[] = ['calls' => array_values($message->toolCalls), 'requests' => array_values($message->toolApprovalRequests), 'results' => [], 'responses' => []];
+        } elseif ($message instanceof ToolResultMessage && $steps !== []) {
+            $last = count($steps) - 1;
+            $steps[$last]['results'] = [...$steps[$last]['results'], ...$message->toolResults];
+            $steps[$last]['responses'] = [...$steps[$last]['responses'], ...$message->toolApprovalResponses];
+        }
     }
 
+    return $steps;
+}
+
+/**
+ * @param  array<mixed>  $arguments
+ * @return array<mixed>
+ */
+function g392pSorted(array $arguments): array
+{
+    ksort($arguments);
+
+    return array_map(fn (mixed $v): mixed => is_array($v) ? g392pSorted($v) : $v, $arguments);
+}
+
+/**
+ * Whether a call's arguments are in the stored form earlier versions gave
+ * arguments they could not parse: one string under `raw` or `input`.
+ */
+function g392pWrapped(ToolCall $call): bool
+{
+    $arguments = $call->arguments();
+
+    return count($arguments) === 1 && in_array(array_key_first($arguments), ['raw', 'input'], true) && is_string(reset($arguments));
+}
+
+/**
+ * Which result of a segment answers which call of its step: the same id,
+ * name and arguments first, then a result without arguments for a call in
+ * the stored form, then the same id and name, then the same id. Each result
+ * answers one call; the calls are taken in order.
+ *
+ * @param  list<ToolCall>  $calls
+ * @param  list<ToolResult>  $results
+ * @return array<int, int> call index => result index
+ */
+function g392pAnswers(array $calls, array $results): array
+{
+    $passes = [
+        fn (ToolCall $c, ToolResult $r): bool => $r->toolCallId === $c->id && $r->toolName === $c->name && g392pSorted($r->args) === g392pSorted($c->arguments()),
+        fn (ToolCall $c, ToolResult $r): bool => $r->args === [] && $r->toolCallId === $c->id && $r->toolName === $c->name && g392pWrapped($c),
+        fn (ToolCall $c, ToolResult $r): bool => $r->toolCallId === $c->id && $r->toolName === $c->name,
+        fn (ToolCall $c, ToolResult $r): bool => $r->toolCallId === $c->id,
+    ];
+    $answers = [];
+    $taken = [];
+
+    foreach ($passes as $matches) {
+        foreach ($calls as $i => $call) {
+            if (isset($answers[$i])) {
+                continue;
+            }
+
+            foreach ($results as $j => $result) {
+                if (! isset($taken[$j]) && $matches($call, $result)) {
+                    $answers[$i] = $j;
+                    $taken[$j] = true;
+
+                    break;
+                }
+            }
+        }
+    }
+
+    return $answers;
+}
+
+/**
+ * A result as the model compares it: id, name, sorted arguments and content;
+ * a refusal's message is not predicted, only that it is one.
+ */
+function g392pKey(string $id, string $name, array $arguments, string $content): string
+{
+    if ($arguments === [] && str_starts_with($content, 'Tool call arguments')) {
+        $content = '*refused*';
+    }
+
+    return json_encode([$id, $name, g392pSorted($arguments)]).'|'.$content;
+}
+
+/**
+ * What one resume over this history must do, by the rules: the values of the
+ * calls that run, and the results added to each step's segment.
+ *
+ * @param  array<int, mixed>  $messages
+ * @return array{runs: list<string>, added: array<int, list<string>>, repeated: bool, answeredBefore: bool}
+ */
+function g392pPredict(array $messages): array
+{
+    $steps = g392pSteps($messages);
+    $added = array_fill(0, count($steps), []);
+    $runs = [];
+    $answeredBefore = false;
+    $repeated = false;
+
+    foreach ($steps as $k => $step) {
+        $answers = g392pAnswers($step['calls'], $step['results']);
+
+        foreach ($step['calls'] as $i => $call) {
+            if (isset($answers[$i]) && g392pIsGated($call->name)) {
+                $answeredBefore = true;
+            }
+        }
+
+        $newest = $k === count($steps) - 1;
+
+        if (! $newest) {
+            foreach ($step['calls'] as $i => $call) {
+                if (! isset($answers[$i]) && g392pIsGated($call->name)) {
+                    $added[$k][] = g392pKey($call->id, $call->name, $call->arguments(), G392P_LATER_STEP);
+                }
+            }
+
+            continue;
+        }
+
+        if (array_filter($step['calls'], fn (ToolCall $c): bool => g392pIsGated($c->name)) === []) {
+            continue;
+        }
+
+        $unique = fn (array $values): bool => count($values) === count(array_unique($values));
+        $repeated = ! $unique(array_map(fn (ToolCall $c): string => $c->id, $step['calls']))
+            || ! $unique(array_map(fn (ToolApprovalRequest $r): string => $r->toolCallId, $step['requests']))
+            || ! $unique(array_map(fn (ToolApprovalRequest $r): string => $r->approvalId, $step['requests']));
+        $requestFor = [];
+
+        foreach ($step['requests'] as $request) {
+            $requestFor[$request->toolCallId] = $request;
+        }
+
+        foreach ($step['calls'] as $i => $call) {
+            if (isset($answers[$i])) {
+                continue;
+            }
+            if (! g392pIsGated($call->name)) {
+                continue;
+            }
+            if ($repeated) {
+                $added[$k][] = g392pKey($call->id, $call->name, $call->arguments(), G392P_REPEATED);
+
+                continue;
+            }
+
+            $request = $requestFor[$call->id] ?? null;
+            $response = null;
+
+            foreach ($step['responses'] as $candidate) {
+                if ($request !== null && $candidate->approvalId === $request->approvalId) {
+                    $response = $candidate;
+
+                    break;
+                }
+            }
+
+            if (! $response instanceof ToolApprovalResponse) {
+                $added[$k][] = g392pKey($call->id, $call->name, $call->arguments(), G392P_NO_DECISION);
+            } elseif (! $response->approved) {
+                $added[$k][] = g392pKey($call->id, $call->name, $call->arguments(), $response->reason ?? G392P_DENIED);
+            } elseif (g392pWrapped($call)) {
+                $added[$k][] = g392pKey($call->id, $call->name, [], 'Tool call arguments');
+            } else {
+                $runs[] = (string) $call->arguments()['token'];
+                $added[$k][] = g392pKey($call->id, $call->name, $call->arguments(), 'ran:'.$call->arguments()['token']);
+            }
+        }
+    }
+
+    return ['runs' => $runs, 'added' => $added, 'repeated' => $repeated, 'answeredBefore' => $answeredBefore];
+}
+
+/**
+ * The results added to each step's segment between two histories, and
+ * whether any result was lost.
+ *
+ * @param  array<int, mixed>  $before
+ * @param  array<int, mixed>  $after
+ * @return array{added: array<int, list<string>>, addedAt: array<int, list<int>>, lost: bool, steps: int}
+ */
+function g392pAdded(array $before, array $after): array
+{
+    $old = g392pSteps($before);
+    $new = g392pSteps($after);
+    $added = [];
+    $addedAt = [];
+    $lost = count($old) !== count($new);
+
+    foreach ($new as $k => $step) {
+        $remaining = array_map(fn (ToolResult $r): string => g392pKey($r->toolCallId, $r->toolName, $r->args, (string) $r->result), $old[$k]['results'] ?? []);
+        $added[$k] = [];
+        $addedAt[$k] = [];
+
+        foreach ($step['results'] as $j => $result) {
+            $key = g392pKey($result->toolCallId, $result->toolName, $result->args, (string) $result->result);
+            $at = array_search($key, $remaining, true);
+
+            if ($at === false) {
+                $added[$k][] = $key;
+                $addedAt[$k][] = $j;
+            } else {
+                unset($remaining[$at]);
+            }
+        }
+
+        $lost = $lost || $remaining !== [];
+    }
+
+    return ['added' => $added, 'addedAt' => $addedAt, 'lost' => $lost, 'steps' => count($new)];
+}
+
+/**
+ * One resume over $history on $path, checked against the model: the calls
+ * that ran, the results added to each segment (and, on a stream, the events),
+ * and afterwards every gated call answered by exactly one result of its own
+ * segment, every added result answering a call.
+ *
+ * @param  list<mixed>  $history
+ * @param  list<string>  $ran
+ * @return array{violation: ?string, history: list<mixed>, predicted: array{runs: list<string>, added: array<int, list<string>>, repeated: bool, answeredBefore: bool}}
+ */
+function g392pModelResume(string $path, array $history, array &$ran, string $provider, string $label): array
+{
+    $predicted = g392pPredict($history);
+    $before = count($ran);
+    $resumed = g392pResume($path, $history, $ran, $provider);
+    $done = fn (?string $violation, array $kept): array => ['violation' => $violation === null ? null : "{$label}: {$violation}", 'history' => $kept, 'predicted' => $predicted];
+
+    $gotRuns = array_slice($ran, $before);
+    $wantRuns = $predicted['runs'];
+    sort($gotRuns);
+    sort($wantRuns);
+
+    if (count(array_slice($ran, $before)) > count($wantRuns) && $wantRuns === []) {
+        return $done('invariant 3 (nothing may run): ran '.json_encode($gotRuns), $resumed['history']);
+    }
+
+    if ($gotRuns !== $wantRuns) {
+        return $done('invariants 1-4 (ran set differs): ran '.json_encode($gotRuns).', model '.json_encode($wantRuns), $resumed['history']);
+    }
+
+    if ($path === 'stream') {
+        $got = array_map(fn (ToolResultEvent $e): string => g392pKey($e->toolResult->toolCallId, $e->toolResult->toolName, $e->toolResult->args, (string) $e->toolResult->result), $resumed['events']);
+        $want = array_merge(...array_values($predicted['added']) ?: [[]]);
+        sort($got);
+        sort($want);
+
+        if ($got !== $want) {
+            return $done('invariant 5/6 (stream results): '.json_encode($got).', model '.json_encode($want), $resumed['history']);
+        }
+
+        foreach ($resumed['events'] as $event) {
+            if ($event->success !== str_starts_with((string) $event->toolResult->result, 'ran:')) {
+                return $done('invariant 6 (stream event status): '.json_encode([$event->toolResult->result, $event->success]), $resumed['history']);
+            }
+        }
+
+        $kept = g392pKeepStream($history, $resumed['events'], $predicted['added']);
+    } else {
+        $kept = $resumed['history'];
+        $actual = g392pAdded($history, $resumed['sent']);
+
+        if ($actual['lost']) {
+            return $done('invariant 5 (a recorded result was lost)', $kept);
+        }
+
+        foreach ($predicted['added'] as $k => $want) {
+            $got = $actual['added'][$k] ?? [];
+            sort($got);
+            sort($want);
+
+            if ($got !== $want) {
+                return $done("invariant 5/6 (step {$k} results): added ".json_encode($got).', model '.json_encode($want), $kept);
+            }
+        }
+    }
+
+    $final = $path === 'stream' ? $kept : $resumed['sent'];
+    $added = g392pAdded($history, $final);
+
+    foreach (g392pSteps($final) as $k => $step) {
+        $answers = g392pAnswers($step['calls'], $step['results']);
+
+        foreach ($step['calls'] as $i => $call) {
+            if (g392pIsGated($call->name) && ! isset($answers[$i])) {
+                return $done("invariant 5 (one outcome per gated call): step {$k} call {$i} ({$call->id}) has none", $kept);
+            }
+        }
+
+        foreach ($added['addedAt'][$k] ?? [] as $j) {
+            if (! in_array($j, $answers, true)) {
+                return $done("invariant 5 (one outcome per gated call): step {$k} holds an added result that answers no call", $kept);
+            }
+        }
+    }
+
+    return $done(null, $kept);
+}
+
+/**
+ * What a streaming caller stores: each event's result put in the segment of
+ * the step the model gave it to, then the answer.
+ *
+ * @param  list<mixed>  $history
+ * @param  list<ToolResultEvent>  $events
+ * @param  array<int, list<string>>  $added
+ * @return list<mixed>
+ */
+function g392pKeepStream(array $history, array $events, array $added): array
+{
     $history = array_values($history);
-    $segments = [];
-    $step = null;
+    $byKey = [];
+
+    foreach ($events as $event) {
+        $byKey[g392pKey($event->toolResult->toolCallId, $event->toolResult->toolName, $event->toolResult->args, (string) $event->toolResult->result)][] = $event->toolResult;
+    }
+
+    $stepAt = [];
 
     foreach ($history as $i => $message) {
         if ($message instanceof AssistantMessage && $message->toolCalls !== []) {
-            $step = $i;
-            $segments[$step] = [];
-        } elseif ($message instanceof ToolResultMessage && $step !== null) {
-            $segments[$step] = [...$segments[$step], ...$message->toolResults];
+            $stepAt[] = $i;
         }
     }
 
-    $argless = fn (int $at): array => array_values(array_map(
-        fn (ToolResult $r): string => (string) $r->result,
-        array_filter($segments[$at] ?? [], fn (ToolResult $r): bool => $r->toolCallId === $refusal['id'] && $r->toolName === $refusal['tool'] && $r->args === []),
-    ));
-    $mainAt = null;
-    $earlierAt = null;
+    // Last step first, so earlier positions stay valid.
+    foreach (array_reverse(array_keys($stepAt)) as $k) {
+        $results = [];
 
-    foreach ($history as $i => $message) {
-        if ($message instanceof AssistantMessage) {
-            foreach ($message->toolCalls as $call) {
-                if ($call->arguments() === ['raw' => $refusal['raw']]) {
-                    $mainAt = $i;
-                } elseif ($call->id === $refusal['id'] && $call->name === $refusal['tool'] && $call->arguments() === []) {
-                    $earlierAt = $i;
-                }
+        foreach ($added[$k] ?? [] as $key) {
+            $results[] = array_shift($byKey[$key]);
+        }
+
+        $results = array_values(array_filter($results));
+
+        if ($results === []) {
+            continue;
+        }
+
+        $end = $stepAt[$k + 1] ?? count($history);
+        $last = null;
+
+        for ($i = $stepAt[$k] + 1; $i < $end; $i++) {
+            if ($history[$i] instanceof ToolResultMessage) {
+                $last = $i;
             }
         }
-    }
 
-    if ($mainAt === null || $argless($mainAt) !== ["refused:{$refusal['raw']}"]) {
-        return "invariant 5 (refused call, {$label}): its step's segment holds ".json_encode($mainAt === null ? null : $argless($mainAt));
-    }
-
-    foreach ($history as $message) {
-        if ($message instanceof ToolResultMessage) {
-            foreach ($message->toolResults as $result) {
-                if ($result->args === ['raw' => $refusal['raw']]) {
-                    return "invariant 5 (refused call, {$label}): decided again, ".json_encode($result->result);
-                }
-            }
+        if ($last !== null) {
+            $history[$last] = new ToolResultMessage([...$history[$last]->toolResults, ...$results], $history[$last]->toolApprovalResponses);
+        } else {
+            array_splice($history, $end, 0, [new ToolResultMessage($results, [])]);
         }
     }
 
-    if ($refusal['earlierArgless'] && ($earlierAt === null || $argless($earlierAt) !== [G392P_LATER_STEP])) {
-        return "invariant 5 (earlier call without arguments, {$label}): its segment holds ".json_encode($earlierAt === null ? null : $argless($earlierAt));
-    }
-
-    return null;
+    return [...$history, new AssistantMessage('{"answer":"done"}')];
 }
 
 /**
@@ -907,32 +1227,6 @@ function g392pAllResults(array $messages): array
     }
 
     return $all;
-}
-
-/**
- * Every gated call, of the resumed step and of any earlier one, has exactly
- * one result in the history, and it is the expected one.
- *
- * @param  array{outcomes: array<string, string>, earlier: array<string, string>}  $expected
- * @param  list<ToolResult>  $all
- */
-function g392pOutcomesOnce(array $expected, array $all, string $label): ?string
-{
-    $recorded = [];
-
-    foreach ($all as $result) {
-        $recorded[(string) ($result->args['token'] ?? '?')][] = (string) $result->result;
-    }
-
-    foreach ([...$expected['outcomes'], ...$expected['earlier']] as $token => $outcome) {
-        $mine = $recorded[$token] ?? [];
-
-        if ($mine !== [$outcome]) {
-            return "invariant 5/6 ({$label}): {$token} recorded ".json_encode($mine).', model '.json_encode($outcome);
-        }
-    }
-
-    return null;
 }
 
 /**
@@ -957,14 +1251,14 @@ function g392pLastToolStep(array $messages): int
  */
 function g392pHistory(array $case): array
 {
-    $calls = array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], g392pStored($case, $call['token'], ['token' => $call['token']])), $case['calls']);
+    $calls = array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], g392pStored($case, $call['token'], g392pCallArgs($case, $call['token']))), $case['calls']);
     $requests = array_map(fn (array $r): ToolApprovalRequest => new ToolApprovalRequest($r['approvalId'], $r['toolCallId'], ToolApprovalRequest::ARGUMENTS_AS_SENT), $case['requests']);
     $responses = array_map(fn (array $r): ToolApprovalResponse => new ToolApprovalResponse($r['approvalId'], $r['approved'], $r['reason']), $case['responses']);
     $prior = [];
 
     foreach ($case['calls'] as $call) {
         if (in_array($call['token'], $case['prior'], true)) {
-            $prior[] = new ToolResult($call['id'], $call['tool'], ['token' => $call['token']], "prior:{$call['token']}");
+            $prior[] = new ToolResult($call['id'], $call['tool'], g392pResultArgs($case, $call['token']), "prior:{$call['token']}");
         }
     }
 
@@ -979,13 +1273,13 @@ function g392pHistory(array $case): array
 
         foreach ($earlier['calls'] as $call) {
             if (in_array($call['token'], $earlier['prior'], true)) {
-                $earlierPrior[] = new ToolResult($call['id'], $call['tool'], ['token' => $call['token']], "prior:{$call['token']}");
+                $earlierPrior[] = new ToolResult($call['id'], $call['tool'], g392pResultArgs($case, $call['token']), "prior:{$call['token']}");
             }
         }
 
         $history[] = new AssistantMessage(
             '',
-            array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], g392pStored($case, $call['token'], ['token' => $call['token']])), $earlier['calls']),
+            array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], g392pStored($case, $call['token'], g392pCallArgs($case, $call['token']))), $earlier['calls']),
             [],
             array_map(fn (array $r): ToolApprovalRequest => new ToolApprovalRequest($r['approvalId'], $r['toolCallId'], ToolApprovalRequest::ARGUMENTS_AS_SENT), $earlier['requests']),
         );
@@ -1029,7 +1323,7 @@ function g392pHistory(array $case): array
 
         foreach ($inserts as $insert) {
             if ($insert['when'] === $when) {
-                $out[] = g392pInsertMessage($insert, $case['calls'], $insert['kind'] === 'assistant_call' ? $later++ : $later, $case['forms'] ?? []);
+                $out[] = g392pInsertMessage($insert, $case['calls'], $insert['kind'] === 'assistant_call' ? $later++ : $later, $case);
             }
         }
 
@@ -1179,21 +1473,6 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
         'ran' => $expected['runs'] !== [],
         'denied' => array_intersect($expected['outcomes'], [G392P_DENIED, 'not this one']) !== [],
         'undecided' => in_array(G392P_NO_DECISION, $expected['outcomes'], true),
-        'prior' => array_filter($expected['outcomes'], fn (string $o): bool => str_starts_with($o, 'prior:')) !== [],
-        'shared-id-partial' => g392pSharedIdPartial($case),
-        'row-assistant' => in_array('assistant', array_column($case['rows'] ?? [], 'kind'), true),
-        'row-user' => in_array('user', array_column($case['rows'] ?? [], 'kind'), true),
-        'row-system' => in_array('system', array_column($case['rows'] ?? [], 'kind'), true),
-        'row-tool' => in_array('tool', array_column($case['rows'] ?? [], 'kind'), true),
-        'rows-repeated' => ($case['rows'] ?? []) !== [] && $expected['repeated'] && $expected['outcomes'] !== [],
-        'earlier-replaced' => in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
-        'earlier-approved' => array_filter($case['earlier']['responses'] ?? [], fn (array $r): bool => $r['approved']) !== [] && in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
-        'repeated-approval-id' => g392pOnlyApprovalIdsRepeat($case) && $expected['outcomes'] !== [],
-        'refusal-earlier-argless' => ($case['refusal']['earlierArgless'] ?? false) === true,
-        ...array_fill_keys(g392pFormShapes($case), true),
-        'refusal-repeated-id' => isset($case['refusal']) && in_array($case['refusal']['id'], array_column($case['calls'], 'id'), true),
-        ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
-        ...array_fill_keys(g392pForgedAfterLaterStep($case), true),
     ] as $kind => $hit) {
         if ($hit) {
             G392PropertyFake::$seen[$kind] = true;
@@ -1299,38 +1578,36 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
 }
 
 /**
- * Runs a direct case on one path and the repeat resume after it.
+ * Runs a direct case on one path, then resumes again over the resulting
+ * history on the text and stream paths: the model is checked on each, and
+ * the repeat resumes may run nothing and add nothing.
  *
- * @param  array{calls: list<array{id: string, tool: string, token: string}>, prior: list<string>, requests: list<array{approvalId: string, toolCallId: string}>, responses: list<array{approvalId: string, approved: bool, reason: ?string}>, split: bool, repeat: string}  $case
+ * @param  array<string, mixed>  $case
  */
 function g392pCheckDirect(array $case, string $path): ?string
 {
     G392PropertyFake::$queue = [];
     $ran = [];
-    $expected = g392pOracle($case);
+    $history = g392pHistory($case);
+    $first = g392pModelResume($path, $history, $ran, $case['provider'], 'first resume');
+    g392pRecordShapes($case, $first['predicted']);
 
-    $first = g392pResume($path, g392pHistory($case), $ran, $case['provider']);
-    $violation = g392pViolation($case, $expected, $ran, $first['all'], $first['events'], $path)
-        ?? g392pOutcomesOnce($expected, $first['all'], 'whole history')
-        ?? g392pRefusalViolation($case, $first['history'], 'first resume');
-
-    if ($violation !== null) {
-        return "first resume: {$violation}";
+    if ($first['violation'] !== null) {
+        return $first['violation'];
     }
 
-    return g392pCheckRepeat($case, $expected, $first['history'], $ran);
+    return g392pCheckRepeat($case, $first['history'], $ran, $case['provider']);
 }
 
 /**
- * Resume again over the resulting history: nothing may run a second time,
- * even when every request is now approved.
+ * Resume again over a resolved history: nothing may run a second time and
+ * nothing may be added, even when every request is now approved.
  *
- * @param  array{requests: list<array{approvalId: string, toolCallId: string}>, repeat: string}  $case
- * @param  array{runs: list<string>}  $expected
+ * @param  array<string, mixed>  $case
  * @param  list<mixed>  $history
  * @param  list<string>  $ran
  */
-function g392pCheckRepeat(array $case, array $expected, array $history, array $ran): ?string
+function g392pCheckRepeat(array $case, array $history, array $ran, string $provider = 'gemini'): ?string
 {
     $before = $ran;
     $extra = $case['repeat'] === 'approve-all'
@@ -1338,23 +1615,80 @@ function g392pCheckRepeat(array $case, array $expected, array $history, array $r
         : new UserMessage('And again?');
 
     foreach (['text', 'stream'] as $path) {
-        $again = g392pResume($path, [...$history, $extra], $ran, $case['provider'] ?? 'gemini');
+        $again = g392pModelResume($path, [...$history, $extra], $ran, $provider, "repeat resume on {$path}, {$case['repeat']}");
 
         if ($ran !== $before) {
             return "invariant 3 (repeat resume on {$path}, {$case['repeat']}): ran again ".json_encode(array_slice($ran, count($before)));
         }
 
-        if ($path === 'text' && isset($expected['outcomes'], $expected['earlier'])) {
-            $violation = g392pOutcomesOnce($expected, $again['all'], "repeat resume, {$case['repeat']}")
-                ?? g392pRefusalViolation($case, $again['history'], "repeat resume, {$case['repeat']}");
+        if ($again['predicted']['added'] !== array_fill(0, count($again['predicted']['added']), [])) {
+            return "invariant 5 (repeat resume on {$path}): the model still had calls to answer ".json_encode($again['predicted']['added']);
+        }
 
-            if ($violation !== null) {
-                return $violation;
-            }
+        if ($again['violation'] !== null) {
+            return $again['violation'];
         }
     }
 
     return null;
+}
+
+/**
+ * The shapes this case reached, for the coverage check.
+ *
+ * @param  array<string, mixed>  $case
+ * @param  array{runs: list<string>, added: array<int, list<string>>, repeated: bool, answeredBefore: bool}  $predicted
+ */
+function g392pRecordShapes(array $case, array $predicted): void
+{
+    $added = implode("\n", array_merge(...array_values($predicted['added']) ?: [[]]));
+    $replaced = str_contains($added, G392P_LATER_STEP);
+    $values = $case['values']['arg'] ?? [];
+    $mainArgs = array_map(fn (array $c): string => $values[$c['token']] ?? $c['token'], $case['calls']);
+    $otherArgs = [];
+
+    foreach ($case['earlier']['calls'] ?? [] as $call) {
+        $otherArgs[] = $values[$call['token']] ?? $call['token'];
+    }
+
+    $n = 0;
+
+    foreach ($case['inserts'] ?? [] as $insert) {
+        if ($insert['kind'] === 'assistant_call') {
+            $otherArgs[] = $values['l'.$n++] ?? '';
+        }
+    }
+
+    $lossyUsed = array_intersect_key($case['values']['lossy'] ?? [], array_flip([...$case['prior'], ...($case['earlier']['prior'] ?? []), ...array_map(fn (array $i): string => $case['calls'][$i['call']]['token'], array_filter($case['inserts'] ?? [], fn (array $i): bool => $i['kind'] === 'tool_result'))]));
+
+    foreach ([
+        'repeated' => $predicted['repeated'] && str_contains($added, G392P_REPEATED),
+        'ran' => $predicted['runs'] !== [],
+        'denied' => str_contains($added, G392P_DENIED) || str_contains($added, 'not this one'),
+        'undecided' => str_contains($added, G392P_NO_DECISION),
+        'prior' => $predicted['answeredBefore'],
+        'shared-id-partial' => g392pSharedIdPartial($case),
+        'row-assistant' => in_array('assistant', array_column($case['rows'] ?? [], 'kind'), true),
+        'row-user' => in_array('user', array_column($case['rows'] ?? [], 'kind'), true),
+        'row-system' => in_array('system', array_column($case['rows'] ?? [], 'kind'), true),
+        'row-tool' => in_array('tool', array_column($case['rows'] ?? [], 'kind'), true),
+        'rows-repeated' => ($case['rows'] ?? []) !== [] && $predicted['repeated'],
+        'earlier-replaced' => $replaced,
+        'earlier-approved' => $replaced && array_filter($case['earlier']['responses'] ?? [], fn (array $r): bool => $r['approved']) !== [],
+        'repeated-approval-id' => g392pOnlyApprovalIdsRepeat($case),
+        'refusal-earlier-argless' => ($case['refusal']['earlierArgless'] ?? false) === true,
+        'refusal-repeated-id' => isset($case['refusal']) && in_array($case['refusal']['id'], array_column($case['calls'], 'id'), true),
+        'args-identical-same-step' => count($mainArgs) !== count(array_unique($mainArgs)),
+        'args-identical-across-steps' => array_intersect($mainArgs, $otherArgs) !== [],
+        'result-args-diverge' => $lossyUsed !== [],
+        ...array_fill_keys(g392pFormShapes($case), true),
+        ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
+        ...array_fill_keys(g392pForgedAfterLaterStep($case), true),
+    ] as $kind => $hit) {
+        if ($hit) {
+            G392PropertyFake::$seen[$kind] = true;
+        }
+    }
 }
 
 /**
@@ -1421,7 +1755,7 @@ function g392pShrink(array $case, callable $check): array
  */
 function g392pDirectShapes(): array
 {
-    $shapes = ['args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
+    $shapes = ['args-identical-across-steps', 'args-identical-same-step', 'args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'result-args-diverge', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
 
     foreach (['assistant_text', 'assistant_call', 'user', 'system', 'tool_empty', 'tool_result'] as $kind) {
         foreach (['before_decision', 'after_decision'] as $when) {
@@ -1437,7 +1771,7 @@ function g392pDirectShapes(): array
 /**
  * @param  callable(G392PropertyRng): array<string, mixed>  $generate
  * @param  callable(array<string, mixed>): ?string  $check
- * @param  list<string>  $mustSee  case kinds a run of 20+ examples must reach
+ * @param  list<string>  $mustSee  case kinds the fixed seed set at 40+ examples, or any run of 200+, must reach
  */
 function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, ?array $mustSee = null): void
 {
@@ -1463,12 +1797,13 @@ function g392pForAll(string $name, int $salt, callable $generate, callable $chec
 
     expect($checked)->toBe(count($seeds));
 
-    // On the fixed seed set (what CI runs) every shape must be reached; with
-    // another seed only a large run is held to it, so a short local replay
-    // cannot fail on coverage alone.
+    // Every shape must be reached on the fixed seed set at its default size
+    // (40, what CI runs) or larger, and by any run of 200 or more examples. A
+    // smaller or re-seeded local replay is not held to it, so it cannot fail
+    // on coverage alone.
     $fixedSeeds = getenv('PRISM_PROPERTY_SEED') === false && getenv('PRISM_PROPERTY_BASE_SEED') === false;
 
-    if (count($seeds) >= 200 || ($fixedSeeds && count($seeds) >= 20)) {
+    if (count($seeds) >= 200 || ($fixedSeeds && count($seeds) >= 40)) {
         $seen = array_keys(G392PropertyFake::$seen);
         sort($seen);
 
@@ -1553,7 +1888,7 @@ it('pairs approvals for a Gemini step (ids are function names) from the provider
             return "{$case['path']} resume: {$violation}; decisions ".json_encode($model['responses']);
         }
 
-        return g392pCheckRepeat($model, $expected, $resumed['history'], $ran);
+        return g392pCheckRepeat($model, $resumed['history'], $ran);
     };
 
     g392pForAll('gemini provider step', 4, $generate, $check, shrinkable: false, mustSee: ['denied', 'ran', 'repeated', 'undecided']);
