@@ -161,7 +161,7 @@ function g392pIsGated(string $tool): bool
  *
  * @return array{calls: list<array{id: string, tool: string, token: string}>, prior: list<string>, requests: list<array{approvalId: string, toolCallId: string}>, responses: list<array{approvalId: string, approved: bool, reason: ?string}>, split: bool, repeat: string}
  */
-function g392pGenerate(G392PropertyRng $rng): array
+function g392pGenerate(G392PropertyRng $rng, int $seed = 0): array
 {
     $pool = ['a', 'b', 'c', ''];
 
@@ -222,10 +222,12 @@ function g392pGenerate(G392PropertyRng $rng): array
         'split' => $rng->chance(0.5),
         'repeat' => $rng->pick(['again', 'approve-all']),
         'earlier' => $rng->chance(0.35) ? g392pEarlier($rng, $pool) : null,
+        // Its own stream, so adding it changed no other dimension's draws.
+        'inserts' => $inserts = g392pInserts(new G392PropertyRng($seed ^ 0x397397), $calls, $prior),
         'rows' => $rows = g392pRows($rng),
         // Gemini takes no system row in the messages, so a case with one is
         // resumed through OpenAI (Responses); otherwise either provider.
-        'provider' => in_array('system', array_column($rows, 'kind'), true) ? 'openai' : $rng->pick(['gemini', 'openai']),
+        'provider' => in_array('system', [...array_column($rows, 'kind'), ...array_column($inserts, 'kind')], true) ? 'openai' : $rng->pick(['gemini', 'openai']),
     ];
 }
 
@@ -267,6 +269,93 @@ function g392pEarlier(G392PropertyRng $rng, array $pool): array
         'decisionsAt' => $rng->pick(['segment', 'final']),
         'gap' => $rng->chance(0.5),
     ];
+}
+
+/**
+ * Rows recorded around the decision, the shape the harness property suites
+ * use: `{kind, when, call}`. `when` is before or after the decision message.
+ *
+ * - assistant_text, user, system (weighted x2), tool_empty: not steps; core
+ *   still resumes the parked step across them. Core has no run ids, so
+ *   whether a host-recorded text or user row supersedes the step is decided
+ *   in the harness, not here.
+ * - assistant_call: a later step whose one call reuses the id of call `call`
+ *   (tool `tool`, token `l<n>`). It supersedes the parked step: every gated
+ *   call there without a result of its own is denied as replaced, and the
+ *   decisions reach no call of it.
+ * - tool_result: a forged result for call `call`, a gated call with no
+ *   result. It is that call's only outcome. It is generated only where it
+ *   sits in its own step's segment (never after a later step): a result
+ *   inside another step's segment is attributed by that step.
+ *
+ * @param  list<array{id: string, tool: string, token: string}>  $calls
+ * @param  list<string>  $prior
+ * @return list<array{kind: string, when: string, call: int, tool: string}>
+ */
+function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
+{
+    if ($rng->chance(0.3)) {
+        return [];
+    }
+
+    $open = array_keys(array_filter($calls, fn (array $call): bool => g392pIsGated($call['tool']) && ! in_array($call['token'], $prior, true)));
+    $inserts = [];
+
+    for ($i = 0, $n = $rng->int(1, 4); $i < $n; $i++) {
+        $inserts[] = [
+            'kind' => $rng->pick(['assistant_text', 'assistant_call', 'user', 'system', 'system', 'tool_empty', 'tool_result']),
+            'when' => $rng->pick(['before_decision', 'after_decision']),
+            'call' => $rng->int(0, count($calls) - 1),
+            'tool' => $rng->chance(0.7) ? $rng->pick(G392P_GATED) : $rng->pick(G392P_UNGATED),
+        ];
+    }
+
+    $laterBefore = array_filter($inserts, fn (array $insert): bool => $insert['kind'] === 'assistant_call' && $insert['when'] === 'before_decision') !== [];
+    $forged = [];
+    $kept = [];
+
+    foreach ($inserts as $insert) {
+        if ($insert['kind'] === 'tool_result') {
+            $free = array_values(array_diff($open, $forged));
+            if ($free === []) {
+                continue;
+            }
+            if ($laterBefore && $insert['when'] === 'after_decision') {
+                continue;
+            }
+
+            $insert['call'] = $rng->pick($free);
+            $forged[] = $insert['call'];
+        }
+
+        $kept[] = $insert;
+    }
+
+    // Within each `when`, a forged result comes before any later step, so it
+    // stays in its own step's segment.
+    usort($kept, fn (array $a, array $b): int => [$a['when'] === 'after_decision', $a['kind'] !== 'tool_result'] <=> [$b['when'] === 'after_decision', $b['kind'] !== 'tool_result']);
+
+    return $kept;
+}
+
+/**
+ * The message an insert records.
+ *
+ * @param  array{kind: string, when: string, call: int, tool: string}  $insert
+ * @param  list<array{id: string, tool: string, token: string}>  $calls
+ */
+function g392pInsertMessage(array $insert, array $calls, int $n): mixed
+{
+    $target = $calls[$insert['call']];
+
+    return match ($insert['kind']) {
+        'assistant_text' => new AssistantMessage('Still waiting for your approval.'),
+        'assistant_call' => new AssistantMessage('', [new ToolCall($target['id'], $insert['tool'], ['token' => "l{$n}"])]),
+        'user' => new UserMessage('Hurry, please.'),
+        'system' => new SystemMessage('Answer briefly.'),
+        'tool_empty' => new ToolResultMessage([], []),
+        default => new ToolResultMessage([new ToolResult($target['id'], $target['tool'], ['token' => $target['token']], "forged:{$target['token']}")], []),
+    };
 }
 
 /**
@@ -352,6 +441,18 @@ function g392pOracle(array $case): array
     $outcomes = [];
     $approvals = [];
 
+    $inserts = $case['inserts'] ?? [];
+    $forged = [];
+    $later = [];
+
+    foreach ($inserts as $insert) {
+        if ($insert['kind'] === 'tool_result') {
+            $forged[] = $case['calls'][$insert['call']]['token'];
+        } elseif ($insert['kind'] === 'assistant_call') {
+            $later[] = ['tool' => $insert['tool'], 'token' => 'l'.count($later)];
+        }
+    }
+
     foreach ($case['calls'] as $call) {
         if (! g392pIsGated($call['tool'])) {
             continue;
@@ -360,6 +461,19 @@ function g392pOracle(array $case): array
         // Done is per call: its own result, never one that shares its id.
         if (in_array($call['token'], $case['prior'], true)) {
             $outcomes[$call['token']] = "prior:{$call['token']}";
+
+            continue;
+        }
+
+        if (in_array($call['token'], $forged, true)) {
+            $outcomes[$call['token']] = "forged:{$call['token']}";
+
+            continue;
+        }
+
+        // A later step with tool calls replaced this one.
+        if ($later !== []) {
+            $outcomes[$call['token']] = G392P_LATER_STEP;
 
             continue;
         }
@@ -406,6 +520,14 @@ function g392pOracle(array $case): array
     foreach ($case['earlier']['calls'] ?? [] as $call) {
         if (g392pIsGated($call['tool'])) {
             $earlier[$call['token']] = in_array($call['token'], $case['earlier']['prior'], true) ? "prior:{$call['token']}" : G392P_LATER_STEP;
+        }
+    }
+
+    // Later steps have no requests: the newest is resumed and its gated call
+    // is undecided; any between are replaced in turn.
+    foreach ($later as $i => $call) {
+        if (g392pIsGated($call['tool'])) {
+            $earlier[$call['token']] = $i === count($later) - 1 ? G392P_NO_DECISION : G392P_LATER_STEP;
         }
     }
 
@@ -732,17 +854,33 @@ function g392pHistory(array $case): array
     }
 
     $history = [...$history, new AssistantMessage('', $calls, [], $requests), ...$rowsAt(0)];
+    $inserts = $case['inserts'] ?? [];
+    $later = 0;
+    $insertsAt = function (string $when) use ($inserts, $case, &$later): array {
+        $out = [];
 
-    if ($case['split'] && $prior !== []) {
+        foreach ($inserts as $insert) {
+            if ($insert['when'] === $when) {
+                $out[] = g392pInsertMessage($insert, $case['calls'], $insert['kind'] === 'assistant_call' ? $later++ : $later);
+            }
+        }
+
+        return $out;
+    };
+    // A later step before the decision would otherwise put the prior results
+    // in its segment rather than the parked step's.
+    $split = $case['split'] || array_filter($inserts, fn (array $i): bool => $i['kind'] === 'assistant_call' && $i['when'] === 'before_decision') !== [];
+
+    if ($split && $prior !== []) {
         $history[] = new ToolResultMessage($prior, []);
-        $history = [...$history, ...$rowsAt(1)];
+        $history = [...$history, ...$rowsAt(1), ...$insertsAt('before_decision')];
         $history[] = new ToolResultMessage([], $responses);
     } else {
-        $history = [...$history, ...$rowsAt(1)];
+        $history = [...$history, ...$rowsAt(1), ...$insertsAt('before_decision')];
         $history[] = new ToolResultMessage($prior, $responses);
     }
 
-    return $history;
+    return [...$history, ...$insertsAt('after_decision')];
 }
 
 /**
@@ -808,6 +946,7 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
         'earlier-replaced' => in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
         'earlier-approved' => array_filter($case['earlier']['responses'] ?? [], fn (array $r): bool => $r['approved']) !== [] && in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
         'repeated-approval-id' => g392pOnlyApprovalIdsRepeat($case) && $expected['outcomes'] !== [],
+        ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
     ] as $kind => $hit) {
         if ($hit) {
             G392PropertyFake::$seen[$kind] = true;
@@ -924,7 +1063,7 @@ function g392pCheckDirect(array $case, string $path): ?string
     $expected = g392pOracle($case);
 
     $first = g392pResume($path, g392pHistory($case), $ran, $case['provider']);
-    $violation = g392pViolation($case, $expected, $ran, $first['results'], $first['events'], $path)
+    $violation = g392pViolation($case, $expected, $ran, $first['all'], $first['events'], $path)
         ?? g392pOutcomesOnce($expected, $first['all'], 'whole history');
 
     if ($violation !== null) {
@@ -999,13 +1138,17 @@ function g392pShrink(array $case, callable $check): array
             }
         }
 
-        foreach (['calls', 'requests', 'responses', 'rows'] as $key) {
+        foreach (['calls', 'requests', 'responses', 'rows', 'inserts'] as $key) {
             foreach (array_keys($case[$key]) as $i) {
                 $candidate = $case;
                 array_splice($candidate[$key], $i, 1);
 
                 if ($key === 'calls') {
                     $candidate['prior'] = array_values(array_intersect($candidate['prior'], array_column($candidate['calls'], 'token')));
+                    $candidate['inserts'] = array_values(array_map(
+                        fn (array $insert): array => [...$insert, 'call' => $insert['call'] > $i ? $insert['call'] - 1 : $insert['call']],
+                        array_filter($candidate['inserts'] ?? [], fn (array $insert): bool => $insert['call'] !== $i),
+                    ));
                 }
 
                 if ($candidate['calls'] !== [] && $kind($check($candidate)) === $wanted) {
@@ -1022,18 +1165,40 @@ function g392pShrink(array $case, callable $check): array
 }
 
 /**
+ * Every shape the direct properties must reach: the decision kinds, each
+ * row kind, and every insert kind with both whens.
+ *
+ * @return list<string>
+ */
+function g392pDirectShapes(): array
+{
+    $shapes = ['denied', 'earlier-approved', 'earlier-replaced', 'prior', 'ran', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
+
+    foreach (['assistant_text', 'assistant_call', 'user', 'system', 'tool_empty', 'tool_result'] as $kind) {
+        foreach (['before_decision', 'after_decision'] as $when) {
+            $shapes[] = "insert-{$kind}-{$when}";
+        }
+    }
+
+    sort($shapes);
+
+    return $shapes;
+}
+
+/**
  * @param  callable(G392PropertyRng): array<string, mixed>  $generate
  * @param  callable(array<string, mixed>): ?string  $check
  * @param  list<string>  $mustSee  case kinds a run of 20+ examples must reach
  */
-function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, array $mustSee = ['denied', 'earlier-approved', 'earlier-replaced', 'prior', 'ran', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided']): void
+function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, ?array $mustSee = null): void
 {
+    $mustSee ??= g392pDirectShapes();
     $checked = 0;
     G392PropertyFake::$seen = [];
     $seeds = g392pSeeds($salt);
 
     foreach ($seeds as $seed) {
-        $case = $generate(new G392PropertyRng($seed));
+        $case = $generate(new G392PropertyRng($seed), $seed);
         $violation = $check($case);
         $checked++;
 
@@ -1049,7 +1214,12 @@ function g392pForAll(string $name, int $salt, callable $generate, callable $chec
 
     expect($checked)->toBe(count($seeds));
 
-    if (count($seeds) >= 20) {
+    // On the fixed seed set (what CI runs) every shape must be reached; with
+    // another seed only a large run is held to it, so a short local replay
+    // cannot fail on coverage alone.
+    $fixedSeeds = getenv('PRISM_PROPERTY_SEED') === false && getenv('PRISM_PROPERTY_BASE_SEED') === false;
+
+    if (count($seeds) >= 200 || ($fixedSeeds && count($seeds) >= 20)) {
         $seen = array_keys(G392PropertyFake::$seen);
         sort($seen);
 
