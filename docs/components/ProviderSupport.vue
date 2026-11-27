@@ -1,5 +1,12 @@
 <template>
   <div>
+    <p>
+      Built-in Prism integrations; individual models can support fewer features.
+      Image means images attached to text requests, not image generation.
+      Adapted structured output requests JSON without native schema enforcement.
+      Unsupported cells have no implementation in this integration. Separate
+      provider packages are outside this table.
+    </p>
     <div style="overflow-x: auto !important; display: block !important; width: 100% !important;">
       <table style="width: max-content !important; min-width: 850px !important;">
         <thead>
@@ -28,21 +35,6 @@
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                  />
-                </svg>
-                <svg
-                  v-else-if="provider[feature.toLowerCase()] === 'planned'"
-                  class="w-6 h-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="8"
-                    stroke="orange"
-                    stroke-width="2"
                   />
                 </svg>
                 <svg
@@ -100,17 +92,7 @@
         </svg>
         <span>Supported</span>
       </div>
-      <div class="flex items-center gap-2">
-        <svg
-          class="w-5 h-5"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <circle cx="12" cy="12" r="8" stroke="orange" stroke-width="2" />
-        </svg>
-        <span>Planned Support</span>
-      </div>
+
       <div class="flex items-center gap-2">
         <svg
           class="w-5 h-5"
@@ -151,7 +133,6 @@
 
 <script>
 const Supported = "supported";
-const Planned = "planned";
 const Adapted = "adapted";
 const Unsupported = "unsupported";
 
@@ -176,7 +157,7 @@ export default {
           name: "Anthropic",
           text: Supported,
           streaming: Supported,
-          structured: Adapted,
+          structured: Supported,
           embeddings: Unsupported,
           image: Supported,
           "speech-to-text": Unsupported,
@@ -187,60 +168,21 @@ export default {
         },
         {
           name: "Azure OpenAI",
-          text: Planned,
-          streaming: Planned,
-          structured: Planned,
-          embeddings: Planned,
-          image: Planned,
-          "speech-to-text": Planned,
-          "text-to-speech": Planned,
-          tools: Planned,
-          documents: Unsupported,
-          moderation: Unsupported,
-        },
-        {
-          name: "Bedrock - Anthropic",
           text: Supported,
-          streaming: Unsupported,
+          streaming: Supported,
           structured: Supported,
-          embeddings: Unsupported,
-          image: Supported,
-          "speech-to-text": Unsupported,
-          "text-to-speech": Unsupported,
-          tools: Supported,
-          documents: Unsupported,
-          moderation: Unsupported,
-        },
-        {
-          name: "Bedrock - Cohere",
-          text: Unsupported,
-          streaming: Unsupported,
-          structured: Unsupported,
           embeddings: Supported,
-          image: Unsupported,
-          "speech-to-text": Unsupported,
-          "text-to-speech": Unsupported,
-          tools: Unsupported,
-          documents: Unsupported,
-          moderation: Unsupported,
-        },
-        {
-          name: "Bedrock - Converse",
-          text: Supported,
-          streaming: Unsupported,
-          structured: Supported,
-          embeddings: Unsupported,
           image: Supported,
           "speech-to-text": Unsupported,
           "text-to-speech": Unsupported,
           tools: Supported,
-          documents: Supported,
+          documents: Unsupported,
           moderation: Unsupported,
         },
         {
           name: "DeepSeek",
           text: Supported,
-          streaming: Unsupported,
+          streaming: Supported,
           structured: Supported,
           embeddings: Unsupported,
           image: Supported,
@@ -258,7 +200,7 @@ export default {
           embeddings: Unsupported,
           image: Unsupported,
           "speech-to-text": Supported,
-          "text-to-speech": Planned,
+          "text-to-speech": Supported,
           tools: Unsupported,
           documents: Unsupported,
           moderation: Unsupported,
@@ -271,7 +213,7 @@ export default {
           embeddings: Supported,
           image: Supported,
           "speech-to-text": Unsupported,
-          "text-to-speech": Unsupported,
+          "text-to-speech": Supported,
           tools: Supported,
           documents: Supported,
           moderation: Unsupported,
@@ -281,7 +223,7 @@ export default {
           text: Supported,
           streaming: Supported,
           structured: Supported,
-          embeddings: Planned,
+          embeddings: Unsupported,
           image: Supported,
           "speech-to-text": Supported,
           "text-to-speech": Supported,
@@ -320,7 +262,20 @@ export default {
           text: Supported,
           streaming: Supported,
           structured: Supported,
-          embeddings: Unsupported,
+          embeddings: Supported,
+          image: Supported,
+          "speech-to-text": Unsupported,
+          "text-to-speech": Unsupported,
+          tools: Supported,
+          documents: Supported,
+          moderation: Unsupported,
+        },
+        {
+          name: "Requesty",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Supported,
           image: Supported,
           "speech-to-text": Unsupported,
           "text-to-speech": Unsupported,
@@ -340,6 +295,32 @@ export default {
           tools: Supported,
           documents: Supported,
           moderation: Supported,
+        },
+        {
+          name: "Qwen",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Supported,
+          image: Supported,
+          "speech-to-text": Unsupported,
+          "text-to-speech": Unsupported,
+          tools: Supported,
+          documents: Unsupported,
+          moderation: Unsupported,
+        },
+        {
+          name: "Replicate",
+          text: Supported,
+          streaming: Supported,
+          structured: Adapted,
+          embeddings: Supported,
+          image: Unsupported,
+          "speech-to-text": Supported,
+          "text-to-speech": Supported,
+          tools: Unsupported,
+          documents: Unsupported,
+          moderation: Unsupported,
         },
         {
           name: "VoyageAI",
@@ -378,6 +359,33 @@ export default {
           "text-to-speech": Unsupported,
           tools: Unsupported,
           documents: Unsupported,
+          moderation: Unsupported,
+        },
+        {
+          name: "Vertex AI",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Supported,
+          image: Supported,
+          "speech-to-text": Unsupported,
+          "text-to-speech": Unsupported,
+          tools: Supported,
+          documents: Supported,
+          moderation: Unsupported,
+        },
+        {
+          name: "Z",
+          text: Supported,
+          streaming: Supported,
+          structured: Supported,
+          embeddings: Unsupported,
+          image: Supported,
+          "speech-to-text": Unsupported,
+          "text-to-speech": Unsupported,
+          tools: Supported,
+          documents: Supported,
+          moderation: Unsupported,
         },
       ],
     };

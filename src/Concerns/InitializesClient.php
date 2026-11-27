@@ -6,6 +6,7 @@ namespace Prism\Prism\Concerns;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Support\SameOriginRedirects;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -17,6 +18,7 @@ trait InitializesClient
 
         return Http::withRequestMiddleware(fn (RequestInterface $request): RequestInterface => $request)
             ->withResponseMiddleware(fn (ResponseInterface $response): ResponseInterface => $response)
+            ->withMiddleware(SameOriginRedirects::middleware())
             ->timeout($timeout)
             ->connectTimeout($timeout)
             ->throw();

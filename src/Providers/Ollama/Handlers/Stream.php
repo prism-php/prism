@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Concerns\TracksStreamFailureUsage;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
@@ -31,6 +32,7 @@ use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\StreamFailureUsageTracker;
 use Prism\Prism\Text\Request;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -42,6 +44,7 @@ use Throwable;
 class Stream
 {
     use CallsTools, MapsFinishReason, MapsUsage;
+    use TracksStreamFailureUsage;
 
     protected OllamaStreamState $state;
 
@@ -57,6 +60,10 @@ class Stream
      */
     public function handle(Request $request): Generator
     {
+        $this->streamFailureTracker = null;
+
+        yield from $this->resolveToolApprovalsAndYieldEvents($request, EventID::generate());
+
         $response = $this->sendRequest($request);
 
         yield from $this->processStream($response, $request);
@@ -67,8 +74,10 @@ class Stream
      */
     protected function processStream(Response $response, Request $request, int $depth = 0): Generator
     {
+        $this->streamFailureTracker = new StreamFailureUsageTracker('ollama', $depth);
+
         if ($depth >= $request->maxSteps()) {
-            throw new PrismException('Maximum tool call chain depth exceeded');
+            throw (new PrismException('Maximum tool call chain depth exceeded'))->withStreamFailureUsage($this->streamFailureUsage());
         }
 
         if ($depth === 0) {
@@ -79,8 +88,8 @@ class Stream
         $stepFinishReason = null;
         $this->stepUsage = null;
 
-        while (! $response->getBody()->eof()) {
-            $data = $this->parseNextDataLine($response->getBody());
+        while (! (yield from $this->readStreamValue(fn (): bool => $response->getBody()->eof()))) {
+            $data = yield from $this->readStreamValue(fn (): ?array => $this->parseNextDataLine($response->getBody()));
 
             if ($data === null) {
                 continue;
@@ -201,7 +210,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->stepUsage,
+            usage: $this->finishStepUsage(),
             finishReason: $this->state->finishReason(),
         );
 
@@ -271,6 +280,7 @@ class Stream
             errorType: 'stream_error',
             message: is_string($data['error']) ? $data['error'] : (string) data_get($data, 'error.message', 'No error message provided'),
             recoverable: false,
+            failureUsage: $this->streamFailureUsage(),
         );
     }
 
@@ -296,6 +306,20 @@ class Stream
         }
     }
 
+    /**
+     * The usage this step reported, for its StepFinishEvent.
+     *
+     * Also advances the state's step snapshot, so the client-executed tool path
+     * (yieldToolCallsFinishEvents, which reads takeStepUsage()) hands its step
+     * only that step's usage rather than every earlier step's as well.
+     */
+    protected function finishStepUsage(): ?Usage
+    {
+        $this->state->takeStepUsage();
+
+        return $this->stepUsage;
+    }
+
     protected function recordStepUsage(): void
     {
         if ($this->stepUsage instanceof Usage) {
@@ -317,7 +341,7 @@ class Stream
         try {
             return json_decode($line, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            throw new PrismStreamDecodeException('Ollama', $e);
+            throw (new PrismStreamDecodeException('Ollama', $e))->withStreamFailureUsage($this->streamFailureUsage());
         }
     }
 
@@ -328,7 +352,7 @@ class Stream
      */
     protected function extractToolCalls(array $data, array $toolCalls): array
     {
-        foreach (data_get($data, 'message.tool_calls', []) as $index => $toolCall) {
+        foreach (data_get($data, 'message.tool_calls') ?? [] as $index => $toolCall) {
             if ($name = data_get($toolCall, 'function.name')) {
                 $toolCalls[$index]['name'] = $name;
                 $toolCalls[$index]['arguments'] = '';
@@ -367,7 +391,17 @@ class Stream
 
         // Execute tools and emit results
         $toolResults = [];
-        yield from $this->callToolsAndYieldEvents($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults);
+        $hasPendingToolCalls = false;
+        yield from $this->callToolsAndYieldEventsWithPending($request->tools(), $mappedToolCalls, $this->state->messageId(), $toolResults, $hasPendingToolCalls);
+
+        if ($hasPendingToolCalls) {
+            // Client-executed or approval-required tool calls: end the stream
+            // with FinishReason::ToolCalls so the consumer resolves and resumes.
+            $this->state->markStepFinished();
+            yield from $this->yieldToolCallsFinishEvents($this->state);
+
+            return;
+        }
 
         // Emit step finish after tool calls
         $this->state->withFinishReason(FinishReason::ToolCalls);
@@ -375,7 +409,7 @@ class Stream
         yield new StepFinishEvent(
             id: EventID::generate(),
             timestamp: time(),
-            usage: $this->stepUsage,
+            usage: $this->finishStepUsage(),
             finishReason: FinishReason::ToolCalls,
         );
 
@@ -405,6 +439,8 @@ class Stream
 
     protected function sendRequest(Request $request): Response
     {
+        $this->streamFailureTracker = null;
+
         /** @var Response $response */
         $response = $this
             ->client
@@ -418,7 +454,9 @@ class Stream
                 'tools' => ToolMap::map($request->tools()),
                 'stream' => true,
                 ...Arr::whereNotNull([
-                    'think' => $request->providerOptions('thinking'),
+                    'think' => $request->providerOptions('thinking') ?? (
+                        $request->reasoningEnabled() === false ? false : null
+                    ),
                     'keep_alive' => $request->providerOptions('keep_alive'),
                 ]),
                 'options' => Arr::whereNotNull(array_merge([

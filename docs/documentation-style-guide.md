@@ -1,161 +1,67 @@
 # Technical Documentation Style Guide
-## Core Principles
-### 1. Conversational Professionalism
 
-- Write as if you're having a focused conversation with a peer
-- Use "you" to directly address the reader
-- Keep it professional but not rigid or overly formal
-- Include occasional lighthearted remarks without being silly
-Example:
+## Purpose
 
-```
-❌ "The configuration file must be published prior to utilization."
-✅ "First, let's publish your config file so you can customize these options."
-```
+Documentation helps readers install, configure and use the released software.
+Describe available behavior, requirements and limitations. Keep implementation
+history, debugging narratives and design deliberations in issues, pull requests
+or decision records.
 
-### 2. Clear and Direct
+## Voice
 
-- Get to the point quickly
-- Use active voice
-- Break complex concepts into digestible chunks
-- Front-load important information
+- Use direct, professional language and address the reader as "you".
+- Start with what the feature does and when to use it.
+- Prefer concrete statements over marketing adjectives or rhetorical questions.
+- Avoid jokes, analogies, exclamation marks and imagined failure stories.
+- Explain a consequence only when it affects the reader's configuration or use.
+- Do not narrate the author's reasoning or defend implementation choices.
 
-Example:
+For example, write "The iterator yields entries without loading the complete
+listing into memory." Do not add a story about how the application might fail.
 
-```
-❌ "It is recommended that validation be implemented using the provided methods."
-✅ "Validate your inputs using the validate() method."
-```
+## Structure
 
-### 3. Authentic Enthusiasm
+- Begin with a short description, followed by prerequisites and a working example.
+- Use descriptive headings such as "Configuration", "Response handling" and "Limits".
+- Put advanced options after basic usage.
+- Link to related guides instead of repeating their explanations.
+- Use tables for comparable options, not as a substitute for every paragraph.
+- Preserve existing heading anchors where possible; update links when headings change.
 
-- Show genuine excitement for powerful features
-- Highlight elegant solutions
-- Express appreciation for good practices
-- Share useful tips naturally
+## Accuracy and scope
 
-Example:
+- Identify the language, package and framework to which an instruction applies.
+- Do not describe Laravel integration as a requirement of TypeScript or Python.
+- Verify API names and examples against the implementation.
+- Distinguish provider support, model support and package support.
+- State unsupported features directly and point to a supported alternative.
+- Avoid promises about future releases; keep plans in the issue tracker.
+- Do not present test anecdotes or benchmark observations as API guarantees.
+- Qualify claims about locking, durability, security, schema validation and performance.
+- Use package manifests for requirements and release notes for version-specific changes.
+- Keep model availability and pricing out of general recommendations unless verified.
 
-```
-❌ "The feature enables asynchronous processing capabilities."
-✅ "This powerful feature lets you process jobs in the background, keeping your app snappy and responsive."
-```
+## Examples
 
-## Writing Guidelines
-### Structure and Flow
+- Show valid imports, prerequisites and the relevant result.
+- Use the native API for each supported language; do not mechanically translate syntax.
+- Use comments to explain assumptions or non-obvious behavior.
+- Mark illustrative code and application-supplied variables explicitly.
+- Keep credentials out of examples and use server-side environment configuration.
+- Preserve working examples during editorial changes and validate any API changes.
+- Do not publish examples for planned or unimplemented features as usable APIs.
 
-- Start with a brief, engaging introduction
-- Use progressive disclosure - basic concepts first, then advanced
-- Include relevant cross-references
+## Warnings
 
-### Code Examples
+Keep warnings short and actionable: state the condition, consequence and mitigation.
+Retain security boundaries, data-loss risks and important provider limitations.
+Do not replace specific requirements with broad claims such as "secure by default",
+"no validation needed" or "exactly once".
 
-- Show real-world, practical examples
-- Include comments for complex parts
-- Demonstrate both basic and advanced usage
-- Follow code style conventions
-- Use meaningful variable names
+## Review checklist
 
-Example:
-
-```php
-// Basic Example
-$users = User::where('active', true)
-    ->orderBy('name')
-    ->get();
-// With Additional Constraints
-$users = User::where('active', true)
-    ->whereHas('subscriptions', function ($query) {
-        $query->where('status', 'active');
-    })
-    ->orderBy('name')
-    ->get();
-```
-
-### Language Patterns
-#### Do:
-
-- Use contractions naturally (you'll, we're, let's)
-- Write in a confident, positive tone
-- Include subtle humor when appropriate
-- Acknowledge common pitfalls
-- Offer best practices and tips
-
-#### Don't:
-
-- Use jargon without explanation
-- Write overly long paragraphs
-- Sound condescending or patronizing
-- Use excessive exclamation points
-- Include unnecessary abstractions
-- Use Emojis
-
-### Formatting Best Practices
-
-1. **Headers and Sections**
-   - Use clear, descriptive headers
-   - Keep hierarchy logical
-   - Include jump links for long pages
-2. **Lists and Tables**
-   - Use bullet points for related items
-   - Create tables for comparing options
-   - Include examples after lists
-3. **Callouts and Notes**
-   - Highlight important warnings
-   - Share pro tips in callouts
-   - Use consistent styling for notes
-
-Example:
-
-```
-> [!NOTE]
-> Highlights information that users should take into account, even when skimming.
-> [!TIP]
-> Optional information to help a user be more successful.
-> [!IMPORTANT]
-> Crucial information necessary for users to succeed.
-> [!WARNING]
-> Critical content demanding immediate user attention due to potential risks.
-> [!CAUTION]
-> Negative potential consequences of an action.
-```
-
-## Tone Examples
-### Introduction
-
-```
-❌ "This documentation delineates the methodologies for implementing the authentication system."
-✅ "In this guide, you'll learn how to add authentication to your app. We'll cover everything from basic login forms to OAuth providers."
-```
-
-### Explanations
-
-```
-❌ "The utilization of queues facilitates the handling of resource-intensive operations."
-✅ "Queues let you handle time-consuming tasks in the background, keeping your app fast and your users happy."
-```
-
-### Error Handling
-
-```
-❌ "Exception handling must be implemented to prevent application failure."
-✅ "Let's make your app more robust by catching and handling potential errors gracefully."
-```
-
-## Key Takeaways
-
-1. **Be Human**
-   - Write like you're explaining to a colleague
-   - Show personality while maintaining professionalism
-   - Be encouraging and supportive
-2. **Be Clear**
-   - Use simple, direct language
-   - Explain complex concepts step by step
-   - Provide real-world examples
-3. **Be Helpful**
-   - Anticipate common questions
-   - Offer best practices
-   - Include troubleshooting tips
-   - Link to related resources
-
-Remember: Great documentation feels like a conversation with a knowledgeable friend who genuinely wants to help you succeed.
+- Does each paragraph help the reader use or understand the feature?
+- Are requirements and limitations scoped to the correct implementation?
+- Are instructions concrete, without promotional or internal-development language?
+- Are examples, links, headings and callouts still valid?
+- Have changed examples and rendered pages been checked?

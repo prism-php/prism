@@ -6,6 +6,7 @@ namespace Tests\Providers\Gemini;
 
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\ValueObjects\Media\Image;
 use Tests\Fixtures\FixtureResponse;
@@ -319,6 +320,21 @@ it('can override responseModalities via provider options', function (): void {
             && count($modalities) === 1;
     });
 });
+it('refuses a url input image for generation without fetching it', function (): void {
+    // G-44, and a path no validation ever covered: this map is not a
+    // ProviderMediaMapper, so no validateMedia() ran, and it inlines input images
+    // unconditionally. A URL input image used to be fetched through an unguarded
+    // request; with the fetch gone it would have inlined `null` without a word.
+    Http::fake(['*' => Http::response('never used')]);
+
+    expect(fn () => Prism::image()
+        ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+        ->withPrompt('Add a sunset', [Image::fromUrl('http://169.254.169.254/latest/meta-data/')])
+        ->generate())
+        ->toThrow(PrismException::class, 'fetchUrlContent()');
+
+    Http::assertSentCount(0);
+});
 
 it('maps image token usage with thoughts and cached input like text', function (): void {
     Http::fake([
@@ -350,5 +366,8 @@ it('maps image token usage with thoughts and cached input like text', function (
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => 256,
         'thought_tokens' => 120,
+        'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });

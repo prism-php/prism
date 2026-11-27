@@ -5,7 +5,11 @@
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
-    "vitepress": "^2.0.0-alpha.17",
-    "vitepress-plugin-llms": "^1.13.2"
+    "vitepress": "^2.0.0-alpha.21",
+    "vitepress-plugin-llms": "^1.14.0"
+  },
+  "//": "G190: Remove the minimatch override when vitepress-plugin-llms accepts minimatch 11 or newer, then verify docs and generated llms output again.",
+  "overrides": {
+    "minimatch": "11.0.5"
   }
 }

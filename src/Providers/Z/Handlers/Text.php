@@ -43,16 +43,11 @@ class Text
      */
     public function handle(Request $request): TextResponse
     {
+        $this->resolveToolApprovals($request);
+
         $response = $this->sendRequest($request);
 
         $data = $response->json();
-
-        $responseMessage = new AssistantMessage(
-            data_get($data, 'choices.0.message.content') ?? '',
-            $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', [])),
-        );
-
-        $request->addMessage($responseMessage);
 
         $finishReason = $this->mapFinishReason($data);
 
@@ -75,13 +70,22 @@ class Text
             throw new PrismException('Z: finish reason is tool_calls but no tool calls found in response');
         }
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
-        $request->addMessage(new ToolResultMessage($toolResults));
-
+        // The step records the conversation as this request carried it; the
+        // response builder appends the step's assistant message and results.
         $this->addStep($data, $request, $toolResults);
 
-        if ($this->shouldContinue($request)) {
+        $request->addMessage(new AssistantMessage(
+            data_get($data, 'choices.0.message.content') ?? '',
+            $toolCalls,
+            toolApprovalRequests: $approvalRequests,
+        ));
+        $request->addMessage(new ToolResultMessage($toolResults));
+
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
@@ -155,6 +159,7 @@ class Text
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
             additionalContent: [],
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }

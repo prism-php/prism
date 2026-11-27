@@ -7,16 +7,47 @@ namespace Prism\Prism\Providers\Anthropic;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Prism\Prism\Batch\BatchJob;
+use Prism\Prism\Batch\BatchListResult;
+use Prism\Prism\Batch\BatchRequest;
+use Prism\Prism\Batch\BatchResultItem;
+use Prism\Prism\Batch\CancelBatchRequest;
+use Prism\Prism\Batch\GetBatchResultsRequest;
+use Prism\Prism\Batch\ListBatchesRequest;
+use Prism\Prism\Batch\RetrieveBatchRequest;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Contracts\DescribesProjectedPayload;
 use Prism\Prism\Enums\Provider as ProviderName;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
+use Prism\Prism\Files\DeleteFileRequest;
+use Prism\Prism\Files\DeleteFileResult;
+use Prism\Prism\Files\DownloadFileRequest;
+use Prism\Prism\Files\FileData;
+use Prism\Prism\Files\FileListResult;
+use Prism\Prism\Files\GetFileMetadataRequest;
+use Prism\Prism\Files\ListFilesRequest;
+use Prism\Prism\Files\UploadFileRequest;
+use Prism\Prism\Models\Listing;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
 use Prism\Prism\Providers\Anthropic\Concerns\ProcessesRateLimits;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Cancel;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Create;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\ListBatches;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Results;
+use Prism\Prism\Providers\Anthropic\Handlers\Batch\Retrieve;
+use Prism\Prism\Providers\Anthropic\Handlers\Files\Delete as FileDelete;
+use Prism\Prism\Providers\Anthropic\Handlers\Files\Download as FileDownload;
+use Prism\Prism\Providers\Anthropic\Handlers\Files\GetMetadata as FileGetMetadata;
+use Prism\Prism\Providers\Anthropic\Handlers\Files\ListFiles as FileListFiles;
+use Prism\Prism\Providers\Anthropic\Handlers\Files\Upload as FileUpload;
 use Prism\Prism\Providers\Anthropic\Handlers\Stream;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured;
 use Prism\Prism\Providers\Anthropic\Handlers\Text;
+use Prism\Prism\Providers\Anthropic\Maps\RequestPayloadMap;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -24,7 +55,7 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\Text\Response as TextResponse;
 
-class Anthropic extends Provider
+class Anthropic extends Provider implements DescribesProjectedPayload
 {
     use InitializesClient, ProcessesRateLimits;
 
@@ -40,6 +71,28 @@ class Anthropic extends Provider
         public readonly string $url,
         public readonly ?string $betaFeatures = null,
     ) {}
+
+    /** @return list<Model> */
+    #[\Override]
+    public function listModels(?ListModelsRequest $request = null): array
+    {
+        $request ??= new ListModelsRequest;
+
+        return (new Listing($this->client($request->clientOptions(), $request->clientRetry())))->all('anthropic');
+    }
+
+    #[\Override]
+    public function projectedPayloadFormat(): ?string
+    {
+        return 'anthropic-messages';
+    }
+
+    /** @return array<string, mixed> */
+    #[\Override]
+    public function projectPayload(TextRequest|StructuredRequest $request, string $mode): ?array
+    {
+        return RequestPayloadMap::project($request, $mode);
+    }
 
     #[\Override]
     public function text(TextRequest $request): TextResponse
@@ -86,6 +139,69 @@ class Anthropic extends Provider
         return $handler->handle($request);
     }
 
+    #[\Override]
+    public function batch(BatchRequest $request): BatchJob
+    {
+        return (new Create($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function retrieveBatch(RetrieveBatchRequest $request): BatchJob
+    {
+        return (new Retrieve($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
+    }
+
+    #[\Override]
+    public function listBatches(ListBatchesRequest $request): BatchListResult
+    {
+        return (new ListBatches($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    /**
+     * @return BatchResultItem[]
+     */
+    #[\Override]
+    public function getBatchResults(GetBatchResultsRequest $request): array
+    {
+        return (new Results($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
+    }
+
+    #[\Override]
+    public function cancelBatch(CancelBatchRequest $request): BatchJob
+    {
+        return (new Cancel($this->client($request->clientOptions(), $request->clientRetry())))->handle($request->batchId);
+    }
+
+    #[\Override]
+    public function uploadFile(UploadFileRequest $request): FileData
+    {
+        return (new FileUpload($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function listFiles(ListFilesRequest $request): FileListResult
+    {
+        return (new FileListFiles($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function getFileMetadata(GetFileMetadataRequest $request): FileData
+    {
+        return (new FileGetMetadata($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function deleteFile(DeleteFileRequest $request): DeleteFileResult
+    {
+        return (new FileDelete($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
+    #[\Override]
+    public function downloadFile(DownloadFileRequest $request): string
+    {
+        return (new FileDownload($this->client($request->clientOptions(), $request->clientRetry())))->handle($request);
+    }
+
     public function handleRequestException(string $model, RequestException $e): never
     {
         match ($e->response->getStatusCode()) {
@@ -102,12 +218,13 @@ class Anthropic extends Provider
     }
 
     /**
-     * The configured `anthropic_beta` list plus the betas a request's provider
-     * options require, comma separated and de-duplicated in a stable order.
+     * The configured `anthropic_beta` list, the request's own `anthropic_beta`
+     * provider option, and the betas a request's other provider options
+     * require, comma separated and de-duplicated in a stable order.
      */
     public function betaFeaturesFor(TextRequest|StructuredRequest $request): ?string
     {
-        $betas = array_map(trim(...), explode(',', (string) $this->betaFeatures));
+        $betas = $this->requestBetaFeatures($request);
 
         if ($request->providerOptions('fallbacks') !== null) {
             $betas[] = self::FALLBACKS_BETA;
@@ -154,5 +271,24 @@ class Anthropic extends Provider
             ->withOptions($options)
             ->when($retry !== [], fn ($client) => $client->retry(...$retry))
             ->baseUrl($baseUrl ?? $this->url);
+    }
+
+    /**
+     * Config-level beta features merged with per-request ones supplied via
+     * withProviderOptions(['anthropic_beta' => 'skills-2025-10-02']) — a
+     * comma-separated string or an array of feature flags. A per-request
+     * string merges with the configured list rather than replacing it.
+     *
+     * @return array<int, string>
+     */
+    protected function requestBetaFeatures(TextRequest|StructuredRequest $request): array
+    {
+        $requested = $request->providerOptions('anthropic_beta');
+
+        return collect([$this->betaFeatures])
+            ->merge(is_array($requested) ? $requested : [$requested])
+            ->flatMap(fn (mixed $value): array => is_string($value) ? array_map(trim(...), explode(',', $value)) : [])
+            ->values()
+            ->all();
     }
 }

@@ -47,6 +47,8 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
+        $this->resolveToolApprovals($request);
+
         return $this->sendAndRespond($request);
     }
 
@@ -102,16 +104,28 @@ class Structured
     {
         $toolCalls = $this->mapToolCalls(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
-
-        $this->addStep($data, $request, $clientResponse, toolCalls: $toolCalls, toolResults: $toolResults);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
         $request->addMessage(new AssistantMessage(
             $this->extractText(data_get($data, 'choices.0.message', [])),
             $toolCalls,
+            toolApprovalRequests: $approvalRequests,
         ));
         $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
+
+        // The step ends with the assistant message and its results, as the
+        // Anthropic handler's does, so a resume can start from its messages.
+        $this->addStep($data, $request, $clientResponse, toolCalls: $toolCalls, toolResults: $toolResults);
+
+        // A call waiting for a human or a client ends the run here. Going on
+        // to the structured request asked for an answer without its result,
+        // and the pending approval was no longer on the last step.
+        if ($hasPendingToolCalls) {
+            return $this->responseBuilder->toResponse();
+        }
 
         if ($this->shouldContinue($request)) {
             return $this->sendAndRespond($request);
@@ -127,7 +141,7 @@ class Structured
      */
     protected function handleStop(array $data, Request $request, ClientResponse $clientResponse): StructuredResponse
     {
-        $text = data_get($data, 'choices.0.message.content') ?? '';
+        $text = $this->extractText(data_get($data, 'choices.0.message', []));
 
         $request->addMessage(new AssistantMessage($text));
 
@@ -172,6 +186,7 @@ class Structured
             toolCalls: $toolCalls,
             toolResults: $toolResults,
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 

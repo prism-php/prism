@@ -80,5 +80,8 @@ it('maps cached input and reasoning on structured responses', function (): void 
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => 4608,
         'thought_tokens' => 59,
+        'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 });

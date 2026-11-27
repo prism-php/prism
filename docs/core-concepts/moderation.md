@@ -1,10 +1,12 @@
 # Moderation
 
-Moderate content by checking content against AI-powered models! Moderation helps you detect potentially harmful or inappropriate content before it reaches your users or models.
+Moderation classifies text and images for potentially harmful content. Use the returned categories and scores as inputs to your application's content policy.
+
+OpenAI is the only built-in provider implementing standalone moderation. Use a moderation model supported by your account; other providers raise an unsupported-action exception.
 
 ## Quick Start
 
-Here's how to check text content with just a few lines of code:
+Submit text for moderation:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -54,7 +56,7 @@ foreach ($flaggedResults as $result) {
 
 ## Image Moderation
 
-You can also moderate images! This is useful for checking user-uploaded images for inappropriate content:
+Submit an image to an image-capable moderation model:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -171,16 +173,16 @@ Images can be created from various sources:
 use Prism\Prism\ValueObjects\Media\Image;
 
 // From a URL
-Image::fromUrl('https://example.com/image.png')
+Image::fromUrl('https://example.com/image.png');
 
 // From a local file
-Image::fromLocalPath('/path/to/image.jpg')
+Image::fromLocalPath('/path/to/image.jpg');
 
 // From a storage disk
-Image::fromStoragePath('/path/to/image.jpg', 'my-disk')
+Image::fromStoragePath('/path/to/image.jpg', 'my-disk');
 
 // From base64
-Image::fromBase64($base64Data, 'image/jpeg')
+Image::fromBase64($base64Data, 'image/jpeg');
 ```
 
 > [!NOTE]
@@ -188,7 +190,7 @@ Image::fromBase64($base64Data, 'image/jpeg')
 
 ## Response Handling
 
-The moderation response provides everything you need to handle flagged content:
+Read results and metadata from the moderation response:
 
 ```php
 use Prism\Prism\Moderation\Response;
@@ -253,6 +255,8 @@ if ($result->flagged) {
 }
 ```
 
+Read the provider payload from `$response->raw` when it is populated. It can contain sensitive content or identifiers; apply your application's access and retention controls before storing it.
+
 ## Common Settings
 
 You can fine-tune your moderation requests just like other Prism features:
@@ -274,7 +278,7 @@ $response = Prism::moderation()
 
 ## Error Handling
 
-Always handle potential errors gracefully:
+Handle request failures:
 
 ```php
 use Prism\Prism\Facades\Prism;
@@ -297,18 +301,7 @@ try {
 }
 ```
 
-## Use Cases
-
-Moderation is useful for:
-
-- **User-Generated Content**: Check comments, posts, or messages before displaying them
-- **Content Filtering**: Filter out inappropriate content in chat applications
-- **Image Moderation**: Verify user-uploaded images meet platform guidelines
-- **Pre-Processing**: Check inputs before sending them to other AI models
-- **Compliance**: Ensure content meets platform guidelines and policies
-- **Mixed Content**: Check both text and images together in a single request
-
-## Pro Tips
+## Usage Notes
 
 **Thresholds**: Use category scores to implement custom thresholds. Different applications may need different sensitivity levels.
 
@@ -316,9 +309,8 @@ Moderation is useful for:
 
 **Caching**: Consider caching moderation results for repeated content to reduce API calls.
 
-**Logging**: Always log flagged content for audit trails and to improve your filtering over time.
+**Logging**: Record moderation decisions according to your retention and access policies. Avoid storing sensitive content unless it is required and appropriately protected.
 
-> [!IMPORTANT]
-> Different providers may have different category names and scoring systems. Always check your provider's documentation for specific details about available categories and score interpretations.
+Use OpenAI's documented category definitions when interpreting scores; thresholds and the resulting content policy remain application decisions.
 
 

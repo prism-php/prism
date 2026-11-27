@@ -41,7 +41,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $location): string => "Weather in {$location}: 72°F, sunny");
 
         $response = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$weatherTool])
             ->withMaxSteps(3)
@@ -94,7 +94,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         ];
 
         $response = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools($tools)
             ->withMaxSteps(5)
@@ -140,7 +140,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $query): string => "Search results for: {$query}");
 
         $response = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$searchTool])
             ->withMaxSteps(3)
@@ -182,7 +182,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         ];
 
         $response = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools($tools)
             ->withMaxSteps(5)
@@ -218,7 +218,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $query): string => "Data for: {$query}");
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$strictTool])
             ->withProviderOptions(['use_tool_calling' => true]);
@@ -255,7 +255,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $query): string => "Results for: {$query}");
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$searchTool])
             ->withToolChoice('search')
@@ -285,7 +285,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $query): string => "Results for: {$query}");
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$searchTool])
             ->withToolChoice(ToolChoice::Any)
@@ -315,7 +315,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $query): string => "Results for: {$query}");
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$searchTool])
             ->withProviderOptions(['use_tool_calling' => true]);
@@ -344,7 +344,7 @@ describe('Structured output with tools for Anthropic', function (): void {
             ->using(fn (string $query): string => "Results for: {$query}");
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withTools([$searchTool])
             ->withToolChoice(ToolChoice::None)
@@ -365,7 +365,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         );
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-0')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withProviderOptions(['use_tool_calling' => true]);
 
@@ -390,7 +390,7 @@ describe('Structured output with tools for Anthropic', function (): void {
 
         $request = Prism::structured()
             ->withSchema($schema)
-            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withPrompt('Test')
             ->withProviderOptions([
                 'thinking' => ['type' => 'adaptive'],
@@ -418,7 +418,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         );
 
         $response = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
             ->withPrompt('What is the weather in San Francisco and should I wear a coat?')
@@ -448,7 +448,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         );
 
         $response = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
             ->withProviderOptions(['use_tool_calling' => true])
@@ -476,7 +476,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         );
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')]);
 
@@ -502,7 +502,7 @@ describe('Structured output with tools for Anthropic', function (): void {
         );
 
         $request = Prism::structured()
-            ->using(Provider::Anthropic, 'claude-sonnet-4-6')
+            ->using(Provider::Anthropic, 'claude-sonnet-5-5')
             ->withSchema($schema)
             ->withProviderTools([new ProviderTool(type: 'web_search_20250305', name: 'web_search')])
             ->withProviderOptions(['use_tool_calling' => true]);

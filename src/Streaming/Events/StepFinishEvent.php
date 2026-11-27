@@ -40,6 +40,8 @@ readonly class StepFinishEvent extends StreamEvent
                 'cache_write_input_tokens' => $this->usage->cacheWriteInputTokens,
                 'cache_read_input_tokens' => $this->usage->cacheReadInputTokens,
                 'thought_tokens' => $this->usage->thoughtTokens,
+                'cache_write_5m_input_tokens' => $this->usage->cacheWrite5mInputTokens,
+                'cache_write_1h_input_tokens' => $this->usage->cacheWrite1hInputTokens,
             ] : null,
         ];
     }

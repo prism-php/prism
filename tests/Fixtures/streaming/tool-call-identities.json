@@ -1,0 +1,34 @@
+{
+  "provider id positive control": {
+    "deltas": [[{"index": 0, "id": "CallExist", "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}]],
+    "expected": [{"id": "CallExist", "city": "Paris"}]
+  },
+  "zero string is an opaque provider id": {
+    "deltas": [[{"index": 0, "id": "0", "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}]],
+    "expected": [{"id": "0", "city": "Paris"}]
+  },
+  "null id": {
+    "deltas": [[{"index": 0, "id": null, "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}]],
+    "expected": [{"id": null, "city": "Paris"}]
+  },
+  "empty id": {
+    "deltas": [[{"index": 0, "id": "", "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}]],
+    "expected": [{"id": null, "city": "Paris"}]
+  },
+  "later id": {
+    "deltas": [[{"index": 0, "id": null, "type": "function", "function": {"name": "weather", "arguments": "{\"city\":"}}], [{"index": 0, "id": "CallLater", "function": {"arguments": "\"Paris\"}"}}]],
+    "expected": [{"id": "CallLater", "city": "Paris"}]
+  },
+  "first non-null id": {
+    "deltas": [[{"index": 0, "id": "CallFirst", "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}], [{"index": 0, "id": "OtherCall"}], [{"index": 0, "id": null}]],
+    "expected": [{"id": "CallFirst", "city": "Paris"}]
+  },
+  "sparse parallel indices": {
+    "deltas": [[{"index": 0, "id": null, "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}, {"index": 1, "id": null, "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Oslo\"}"}}], [{"index": 1, "id": "OsloCall1"}], [{"index": 0, "id": "ParisCall"}]],
+    "expected": [{"id": "ParisCall", "city": "Paris"}, {"id": "OsloCall1", "city": "Oslo"}]
+  },
+  "parallel missing ids": {
+    "deltas": [[{"index": 0, "id": null, "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Paris\"}"}}, {"index": 1, "id": null, "type": "function", "function": {"name": "weather", "arguments": "{\"city\":\"Oslo\"}"}}]],
+    "expected": [{"id": null, "city": "Paris"}, {"id": null, "city": "Oslo"}]
+  }
+}

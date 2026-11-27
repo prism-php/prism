@@ -1,0 +1,381 @@
+{
+    "version": "0.145.1",
+    "rows": [
+        {
+            "telemetry": false,
+            "scenario": "exhaust",
+            "keys": [
+                "begin",
+                7
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": null,
+            "caught": null,
+            "trace": [
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": false,
+            "scenario": "send",
+            "keys": [
+                "begin",
+                7
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": null,
+            "caught": null,
+            "trace": [
+                "inner-start",
+                {
+                    "sent": "owned-send"
+                },
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": false,
+            "scenario": "caught",
+            "keys": [
+                "begin",
+                7,
+                "caught"
+            ],
+            "ids": [
+                "first",
+                "second",
+                "caught"
+            ],
+            "return": null,
+            "caught": null,
+            "trace": [
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-caught": true
+                },
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": false,
+            "scenario": "uncaught",
+            "keys": [
+                "begin",
+                7
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": "not-exhausted",
+            "caught": {
+                "class": "LogicException",
+                "same": true
+            },
+            "trace": [
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-caught": true
+                },
+                {
+                    "inner-finally-active-context": false
+                },
+                "consumer-caught",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": false,
+            "scenario": "innerthrow",
+            "keys": [
+                "begin",
+                7
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": "not-exhausted",
+            "caught": {
+                "class": "LogicException",
+                "same": true
+            },
+            "trace": [
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-finally-active-context": false
+                },
+                "consumer-caught",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": false,
+            "scenario": "break",
+            "keys": [
+                "begin"
+            ],
+            "ids": [
+                "first"
+            ],
+            "return": "not-exhausted",
+            "caught": null,
+            "trace": [
+                "inner-start",
+                "consumer-break",
+                "after-break",
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": false,
+            "scenario": "destroy",
+            "keys": [
+                "begin"
+            ],
+            "ids": [
+                "first"
+            ],
+            "return": "not-exhausted",
+            "caught": null,
+            "trace": [
+                "inner-start",
+                "before-destroy",
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "exhaust",
+            "keys": [
+                0,
+                1
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": null,
+            "caught": null,
+            "trace": [
+                "started",
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-finally-active-context": true
+                },
+                "completed",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "send",
+            "keys": [
+                0,
+                1
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": null,
+            "caught": null,
+            "trace": [
+                "started",
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-finally-active-context": true
+                },
+                "completed",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "caught",
+            "keys": [
+                0,
+                1
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": "not-exhausted",
+            "caught": {
+                "class": "LogicException",
+                "same": true
+            },
+            "trace": [
+                "started",
+                "inner-start",
+                {
+                    "sent": null
+                },
+                "failed",
+                {
+                    "inner-finally-active-context": false
+                },
+                "consumer-caught",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "uncaught",
+            "keys": [
+                0,
+                1
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": "not-exhausted",
+            "caught": {
+                "class": "LogicException",
+                "same": true
+            },
+            "trace": [
+                "started",
+                "inner-start",
+                {
+                    "sent": null
+                },
+                "failed",
+                {
+                    "inner-finally-active-context": false
+                },
+                "consumer-caught",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "innerthrow",
+            "keys": [
+                0,
+                1
+            ],
+            "ids": [
+                "first",
+                "second"
+            ],
+            "return": "not-exhausted",
+            "caught": {
+                "class": "LogicException",
+                "same": true
+            },
+            "trace": [
+                "started",
+                "inner-start",
+                {
+                    "sent": null
+                },
+                {
+                    "inner-finally-active-context": true
+                },
+                "failed",
+                "consumer-caught",
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "break",
+            "keys": [
+                0
+            ],
+            "ids": [
+                "first"
+            ],
+            "return": "not-exhausted",
+            "caught": null,
+            "trace": [
+                "started",
+                "inner-start",
+                "consumer-break",
+                "after-break",
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        },
+        {
+            "telemetry": true,
+            "scenario": "destroy",
+            "keys": [
+                0
+            ],
+            "ids": [
+                "first"
+            ],
+            "return": "not-exhausted",
+            "caught": null,
+            "trace": [
+                "started",
+                "inner-start",
+                "before-destroy",
+                {
+                    "inner-finally-active-context": false
+                },
+                "after-destroy"
+            ],
+            "contextCleared": true
+        }
+    ]
+}

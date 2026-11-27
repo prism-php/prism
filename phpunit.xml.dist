@@ -16,5 +16,12 @@
     </source>
     <php>
         <env name="CONCURRENCY_DRIVER" value="sync"/>
+        <!-- No test reaches the network: anything not sent through a fake goes
+             to a closed local port (9, discard) unless it is loopback. -->
+        <env name="http_proxy" value="http://127.0.0.1:9" force="true"/>
+        <env name="https_proxy" value="http://127.0.0.1:9" force="true"/>
+        <env name="HTTPS_PROXY" value="http://127.0.0.1:9" force="true"/>
+        <env name="no_proxy" value="127.0.0.1,localhost,::1" force="true"/>
+        <env name="NO_PROXY" value="127.0.0.1,localhost,::1" force="true"/>
     </php>
 </phpunit>

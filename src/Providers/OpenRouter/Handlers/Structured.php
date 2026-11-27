@@ -17,9 +17,10 @@ use Prism\Prism\Providers\OpenRouter\Concerns\MapsFinishReason;
 use Prism\Prism\Providers\OpenRouter\Concerns\MapsUsage;
 use Prism\Prism\Providers\OpenRouter\Concerns\ValidatesResponses;
 use Prism\Prism\Providers\OpenRouter\Maps\MessageMap;
+use Prism\Prism\Providers\OpenRouter\ResponseBuilders\StructuredResponseBuilder as ResponseBuilder;
+use Prism\Prism\Providers\OpenRouter\ValueObjects\Billing;
 use Prism\Prism\Structured\Request;
 use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Structured\ResponseBuilder;
 use Prism\Prism\Structured\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -44,6 +45,8 @@ class Structured
 
     public function handle(Request $request): StructuredResponse
     {
+        $this->resolveToolApprovals($request);
+
         $data = $this->sendRequest($request);
 
         $this->validateResponse($data);
@@ -101,19 +104,24 @@ class Structured
     {
         $toolCalls = ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', []));
 
-        $toolResults = $this->callTools($request->tools(), $toolCalls);
-
-        $this->addStep($data, $request, $toolResults);
+        $hasPendingToolCalls = false;
+        $approvalRequests = [];
+        $toolResults = $this->callToolsWithPending($request->tools(), $toolCalls, $hasPendingToolCalls, $approvalRequests);
 
         $request = $request->addMessage(new AssistantMessage(
             data_get($data, 'choices.0.message.content') ?? '',
             $toolCalls,
             $this->extractReasoning($data),
+            toolApprovalRequests: $approvalRequests,
         ));
         $request = $request->addMessage(new ToolResultMessage($toolResults));
         $request->resetToolChoice();
 
-        if ($this->shouldContinue($request)) {
+        // The step ends with the assistant message and its results, as the
+        // Anthropic handler's does, so a resume can start from its messages.
+        $this->addStep($data, $request, $toolResults);
+
+        if (! $hasPendingToolCalls && $this->shouldContinue($request)) {
             return $this->handle($request);
         }
 
@@ -162,11 +170,12 @@ class Structured
             ),
             messages: $request->messages(),
             systemPrompts: $request->systemPrompts(),
-            additionalContent: $this->extractReasoning($data),
+            additionalContent: [...$this->extractReasoning($data), 'openrouter_billing' => Billing::fromUsage((array) data_get($data, 'usage', []))],
             toolCalls: ToolCallMap::map(data_get($data, 'choices.0.message.tool_calls', [])),
             providerToolCalls: [],
             toolResults: $toolResults,
             raw: $data,
+            toolApprovalRequests: $this->approvalRequestsForStep(),
         ));
     }
 }

@@ -95,6 +95,9 @@ it('converts to array with complete usage information', function (): void {
             'cache_write_input_tokens' => 25,
             'cache_read_input_tokens' => 10,
             'thought_tokens' => 5,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ],
         'citations' => null,
     ]);
@@ -125,6 +128,9 @@ it('converts to array with partial usage information', function (): void {
             'cache_write_input_tokens' => null,
             'cache_read_input_tokens' => null,
             'thought_tokens' => null,
+            'cost' => null,
+            'cache_write_5m_input_tokens' => null,
+            'cache_write_1h_input_tokens' => null,
         ],
         'citations' => null,
     ]);

@@ -4,10 +4,14 @@ namespace Prism\Prism\Providers\Perplexity;
 
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Prism\Prism\Concerns\InitializesClient;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismPerplexityRequestException;
 use Prism\Prism\Providers\Perplexity\Handlers\Stream;
 use Prism\Prism\Providers\Perplexity\Handlers\Structured;
 use Prism\Prism\Providers\Perplexity\Handlers\Text;
+use Prism\Prism\Providers\Perplexity\Maps\PresetMap;
 use Prism\Prism\Providers\Provider;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -16,7 +20,7 @@ use Prism\Prism\Text\Response as TextResponse;
 use SensitiveParameter;
 
 /**
- * @link https://docs.perplexity.ai/api-reference/chat-completions-post
+ * @link https://docs.perplexity.ai/docs/agent-api/quickstart
  * @link https://docs.perplexity.ai/guides/image-attachments
  * @link https://docs.perplexity.ai/guides/file-attachments
  */
@@ -33,7 +37,7 @@ class Perplexity extends Provider
     #[\Override]
     public function text(TextRequest $request): TextResponse
     {
-        $textHandler = new Text($this->client($request->clientOptions(), $request->clientRetry()));
+        $textHandler = new Text($this->requestClient($request));
 
         return $textHandler->handle($request);
     }
@@ -41,7 +45,7 @@ class Perplexity extends Provider
     #[\Override]
     public function structured(StructuredRequest $request): StructuredResponse
     {
-        $textHandler = new Structured($this->client($request->clientOptions(), $request->clientRetry()));
+        $textHandler = new Structured($this->requestClient($request));
 
         return $textHandler->handle($request);
     }
@@ -49,9 +53,32 @@ class Perplexity extends Provider
     #[\Override]
     public function stream(TextRequest $request): Generator
     {
-        $handler = new Stream($this->client($request->clientOptions(), $request->clientRetry()));
+        $handler = new Stream($this->requestClient($request));
 
         return $handler->handle($request);
+    }
+
+    #[\Override]
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        if (in_array($e->response->status(), [413, 429, 529], true)) {
+            parent::handleRequestException($model, $e);
+        }
+
+        throw new PrismPerplexityRequestException($e->response->status(), $e->response->body(), $e->response->header('X-Request-ID') ?: null);
+    }
+
+    protected function requestClient(TextRequest|StructuredRequest $request): PendingRequest
+    {
+        $effort = $request->providerOptions('effort') ?? $request->providerOptions('preset') ?? PresetMap::presetFor($request->model());
+        $deep = $request->model() === 'sonar-deep-research' || (is_string($effort) && in_array(explode('@', $effort, 2)[0], ['medium', 'high', 'xhigh', 'wide-research'], true));
+        $timeout = config('prism.providers.perplexity.deep_research_timeout', 600);
+        if ($deep && (! is_int($timeout) || $timeout < 1)) {
+            throw new PrismException('Perplexity deep_research_timeout must be a positive integer in seconds.');
+        }
+        $defaults = $deep ? ['timeout' => $timeout] : [];
+
+        return $this->client($request->clientOptions() + $defaults, $request->clientRetry());
     }
 
     /**

@@ -157,7 +157,7 @@ it('maps assistant message with tool calls', function (): void {
         systemPrompts: []
     );
 
-    expect($messageMap())->toBe([
+    expect($messageMap())->toEqual([
         'contents' => [[
             'role' => 'model',
             'parts' => [
@@ -165,7 +165,7 @@ it('maps assistant message with tool calls', function (): void {
                 [
                     'functionCall' => [
                         'name' => 'search',
-                        'args' => [
+                        'args' => (object) [
                             'query' => 'Laravel collection methods',
                         ],
                     ],
@@ -192,7 +192,7 @@ it('maps assistant message with tool calls with reasoning id', function (): void
         systemPrompts: []
     );
 
-    expect($messageMap())->toBe([
+    expect($messageMap())->toEqual([
         'contents' => [[
             'role' => 'model',
             'parts' => [
@@ -200,7 +200,7 @@ it('maps assistant message with tool calls with reasoning id', function (): void
                 [
                     'functionCall' => [
                         'name' => 'search',
-                        'args' => [
+                        'args' => (object) [
                             'query' => 'Laravel collection methods',
                         ],
                     ],
@@ -307,7 +307,7 @@ describe('content that is exactly "0"', function (): void {
     it('still leaves empty text out of user and assistant parts', function (): void {
         $messageMap = new MessageMap(
             messages: [
-                new UserMessage('', [Image::fromUrl('https://prismphp.com/storage/diamond.png', 'image/png')]),
+                new UserMessage('', [Image::fromLocalPath('tests/Fixtures/diamond.png')]),
                 new AssistantMessage('', [new ToolCall('tool_1234', 'search', ['query' => 'prism'])]),
             ],
             systemPrompts: []
@@ -317,8 +317,8 @@ describe('content that is exactly "0"', function (): void {
 
         expect(data_get($mapped, 'contents.0.parts'))->toHaveCount(1);
         expect(data_get($mapped, 'contents.0.parts.0'))->not->toHaveKey('text');
-        expect(data_get($mapped, 'contents.1.parts'))->toBe([
+        expect(json_encode(data_get($mapped, 'contents.1.parts')))->toBe(json_encode([
             ['functionCall' => ['name' => 'search', 'args' => ['query' => 'prism']]],
-        ]);
+        ]));
     });
 });

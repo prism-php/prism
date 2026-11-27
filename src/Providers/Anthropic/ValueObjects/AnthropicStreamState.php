@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Prism\Prism\Providers\Anthropic\ValueObjects;
 
 use Prism\Prism\Streaming\StreamState;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 
 class AnthropicStreamState extends StreamState
@@ -35,6 +36,54 @@ class AnthropicStreamState extends StreamState
     protected ?array $usageIterations = null;
 
     protected ?Usage $stepUsage = null;
+
+    /** The step's `message_stop` arrived: Anthropic finished sending the message. */
+    protected bool $messageStopped = false;
+
+    /** The step's `message_delta` carried its final `output_tokens`. */
+    protected bool $finalUsageReported = false;
+
+    /**
+     * Some step of this turn ended without its final usage, so the turn's
+     * total understates what was generated. Kept across steps on purpose.
+     */
+    protected bool $turnUsageIncomplete = false;
+
+    public function markMessageStopped(): self
+    {
+        $this->messageStopped = true;
+
+        return $this;
+    }
+
+    public function messageStopped(): bool
+    {
+        return $this->messageStopped;
+    }
+
+    public function markFinalUsageReported(): self
+    {
+        $this->finalUsageReported = true;
+
+        return $this;
+    }
+
+    public function finalUsageReported(): bool
+    {
+        return $this->finalUsageReported;
+    }
+
+    public function markTurnUsageIncomplete(): self
+    {
+        $this->turnUsageIncomplete = true;
+
+        return $this;
+    }
+
+    public function turnUsageIncomplete(): bool
+    {
+        return $this->turnUsageIncomplete;
+    }
 
     /**
      * @param  array<string, mixed>  $block
@@ -102,7 +151,10 @@ class AnthropicStreamState extends StreamState
 
         foreach ($this->contentBlockInputs as $index => $json) {
             if (isset($blocks[$index]) && $json !== '') {
-                $blocks[$index]['input'] = json_decode($json, true) ?? $json;
+                // The API requires an object here. Unusable input replays as
+                // empty; the tool result beside it reports the error.
+                $call = new ToolCall('', '', $json);
+                $blocks[$index]['input'] = $call->hasMalformedArguments() ? [] : $call->arguments();
             }
         }
 
@@ -262,6 +314,8 @@ class AnthropicStreamState extends StreamState
         $this->usageIterations = null;
         $this->stepUsage = null;
         $this->finishReason = null;
+        $this->messageStopped = false;
+        $this->finalUsageReported = false;
 
         return $this;
     }

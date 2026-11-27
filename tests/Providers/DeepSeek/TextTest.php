@@ -153,6 +153,10 @@ it('can generate text using multiple tools and multiple steps', function (): voi
     expect($response->finishReason)->toBe(FinishReason::Stop);
 });
 
+// Upstream prism-php/prism#1032 (fixes prism-php/prism#1031): the DeepSeek
+// handlers dropped provider options entirely, so `thinking` could not be
+// disabled. Every option is forwarded as a generic pass-through, matching the
+// Ollama handler, so knobs DeepSeek adds later need no change here.
 it('forwards deepseek provider options into the request body', function (): void {
     FixtureResponse::fakeResponseSequence('v1/chat/completions', 'deepseek/generate-text-with-a-prompt');
 

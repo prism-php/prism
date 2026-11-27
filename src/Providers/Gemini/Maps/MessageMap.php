@@ -131,8 +131,8 @@ class MessageMap
             $parts[] = Arr::whereNotNull([
                 'functionCall' => [
                     'name' => $toolCall->name,
-                    ...count($toolCall->arguments()) ? [
-                        'args' => $toolCall->arguments(),
+                    ...$toolCall->hasArguments() ? [
+                        'args' => $toolCall->argumentsAsObject(),
                     ] : [],
                 ],
                 'thoughtSignature' => $toolCall->reasoningId,

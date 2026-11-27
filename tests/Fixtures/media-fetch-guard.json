@@ -1,0 +1,813 @@
+{
+    "suite": "media-fetch-guard",
+    "schema_version": 1,
+    "corpus_version": "0.1.0",
+    "generated_by": "PHP refusals are exercised by prism:tests/ValueObjects/Media/FetchGuardCorpusTest.php. The TypeScript and Python columns were recorded by executing their guarded fetch methods against the shipped loader rows with injected DNS and HTTP seams. Python skips url-0009 because no unguarded media fetch exists by design.",
+    "cases": [
+        {
+            "id": "url-0001",
+            "title": "a genuinely public host",
+            "since": "0.1.0",
+            "url": "https://public.test/x.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": true,
+            "notes": "The control. Every refusal row below is noise until this one fetches: a guard that refuses everything passes them all."
+        },
+        {
+            "id": "url-0002",
+            "title": "the cloud metadata endpoint",
+            "since": "0.1.0",
+            "url": "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "The address this guard exists for: it hands role credentials to anything inside the network that asks. Link-local, so the literal check alone refuses it."
+        },
+        {
+            "id": "url-0003",
+            "title": "a loopback literal",
+            "since": "0.1.0",
+            "url": "http://127.0.0.1/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "Refuse loopback literals before making a request to a service on the caller's own machine."
+        },
+        {
+            "id": "url-0004",
+            "title": "an IPv6 loopback literal",
+            "since": "0.1.0",
+            "url": "http://[::1]/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "Bracketed, so a port that forgets to strip the brackets before validating reads it as a hostname and tries to resolve it â€” which is how an IPv6 hole opens in a guard that closed the IPv4 one."
+        },
+        {
+            "id": "url-0005",
+            "title": "an RFC 1918 literal",
+            "since": "0.1.0",
+            "url": "http://10.0.0.5/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "Refuse private IPv4 literals so public media fetching cannot reach internal network services."
+        },
+        {
+            "id": "url-0006",
+            "title": "a public NAME that resolves to a private address",
+            "since": "0.1.0",
+            "url": "http://evil.test/x.png",
+            "resolves": {
+                "evil.test": [
+                    "10.0.0.5"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "The bypass a URL-string check misses entirely: the attacker owns the DNS record, so the host looks public and the connection is internal. A port that validates only the literal passes every row above this one and fails here."
+        },
+        {
+            "id": "url-0007",
+            "title": "a name answering with one public and one private address",
+            "since": "0.1.0",
+            "url": "http://split.test/x.png",
+            "resolves": {
+                "split.test": [
+                    "93.184.216.34",
+                    "10.0.0.5"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "EVERY resolved address is checked, not the first. A host answering with both reaches the private one, and a port that stops at the first record reads this as public."
+        },
+        {
+            "id": "url-0008",
+            "title": "a public host redirecting into the metadata endpoint",
+            "since": "0.1.0",
+            "url": "http://public.test/x.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "redirects_to": "http://169.254.169.254/latest/meta-data/",
+            "refusal": {
+                "php": "redirect_refused",
+                "ts": "redirect_refused",
+                "py": "redirect_refused"
+            },
+            "agrees": true,
+            "notes": "A DIFFERENT code from the address refusals, and deliberately so: the caller's input was fine and the server aimed them somewhere internal. Redirects are followed by default in every HTTP client here, so a port that validates only the URL it was handed makes the internal request and never knows."
+        },
+        {
+            "id": "url-0009",
+            "title": "the UNGUARDED fetch still fetches a loopback address",
+            "since": "0.1.0",
+            "url": "http://127.0.0.1/x.png",
+            "guarded": false,
+            "resolves": {},
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": false,
+            "notes": "PHP and TypeScript preserve their pre-existing unguarded fetch methods. Python has no unguarded media fetch by design and skips this legacy-path control; adding one would introduce an SSRF-capable path solely to make the corpus greener.",
+            "skip": {
+                "py": "Python has no unguarded fetch method by design; there is no legacy path to assert."
+            }
+        },
+        {
+            "id": "url-0010",
+            "title": "a non-http scheme",
+            "since": "0.1.0",
+            "url": "file:///etc/passwd",
+            "resolves": {},
+            "refusal": {
+                "php": "scheme_not_allowed",
+                "ts": "scheme_not_allowed",
+                "py": "scheme_not_allowed"
+            },
+            "agrees": true,
+            "notes": "Handed to an HTTP client that would happily read the file. Refused before any address check, because there is no address to check."
+        },
+        {
+            "id": "url-0011",
+            "title": "a host that resolves to nothing",
+            "since": "0.1.0",
+            "url": "http://nowhere.test/x.png",
+            "resolves": {
+                "nowhere.test": []
+            },
+            "refusal": {
+                "php": "host_did_not_resolve",
+                "ts": "host_did_not_resolve",
+                "py": "host_did_not_resolve"
+            },
+            "agrees": true,
+            "notes": "An empty answer must mean \"could not be verified\", never \"nothing to check\". A port that treats no records as a pass turns every DNS failure into an allowed fetch."
+        },
+        {
+            "id": "url-0012",
+            "title": "a public host redirecting forever",
+            "since": "0.1.7",
+            "url": "https://public.test/loop.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "redirects_to": "https://public.test/loop.png",
+            "redirects_always": true,
+            "refusal": {
+                "php": "too_many_redirects",
+                "ts": "too_many_redirects",
+                "py": "too_many_redirects"
+            },
+            "agrees": true,
+            "notes": "Six requests pin the default redirect-hop allowance at five in PHP, TypeScript and Python: the initial request plus five allowed hops are sent, then too_many_redirects must be raised before a seventh request. A language that defaults to three would refuse under the same code but fail this six-request assertion. Every response redirects even when already at redirects_to; no hop serves content."
+        },
+        {
+            "id": "url-0013",
+            "title": "Alibaba Cloud's metadata endpoint, in CGNAT",
+            "since": "0.1.8",
+            "url": "http://100.100.100.200/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-89. 100.64.0.0/10 is shared address space, not private: filter_var's private and reserved flags admit it, and so did the ranges copied from them. All three languages admitted this until the explicit list."
+        },
+        {
+            "id": "url-0014",
+            "title": "the NAT64 spelling of 169.254.169.254",
+            "since": "0.1.8",
+            "url": "http://[64:ff9b::a9fe:a9fe]/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-89. On an IPv6-only network with NAT64 this IS the metadata endpoint. The guard judges the IPv4 address embedded in 64:ff9b::/96, not the IPv6 wrapper."
+        },
+        {
+            "id": "url-0015",
+            "title": "the 6to4 spelling of 169.254.169.254",
+            "since": "0.1.8",
+            "url": "http://[2002:a9fe:a9fe::]/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-89. 2002::/16 embeds an IPv4 address in bits 16-48; judged by that address."
+        },
+        {
+            "id": "url-0016",
+            "title": "a public NAME whose DNS answer is the NAT64 metadata address",
+            "since": "0.1.8",
+            "url": "http://nat64.test/latest/meta-data/",
+            "resolves": {
+                "nat64.test": [
+                    "64:ff9b::a9fe:a9fe"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-89. The literal rows prove the check; this one proves the check runs on every DNS answer too, where an attacker who owns the record chooses the spelling."
+        },
+        {
+            "id": "url-0017",
+            "title": "a public name answered with NAT64 of a PUBLIC address still fetches",
+            "since": "0.1.8",
+            "url": "https://dns64.test/x.png",
+            "resolves": {
+                "dns64.test": [
+                    "64:ff9b::5db8:d822"
+                ]
+            },
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": true,
+            "notes": "G-89's control. A DNS64 resolver hands an IPv6-only host 64:ff9b:: addresses for public sites (this is 93.184.216.34). A guard that refused NAT64 outright would pass url-0014 and url-0016 and break every fetch on such a network; this row fails it."
+        },
+        {
+            "id": "url-0018",
+            "title": "an ISATAP literal carrying loopback behind a public 6to4 prefix",
+            "since": "0.1.29",
+            "url": "http://[2002:808:808::5efe:7f00:1]/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-366. The 6to4 rule judges the IPv4 after 2002: (public here) and used to return before the ISATAP rule ran, so the loopback address the interface identifier carries was never judged, in all three languages at once."
+        },
+        {
+            "id": "url-0019",
+            "title": "an ISATAP literal carrying the metadata address, written dotted, behind a 6to4 prefix",
+            "since": "0.1.29",
+            "url": "http://[2002:808:808::5efe:169.254.169.254]/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-366. The same address as url-0018's shape with a dotted IPv4 tail: a dotted tail is the same address as its hex spelling and must be judged the same way."
+        },
+        {
+            "id": "url-0020",
+            "title": "a public NAME whose DNS answer is ISATAP of the metadata address behind a 6to4 prefix",
+            "since": "0.1.29",
+            "url": "http://isatap.test/latest/meta-data/",
+            "resolves": {
+                "isatap.test": [
+                    "2002:808:808::200:5efe:a9fe:a9fe"
+                ]
+            },
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "G-366. The check runs on every DNS answer, where an attacker who owns the record chooses the spelling; the u bit is set in the interface identifier."
+        },
+        {
+            "id": "url-0021",
+            "title": "the NAT64 metadata address written with a dotted tail",
+            "since": "0.1.29",
+            "url": "http://[64:ff9b::169.254.169.254]/latest/meta-data/",
+            "resolves": {},
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "agrees": true,
+            "notes": "A dotted IPv4 tail on a NAT64 literal. Judged by the embedded address, like url-0014's hex spelling."
+        },
+        {
+            "id": "url-0022",
+            "title": "a public host redirecting into a dotted-tail ISATAP loopback literal",
+            "since": "0.1.29",
+            "url": "http://public.test/x.png",
+            "resolves": {
+                "public.test": [
+                    "93.184.216.34"
+                ]
+            },
+            "redirects_to": "http://[2606:4700::5efe:127.0.0.1]/x.png",
+            "refusal": {
+                "php": "redirect_refused",
+                "ts": "redirect_refused",
+                "py": "redirect_refused"
+            },
+            "agrees": true,
+            "notes": "A redirect hop is judged like the first request. The target carries loopback in a dotted IPv4 tail behind an ISATAP interface identifier."
+        },
+        {
+            "id": "url-0023",
+            "title": "a public IPv6 literal written with a dotted tail still fetches",
+            "since": "0.1.29",
+            "url": "https://[2606:4700::8.8.8.8]/x.png",
+            "resolves": {},
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "agrees": true,
+            "notes": "The control for the dotted-tail rows. The reference used to refuse every dotted-tail IPv6 literal as reserved, even a public one, while the ports fetched it. A guard that refused every dotted tail would pass url-0019, url-0021 and url-0022 and fail this row."
+        },
+        {
+            "id": "url-0024",
+            "title": "a percent-escaped loopback literal",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://%31%32%37.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. The PHP guard judged the host as written and asked the resolver for it, while libcurl decodes a percent escape and connects to the address it spells; Guzzle 7.15.2 and later refuse such a host themselves, earlier releases the framework allows do not. prism-py checked the escaped host and its pinned connect fell back to a fresh lookup of the decoded one (prism-py#62). A stubbed client cannot see this: only the server knows where the client went."
+        },
+        {
+            "id": "url-0025",
+            "title": "a loopback literal with one percent-escaped digit",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.0.0.%31:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. The PHP guard judged the host as written and asked the resolver for it, while libcurl decodes a percent escape and connects to the address it spells; Guzzle 7.15.2 and later refuse such a host themselves, earlier releases the framework allows do not. prism-py checked the escaped host and its pinned connect fell back to a fresh lookup of the decoded one (prism-py#62). A stubbed client cannot see this: only the server knows where the client went."
+        },
+        {
+            "id": "url-0026",
+            "title": "a percent-escaped localhost",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://loc%61lhost:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. The PHP guard judged the host as written and asked the resolver for it, while libcurl decodes a percent escape and connects to the address it spells; Guzzle 7.15.2 and later refuse such a host themselves, earlier releases the framework allows do not. prism-py checked the escaped host and its pinned connect fell back to a fresh lookup of the decoded one (prism-py#62). A stubbed client cannot see this: only the server knows where the client went."
+        },
+        {
+            "id": "url-0027",
+            "title": "a backslash inside the host",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.0.0.1\\public.test:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 W3. A WHATWG client reads a backslash as a path separator, so this host is 127.0.0.1 to one parser and `127.0.0.1\\public.test` to another. prism#185 refuses a backslash in the written host before it resolves."
+        },
+        {
+            "id": "url-0028",
+            "title": "loopback as two-part hex",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://0x7f.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0029",
+            "title": "loopback as one decimal number",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://2130706433:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0030",
+            "title": "loopback in octal",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://0177.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0031",
+            "title": "loopback shortened to two parts",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0032",
+            "title": "loopback as one hex number",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://0x7f000001:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "G-382 audit 6. inet_aton and libcurl read this spelling as a loopback address; a guard that knows only the dotted quad resolves it as a NAME, and the resolver here answers public for every name, so that guard admits it and the client connects to 127.0.0.1. Fixed in prism#186."
+        },
+        {
+            "id": "url-0033",
+            "title": "loopback in full-width digits",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://１２７.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386)."
+        },
+        {
+            "id": "url-0034",
+            "title": "loopback with ideographic full stops",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127。0。0。1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386)."
+        },
+        {
+            "id": "url-0035",
+            "title": "loopback with a Latin-1 superscript digit",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://1²7.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386). Python's HTTP client cannot encode the full-width hosts beside this one and fails before it connects; it can encode this one, so this is the row where the Python column shows its connection pin at work."
+        },
+        {
+            "id": "url-0036",
+            "title": "localhost in full-width letters",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://ｌｏｃａｌｈｏｓｔ:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": null
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "G-382 audit 6. IDNA folds this host to a loopback spelling before the client connects, so a guard that resolves the written name admits it. prism#186 refuses a host outside printable ASCII, and TypeScript judges the folded WHATWG host. Python resolves the written name and PINS the connection to the vetted answer (here the public `answers_any`, which this corpus does not let leave the machine), so it records no refusal and reaches nothing: the languages disagree on the code, not on what is reached (G-386)."
+        },
+        {
+            "id": "url-0037",
+            "title": "control: localhost, which the resolver answers honestly, is refused",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://localhost:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "The resolver lies only about spellings: the plain name the client will connect to resolves to what it is. Without this, a row above would measure that a guard trusts its resolver -- which every unpinned guard does by design, and which is DNS rebinding, not a spelling -- rather than whether it reads the host the way its client does."
+        },
+        {
+            "id": "url-0038",
+            "title": "control: the canonical loopback literal is refused over the real transport",
+            "since": "0.1.44",
+            "transport": "default",
+            "url": "http://127.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": "private_address_refused",
+                "ts": "private_address_refused",
+                "py": "private_address_refused"
+            },
+            "dispatched": {
+                "php": false,
+                "ts": false,
+                "py": false
+            },
+            "agrees": true,
+            "notes": "The baseline every spelling above is measured against: the same server, the same transport, the address written the one way every guard already knew."
+        },
+        {
+            "id": "url-0039",
+            "title": "control: the UNGUARDED fetch reaches the loopback server",
+            "since": "0.1.44",
+            "transport": "default",
+            "guarded": false,
+            "url": "http://127.0.0.1:{port}/x.png",
+            "resolves": {
+                "localhost": [
+                    "127.0.0.1"
+                ]
+            },
+            "answers_any": [
+                "93.184.216.34"
+            ],
+            "refusal": {
+                "php": null,
+                "ts": null,
+                "py": null
+            },
+            "dispatched": {
+                "php": true,
+                "ts": true,
+                "py": false
+            },
+            "agrees": false,
+            "notes": "Proves the wire is live: the server sees a connection when a client is allowed to make one, so `dispatched: false` on a row above is a measurement, not a dead socket. Python has no unguarded media fetch, as on url-0009.",
+            "skip": {
+                "py": "Python has no unguarded fetch method by design; there is no legacy path to assert."
+            }
+        }
+    ]
+}

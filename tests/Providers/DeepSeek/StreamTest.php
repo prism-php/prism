@@ -131,6 +131,9 @@ it('can generate text using tools with streaming', function (): void {
         'cache_write_input_tokens' => null,
         'cache_read_input_tokens' => 448,
         'thought_tokens' => null,
+        'cost' => null,
+        'cache_write_5m_input_tokens' => null,
+        'cache_write_1h_input_tokens' => null,
     ]);
 
     // Verify the HTTP request
@@ -230,7 +233,7 @@ it('keeps the reasoning and zero cache counts DeepSeek reports in streamed usage
         ->withPrompt('Solve this complex math problem: What is 4 * 8?')
         ->asStream(), false));
 
-    $expected = ['prompt_tokens' => 19, 'completion_tokens' => 739, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 533];
+    $expected = ['prompt_tokens' => 19, 'completion_tokens' => 739, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 0, 'thought_tokens' => 533, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null];
 
     expect($events->whereInstanceOf(StepFinishEvent::class)->sole()->usage->toArray())->toBe($expected)
         ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe($expected);
@@ -583,8 +586,8 @@ describe('usage snapshots', function (): void {
 
         expect($calls)->toBe(1)
             ->and($events->whereInstanceOf(StepFinishEvent::class)->map(fn (StepFinishEvent $event): array => $event->usage->toArray())->values()->all())->toBe([
-                ['prompt_tokens' => 31, 'completion_tokens' => 43, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 192, 'thought_tokens' => null],
-                ['prompt_tokens' => 137, 'completion_tokens' => 52, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 10368, 'thought_tokens' => 49],
+                ['prompt_tokens' => 31, 'completion_tokens' => 43, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 192, 'thought_tokens' => null, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
+                ['prompt_tokens' => 137, 'completion_tokens' => 52, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => 10368, 'thought_tokens' => 49, 'cost' => null, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
             ])
             ->and($events->whereInstanceOf(StreamEndEvent::class)->sole()->usage->toArray())->toBe([
                 'prompt_tokens' => 168,
@@ -592,6 +595,9 @@ describe('usage snapshots', function (): void {
                 'cache_write_input_tokens' => null,
                 'cache_read_input_tokens' => 10560,
                 'thought_tokens' => 49,
+                'cost' => null,
+                'cache_write_5m_input_tokens' => null,
+                'cache_write_1h_input_tokens' => null,
             ]);
     });
 });
