@@ -7,6 +7,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -413,7 +414,7 @@ it('denies a gated call once when an ungated call with the same empty id already
 
     $results = array_values(array_map(
         fn (ToolResultEvent $event): ToolResult => $event->toolResult,
-        array_filter($events, fn (\Prism\Prism\Streaming\Events\StreamEvent $event): bool => $event instanceof ToolResultEvent),
+        array_filter($events, fn (StreamEvent $event): bool => $event instanceof ToolResultEvent),
     ));
 
     expect($ran)->toBe([])

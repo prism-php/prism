@@ -110,11 +110,29 @@ const G392P_REPEATED = 'Tool call was not run because another call in this step 
 const G392P_NO_DECISION = 'No approval response provided';
 const G392P_DENIED = 'User denied tool execution';
 
+/**
+ * An integer setting from the environment. Unset means the default; a value
+ * that is set but is not a whole number at least $min is an error, never a
+ * silent fallback, so a typo cannot turn a long run into the short one.
+ */
+function g392pIntEnv(string $name, int $min, int $default): int
+{
+    $value = getenv($name);
+
+    if ($value === false) {
+        return $default;
+    }
+
+    if (preg_match('/^\d{1,10}$/', $value) !== 1 || (int) $value < $min || (int) $value > 0x7FFFFFFF) {
+        throw new InvalidArgumentException(sprintf('%s must be a whole number from %d to %d, got %s.', $name, $min, 0x7FFFFFFF, json_encode($value)));
+    }
+
+    return (int) $value;
+}
+
 function g392pExamples(): int
 {
-    $value = getenv('PRISM_PROPERTY_EXAMPLES');
-
-    return is_string($value) && ctype_digit($value) && (int) $value > 0 ? (int) $value : 40;
+    return g392pIntEnv('PRISM_PROPERTY_EXAMPLES', 1, 40);
 }
 
 /**
@@ -122,14 +140,11 @@ function g392pExamples(): int
  */
 function g392pSeeds(int $salt): array
 {
-    $replay = getenv('PRISM_PROPERTY_SEED');
-
-    if (is_string($replay) && ctype_digit($replay)) {
-        return [(int) $replay];
+    if (getenv('PRISM_PROPERTY_SEED') !== false) {
+        return [g392pIntEnv('PRISM_PROPERTY_SEED', 0, 0)];
     }
 
-    $base = getenv('PRISM_PROPERTY_BASE_SEED');
-    $base = is_string($base) && ctype_digit($base) ? (int) $base : 392;
+    $base = g392pIntEnv('PRISM_PROPERTY_BASE_SEED', 0, 392);
 
     return array_map(fn (int $i): int => ($base + $salt * 1_000_003 + $i * 7919) & 0x7FFFFFFF, range(0, g392pExamples() - 1));
 }

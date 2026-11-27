@@ -437,14 +437,19 @@ trait CallsTools
         }
 
         $approvalResolvedToolResults = [];
+        $callsWithOwnResult = self::callsWithOwnResult($assistantMessage->toolCalls, $toolMessage->toolResults);
 
-        foreach ($assistantMessage->toolCalls as $toolCall) {
+        foreach ($assistantMessage->toolCalls as $index => $toolCall) {
             // A call that already has a result is DONE, approved or not. This
             // check used to run only for calls with no decision, so a call
             // approved on an earlier request ran again on every later request
             // whose history still carried the approval: a transfer approved
             // once executed once per turn after it.
-            if (collect($toolMessage->toolResults)->contains(fn (ToolResult $toolResult): bool => $toolResult->toolCallId === $toolCall->id)) {
+            //
+            // The result must be the call's OWN. Matched by id alone, the
+            // result of an ungated call that already ran also marked a gated
+            // call with the same id done, and that call got no outcome at all.
+            if (isset($callsWithOwnResult[$index])) {
                 continue;
             }
 
@@ -570,6 +575,74 @@ trait CallsTools
             'concurrent' => $concurrent,
             'sequential' => $sequential,
         ];
+    }
+
+    /**
+     * The calls in a step that already have a result of their own, by index.
+     *
+     * A result belongs to ONE call. When ids are distinct this is the same as
+     * matching by id. When they repeat, a result is given to a call with its
+     * id, name and arguments first, then to one with its id and name, then to
+     * one with its id, in the step's order, and each result to one call only.
+     * Calls left with no identical twin to tell apart are interchangeable, so
+     * the order cannot change what is recorded. More results than calls for an
+     * id (one streamed call per id) still mark that call done.
+     *
+     * @param  ToolCall[]  $toolCalls
+     * @param  ToolResult[]  $toolResults
+     * @return array<int, true>
+     */
+    protected static function callsWithOwnResult(array $toolCalls, array $toolResults): array
+    {
+        $unused = array_values($toolResults);
+        $owned = [];
+
+        $matchers = [
+            fn (ToolCall $call, ToolResult $result): bool => $result->toolCallId === $call->id
+                && $result->toolName === $call->name
+                && self::sameArguments($result->args, $call->argumentsForResult()),
+            fn (ToolCall $call, ToolResult $result): bool => $result->toolCallId === $call->id && $result->toolName === $call->name,
+            fn (ToolCall $call, ToolResult $result): bool => $result->toolCallId === $call->id,
+        ];
+
+        foreach ($matchers as $matches) {
+            foreach ($toolCalls as $index => $toolCall) {
+                if (isset($owned[$index])) {
+                    continue;
+                }
+
+                foreach ($unused as $at => $toolResult) {
+                    if ($matches($toolCall, $toolResult)) {
+                        $owned[$index] = true;
+                        unset($unused[$at]);
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $owned;
+    }
+
+    /**
+     * @param  array<mixed>  $left
+     * @param  array<mixed>  $right
+     */
+    protected static function sameArguments(array $left, array $right): bool
+    {
+        return self::sortedArguments($left) === self::sortedArguments($right);
+    }
+
+    /**
+     * @param  array<mixed>  $arguments
+     * @return array<mixed>
+     */
+    protected static function sortedArguments(array $arguments): array
+    {
+        ksort($arguments);
+
+        return array_map(fn (mixed $value): mixed => is_array($value) ? self::sortedArguments($value) : $value, $arguments);
     }
 
     /**
