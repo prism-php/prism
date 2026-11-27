@@ -601,3 +601,57 @@ it('gives an earlier call whose result sits after a later step that result alone
         ->and(array_map(fn (ToolResultEvent $event): array => [$event->toolResult->args['token'], $event->toolResult->result, $event->success], $results))
         ->toBe([['l0', 'No approval response provided', false]]);
 })->with('g392 later step ids');
+
+/*
+ * A result recorded without arguments (a refused stored call is recorded that
+ * way) is attributed by the segment it is recorded in. It answers the call of
+ * that step, never a call of another step with the same id, name and empty
+ * arguments.
+ */
+
+/**
+ * The results in each step's segment, by the step's position in $messages.
+ *
+ * @param  array<int, mixed>  $messages
+ * @return array<int, list<string>>
+ */
+function g392ResultsBySegment(array $messages): array
+{
+    $messages = array_values($messages);
+    $out = [];
+    $step = null;
+
+    foreach ($messages as $i => $message) {
+        if ($message instanceof AssistantMessage && $message->toolCalls !== []) {
+            $step = $i;
+            $out[$step] = [];
+        } elseif ($message instanceof ToolResultMessage && $step !== null) {
+            foreach ($message->toolResults as $result) {
+                $out[$step][] = $result->toolCallId.'|'.$result->toolName.'|'.json_encode($result->args).'|'.$result->result;
+            }
+        }
+    }
+
+    return $out;
+}
+
+it('keeps a result recorded without arguments with the step it follows', function (string $path): void {
+    Http::fakeSequence()->whenEmpty(Http::response(g392GeminiText('{"answer":"done"}')));
+    $ran = [];
+    $history = [
+        new UserMessage('Do the things'),
+        new AssistantMessage('', [new ToolCall('a', 'gate_x', [])]),
+        new AssistantMessage('', [new ToolCall('a', 'gate_x', ['raw' => 'r'])], [], [new ToolApprovalRequest('apr_r', 'a', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
+        new ToolResultMessage([new ToolResult('a', 'gate_x', [], 'refused:r')], [new ToolApprovalResponse('apr_r', true)]),
+    ];
+
+    $resumed = $path === 'structured'
+        ? Prism::structured()->using('gemini', 'test-model')->withSchema(g392Schema())->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asStructured()
+        : Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asText();
+
+    expect($ran)->toBe([])
+        ->and(g392ResultsBySegment($resumed->steps->first()->messages))->toBe([
+            1 => ['a|gate_x|[]|'.G392_LATER_STEP_REASON],
+            3 => ['a|gate_x|[]|refused:r'],
+        ]);
+})->with(['text', 'structured']);
