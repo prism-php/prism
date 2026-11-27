@@ -43,6 +43,13 @@ trait CallsTools
      */
     protected const REPEATED_CALL_ID_REASON = 'Tool call was not run because another call in this step has the same id';
 
+    /**
+     * The denial a gated call of an earlier step receives when a later step
+     * with tool calls follows it before it has a result. Only the newest step
+     * is resumed, so a decision can never reach it.
+     */
+    protected const REPLACED_STEP_REASON = 'Tool call was not run because a later step replaced it';
+
     /** @var ToolApprovalRequest[] */
     private array $stepApprovalRequests = [];
 
@@ -374,6 +381,10 @@ trait CallsTools
      */
     protected function resolveToolApprovalsAndYieldEvents(StructuredRequest|TextRequest $request, string $messageId): Generator
     {
+        // Decisions apply to ONE step: the newest with tool calls. Every
+        // earlier step's open gated calls are closed first, as denied.
+        yield from $this->denyReplacedSteps($request, $messageId);
+
         $messages = $request->messages();
 
         $assistantMessage = null;
@@ -578,6 +589,106 @@ trait CallsTools
     }
 
     /**
+     * Give every gated call of an earlier step that has no result of its own
+     * a denial, once, placed with that step's results. A later step with tool
+     * calls replaced it: only the newest step is resumed, so whatever was
+     * decided for an earlier step is never applied, to it or to any other.
+     *
+     * @return Generator<ToolResultEvent>
+     */
+    protected function denyReplacedSteps(StructuredRequest|TextRequest $request, string $messageId): Generator
+    {
+        $messages = array_values($request->messages());
+        $steps = array_keys(array_filter(
+            $messages,
+            fn (mixed $message): bool => $message instanceof AssistantMessage && $message->toolCalls !== [],
+        ));
+
+        if (count($steps) < 2) {
+            return;
+        }
+
+        $toolsByName = collect($request->tools())->keyBy(fn (Tool $tool): string => $tool->name());
+        $insertAfter = [];
+        $changed = false;
+
+        foreach (array_slice($steps, 0, -1) as $position => $stepIndex) {
+            /** @var AssistantMessage $step */
+            $step = $messages[$stepIndex];
+            $segment = [];
+            $results = [];
+
+            for ($i = $stepIndex + 1; $i < $steps[$position + 1]; $i++) {
+                if ($messages[$i] instanceof ToolResultMessage) {
+                    $segment[] = $i;
+                    $results = [...$results, ...$messages[$i]->toolResults];
+                }
+            }
+
+            $owned = self::callsWithOwnResult($step->toolCalls, $results);
+            $denials = [];
+
+            foreach ($step->toolCalls as $index => $toolCall) {
+                if (isset($owned[$index])) {
+                    continue;
+                }
+                if ($toolsByName->get($toolCall->name)?->hasApprovalConfigured() !== true) {
+                    continue;
+                }
+                $denial = new ToolResult(
+                    toolCallId: $toolCall->id,
+                    toolName: $toolCall->name,
+                    args: $toolCall->argumentsForResult(),
+                    result: self::REPLACED_STEP_REASON,
+                    toolCallResultId: $toolCall->resultId,
+                );
+
+                $denials[] = $denial;
+
+                yield new ToolResultEvent(
+                    id: EventID::generate(),
+                    timestamp: time(),
+                    toolResult: $denial,
+                    messageId: $messageId,
+                    success: false,
+                    error: self::REPLACED_STEP_REASON,
+                );
+            }
+
+            if ($denials === []) {
+                continue;
+            }
+
+            $changed = true;
+
+            if ($segment !== []) {
+                $last = $segment[array_key_last($segment)];
+                /** @var ToolResultMessage $existing */
+                $existing = $messages[$last];
+                $messages[$last] = new ToolResultMessage([...$existing->toolResults, ...$denials], $existing->toolApprovalResponses);
+            } else {
+                $insertAfter[$stepIndex] = new ToolResultMessage($denials);
+            }
+        }
+
+        if (! $changed) {
+            return;
+        }
+
+        $rebuilt = [];
+
+        foreach ($messages as $index => $message) {
+            $rebuilt[] = $message;
+
+            if (isset($insertAfter[$index])) {
+                $rebuilt[] = $insertAfter[$index];
+            }
+        }
+
+        $request->setMessages($rebuilt);
+    }
+
+    /**
      * The calls in a step that already have a result of their own, by index.
      *
      * A result belongs to ONE call. When ids are distinct this is the same as
@@ -646,16 +757,20 @@ trait CallsTools
     }
 
     /**
-     * Whether the step's calls, or its approval requests, repeat a call id. A
-     * repeated id cannot say which call a decision belongs to.
+     * Whether the step's calls, or its approval requests, repeat a call id,
+     * or its requests repeat an approval id. A repeated id cannot say which
+     * call a decision belongs to, and one approval id would answer every
+     * request that carries it.
      */
     protected static function stepRepeatsCallIds(AssistantMessage $assistantMessage): bool
     {
         $callIds = array_map(fn (ToolCall $toolCall): string => $toolCall->id, $assistantMessage->toolCalls);
         $requestCallIds = array_map(fn (ToolApprovalRequest $request): string => $request->toolCallId, $assistantMessage->toolApprovalRequests);
+        $approvalIds = array_map(fn (ToolApprovalRequest $request): string => $request->approvalId, $assistantMessage->toolApprovalRequests);
 
         return count($callIds) !== count(array_unique($callIds, SORT_STRING))
-            || count($requestCallIds) !== count(array_unique($requestCallIds, SORT_STRING));
+            || count($requestCallIds) !== count(array_unique($requestCallIds, SORT_STRING))
+            || count($approvalIds) !== count(array_unique($approvalIds, SORT_STRING));
     }
 
     /**
