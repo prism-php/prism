@@ -133,13 +133,16 @@ $final = Prism::structured()
 ### Which step a decision applies to
 
 Decisions apply to one step: the newest assistant message with tool calls in
-the conversation. An approval id may appear in one approval request only,
-across the whole conversation: a call whose request carries an approval id
-that a request of another step also carries is not run, whatever was
-decided, and receives `Tool call was not run because another call in this
-step has the same id`. Messages recorded after that step, such as an assistant
-note, a user message, a system message or another tool result message, do not
-change which step is resumed.
+the conversation, the resumed step. Messages recorded after it, such as an
+assistant note, a user message, a system message or another tool result
+message, do not change which step is resumed.
+
+An approval id may appear in one approval request only, across the whole
+conversation. A call of the resumed step whose request carries an approval id
+that a request of an earlier step already used is not run, whatever was
+decided, and receives `Tool call was not run because another call in this step
+has the same id`. The earlier step's call keeps the result it already has, or
+is denied as replaced (below).
 
 A tool result belongs to one call of the step it is recorded after: the call
 with the same call id, tool name and arguments, otherwise one with the same
