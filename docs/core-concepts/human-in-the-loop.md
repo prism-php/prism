@@ -98,7 +98,7 @@ foreach ($step->toolApprovalRequests as $request) {
 Resume with the decisions — approved calls execute, denied calls produce a
 denial result the model sees:
 
-An unanswered approval produces `No approval response provided`. An explicit denial without a reason produces `User denied tool execution`; a supplied reason replaces that default. Each tool call is paired with its own approval through its call id, so a step in which two calls share an id (or two approval requests name one call id) is denied: none of its gated calls run, whatever was decided, and each receives `Tool call was not run because another call in this step has the same id`. Approval decisions and the pending call's arguments must be stored and correlated by your application.
+An unanswered approval produces `No approval response provided`. An explicit denial without a reason produces `User denied tool execution`; a supplied reason replaces that default. Each tool call is paired with its own approval through its call id, so a step in which two calls share an id (or two approval requests name one call id, or two approval requests share one approval id) is denied: none of its gated calls run, whatever was decided, and each receives `Tool call was not run because another call in this step has the same id`. Approval decisions and the pending call's arguments must be stored and correlated by your application.
 
 ```php
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
@@ -129,6 +129,22 @@ $final = Prism::structured()
     ->withMessages([...$step->messages, $decisions])
     ->asStructured();
 ```
+
+### Which step a decision applies to
+
+Decisions apply to one step: the newest assistant message with tool calls in
+the conversation. Messages recorded after that step, such as an assistant
+note, a user message, a system message or another tool result message, do not
+change which step is resumed.
+
+Every approval-required call ends with exactly one result, and a call that
+already has a result never runs again. A result belongs to the call it names,
+by call id, tool name and arguments, so when calls share an id each one still
+gets its own result. Only the newest step can still change. If a later
+assistant message with tool calls follows a step that was waiting for
+approval, the earlier step can no longer be resumed: each of its
+approval-required calls that has no result is denied once with `Tool call was
+not run because a later step replaced it`, whatever was decided for it.
 
 ### Storing approval requests
 

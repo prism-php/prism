@@ -279,14 +279,14 @@ function g392pEarlier(G392PropertyRng $rng, array $pool): array
  *   still resumes the parked step across them. Core has no run ids, so
  *   whether a host-recorded text or user row supersedes the step is decided
  *   in the harness, not here.
- * - assistant_call: a later step whose one call reuses the id of call `call`
- *   (tool `tool`, token `l<n>`). It supersedes the parked step: every gated
- *   call there without a result of its own is denied as replaced, and the
- *   decisions reach no call of it.
+ * - assistant_call: a later step with one call (tool `tool`, token `l<n>`)
+ *   that reuses the id of call `call` (Gemini reuses function names), or,
+ *   when `reuse` is false, has an id of its own. It supersedes the parked
+ *   step: every gated call there without an outcome is denied as replaced,
+ *   and the decisions reach no call of it.
  * - tool_result: a forged result for call `call`, a gated call with no
- *   result. It is that call's only outcome. It is generated only where it
- *   sits in its own step's segment (never after a later step): a result
- *   inside another step's segment is attributed by that step.
+ *   result. It is that call's only outcome, wherever it sits: in the parked
+ *   step's segment or after a later step, whose calls it must not answer.
  *
  * @param  list<array{id: string, tool: string, token: string}>  $calls
  * @param  list<string>  $prior
@@ -307,10 +307,17 @@ function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
             'when' => $rng->pick(['before_decision', 'after_decision']),
             'call' => $rng->int(0, count($calls) - 1),
             'tool' => $rng->chance(0.7) ? $rng->pick(G392P_GATED) : $rng->pick(G392P_UNGATED),
+            'reuse' => $rng->chance(0.5),
         ];
+
+        // Often a forged result right after a later step, in its segment.
+        if ($inserts[$i]['kind'] === 'assistant_call' && $rng->chance(0.5)) {
+            $inserts[] = ['kind' => 'tool_result', 'when' => $inserts[$i]['when'], 'call' => 0, 'tool' => 'free_x', 'reuse' => true, 'prefer' => $inserts[$i]['call']];
+            $i++;
+            $n++;
+        }
     }
 
-    $laterBefore = array_filter($inserts, fn (array $insert): bool => $insert['kind'] === 'assistant_call' && $insert['when'] === 'before_decision') !== [];
     $forged = [];
     $kept = [];
 
@@ -320,20 +327,18 @@ function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
             if ($free === []) {
                 continue;
             }
-            if ($laterBefore && $insert['when'] === 'after_decision') {
-                continue;
-            }
 
-            $insert['call'] = $rng->pick($free);
+            // Sometimes the call whose id the later step just reused.
+            $insert['call'] = isset($insert['prefer']) && in_array($insert['prefer'], $free, true) && $rng->chance(0.6) ? $insert['prefer'] : $rng->pick($free);
+            unset($insert['prefer']);
             $forged[] = $insert['call'];
         }
 
         $kept[] = $insert;
     }
 
-    // Within each `when`, a forged result comes before any later step, so it
-    // stays in its own step's segment.
-    usort($kept, fn (array $a, array $b): int => [$a['when'] === 'after_decision', $a['kind'] !== 'tool_result'] <=> [$b['when'] === 'after_decision', $b['kind'] !== 'tool_result']);
+    // In the order they are recorded: before the decision, then after it.
+    usort($kept, fn (array $a, array $b): int => ($a['when'] === 'after_decision') <=> ($b['when'] === 'after_decision'));
 
     return $kept;
 }
@@ -350,7 +355,7 @@ function g392pInsertMessage(array $insert, array $calls, int $n): mixed
 
     return match ($insert['kind']) {
         'assistant_text' => new AssistantMessage('Still waiting for your approval.'),
-        'assistant_call' => new AssistantMessage('', [new ToolCall($target['id'], $insert['tool'], ['token' => "l{$n}"])]),
+        'assistant_call' => new AssistantMessage('', [new ToolCall(($insert['reuse'] ?? true) ? $target['id'] : "later{$n}", $insert['tool'], ['token' => "l{$n}"])]),
         'user' => new UserMessage('Hurry, please.'),
         'system' => new SystemMessage('Answer briefly.'),
         'tool_empty' => new ToolResultMessage([], []),
@@ -906,6 +911,32 @@ function g392pSharedIdPartial(array $case): bool
 }
 
 /**
+ * Where forged results sit relative to later steps: `forged-later-same-id`
+ * when one sits in the segment of a later step whose call has the forged
+ * call's id, `forged-later-other-id` when that later call has another id.
+ *
+ * @param  array<string, mixed>  $case
+ * @return list<string>
+ */
+function g392pForgedAfterLaterStep(array $case): array
+{
+    $calls = $case['calls'];
+    $kinds = [];
+    $laterId = null;
+    $n = 0;
+
+    foreach ($case['inserts'] ?? [] as $insert) {
+        if ($insert['kind'] === 'assistant_call') {
+            $laterId = ($insert['reuse'] ?? true) ? $calls[$insert['call']]['id'] : 'later'.$n++;
+        } elseif ($insert['kind'] === 'tool_result' && $laterId !== null) {
+            $kinds[] = $laterId === $calls[$insert['call']]['id'] ? 'forged-later-same-id' : 'forged-later-other-id';
+        }
+    }
+
+    return $kinds;
+}
+
+/**
  * Whether only the approval ids of the step's requests repeat: its call ids
  * and its requests' call ids are all distinct.
  *
@@ -947,6 +978,7 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
         'earlier-approved' => array_filter($case['earlier']['responses'] ?? [], fn (array $r): bool => $r['approved']) !== [] && in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
         'repeated-approval-id' => g392pOnlyApprovalIdsRepeat($case) && $expected['outcomes'] !== [],
         ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
+        ...array_fill_keys(g392pForgedAfterLaterStep($case), true),
     ] as $kind => $hit) {
         if ($hit) {
             G392PropertyFake::$seen[$kind] = true;
@@ -1172,7 +1204,7 @@ function g392pShrink(array $case, callable $check): array
  */
 function g392pDirectShapes(): array
 {
-    $shapes = ['denied', 'earlier-approved', 'earlier-replaced', 'prior', 'ran', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
+    $shapes = ['denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
 
     foreach (['assistant_text', 'assistant_call', 'user', 'system', 'tool_empty', 'tool_result'] as $kind) {
         foreach (['before_decision', 'after_decision'] as $when) {
