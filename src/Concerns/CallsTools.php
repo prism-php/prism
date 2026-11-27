@@ -573,19 +573,6 @@ trait CallsTools
     }
 
     /**
-     * Why an approved stored call must not run, or null when it may.
-     *
-     * Before 0.152, arguments that could not be parsed were stored as one
-     * string under `raw` or `input`. On a tool that does not name that key the
-     * call is refused. On a tool that does, the stored call is the same as a
-     * genuine one, so only the approval's marker can tell them apart: a
-     * request without it was stored by an earlier version, and its approval
-     * expires. The model is told to call again, and the new call is a new
-     * approval for the person to decide.
-     *
-     * @return array{failure: PrismException, kind: ?string}|null
-     */
-    /**
      * Whether the step's calls, or its approval requests, repeat a call id. A
      * repeated id cannot say which call a decision belongs to.
      */
@@ -598,6 +585,19 @@ trait CallsTools
             || count($requestCallIds) !== count(array_unique($requestCallIds, SORT_STRING));
     }
 
+    /**
+     * Why an approved stored call must not run, or null when it may.
+     *
+     * Before 0.152, arguments that could not be parsed were stored as one
+     * string under `raw` or `input`. On a tool that does not name that key the
+     * call is refused. On a tool that does, the stored call is the same as a
+     * genuine one, so only the approval's marker can tell them apart: a
+     * request without it was stored by an earlier version, and its approval
+     * expires. The model is told to call again, and the new call is a new
+     * approval for the person to decide.
+     *
+     * @return array{failure: PrismException, kind: ?string}|null
+     */
     protected static function storedArgumentsRefusal(Tool $tool, ToolCall $toolCall, ?ToolApprovalRequest $approvalRequest): ?array
     {
         $key = self::storedWrappedKey($toolCall);
