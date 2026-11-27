@@ -10,6 +10,7 @@ use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Streaming\Events\ToolResultEvent;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\ToolApprovalRequest;
@@ -214,7 +215,48 @@ function g392pGenerate(G392PropertyRng $rng): array
         'responses' => g392pDecide($rng, $requests),
         'split' => $rng->chance(0.5),
         'repeat' => $rng->pick(['again', 'approve-all']),
+        'rows' => $rows = g392pRows($rng),
+        // Gemini takes no system row in the messages, so a case with one is
+        // resumed through OpenAI (Responses); otherwise either provider.
+        'provider' => in_array('system', array_column($rows, 'kind'), true) ? 'openai' : $rng->pick(['gemini', 'openai']),
     ];
+}
+
+/**
+ * Rows a host can record between the parked step and the decision: an
+ * assistant text row ("waiting for your approval"), a user row, a system row
+ * or an empty tool row. None of them is a step, so none may change which step
+ * the decisions apply to. `at` 0 is right after the step, 1 right before the
+ * decisions.
+ *
+ * @return list<array{kind: string, at: int}>
+ */
+function g392pRows(G392PropertyRng $rng): array
+{
+    if ($rng->chance(0.4)) {
+        return [];
+    }
+
+    $rows = [];
+
+    for ($i = 0, $n = $rng->int(1, 3); $i < $n; $i++) {
+        $rows[] = ['kind' => $rng->pick(['assistant', 'user', 'system', 'tool']), 'at' => $rng->int(0, 1)];
+    }
+
+    return $rows;
+}
+
+/**
+ * @param  array{kind: string, at: int}  $row
+ */
+function g392pRowMessage(array $row): mixed
+{
+    return match ($row['kind']) {
+        'assistant' => new AssistantMessage('Waiting for your approval.'),
+        'user' => new UserMessage('Any news?'),
+        'system' => new SystemMessage('Be brief.'),
+        default => new ToolResultMessage([], []),
+    };
 }
 
 /**
@@ -377,9 +419,19 @@ final class G392PropertyFake
 
         Http::fake(function (HttpRequest $request) {
             if (str_contains($request->url(), 'streamGenerateContent')) {
-                return Http::response('data: '.json_encode(self::text('{"answer":"done"}')).'
+                return Http::response('data: '.json_encode(self::text('{"answer":"done"}'))."\n\n", 200, ['Content-Type' => 'text/event-stream']);
+            }
 
-', 200, ['Content-Type' => 'text/event-stream']);
+            if (str_contains($request->url(), '/responses')) {
+                if (($request->data()['stream'] ?? false) === true) {
+                    return Http::response((string) file_get_contents(__DIR__.'/../Fixtures/openai/stream-basic-text-responses-1.json'), 200, ['Content-Type' => 'text/event-stream']);
+                }
+
+                return Http::response([
+                    'id' => 'resp_g392p', 'object' => 'response', 'created_at' => 1, 'status' => 'completed', 'model' => 'test-model',
+                    'output' => [['id' => 'msg_g392p', 'type' => 'message', 'status' => 'completed', 'role' => 'assistant', 'content' => [['type' => 'output_text', 'text' => '{"answer":"done"}', 'annotations' => []]]]],
+                    'usage' => ['input_tokens' => 1, 'input_tokens_details' => ['cached_tokens' => 0], 'output_tokens' => 1, 'output_tokens_details' => ['reasoning_tokens' => 0], 'total_tokens' => 2],
+                ]);
             }
 
             return Http::response(self::$queue !== [] ? array_shift(self::$queue) : self::text('{"answer":"done"}'));
@@ -395,14 +447,14 @@ final class G392PropertyFake
  * @param  list<string>  $ran
  * @return array{results: list<ToolResult>, history: list<mixed>, events: list<ToolResultEvent>}
  */
-function g392pResume(string $path, array $history, array &$ran): array
+function g392pResume(string $path, array $history, array &$ran, string $provider = 'gemini'): array
 {
     $tools = g392pTools($ran);
 
     if ($path === 'stream') {
         $events = [];
 
-        foreach (Prism::text()->using('gemini', 'test-model')->withTools($tools)->withMaxSteps(3)->withMessages($history)->asStream() as $event) {
+        foreach (Prism::text()->using($provider, 'test-model')->withTools($tools)->withMaxSteps(3)->withMessages($history)->asStream() as $event) {
             if ($event instanceof ToolResultEvent) {
                 $events[] = $event;
             }
@@ -432,8 +484,8 @@ function g392pResume(string $path, array $history, array &$ran): array
     }
 
     $response = $path === 'structured'
-        ? Prism::structured()->using('gemini', 'test-model')->withSchema(g392pSchema())->withTools($tools)->withMaxSteps(3)->withMessages($history)->asStructured()
-        : Prism::text()->using('gemini', 'test-model')->withTools($tools)->withMaxSteps(3)->withMessages($history)->asText();
+        ? Prism::structured()->using($provider, 'test-model')->withSchema(g392pSchema())->withTools($tools)->withMaxSteps(3)->withMessages($history)->asStructured()
+        : Prism::text()->using($provider, 'test-model')->withTools($tools)->withMaxSteps(3)->withMessages($history)->asText();
 
     $sent = $response->steps->first()->messages;
     $results = [];
@@ -482,12 +534,16 @@ function g392pHistory(array $case): array
         }
     }
 
-    $history = [new UserMessage('Do the things'), new AssistantMessage('', $calls, [], $requests)];
+    $rows = $case['rows'] ?? [];
+    $rowsAt = fn (int $at): array => array_map(g392pRowMessage(...), array_values(array_filter($rows, fn (array $row): bool => $row['at'] === $at)));
+    $history = [new UserMessage('Do the things'), new AssistantMessage('', $calls, [], $requests), ...$rowsAt(0)];
 
     if ($case['split'] && $prior !== []) {
         $history[] = new ToolResultMessage($prior, []);
+        $history = [...$history, ...$rowsAt(1)];
         $history[] = new ToolResultMessage([], $responses);
     } else {
+        $history = [...$history, ...$rowsAt(1)];
         $history[] = new ToolResultMessage($prior, $responses);
     }
 
@@ -534,6 +590,11 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
         'undecided' => in_array(G392P_NO_DECISION, $expected['outcomes'], true),
         'prior' => array_filter($expected['outcomes'], fn (string $o): bool => str_starts_with($o, 'prior:')) !== [],
         'shared-id-partial' => g392pSharedIdPartial($case),
+        'row-assistant' => in_array('assistant', array_column($case['rows'] ?? [], 'kind'), true),
+        'row-user' => in_array('user', array_column($case['rows'] ?? [], 'kind'), true),
+        'row-system' => in_array('system', array_column($case['rows'] ?? [], 'kind'), true),
+        'row-tool' => in_array('tool', array_column($case['rows'] ?? [], 'kind'), true),
+        'rows-repeated' => ($case['rows'] ?? []) !== [] && $expected['repeated'] && $expected['outcomes'] !== [],
     ] as $kind => $hit) {
         if ($hit) {
             G392PropertyFake::$seen[$kind] = true;
@@ -649,7 +710,7 @@ function g392pCheckDirect(array $case, string $path): ?string
     $ran = [];
     $expected = g392pOracle($case);
 
-    $first = g392pResume($path, g392pHistory($case), $ran);
+    $first = g392pResume($path, g392pHistory($case), $ran, $case['provider']);
     $violation = g392pViolation($case, $expected, $ran, $first['results'], $first['events'], $path);
 
     if ($violation !== null) {
@@ -676,7 +737,7 @@ function g392pCheckRepeat(array $case, array $expected, array $history, array $r
         : new UserMessage('And again?');
 
     foreach (['text', 'stream'] as $path) {
-        g392pResume($path, [...$history, $extra], $ran);
+        g392pResume($path, [...$history, $extra], $ran, $case['provider'] ?? 'gemini');
 
         if ($ran !== $before) {
             return "invariant 3 (repeat resume on {$path}, {$case['repeat']}): ran again ".json_encode(array_slice($ran, count($before)));
@@ -705,7 +766,7 @@ function g392pShrink(array $case, callable $check): array
     while ($progress) {
         $progress = false;
 
-        foreach (['calls', 'requests', 'responses'] as $key) {
+        foreach (['calls', 'requests', 'responses', 'rows'] as $key) {
             foreach (array_keys($case[$key]) as $i) {
                 $candidate = $case;
                 array_splice($candidate[$key], $i, 1);
@@ -732,7 +793,7 @@ function g392pShrink(array $case, callable $check): array
  * @param  callable(array<string, mixed>): ?string  $check
  * @param  list<string>  $mustSee  case kinds a run of 20+ examples must reach
  */
-function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, array $mustSee = ['denied', 'prior', 'ran', 'repeated', 'shared-id-partial', 'undecided']): void
+function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, array $mustSee = ['denied', 'prior', 'ran', 'repeated', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided']): void
 {
     $checked = 0;
     G392PropertyFake::$seen = [];
@@ -765,6 +826,8 @@ function g392pForAll(string $name, int $salt, callable $generate, callable $chec
 
 beforeEach(function (): void {
     config()->set('prism.providers.gemini.api_key', 'not-a-key');
+    config()->set('prism.providers.openai.api_key', 'not-a-key');
+    config()->set('prism.providers.openai.api_format', 'responses');
     Http::preventStrayRequests();
     G392PropertyFake::register();
 });
