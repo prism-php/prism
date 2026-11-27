@@ -222,6 +222,8 @@ function g392pGenerate(G392PropertyRng $rng, int $seed = 0): array
         'split' => $rng->chance(0.5),
         'repeat' => $rng->pick(['again', 'approve-all']),
         'earlier' => $rng->chance(0.35) ? g392pEarlier($rng, $pool) : null,
+        'refusal' => g392pRefusal(new G392PropertyRng($seed ^ 0x398398), $pool),
+        'forms' => g392pForms(new G392PropertyRng($seed ^ 0x399399)),
         // Its own stream, so adding it changed no other dimension's draws.
         'inserts' => $inserts = g392pInserts(new G392PropertyRng($seed ^ 0x397397), $calls, $prior),
         'rows' => $rows = g392pRows($rng),
@@ -269,6 +271,68 @@ function g392pEarlier(G392PropertyRng $rng, array $pool): array
         'decisionsAt' => $rng->pick(['segment', 'final']),
         'gap' => $rng->chance(0.5),
     ];
+}
+
+/**
+ * A refused stored call in the resumed step: arguments in the stored form
+ * (one string under `raw`), already answered by a refusal, which is recorded
+ * without arguments. Usually an earlier step parked before it holds an open
+ * call with the same id and name and no arguments. The refusal answers the
+ * resumed step's call only; the earlier call is denied as replaced; the
+ * refused call is never decided again, even when its request is approved.
+ *
+ * @param  list<string>  $pool
+ * @return array{id: string, tool: string, raw: string, approved: bool, earlierArgless: bool}|null
+ */
+function g392pRefusal(G392PropertyRng $rng, array $pool): ?array
+{
+    if ($rng->chance(0.7)) {
+        return null;
+    }
+
+    return [
+        'id' => $rng->pick($pool),
+        'tool' => $rng->pick(G392P_GATED),
+        'raw' => 'r0',
+        'approved' => $rng->chance(0.6),
+        'earlierArgless' => $rng->chance(0.75),
+    ];
+}
+
+/**
+ * How each call's arguments are stored: a parsed map, the JSON text a
+ * provider streams, or that text spaced out. A no-argument call is stored as
+ * [], '' or '{}'. Results always carry parsed arguments, so attribution must
+ * compare like with like whatever the call holds.
+ *
+ * @return array<string, string>
+ */
+function g392pForms(G392PropertyRng $rng): array
+{
+    $forms = [];
+
+    foreach (['t0', 't1', 't2', 't3', 't4', 't5', 'e0', 'e1', 'e2', 'l0', 'l1', 'l2', 'l3', 'raw', 'none'] as $key) {
+        $forms[$key] = $key === 'none' ? $rng->pick(['array', 'empty', 'object']) : $rng->pick(['array', 'string', 'spaced']);
+    }
+
+    return $forms;
+}
+
+/**
+ * A call's arguments in the stored form the case chose for it.
+ *
+ * @param  array<string, mixed>  $arguments
+ * @return string|array<string, mixed>
+ */
+function g392pStored(array $case, string $key, array $arguments): string|array
+{
+    return match ($case['forms'][$key] ?? 'array') {
+        'string' => (string) json_encode($arguments),
+        'spaced' => str_replace([':', ','], [' : ', ' , '], '{ '.substr((string) json_encode($arguments), 1, -1).' }'),
+        'empty' => '',
+        'object' => '{}',
+        default => $arguments,
+    };
 }
 
 /**
@@ -349,13 +413,13 @@ function g392pInserts(G392PropertyRng $rng, array $calls, array $prior): array
  * @param  array{kind: string, when: string, call: int, tool: string}  $insert
  * @param  list<array{id: string, tool: string, token: string}>  $calls
  */
-function g392pInsertMessage(array $insert, array $calls, int $n): mixed
+function g392pInsertMessage(array $insert, array $calls, int $n, array $forms = []): mixed
 {
     $target = $calls[$insert['call']];
 
     return match ($insert['kind']) {
         'assistant_text' => new AssistantMessage('Still waiting for your approval.'),
-        'assistant_call' => new AssistantMessage('', [new ToolCall(($insert['reuse'] ?? true) ? $target['id'] : "later{$n}", $insert['tool'], ['token' => "l{$n}"])]),
+        'assistant_call' => new AssistantMessage('', [new ToolCall(($insert['reuse'] ?? true) ? $target['id'] : "later{$n}", $insert['tool'], g392pStored(['forms' => $forms], "l{$n}", ['token' => "l{$n}"]))]),
         'user' => new UserMessage('Hurry, please.'),
         'system' => new SystemMessage('Answer briefly.'),
         'tool_empty' => new ToolResultMessage([], []),
@@ -439,6 +503,17 @@ function g392pOracle(array $case): array
     $callIds = array_column($case['calls'], 'id');
     $requestIds = array_column($case['requests'], 'toolCallId');
     $approvalIds = array_column($case['requests'], 'approvalId');
+    $refusal = $case['refusal'] ?? null;
+
+    if ($refusal !== null) {
+        $callIds[] = $refusal['id'];
+
+        if ($refusal['approved']) {
+            $requestIds[] = $refusal['id'];
+            $approvalIds[] = 'apr_r';
+        }
+    }
+
     $repeated = count($callIds) !== count(array_unique($callIds))
         || count($requestIds) !== count(array_unique($requestIds))
         || count($approvalIds) !== count(array_unique($approvalIds));
@@ -665,22 +740,18 @@ function g392pResume(string $path, array $history, array &$ran, string $provider
 
         // An event for a call of an earlier step goes back into that step's
         // segment, where core puts it on a non-streamed resume.
-        $earlierTokens = [];
+        $earlierCalls = [];
 
         foreach (array_slice($history, 0, $assistantAt) as $message) {
             if ($message instanceof AssistantMessage) {
-                foreach ($message->toolCalls as $call) {
-                    $earlierTokens[(string) ($call->arguments()['token'] ?? '')] = true;
-                }
+                $earlierCalls = [...$earlierCalls, ...$message->toolCalls];
             }
         }
 
         $results = $prior;
 
         foreach ($events as $event) {
-            $token = (string) ($event->toolResult->args['token'] ?? '');
-
-            if (isset($earlierTokens[$token])) {
+            if (array_filter($earlierCalls, fn (ToolCall $call): bool => g392pNames($call, $event->toolResult)) !== []) {
                 $kept = g392pIntoEarlierSegment($kept, $event->toolResult);
             } else {
                 $results[] = $event->toolResult;
@@ -720,13 +791,11 @@ function g392pResume(string $path, array $history, array &$ran, string $provider
  */
 function g392pIntoEarlierSegment(array $history, ToolResult $result): array
 {
-    $token = $result->args['token'] ?? null;
-
     foreach ($history as $i => $message) {
         if (! $message instanceof AssistantMessage) {
             continue;
         }
-        if (array_filter($message->toolCalls, fn (ToolCall $call): bool => ($call->arguments()['token'] ?? null) === $token) === []) {
+        if (array_filter($message->toolCalls, fn (ToolCall $call): bool => g392pNames($call, $result)) === []) {
             continue;
         }
         $next = $history[$i + 1] ?? null;
@@ -741,6 +810,84 @@ function g392pIntoEarlierSegment(array $history, ToolResult $result): array
     }
 
     return $history;
+}
+
+/**
+ * Whether a result names this call: its id, tool and arguments.
+ */
+function g392pNames(ToolCall $call, ToolResult $result): bool
+{
+    return $result->toolCallId === $call->id && $result->toolName === $call->name && $result->args == $call->arguments();
+}
+
+/**
+ * The refused call and the earlier no-argument call each end with exactly one
+ * result, in their own step's segment: the refusal stays with the step it
+ * follows, the earlier call is denied as replaced, and the refused call is
+ * never decided again.
+ *
+ * @param  array<string, mixed>  $case
+ * @param  list<mixed>  $history
+ */
+function g392pRefusalViolation(array $case, array $history, string $label): ?string
+{
+    $refusal = $case['refusal'] ?? null;
+
+    if ($refusal === null) {
+        return null;
+    }
+
+    $history = array_values($history);
+    $segments = [];
+    $step = null;
+
+    foreach ($history as $i => $message) {
+        if ($message instanceof AssistantMessage && $message->toolCalls !== []) {
+            $step = $i;
+            $segments[$step] = [];
+        } elseif ($message instanceof ToolResultMessage && $step !== null) {
+            $segments[$step] = [...$segments[$step], ...$message->toolResults];
+        }
+    }
+
+    $argless = fn (int $at): array => array_values(array_map(
+        fn (ToolResult $r): string => (string) $r->result,
+        array_filter($segments[$at] ?? [], fn (ToolResult $r): bool => $r->toolCallId === $refusal['id'] && $r->toolName === $refusal['tool'] && $r->args === []),
+    ));
+    $mainAt = null;
+    $earlierAt = null;
+
+    foreach ($history as $i => $message) {
+        if ($message instanceof AssistantMessage) {
+            foreach ($message->toolCalls as $call) {
+                if ($call->arguments() === ['raw' => $refusal['raw']]) {
+                    $mainAt = $i;
+                } elseif ($call->id === $refusal['id'] && $call->name === $refusal['tool'] && $call->arguments() === []) {
+                    $earlierAt = $i;
+                }
+            }
+        }
+    }
+
+    if ($mainAt === null || $argless($mainAt) !== ["refused:{$refusal['raw']}"]) {
+        return "invariant 5 (refused call, {$label}): its step's segment holds ".json_encode($mainAt === null ? null : $argless($mainAt));
+    }
+
+    foreach ($history as $message) {
+        if ($message instanceof ToolResultMessage) {
+            foreach ($message->toolResults as $result) {
+                if ($result->args === ['raw' => $refusal['raw']]) {
+                    return "invariant 5 (refused call, {$label}): decided again, ".json_encode($result->result);
+                }
+            }
+        }
+    }
+
+    if ($refusal['earlierArgless'] && ($earlierAt === null || $argless($earlierAt) !== [G392P_LATER_STEP])) {
+        return "invariant 5 (earlier call without arguments, {$label}): its segment holds ".json_encode($earlierAt === null ? null : $argless($earlierAt));
+    }
+
+    return null;
 }
 
 /**
@@ -810,7 +957,7 @@ function g392pLastToolStep(array $messages): int
  */
 function g392pHistory(array $case): array
 {
-    $calls = array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], ['token' => $call['token']]), $case['calls']);
+    $calls = array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], g392pStored($case, $call['token'], ['token' => $call['token']])), $case['calls']);
     $requests = array_map(fn (array $r): ToolApprovalRequest => new ToolApprovalRequest($r['approvalId'], $r['toolCallId'], ToolApprovalRequest::ARGUMENTS_AS_SENT), $case['requests']);
     $responses = array_map(fn (array $r): ToolApprovalResponse => new ToolApprovalResponse($r['approvalId'], $r['approved'], $r['reason']), $case['responses']);
     $prior = [];
@@ -838,7 +985,7 @@ function g392pHistory(array $case): array
 
         $history[] = new AssistantMessage(
             '',
-            array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], ['token' => $call['token']]), $earlier['calls']),
+            array_map(fn (array $call): ToolCall => new ToolCall($call['id'], $call['tool'], g392pStored($case, $call['token'], ['token' => $call['token']])), $earlier['calls']),
             [],
             array_map(fn (array $r): ToolApprovalRequest => new ToolApprovalRequest($r['approvalId'], $r['toolCallId'], ToolApprovalRequest::ARGUMENTS_AS_SENT), $earlier['requests']),
         );
@@ -858,6 +1005,22 @@ function g392pHistory(array $case): array
         }
     }
 
+    $refusal = $case['refusal'] ?? null;
+
+    if ($refusal !== null) {
+        if ($refusal['earlierArgless']) {
+            $history[] = new AssistantMessage('', [new ToolCall($refusal['id'], $refusal['tool'], g392pStored($case, 'none', []))]);
+        }
+
+        $calls[] = new ToolCall($refusal['id'], $refusal['tool'], g392pStored($case, 'raw', ['raw' => $refusal['raw']]));
+        $prior[] = new ToolResult($refusal['id'], $refusal['tool'], [], "refused:{$refusal['raw']}");
+
+        if ($refusal['approved']) {
+            $requests[] = new ToolApprovalRequest('apr_r', $refusal['id'], ToolApprovalRequest::ARGUMENTS_AS_SENT);
+            $responses[] = new ToolApprovalResponse('apr_r', true);
+        }
+    }
+
     $history = [...$history, new AssistantMessage('', $calls, [], $requests), ...$rowsAt(0)];
     $inserts = $case['inserts'] ?? [];
     $later = 0;
@@ -866,7 +1029,7 @@ function g392pHistory(array $case): array
 
         foreach ($inserts as $insert) {
             if ($insert['when'] === $when) {
-                $out[] = g392pInsertMessage($insert, $case['calls'], $insert['kind'] === 'assistant_call' ? $later++ : $later);
+                $out[] = g392pInsertMessage($insert, $case['calls'], $insert['kind'] === 'assistant_call' ? $later++ : $later, $case['forms'] ?? []);
             }
         }
 
@@ -937,6 +1100,55 @@ function g392pForgedAfterLaterStep(array $case): array
 }
 
 /**
+ * Which stored argument forms the case used: `args-string` and
+ * `args-spaced` for text arguments, `args-string-reused-id` when a call
+ * stored as text shares its id with a call of another step, and
+ * `args-none-text` for a no-argument call stored as '' or '{}'.
+ *
+ * @param  array<string, mixed>  $case
+ * @return list<string>
+ */
+function g392pFormShapes(array $case): array
+{
+    $forms = $case['forms'] ?? [];
+    $shapes = [];
+    $byStep = ['main' => $case['calls'], 'earlier' => $case['earlier']['calls'] ?? []];
+    $n = 0;
+
+    foreach ($case['inserts'] ?? [] as $insert) {
+        if ($insert['kind'] === 'assistant_call') {
+            $id = ($insert['reuse'] ?? true) ? $case['calls'][$insert['call']]['id'] : "later{$n}";
+            $byStep['later'.$n] = [['id' => $id, 'token' => 'l'.$n]];
+            $n++;
+        }
+    }
+
+    foreach ($byStep as $step => $calls) {
+        foreach ($calls as $call) {
+            $form = $forms[$call['token']] ?? 'array';
+
+            if ($form === 'array') {
+                continue;
+            }
+
+            $shapes[] = "args-{$form}";
+
+            foreach ($byStep as $other => $otherCalls) {
+                if ($other !== $step && in_array($call['id'], array_column($otherCalls, 'id'), true)) {
+                    $shapes[] = 'args-string-reused-id';
+                }
+            }
+        }
+    }
+
+    if (($case['refusal']['earlierArgless'] ?? false) && in_array($forms['none'] ?? 'array', ['empty', 'object'], true)) {
+        $shapes[] = 'args-none-text';
+    }
+
+    return array_values(array_unique($shapes));
+}
+
+/**
  * Whether only the approval ids of the step's requests repeat: its call ids
  * and its requests' call ids are all distinct.
  *
@@ -977,6 +1189,9 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
         'earlier-replaced' => in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
         'earlier-approved' => array_filter($case['earlier']['responses'] ?? [], fn (array $r): bool => $r['approved']) !== [] && in_array(G392P_LATER_STEP, $expected['earlier'] ?? [], true),
         'repeated-approval-id' => g392pOnlyApprovalIdsRepeat($case) && $expected['outcomes'] !== [],
+        'refusal-earlier-argless' => ($case['refusal']['earlierArgless'] ?? false) === true,
+        ...array_fill_keys(g392pFormShapes($case), true),
+        'refusal-repeated-id' => isset($case['refusal']) && in_array($case['refusal']['id'], array_column($case['calls'], 'id'), true),
         ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
         ...array_fill_keys(g392pForgedAfterLaterStep($case), true),
     ] as $kind => $hit) {
@@ -1096,7 +1311,8 @@ function g392pCheckDirect(array $case, string $path): ?string
 
     $first = g392pResume($path, g392pHistory($case), $ran, $case['provider']);
     $violation = g392pViolation($case, $expected, $ran, $first['all'], $first['events'], $path)
-        ?? g392pOutcomesOnce($expected, $first['all'], 'whole history');
+        ?? g392pOutcomesOnce($expected, $first['all'], 'whole history')
+        ?? g392pRefusalViolation($case, $first['history'], 'first resume');
 
     if ($violation !== null) {
         return "first resume: {$violation}";
@@ -1129,7 +1345,8 @@ function g392pCheckRepeat(array $case, array $expected, array $history, array $r
         }
 
         if ($path === 'text' && isset($expected['outcomes'], $expected['earlier'])) {
-            $violation = g392pOutcomesOnce($expected, $again['all'], "repeat resume, {$case['repeat']}");
+            $violation = g392pOutcomesOnce($expected, $again['all'], "repeat resume, {$case['repeat']}")
+                ?? g392pRefusalViolation($case, $again['history'], "repeat resume, {$case['repeat']}");
 
             if ($violation !== null) {
                 return $violation;
@@ -1204,7 +1421,7 @@ function g392pShrink(array $case, callable $check): array
  */
 function g392pDirectShapes(): array
 {
-    $shapes = ['denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
+    $shapes = ['args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
 
     foreach (['assistant_text', 'assistant_call', 'user', 'system', 'tool_empty', 'tool_result'] as $kind) {
         foreach (['before_decision', 'after_decision'] as $when) {

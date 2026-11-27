@@ -656,8 +656,9 @@ trait CallsTools
             $segments[$stepIndex] = $segment;
             $owned[$stepIndex] = $pairing['owned'];
 
+            // A result without arguments stays with the step it follows.
             foreach ($results as $at => $result) {
-                if (! isset($pairing['used'][$at])) {
+                if (! isset($pairing['used'][$at]) && $result->args !== []) {
                     $stray[] = $result;
                 }
             }
@@ -770,6 +771,11 @@ trait CallsTools
      * another step ($otherCalls) and no call of this one is that call's, so
      * the looser id-and-name and id-only matches never take it.
      *
+     * A result recorded without arguments (a refused stored call is recorded
+     * that way) cannot name its call, so it belongs to the step it is
+     * recorded after: first to a call of that step whose arguments are in
+     * the stored form, then by id and name, then by id.
+     *
      * @param  ToolCall[]  $toolCalls
      * @param  ToolResult[]  $toolResults
      * @param  ToolCall[]  $otherCalls
@@ -784,6 +790,10 @@ trait CallsTools
         $othersOnly = [];
 
         foreach ($toolResults as $at => $toolResult) {
+            if ($toolResult->args === []) {
+                continue;
+            }
+
             $names = fn (ToolCall $call): bool => self::isResultOf($call, $toolResult);
 
             if (array_filter($otherCalls, $names) !== [] && array_filter($toolCalls, $names) === []) {
@@ -793,6 +803,10 @@ trait CallsTools
 
         $matchers = [
             fn (ToolCall $call, ToolResult $result, int $at): bool => self::isResultOf($call, $result),
+            fn (ToolCall $call, ToolResult $result, int $at): bool => $result->args === []
+                && $result->toolCallId === $call->id
+                && $result->toolName === $call->name
+                && self::storedWrappedKey($call) !== null,
             fn (ToolCall $call, ToolResult $result, int $at): bool => ! isset($othersOnly[$at]) && $result->toolCallId === $call->id && $result->toolName === $call->name,
             fn (ToolCall $call, ToolResult $result, int $at): bool => ! isset($othersOnly[$at]) && $result->toolCallId === $call->id,
         ];
