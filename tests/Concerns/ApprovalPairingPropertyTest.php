@@ -160,17 +160,15 @@ function g392pGenerate(G392PropertyRng $rng): array
         $calls[] = ['id' => $rng->pick($pool), 'tool' => $tool, 'token' => "t{$i}"];
     }
 
-    // Prior results are given per id: the code under test can only tell calls
-    // apart by id, so a result names every call that shares it. Ungated calls
-    // normally ran in the provider step.
+    // Prior results are given PER CALL, never per id: a result belongs to one
+    // call, so calls sharing an id can differ, e.g. an ungated call that ran in
+    // the provider step beside a gated call with the same id that did not.
+    // Giving them per id group once hid exactly that shape.
     $prior = [];
 
-    foreach (array_unique(array_column($calls, 'id')) as $id) {
-        $group = array_values(array_filter($calls, fn (array $call): bool => $call['id'] === $id));
-        $allUngated = array_filter($group, fn (array $call): bool => g392pIsGated($call['tool'])) === [];
-
-        if ($rng->chance($allUngated ? 0.8 : 0.25)) {
-            $prior = [...$prior, ...array_column($group, 'token')];
+    foreach ($calls as $call) {
+        if ($rng->chance(g392pIsGated($call['tool']) ? 0.25 : 0.8)) {
+            $prior[] = $call['token'];
         }
     }
 
@@ -243,14 +241,6 @@ function g392pOracle(array $case): array
     $callIds = array_column($case['calls'], 'id');
     $requestIds = array_column($case['requests'], 'toolCallId');
     $repeated = count($callIds) !== count(array_unique($callIds)) || count($requestIds) !== count(array_unique($requestIds));
-    $priorIds = [];
-
-    foreach ($case['calls'] as $call) {
-        if (in_array($call['token'], $case['prior'], true)) {
-            $priorIds[$call['id']] = true;
-        }
-    }
-
     $runs = [];
     $outcomes = [];
     $approvals = [];
@@ -260,7 +250,8 @@ function g392pOracle(array $case): array
             continue;
         }
 
-        if (isset($priorIds[$call['id']])) {
+        // Done is per call: its own result, never one that shares its id.
+        if (in_array($call['token'], $case['prior'], true)) {
             $outcomes[$call['token']] = "prior:{$call['token']}";
 
             continue;
@@ -489,6 +480,28 @@ function g392pHistory(array $case): array
 }
 
 /**
+ * Whether a gated and an ungated call share an id and only one of the two
+ * already has a result. The per-id-group generator never produced this, and
+ * that is how a gated call left with no outcome went unseen; the coverage
+ * check requires it so the gap cannot come back silently.
+ *
+ * @param  array{calls: list<array{id: string, tool: string, token: string}>, prior: list<string>}  $case
+ */
+function g392pSharedIdPartial(array $case): bool
+{
+    foreach ($case['calls'] as $gated) {
+        foreach ($case['calls'] as $ungated) {
+            if (g392pIsGated($gated['tool']) && ! g392pIsGated($ungated['tool']) && $gated['id'] === $ungated['id']
+                && in_array($gated['token'], $case['prior'], true) !== in_array($ungated['token'], $case['prior'], true)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
  * Checks every invariant for one resume. Returns the first violation, or null.
  *
  * @param  array{calls: list<array{id: string, tool: string, token: string}>, prior: list<string>, requests: list<array{approvalId: string, toolCallId: string}>, responses: list<array{approvalId: string, approved: bool, reason: ?string}>}  $case
@@ -505,6 +518,7 @@ function g392pViolation(array $case, array $expected, array $ran, array $results
         'denied' => array_intersect($expected['outcomes'], [G392P_DENIED, 'not this one']) !== [],
         'undecided' => in_array(G392P_NO_DECISION, $expected['outcomes'], true),
         'prior' => array_filter($expected['outcomes'], fn (string $o): bool => str_starts_with($o, 'prior:')) !== [],
+        'shared-id-partial' => g392pSharedIdPartial($case),
     ] as $kind => $hit) {
         if ($hit) {
             G392PropertyFake::$seen[$kind] = true;
@@ -703,7 +717,7 @@ function g392pShrink(array $case, callable $check): array
  * @param  callable(array<string, mixed>): ?string  $check
  * @param  list<string>  $mustSee  case kinds a run of 20+ examples must reach
  */
-function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, array $mustSee = ['denied', 'prior', 'ran', 'repeated', 'undecided']): void
+function g392pForAll(string $name, int $salt, callable $generate, callable $check, bool $shrinkable = true, array $mustSee = ['denied', 'prior', 'ran', 'repeated', 'shared-id-partial', 'undecided']): void
 {
     $checked = 0;
     G392PropertyFake::$seen = [];
