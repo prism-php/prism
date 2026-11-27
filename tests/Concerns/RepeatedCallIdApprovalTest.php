@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Contracts\Message;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Schema\ObjectSchema;
@@ -777,3 +779,152 @@ it('reads every result row of a step together: a later same-id result does not d
             1 => ['a|gate_x|{"token":"t0"}|recorded:t0', 'a|gate_x|{"token":"t1"}|recorded:t1'],
         ]);
 })->with(['text', 'structured']);
+
+/*
+ * An approval id names one request across the whole conversation. A step
+ * whose request carries an approval id that a request of another step also
+ * carries does not run the call that request names, whatever was decided; the
+ * call gets the repeated-id denial, once.
+ */
+
+/**
+ * @param  list<string>  $ran
+ * @return array{history: list<mixed>, events: int}
+ */
+function g392ApprovalOnceRun(string $path, string $id, string $form, string $position, bool $resend, array &$ran): array
+{
+    $parked = new AssistantMessage('', [new ToolCall('x', 'gate_x', ['token' => 't0'])], [], [new ToolApprovalRequest('apr_x', 'x', ToolApprovalRequest::ARGUMENTS_AS_SENT)]);
+    $first = Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)
+        ->withMessages([new UserMessage('Do the things'), $parked, new ToolResultMessage([], [new ToolApprovalResponse('apr_x', true)])])
+        ->asText();
+    $history = $first->messages->all();
+    $copy = new AssistantMessage('', [new ToolCall($id, 'gate_x', $form === 'string' ? '{"token":"n1"}' : ['token' => 'n1'])], [], [new ToolApprovalRequest('apr_x', $id, ToolApprovalRequest::ARGUMENTS_AS_SENT)]);
+    $resultAt = array_key_last(array_filter($history, fn (Message $m): bool => $m instanceof ToolResultMessage && $m->toolResults !== []));
+
+    $history = $position === 'after'
+        ? [...$history, $copy]
+        : [...array_slice($history, 0, $resultAt), $copy, ...array_slice($history, $resultAt)];
+
+    if ($resend) {
+        $history[] = new ToolResultMessage([], [new ToolApprovalResponse('apr_x', true)]);
+    }
+
+    $events = 0;
+
+    for ($round = 0; $round < 3; $round++) {
+        if ($path === 'stream') {
+            $results = [];
+
+            foreach (Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asStream() as $event) {
+                if ($event instanceof ToolResultEvent && ($event->toolResult->args['token'] ?? null) === 'n1') {
+                    $results[] = $event->toolResult;
+                    $events++;
+                }
+            }
+
+            $history = [...$history, ...($results !== [] ? [new ToolResultMessage($results, [])] : []), new AssistantMessage('Done.')];
+        } elseif ($path === 'structured') {
+            $response = Prism::structured()->using('gemini', 'test-model')->withSchema(g392Schema())->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asStructured();
+            $history = [...$response->steps->first()->messages, new AssistantMessage($response->text)];
+        } else {
+            $history = Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asText()->messages->all();
+        }
+
+        $history[] = new UserMessage('And again?');
+    }
+
+    return ['history' => $history, 'events' => $events];
+}
+
+dataset('g392 approval id reused by a later step', [
+    'same id, after the result, decision sent again' => ['x', 'array', 'after', true],
+    'same id, text arguments, after the result, decision sent again' => ['x', 'string', 'after', true],
+    'other id, after the result, decision sent again' => ['y', 'array', 'after', true],
+    'other id, before the result' => ['y', 'array', 'before', false],
+    'other id, before the result, decision sent again' => ['y', 'array', 'before', true],
+    'other id, text arguments, after the result, decision sent again' => ['y', 'string', 'after', true],
+    'other id, text arguments, before the result' => ['y', 'string', 'before', false],
+    'other id, text arguments, before the result, decision sent again' => ['y', 'string', 'before', true],
+]);
+
+it('runs no call whose request reuses an approval id of another step', function (string $path, string $id, string $form, string $position, bool $resend): void {
+    Http::fake(fn (Request $request) => str_contains($request->url(), 'streamGenerateContent')
+        ? Http::response('data: '.json_encode(g392GeminiText('{"answer":"done"}'))."\n\n", 200, ['Content-Type' => 'text/event-stream'])
+        : Http::response(g392GeminiText('{"answer":"done"}')));
+    $ran = [];
+
+    $out = g392ApprovalOnceRun($path, $id, $form, $position, $resend, $ran);
+
+    $outcomes = [];
+
+    foreach ($out['history'] as $message) {
+        if ($message instanceof ToolResultMessage) {
+            foreach ($message->toolResults as $result) {
+                if (($result->args['token'] ?? null) === 'n1') {
+                    $outcomes[] = (string) $result->result;
+                }
+            }
+        }
+    }
+
+    expect($ran)->toBe(['t0'])
+        ->and($outcomes)->toBe([G392_REASON]);
+
+    if ($path === 'stream') {
+        expect($out['events'])->toBe(1);
+    }
+})->with(['text', 'structured', 'stream'])->with('g392 approval id reused by a later step');
+
+dataset('g392 copy recorded before the decision', [
+    'the copy holds the new call' => [false],
+    'the copy holds the old and the new call' => [true],
+]);
+
+it('runs no call of a copy recorded before the decision that reuses its approval id', function (string $path, bool $withOld): void {
+    Http::fake(fn (Request $request) => str_contains($request->url(), 'streamGenerateContent')
+        ? Http::response('data: '.json_encode(g392GeminiText('{"answer":"done"}'))."\n\n", 200, ['Content-Type' => 'text/event-stream'])
+        : Http::response(g392GeminiText('{"answer":"done"}')));
+    $ran = [];
+    $old = new ToolCall('x', 'gate_x', ['token' => 't0']);
+    $new = new ToolCall('x', 'gate_x', ['token' => 'n1']);
+    $history = [
+        new UserMessage('Do the things'),
+        new AssistantMessage('', [$old], [], [new ToolApprovalRequest('apr_x', 'x', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
+        new AssistantMessage('', $withOld ? [$old, $new] : [$new], [], [new ToolApprovalRequest('apr_x', 'x', ToolApprovalRequest::ARGUMENTS_AS_SENT)]),
+        new ToolResultMessage([], [new ToolApprovalResponse('apr_x', true)]),
+    ];
+
+    $results = [];
+
+    if ($path === 'stream') {
+        foreach (Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asStream() as $event) {
+            if ($event instanceof ToolResultEvent) {
+                $results[] = $event->toolResult->args['token'].'|'.$event->toolResult->result;
+            }
+        }
+    } else {
+        $response = $path === 'structured'
+            ? Prism::structured()->using('gemini', 'test-model')->withSchema(g392Schema())->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asStructured()
+            : Prism::text()->using('gemini', 'test-model')->withTools(g392SharedIdTools($ran))->withMaxSteps(3)->withMessages($history)->asText();
+
+        foreach ($response->steps->first()->messages as $message) {
+            if ($message instanceof ToolResultMessage) {
+                foreach ($message->toolResults as $result) {
+                    $results[] = $result->args['token'].'|'.$result->result;
+                }
+            }
+        }
+    }
+
+    sort($results);
+    $expected = ['n1|'.G392_REASON, 't0|'.G392_LATER_STEP_REASON];
+
+    if ($withOld) {
+        $expected[] = 't0|'.G392_REASON;
+    }
+
+    sort($expected);
+
+    expect($ran)->toBe([])
+        ->and($results)->toBe($expected);
+})->with(['text', 'structured', 'stream'])->with('g392 copy recorded before the decision');

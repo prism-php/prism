@@ -236,7 +236,25 @@ function g392pGenerate(G392PropertyRng $rng, int $seed = 0): array
         'provider' => in_array('system', [...array_column($rows, 'kind'), ...array_column($inserts, 'kind')], true) ? 'openai' : $rng->pick(['gemini', 'openai']),
         'values' => g392pValues(new G392PropertyRng($seed ^ 0x39A39A), $calls, $prior),
         'spread' => g392pSpread(new G392PropertyRng($seed ^ 0x39B39B), count($prior)),
+        'reuse' => g392pReuse(new G392PropertyRng($seed ^ 0x39C39C)),
     ];
+}
+
+/**
+ * Whether the resumed step's first request reuses the approval id of the
+ * earlier step's first request, and whether that decision is sent again after
+ * the resumed step. An approval id names one request across the
+ * conversation: the call such a request names is not run, whatever was
+ * decided, wherever the decision sits.
+ *
+ * `decision` places an approve for that id: in the earlier step's segment
+ * (before the resumed step), after the resumed step, or nowhere.
+ *
+ * @return array{resend: bool, decision: string}|null
+ */
+function g392pReuse(G392PropertyRng $rng): ?array
+{
+    return $rng->chance(0.8) ? ['resend' => $rng->chance(0.5), 'decision' => $rng->pick(['before', 'after', 'none'])] : null;
 }
 
 /**
@@ -1009,6 +1027,15 @@ function g392pPredict(array $messages): array
             $requestFor[$request->toolCallId] = $request;
         }
 
+        // An approval id names one request across the conversation.
+        $otherApprovalIds = [];
+
+        foreach (array_slice($steps, 0, $k) as $other) {
+            foreach ($other['requests'] as $request) {
+                $otherApprovalIds[$request->approvalId] = true;
+            }
+        }
+
         foreach ($step['calls'] as $i => $call) {
             if (isset($answers[$i])) {
                 continue;
@@ -1023,6 +1050,13 @@ function g392pPredict(array $messages): array
             }
 
             $request = $requestFor[$call->id] ?? null;
+
+            if ($request !== null && isset($otherApprovalIds[$request->approvalId])) {
+                $added[$k][] = g392pKey($call->id, $call->name, $call->arguments(), G392P_REPEATED);
+
+                continue;
+            }
+
             $response = null;
 
             foreach ($step['responses'] as $candidate) {
@@ -1324,6 +1358,20 @@ function g392pHistory(array $case): array
         }
     }
 
+    $reusedApproval = g392pReusedApproval($case);
+
+    if ($reusedApproval !== null && $requests !== []) {
+        $requests[0] = new ToolApprovalRequest($reusedApproval, $requests[0]->toolCallId, ToolApprovalRequest::ARGUMENTS_AS_SENT);
+
+        if ($case['reuse']['decision'] === 'before') {
+            $history[] = new ToolResultMessage([], [new ToolApprovalResponse($reusedApproval, true)]);
+        }
+
+        if ($case['reuse']['decision'] === 'after' || $case['reuse']['resend']) {
+            $responses[] = new ToolApprovalResponse($reusedApproval, true);
+        }
+    }
+
     $refusal = $case['refusal'] ?? null;
 
     if ($refusal !== null) {
@@ -1489,6 +1537,21 @@ function g392pFormShapes(array $case): array
     }
 
     return array_values(array_unique($shapes));
+}
+
+/**
+ * The approval id the resumed step's first request takes from the earlier
+ * step's first request, or null.
+ *
+ * @param  array<string, mixed>  $case
+ */
+function g392pReusedApproval(array $case): ?string
+{
+    if (($case['reuse'] ?? null) === null || ($case['earlier']['requests'] ?? []) === [] || $case['requests'] === []) {
+        return null;
+    }
+
+    return $case['earlier']['requests'][0]['approvalId'];
 }
 
 /**
@@ -1761,6 +1824,8 @@ function g392pRecordShapes(array $case, array $predicted): void
         'args-identical-across-steps' => array_intersect($mainArgs, $otherArgs) !== [],
         'result-args-diverge' => $lossyUsed !== [],
         'results-rows-repeated-id' => g392pRowsRepeatedId($case),
+        'approval-reused-decided-after' => g392pReusedApproval($case) !== null && ($case['reuse']['resend'] || $case['reuse']['decision'] === 'after'),
+        'approval-reused-decided-before' => g392pReusedApproval($case) !== null && $case['reuse']['decision'] === 'before',
         ...array_fill_keys(g392pFormShapes($case), true),
         ...array_fill_keys(array_map(fn (array $i): string => "insert-{$i['kind']}-{$i['when']}", $case['inserts'] ?? []), true),
         ...array_fill_keys(g392pForgedAfterLaterStep($case), true),
@@ -1835,7 +1900,7 @@ function g392pShrink(array $case, callable $check): array
  */
 function g392pDirectShapes(): array
 {
-    $shapes = ['args-identical-across-steps', 'args-identical-same-step', 'args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'result-args-diverge', 'results-rows-repeated-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
+    $shapes = ['approval-reused-decided-after', 'approval-reused-decided-before', 'args-identical-across-steps', 'args-identical-same-step', 'args-none-text', 'args-spaced', 'args-string', 'args-string-reused-id', 'denied', 'earlier-approved', 'earlier-replaced', 'forged-later-other-id', 'forged-later-same-id', 'prior', 'ran', 'refusal-earlier-argless', 'refusal-repeated-id', 'repeated', 'repeated-approval-id', 'result-args-diverge', 'results-rows-repeated-id', 'row-assistant', 'row-system', 'row-tool', 'row-user', 'rows-repeated', 'shared-id-partial', 'undecided'];
 
     foreach (['assistant_text', 'assistant_call', 'user', 'system', 'tool_empty', 'tool_result'] as $kind) {
         foreach (['before_decision', 'after_decision'] as $when) {
